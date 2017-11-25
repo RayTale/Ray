@@ -1,5 +1,5 @@
 # Ray
-这是一个集成Actor,Event Sourcing(事件溯源),Eventual consistency(最终一致性)的无数据库事务，高性能分布式云框架  QQ群:142939183
+这是一个集成Actor,Event Sourcing(事件溯源),Eventual consistency(最终一致性)的无数据库事务，高性能分布式云框架(构建集群请参阅:http://dotnet.github.io/orleans/)  QQ群:142939183
 
 ### 案例启动步骤
 
