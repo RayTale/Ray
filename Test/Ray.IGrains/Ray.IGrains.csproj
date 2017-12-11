@@ -6,7 +6,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Orleans.OrleansCodeGenerator.Build" Version="2.0.0-beta1" />
-    <PackageReference Include="protobuf-net" Version="2.3.2" />
+    <PackageReference Include="protobuf-net" Version="2.3.3" />
   </ItemGroup>
 
   <ItemGroup>
