@@ -12,7 +12,7 @@
 ```csharp
     var builder = new SiloHostBuilder()
         .UseConfiguration(config)
-        .AddApplicationPartsFromReferences(typeof(Account).Assembly)
+        .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(Account).Assembly).WithReferences())
         .ConfigureServices((context, servicecollection) =>
         {
             servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
@@ -37,7 +37,7 @@
     var config = ClientConfiguration.LocalhostSilo();
     var client = new ClientBuilder()
         .UseConfiguration(config)
-        .AddApplicationPartsFromReferences(typeof(IAccount).Assembly)
+        .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IAccount).Assembly).WithReferences())
         .ConfigureLogging(logging => logging.AddConsole())
         .ConfigureServices((servicecollection) =>
         {
