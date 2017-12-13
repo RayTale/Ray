@@ -44,7 +44,7 @@ namespace Ray.Client
                         var aBalance = await aActor.GetBalance();
                         var bBalance = await bActor.GetBalance();
                         Console.WriteLine($"1的余额为{aBalance},2的余额为{bBalance}");
-                       
+
                         var aBalanceReplicated = await aActorReplicated.GetBalance();
                         var bBalanceReplicated = await bActorReplicated.GetBalance();
                         Console.WriteLine($"1的副本余额为{aBalance},2的副本余额为{bBalance}");
@@ -69,7 +69,7 @@ namespace Ray.Client
                     var config = ClientConfiguration.LocalhostSilo();
                     client = new ClientBuilder()
                         .UseConfiguration(config)
-                        .AddApplicationPartsFromReferences(typeof(IAccount).Assembly)
+                        .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IAccount).Assembly).WithReferences())
                         .ConfigureLogging(logging => logging.AddConsole())
                         .ConfigureServices((servicecollection) =>
                         {

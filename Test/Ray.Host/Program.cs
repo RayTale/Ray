@@ -10,6 +10,7 @@ using Ray.RabbitMQ;
 using Ray.IGrains;
 using Ray.Core;
 using Ray.Core.Message;
+using Orleans;
 
 namespace Ray.Host
 {
@@ -45,7 +46,7 @@ namespace Ray.Host
             config.AddMemoryStorageProvider();
             var builder = new SiloHostBuilder()
                 .UseConfiguration(config)
-                .AddApplicationPartsFromReferences(typeof(Account).Assembly)
+                .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(Account).Assembly).WithReferences())
                 .ConfigureServices((context, servicecollection) =>
                 {
                     servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
