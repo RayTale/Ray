@@ -3,7 +3,9 @@
 
 ### Nuget
 PM>Install-Package Ray.Core -Version 1.0.0 
+
 PM>Install-Package Ray.MongoES -Version 1.0.0 
+
 PM>Install-Package Ray.RabbitMQ -Version 1.0.0 
 
 ### 案例启动步骤
