@@ -11,7 +11,7 @@ namespace Ray.Grain
 {
     [RabbitMQ.RabbitPub("Account", "account")]
     [MongoStorage("Test", "Account")]
-    public class Account : MongoESGrain<String, AccountState, IGrains.MessageInfo>, IAccount
+    public sealed class Account : MongoESGrain<String, AccountState, IGrains.MessageInfo>, IAccount
     {
         protected override string GrainId => this.GetPrimaryKeyString();
 

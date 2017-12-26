@@ -9,7 +9,7 @@ using Ray.MongoES;
 namespace Ray.Grain
 {
     [MongoStorage("Test", "Account")]
-    public class AccountReplicated : MongoESReplicatedGrain<String, AccountState, MessageInfo>, IAccountReplicated
+    public sealed class AccountReplicated : MongoESReplicatedGrain<String, AccountState, MessageInfo>, IAccountReplicated
     {
         protected override string GrainId => this.GetPrimaryKeyString();
         public Task<decimal> GetBalance()

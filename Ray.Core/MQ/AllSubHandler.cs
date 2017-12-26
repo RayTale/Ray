@@ -13,10 +13,10 @@ namespace Ray.Core.MQ
             if (data is IActorOwnMessage<K> @event)
                 await Tell(dataBytes, @event, message);
         }
-        public Task Notice(byte[] data)
+        public Task Notice(byte[] bytes)
         {
             var serializer = Global.IocProvider.GetService<ISerializer>();
-            using (var ms = new MemoryStream(data))
+            using (var ms = new MemoryStream(bytes))
             {
                 var msg = serializer.Deserialize<TMessageWrapper>(ms);
                 var type = MessageTypeMapping.GetType(msg.TypeCode);
@@ -26,7 +26,7 @@ namespace Ray.Core.MQ
                 }
                 using (var ems = new MemoryStream(msg.BinaryBytes))
                 {
-                    return this.Notice(data, msg, serializer.Deserialize(type, ems));
+                    return this.Notice(bytes, msg, serializer.Deserialize(type, ems));
                 }
             }
         }

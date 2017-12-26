@@ -7,29 +7,35 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Ray.Core.MQ
 {
-    public abstract class PartSubHandler<TMessageWrapper> : ISubHandler where TMessageWrapper : MessageWrapper
+    public abstract class PartSubHandler<K, TMessageWrapper> : ISubHandler where TMessageWrapper : MessageWrapper
     {
-        Dictionary<string, SubFunc<TMessageWrapper>> TypeFuncDict = new Dictionary<string, SubFunc<TMessageWrapper>>();
-        protected void Register<T>(Func<TMessageWrapper, object, Task> func) where T : class
+        Dictionary<string, Type> TypeFuncDict = new Dictionary<string, Type>();
+        protected void Register<T>() where T : class
         {
             var type = typeof(T);
-            TypeFuncDict.Add(type.FullName, new SubFunc<TMessageWrapper> { MessageType = type, Func = func });
+            TypeFuncDict.Add(type.FullName, type);
         }
-        public virtual Task Notice(byte[] data)
+        public virtual async Task Notice(byte[] dataBytes, TMessageWrapper message, object data)
+        {
+            if (data is IActorOwnMessage<K> @event)
+                await Tell(dataBytes, @event, message);
+        }
+        public virtual Task Notice(byte[] bytes)
         {
             var serializer = Global.IocProvider.GetService<ISerializer>();
-            using (var ms = new MemoryStream(data))
+            using (var ms = new MemoryStream(bytes))
             {
                 var msg = serializer.Deserialize<TMessageWrapper>(ms);
-                if (TypeFuncDict.TryGetValue(msg.TypeCode, out var func))
+                if (TypeFuncDict.TryGetValue(msg.TypeCode, out var type))
                 {
                     using (var ems = new MemoryStream(msg.BinaryBytes))
                     {
-                        return func.Func(msg, serializer.Deserialize(func.MessageType, ems));
+                        return Notice(bytes, msg, serializer.Deserialize(type, ems));
                     }
                 }
             }
             return Task.CompletedTask;
         }
+        public abstract Task Tell(byte[] bytes, IActorOwnMessage<K> data, TMessageWrapper msg);
     }
 }
