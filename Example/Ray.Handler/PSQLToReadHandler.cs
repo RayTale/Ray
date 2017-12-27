@@ -5,7 +5,6 @@ using Ray.IGrains;
 
 namespace Ray.Handler
 {
-    [RabbitSub("Read", "Account", "account")]
     public abstract class PSQLToReadHandler<K> : PartSubHandler<K, MessageInfo>
     {
         public override Task Notice(byte[] data)
