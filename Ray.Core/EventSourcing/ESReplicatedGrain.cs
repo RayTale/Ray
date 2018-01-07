@@ -105,7 +105,7 @@ namespace Ray.Core.EventSourcing
                         }
                         if (@event.Version > this.State.Version)
                         {
-                            throw new Exception($"ESReplicaGrain出现严重BUG,Type={ThisType.FullName},StateId={this.GrainId.ToString()},StateVersion={this.State.Version},EventVersion={@event.Version}");
+                            throw new Exception($"Event version of the error,Type={ThisType.FullName},StateId={this.GrainId.ToString()},StateVersion={this.State.Version},EventVersion={@event.Version}");
                         }
                     }
                 }

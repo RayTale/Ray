@@ -5,8 +5,6 @@ using Ray.Core.Message;
 using Ray.Core.MQ;
 using Microsoft.Extensions.DependencyInjection;
 using Ray.Core.Lib;
-using System.IO;
-using System.Runtime.CompilerServices;
 
 namespace Ray.Core.EventSourcing
 {
@@ -21,7 +19,7 @@ namespace Ray.Core.EventSourcing
             set;
         }
         protected abstract K GrainId { get; }
-        protected virtual bool SendEventToMQ { get { return true; } }
+
         #region LifeTime
         public override async Task OnActivateAsync()
         {
@@ -34,10 +32,10 @@ namespace Ray.Core.EventSourcing
                     @event.Event.Apply(this.State);
                     if (!@event.IsComplete)
                     {
-                        using (var ms = new MemoryStream())
+                        using (var ms = new PooledMemoryStream())
                         {
                             Serializer.Serialize(ms, @event.Event);
-                            await EventInsertAfterHandle(@event.Event, ms.ToArray());
+                            await AfterEventSavedHandle(@event.Event, ms.ToArray());
                         }
                     }
                 }
@@ -73,7 +71,7 @@ namespace Ray.Core.EventSourcing
             storageVersion = this.State.Version;
         }
         protected virtual SnapshotType SnapshotType { get { return SnapshotType.Master; } }
-        protected virtual int SnapshotFrequency { get { return 50; } }
+        protected virtual int SnapshotFrequency => 50;
         protected virtual async Task SaveSnapshotAsync()
         {
             if (SnapshotType == SnapshotType.Master)
@@ -157,10 +155,6 @@ namespace Ray.Core.EventSourcing
                 return _serializer;
             }
         }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual void RaiseEventAfter(IEventBase<K> @event, byte[] bytes)
-        {
-        }
         protected async Task<bool> RaiseEvent(IEventBase<K> @event, string uniqueId = null, string mqHashKey = null)
         {
             try
@@ -168,16 +162,15 @@ namespace Ray.Core.EventSourcing
                 @event.StateId = GrainId;
                 @event.Version = this.State.Version + 1;
                 @event.Timestamp = DateTime.Now;
-                using (var ms = new MemoryStream())
+                using (var ms = new PooledMemoryStream())
                 {
                     Serializer.Serialize(ms, @event);
                     var bytes = ms.ToArray();
-                    var result = await EventStorage.InsertAsync(@event, bytes, uniqueId, SendEventToMQ);
+                    var result = await EventStorage.SaveAsync(@event, bytes, uniqueId);
                     if (result)
                     {
                         @event.Apply(this.State);
-                        await EventInsertAfterHandle(@event, bytes, mqHashKey: mqHashKey);
-                        RaiseEventAfter(@event, bytes);
+                        await AfterEventSavedHandle(@event, bytes, mqHashKey: mqHashKey);
                         return true;
                     }
                 }
@@ -189,18 +182,15 @@ namespace Ray.Core.EventSourcing
             }
             return false;
         }
-        private async Task EventInsertAfterHandle(IEventBase<K> @event, byte[] bytes, int recursion = 0, string mqHashKey = null)
+        protected virtual async Task AfterEventSavedHandle(IEventBase<K> @event, byte[] bytes, int recursion = 0, string mqHashKey = null)
         {
             try
             {
-                if (SendEventToMQ)
-                {
-                    if (string.IsNullOrEmpty(mqHashKey)) mqHashKey = GrainId.ToString();
-                    //消息写入消息队列                  
-                    await MQService.Publish(@event, bytes, mqHashKey);
-                }
+                if (string.IsNullOrEmpty(mqHashKey)) mqHashKey = GrainId.ToString();
+                //消息写入消息队列                  
+                await MQService.Publish(@event, bytes, mqHashKey);
                 //更改消息状态
-                await EventStorage.Complete(@event);
+                await EventStorage.CompleteAsync(@event);
                 //保存快照
                 await SaveSnapshotAsync();
             }
@@ -210,7 +200,7 @@ namespace Ray.Core.EventSourcing
                 this.GetLogger("Event_Raise").Log(LogCodes.EventCompleteError, Orleans.Runtime.Severity.Error, "事件complate操作出现致命异常:" + string.Format("Grain类型={0},GrainId={1},StateId={2},Version={3},错误信息:{4}", ThisType.FullName, GrainId, @event.StateId, @event.Version, e.Message), null, e);
                 int newRecursion = recursion + 1;
                 await Task.Delay(newRecursion * 200);
-                await EventInsertAfterHandle(@event, bytes, newRecursion, mqHashKey: mqHashKey);
+                await AfterEventSavedHandle(@event, bytes, newRecursion, mqHashKey: mqHashKey);
             }
         }
         /// <summary>
@@ -221,7 +211,7 @@ namespace Ray.Core.EventSourcing
         public async Task SendMsg(IActorOwnMessage<K> msg)
         {
             msg.StateId = this.GrainId;
-            using (var ms = new MemoryStream())
+            using (var ms = new PooledMemoryStream())
             {
                 Serializer.Serialize(ms, msg);
                 await MQService.Publish(msg, ms.ToArray(), GrainId.ToString());

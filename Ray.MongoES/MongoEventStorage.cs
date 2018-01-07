@@ -82,7 +82,7 @@ namespace Ray.MongoES
             }
             return list.OrderBy(e => e.Event.Version).ToList();
         }
-        public async Task<bool> InsertAsync<T>(T data, byte[] bytes, string uniqueId = null, bool needComplate = true) where T : IEventBase<K>
+        public async Task<bool> SaveAsync<T>(T data, byte[] bytes, string uniqueId = null) where T : IEventBase<K>
         {
             var mEvent = new MongoEvent<K>();
             mEvent.StateId = data.StateId;
@@ -98,8 +98,6 @@ namespace Ray.MongoES
             {
                 mEvent.Id = data.Id;
             }
-
-            mEvent.IsComplete = !needComplate;
 
             if (string.IsNullOrEmpty(uniqueId))
                 mEvent.MsgId = mEvent.Id;
@@ -124,7 +122,7 @@ namespace Ray.MongoES
             return false;
         }
 
-        public async Task Complete<T>(T data) where T : IEventBase<K>
+        public async Task CompleteAsync<T>(T data) where T : IEventBase<K>
         {
             var filter = Builders<BsonDocument>.Filter.Eq("_id", data.Id);
             var update = Builders<BsonDocument>.Update.Set("IsComplete", true);
