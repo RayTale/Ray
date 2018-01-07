@@ -197,7 +197,7 @@ namespace Ray.Core.EventSourcing
                 {
                     if (string.IsNullOrEmpty(mqHashKey)) mqHashKey = GrainId.ToString();
                     //消息写入消息队列                  
-                    await MQService.Send(@event, bytes, mqHashKey);
+                    await MQService.Publish(@event, bytes, mqHashKey);
                 }
                 //更改消息状态
                 await EventStorage.Complete(@event);
@@ -224,7 +224,7 @@ namespace Ray.Core.EventSourcing
             using (var ms = new MemoryStream())
             {
                 Serializer.Serialize(ms, msg);
-                await MQService.Send(msg, ms.ToArray(), GrainId.ToString());
+                await MQService.Publish(msg, ms.ToArray(), GrainId.ToString());
             }
         }
         #endregion

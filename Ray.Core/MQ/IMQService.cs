@@ -5,6 +5,6 @@ namespace Ray.Core.MQ
 {
     public interface IMQService
     {
-        Task Send(IMessage msg, byte[] bytes, string hashKey);
+        Task Publish(IMessage msg, byte[] bytes, string hashKey);
     }
 }
