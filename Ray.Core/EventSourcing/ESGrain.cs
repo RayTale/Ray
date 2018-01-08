@@ -5,6 +5,7 @@ using Ray.Core.Message;
 using Ray.Core.MQ;
 using Microsoft.Extensions.DependencyInjection;
 using Ray.Core.Lib;
+using System.Runtime.CompilerServices;
 
 namespace Ray.Core.EventSourcing
 {
@@ -29,7 +30,8 @@ namespace Ray.Core.EventSourcing
                 var eventList = await EventStorage.GetListAsync(this.GrainId, this.State.Version, this.State.Version + 1000, this.State.VersionTime);
                 foreach (var @event in eventList)
                 {
-                    @event.Event.Apply(this.State);
+                    this.State.IncrementDoingVersion();//标记将要处理的Version
+                    EventHandle.Apply(this.State, @event.Event);
                     if (!@event.IsComplete)
                     {
                         using (var ms = new PooledMemoryStream())
@@ -38,6 +40,7 @@ namespace Ray.Core.EventSourcing
                             await AfterEventSavedHandle(@event.Event, ms.ToArray());
                         }
                     }
+                    this.State.UpdateVersion(@event.Event);//更新处理完成的Version
                 }
                 if (eventList.Count < 1000) break;
             };
@@ -72,6 +75,8 @@ namespace Ray.Core.EventSourcing
         }
         protected virtual SnapshotType SnapshotType { get { return SnapshotType.Master; } }
         protected virtual int SnapshotFrequency => 50;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual async Task SaveSnapshotAsync()
         {
             if (SnapshotType == SnapshotType.Master)
@@ -155,10 +160,12 @@ namespace Ray.Core.EventSourcing
                 return _serializer;
             }
         }
-        protected async Task<bool> RaiseEvent(IEventBase<K> @event, string uniqueId = null, string mqHashKey = null)
+        protected abstract IEventHandle EventHandle { get; }
+        protected async ValueTask<bool> RaiseEvent(IEventBase<K> @event, string uniqueId = null, string hashKey = null)
         {
             try
             {
+                this.State.IncrementDoingVersion();//标记将要处理的Version
                 @event.StateId = GrainId;
                 @event.Version = this.State.Version + 1;
                 @event.Timestamp = DateTime.Now;
@@ -169,10 +176,16 @@ namespace Ray.Core.EventSourcing
                     var result = await EventStorage.SaveAsync(@event, bytes, uniqueId);
                     if (result)
                     {
-                        @event.Apply(this.State);
-                        await AfterEventSavedHandle(@event, bytes, mqHashKey: mqHashKey);
+                        EventHandle.Apply(this.State, @event);
+                        await AfterEventSavedHandle(@event, bytes, hashKey: hashKey);
+
+                        this.State.UpdateVersion(@event);//更新处理完成的Version
+
+                        await SaveSnapshotAsync();
                         return true;
                     }
+                    else
+                        this.State.DecrementDoingVersion();//还原doing Version
                 }
             }
             catch (Exception ex)
@@ -182,17 +195,15 @@ namespace Ray.Core.EventSourcing
             }
             return false;
         }
-        protected virtual async Task AfterEventSavedHandle(IEventBase<K> @event, byte[] bytes, int recursion = 0, string mqHashKey = null)
+        protected virtual async Task AfterEventSavedHandle(IEventBase<K> @event, byte[] bytes, int recursion = 0, string hashKey = null)
         {
             try
             {
-                if (string.IsNullOrEmpty(mqHashKey)) mqHashKey = GrainId.ToString();
+                if (string.IsNullOrEmpty(hashKey)) hashKey = GrainId.ToString();
                 //消息写入消息队列                  
-                await MQService.Publish(@event, bytes, mqHashKey);
+                await MQService.Publish(@event, bytes, hashKey);
                 //更改消息状态
                 await EventStorage.CompleteAsync(@event);
-                //保存快照
-                await SaveSnapshotAsync();
             }
             catch (Exception e)
             {
@@ -200,7 +211,7 @@ namespace Ray.Core.EventSourcing
                 this.GetLogger("Event_Raise").Log(LogCodes.EventCompleteError, Orleans.Runtime.Severity.Error, "事件complate操作出现致命异常:" + string.Format("Grain类型={0},GrainId={1},StateId={2},Version={3},错误信息:{4}", ThisType.FullName, GrainId, @event.StateId, @event.Version, e.Message), null, e);
                 int newRecursion = recursion + 1;
                 await Task.Delay(newRecursion * 200);
-                await AfterEventSavedHandle(@event, bytes, newRecursion, mqHashKey: mqHashKey);
+                await AfterEventSavedHandle(@event, bytes, newRecursion, hashKey: hashKey);
             }
         }
         /// <summary>

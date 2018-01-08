@@ -6,6 +6,7 @@ using Ray.IGrains.Actors;
 using Ray.IGrains.States;
 using Ray.IGrains.Events;
 using Ray.MongoES;
+using Ray.Grain.EventHandles;
 
 namespace Ray.Grain
 {
@@ -14,6 +15,9 @@ namespace Ray.Grain
     public sealed class Account : MongoESGrain<String, AccountState, IGrains.MessageInfo>, IAccount
     {
         protected override string GrainId => this.GetPrimaryKeyString();
+
+        static IEventHandle _eventHandle = new AccountEventHandle();
+        protected override IEventHandle EventHandle => _eventHandle;
 
         private ObserverSubscriptionManager<IAccountReplicated> _subsManager;
         public override Task OnActivateAsync()
@@ -32,12 +36,12 @@ namespace Ray.Grain
         public Task Transfer(string toAccountId, decimal amount)
         {
             var evt = new AmountTransferEvent(toAccountId, amount, this.State.Balance - amount);
-            return RaiseEvent(evt);
+            return RaiseEvent(evt).AsTask();
         }
         public Task AddAmount(decimal amount, string uniqueId = null)
         {
             var evt = new AmountAddEvent(amount, this.State.Balance + amount);
-            return RaiseEvent(evt, uniqueId: uniqueId);
+            return RaiseEvent(evt, uniqueId: uniqueId).AsTask();
         }
 
         public Task<decimal> GetBalance()

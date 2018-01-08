@@ -1,17 +1,13 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using System.IO;
 using RabbitMQ.Client;
-using Newtonsoft.Json;
-using Ray.Core.Message;
-using Ray.RabbitMQ;
 using ProtoBuf;
 using Ray.Core;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection;
+using Ray.Core.Lib;
 
 namespace Ray.RabbitMQ
 {
@@ -56,13 +52,13 @@ namespace Ray.RabbitMQ
         }
         static ConnectionFactory _Factory;
         static RabbitConfig rabbitHost;
-        public static async Task Send<T>(this RabbitPubAttribute rabbitMQInfo, T data, string key)
+        public static async Task Publish<T>(this RabbitPubAttribute rabbitMQInfo, T data, string key)
         {
-            await Send(data, rabbitMQInfo.Exchange, rabbitMQInfo.GetQueue(key));
+            await Publish(data, rabbitMQInfo.Exchange, rabbitMQInfo.GetQueue(key));
         }
-        public static async Task SendCmd<T>(this RabbitPubAttribute rabbitMQInfo, UInt16 cmd, T data, string key)
+        public static async Task PublishByCmd<T>(this RabbitPubAttribute rabbitMQInfo, UInt16 cmd, T data, string key)
         {
-            await SendCmd<T>(cmd, data, rabbitMQInfo.Exchange, rabbitMQInfo.GetQueue(key));
+            await PublishByCmd<T>(cmd, data, rabbitMQInfo.Exchange, rabbitMQInfo.GetQueue(key));
         }
         /// <summary>
         /// 发送消息到消息队列
@@ -72,28 +68,28 @@ namespace Ray.RabbitMQ
         /// <param name="exchange"></param>
         /// <param name="queue"></param>
         /// <returns></returns>
-        public static async Task Send<T>(T data, string exchange, string queue, bool persistent = true)
+        public static async Task Publish<T>(T data, string exchange, string queue, bool persistent = true)
         {
             byte[] msg;
-            using (var ms = new MemoryStream())
+            using (var ms = new PooledMemoryStream())
             {
                 Serializer.Serialize(ms, data);
                 msg = ms.ToArray();
             }
-            await Send(msg, exchange, queue, persistent);
+            await Publish(msg, exchange, queue, persistent);
         }
-        public static async Task SendCmd<T>(UInt16 cmd, T data, string exchange, string queue)
+        public static async Task PublishByCmd<T>(UInt16 cmd, T data, string exchange, string queue)
         {
             byte[] msg;
-            using (var ms = new MemoryStream())
+            using (var ms = new PooledMemoryStream())
             {
                 ms.Write(BitConverter.GetBytes(cmd), 0, 2);
                 Serializer.Serialize(ms, data);
                 msg = ms.ToArray();
             }
-            await Send(msg, exchange, queue, false);
+            await Publish(msg, exchange, queue, false);
         }
-        public static async Task Send(byte[] msg, string exchange, string queue, bool persistent = true)
+        public static async Task Publish(byte[] msg, string exchange, string queue, bool persistent = true)
         {
             using (var channel = await PullModel())
             {

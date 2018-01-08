@@ -10,6 +10,10 @@ namespace Ray.Core.EventSourcing
         /// </summary>
         UInt32 Version { get; set; }
         /// <summary>
+        /// 正在处理中的Version
+        /// </summary>
+        UInt32 DoingVersion { get; set; }
+        /// <summary>
         /// 状态版本号对应的Event时间
         /// </summary>
         DateTime VersionTime { get; set; }

@@ -1,7 +1,6 @@
 ﻿using ProtoBuf;
 using Ray.Core.EventSourcing;
 using Ray.Core.Lib;
-using Ray.IGrains.States;
 using System;
 
 namespace Ray.IGrains.Events
@@ -20,20 +19,12 @@ namespace Ray.IGrains.Events
         #endregion
         public decimal Amount { get; set; }
         public decimal Balance { get; set; }
+        public AmountAddEvent() { }
         public AmountAddEvent(decimal amount, decimal balance)
         {
             Id = OGuid.GenerateNewId().ToString();
             Amount = amount;
             Balance = balance;
-        }
-        public AmountAddEvent() { }
-        public void Apply(IState<string> state)
-        {
-            if (state is AccountState model)
-            {
-                this.ApplyBase(state);
-                model.Balance = Balance;
-            }
         }
     }
 }

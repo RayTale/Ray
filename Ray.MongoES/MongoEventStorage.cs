@@ -12,6 +12,7 @@ using Ray.Core.Message;
 using Ray.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Ray.Core.Lib;
 
 namespace Ray.MongoES
 {
@@ -39,7 +40,7 @@ namespace Ray.MongoES
                     var data = document["Data"].AsByteArray;
                     var eventInfo = new EventInfo<K>();
                     eventInfo.IsComplete = document["IsComplete"].AsBoolean;
-                    using (MemoryStream ms = new MemoryStream(data))
+                    using (var ms = new MemoryStream(data))
                     {
                         var @event = Serializer.Deserialize(type, ms) as IEventBase<K>;
                         readVersion = @event.Version;

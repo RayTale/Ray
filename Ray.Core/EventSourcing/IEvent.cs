@@ -13,6 +13,5 @@ namespace Ray.Core.EventSourcing
 
     public interface IEventBase<K> : IEvent, IActorOwnMessage<K>
     {
-        void Apply(IState<K> state);
     }
 }

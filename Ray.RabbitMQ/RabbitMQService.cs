@@ -16,7 +16,7 @@ namespace Ray.RabbitMQ
             var data = new W();
             data.TypeCode = msg.TypeCode;
             data.BinaryBytes = bytes;
-            await publisher.Send(data, hashKey);
+            await publisher.Publish(data, hashKey);
         }
     }
 }
