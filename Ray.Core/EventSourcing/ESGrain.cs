@@ -191,11 +191,12 @@ namespace Ray.Core.EventSourcing
             catch (Exception ex)
             {
                 this.GetLogger("Event_Raise").Log(LogCodes.EventRaiseError, Orleans.Runtime.Severity.Error, $"applay event {@event.TypeCode} error, eventId={@event.Version}", null, ex);
+                await OnActivateAsync();//重新激活Actor
                 throw ex;
             }
             return false;
         }
-        protected virtual async Task AfterEventSavedHandle(IEventBase<K> @event, byte[] bytes, int recursion = 0, string hashKey = null)
+        protected virtual async Task AfterEventSavedHandle(IEventBase<K> @event, byte[] bytes,string hashKey = null)
         {
             try
             {
@@ -207,11 +208,8 @@ namespace Ray.Core.EventSourcing
             }
             catch (Exception e)
             {
-                if (recursion > 5) throw e;
                 this.GetLogger("Event_Raise").Log(LogCodes.EventCompleteError, Orleans.Runtime.Severity.Error, "事件complate操作出现致命异常:" + string.Format("Grain类型={0},GrainId={1},StateId={2},Version={3},错误信息:{4}", ThisType.FullName, GrainId, @event.StateId, @event.Version, e.Message), null, e);
-                int newRecursion = recursion + 1;
-                await Task.Delay(newRecursion * 200);
-                await AfterEventSavedHandle(@event, bytes, newRecursion, hashKey: hashKey);
+                throw e;
             }
         }
         /// <summary>

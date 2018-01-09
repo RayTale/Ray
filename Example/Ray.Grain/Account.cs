@@ -27,9 +27,9 @@ namespace Ray.Grain
             _subsManager.Subscribe(replicatedRef);
             return base.OnActivateAsync();
         }
-        protected override async Task AfterEventSavedHandle(IEventBase<string> @event, byte[] bytes, int recursion = 0, string mqHashKey = null)
+        protected override async Task AfterEventSavedHandle(IEventBase<string> @event, byte[] bytes, string mqHashKey = null)
         {
-            await base.AfterEventSavedHandle(@event, bytes, recursion, mqHashKey);
+            await base.AfterEventSavedHandle(@event, bytes, mqHashKey);
             var message = new IGrains.MessageInfo() { TypeCode = @event.TypeCode, BinaryBytes = bytes };
             _subsManager.Notify(s => s.Tell(message));
         }
