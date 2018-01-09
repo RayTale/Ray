@@ -76,7 +76,7 @@ namespace Ray.RabbitMQ
                                 }
                                 else if (t.IsCanceled)
                                 {
-                                    throw new Exception("消息处理超时");
+                                    throw new Exception("Message processing timeout");
                                 }
                             }).GetAwaiter().GetResult();
                         }
@@ -84,7 +84,7 @@ namespace Ray.RabbitMQ
                         {
                             //需要记录错误日志
                             var e = exception.InnerException ?? exception;
-                            logger.LogError(e, $"消息队列消息处理失败，失败的队列为{consumer.Exchange}-{consumer.Queue}");
+                            logger.LogError(e, $"An error occurred in {consumer.Exchange}-{consumer.Queue}");
                             ReStart(consumer);//重启队列
                         }
                     };

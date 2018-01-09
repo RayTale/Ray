@@ -160,7 +160,7 @@ namespace Ray.RabbitMQ
                 var cancelSource = new CancellationTokenSource(3000);
                 cancelSource.Token.Register(() =>
                 {
-                    taskSource.SetException(new Exception("获取rabbitmq的model超时"));
+                    taskSource.SetException(new Exception("get rabbitmq's model timeout"));
                 });
                 model = await taskSource.Task;
             }
