@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Ray.Core;
 using Ray.Core.Message;
+using System.Diagnostics;
 
 namespace Ray.Client
 {
@@ -37,17 +38,27 @@ namespace Ray.Client
                     while (true)
                     {
                         Console.WriteLine("Press Enter to terminate...");
-                        Console.ReadLine();
-                        await aActor.AddAmount(1000);//1充值1000
-                        await aActor.Transfer("2", 500);//转给2500
+                        var length = int.Parse(Console.ReadLine());
+                        var stopWatch = new Stopwatch();
+                        stopWatch.Start();
+                        var tasks = new Task[length * 2];
+                        Parallel.For(0, length, i =>
+                        {
+                            tasks[i * 2] = aActor.AddAmount(1000);//1用户充值1000
+                            tasks[i * 2 + 1] = aActor.Transfer("2", 500);//转给2用户500
+                        });
+                        await Task.WhenAll(tasks);
+                        stopWatch.Stop();
+                        Console.WriteLine($"{length}次交易完成，耗时:{stopWatch.ElapsedMilliseconds}ms");
                         await Task.Delay(200);
+
                         var aBalance = await aActor.GetBalance();
                         var bBalance = await bActor.GetBalance();
                         Console.WriteLine($"1的余额为{aBalance},2的余额为{bBalance}");
 
                         var aBalanceReplicated = await aActorReplicated.GetBalance();
                         var bBalanceReplicated = await bActorReplicated.GetBalance();
-                        Console.WriteLine($"1的副本余额为{aBalance},2的副本余额为{bBalance}");
+                        Console.WriteLine($"1的副本余额为{aBalance * 2},2的副本余额为{bBalance}");
                     }
                 }
             }

@@ -31,6 +31,7 @@ namespace Ray.RabbitMQ
     }
     public class ModelWrapper : IDisposable
     {
+        public ConnectionWrapper Connection { get; set; }
         public IModel Model { get; set; }
         public void Dispose()
         {
@@ -122,7 +123,7 @@ namespace Ray.RabbitMQ
                 ConnectionWrapper conn = null;
                 foreach (var item in connectionList)
                 {
-                    if (item.Increment() <= 10)
+                    if (item.Increment() <= 15)
                     {
                         conn = item;
                         break;
@@ -144,7 +145,7 @@ namespace Ray.RabbitMQ
                 }
                 if (conn != null)
                 {
-                    model = new ModelWrapper() { Model = conn.Connection.CreateModel() };
+                    model = new ModelWrapper() { Connection = conn, Model = conn.Connection.CreateModel() };
                     model.Model.ConfirmSelect();
                 }
                 else
@@ -166,6 +167,7 @@ namespace Ray.RabbitMQ
             }
             if (model.Model.IsClosed)
             {
+                model.Connection.Decrement();
                 model = await PullModel();
             }
             return model;
@@ -174,8 +176,7 @@ namespace Ray.RabbitMQ
         {
             if (model.Model.IsOpen)
             {
-                TaskCompletionSource<ModelWrapper> modelTask;
-                if (modelTaskPool.TryDequeue(out modelTask))
+                if (modelTaskPool.Count > 0 && modelTaskPool.TryDequeue(out var modelTask))
                 {
                     if (modelTask.Task.IsCanceled)
                         PushModel(model);
@@ -187,6 +188,7 @@ namespace Ray.RabbitMQ
             else
             {
                 model.Model.Dispose();
+                model.Connection.Decrement();
             }
         }
     }
