@@ -2,11 +2,11 @@
 这是一个集成Actor,Event Sourcing(事件溯源),Eventual consistency(最终一致性)的无数据库事务，高性能分布式云框架(构建集群请参阅:http://dotnet.github.io/orleans/) 
 
 ### Nuget
-PM>Install-Package Ray.Core -Version 1.0.0 
+PM>Install-Package Ray.Core
 
-PM>Install-Package Ray.MongoES -Version 1.0.0 
+PM>Install-Package Ray.MongoES 
 
-PM>Install-Package Ray.RabbitMQ -Version 1.0.0 
+PM>Install-Package Ray.RabbitMQ
 
 ### 案例启动步骤
 
