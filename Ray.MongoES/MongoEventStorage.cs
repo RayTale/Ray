@@ -12,7 +12,6 @@ using Ray.Core.Message;
 using Ray.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Ray.Core.Lib;
 
 namespace Ray.MongoES
 {

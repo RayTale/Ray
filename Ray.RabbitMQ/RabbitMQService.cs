@@ -11,12 +11,12 @@ namespace Ray.RabbitMQ
         RabbitPubAttribute publisher;
         public RabbitMQService(RabbitPubAttribute rabbitMQInfo) => this.publisher = rabbitMQInfo;
 
-        public async Task Publish(IMessage msg, byte[] bytes, string hashKey)
+        public Task Publish(IMessage msg, byte[] bytes, string hashKey)
         {
             var data = new W();
             data.TypeCode = msg.TypeCode;
             data.BinaryBytes = bytes;
-            await publisher.Publish(data, hashKey);
+            return publisher.Publish(data, hashKey);
         }
     }
 }

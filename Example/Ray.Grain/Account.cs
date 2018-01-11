@@ -7,6 +7,7 @@ using Ray.IGrains.States;
 using Ray.IGrains.Events;
 using Ray.MongoES;
 using Ray.Grain.EventHandles;
+using Orleans.Concurrency;
 
 namespace Ray.Grain
 {
@@ -19,19 +20,9 @@ namespace Ray.Grain
         static IEventHandle _eventHandle = new AccountEventHandle();
         protected override IEventHandle EventHandle => _eventHandle;
 
-        private ObserverSubscriptionManager<IAccountReplicated> _subsManager;
         public override Task OnActivateAsync()
         {
-            _subsManager = new ObserverSubscriptionManager<IAccountReplicated>();
-            var replicatedRef = GrainFactory.GetGrain<IAccountReplicated>(this.GrainId);
-            _subsManager.Subscribe(replicatedRef);
             return base.OnActivateAsync();
-        }
-        protected override async Task AfterEventSavedHandle(IEventBase<string> @event, byte[] bytes, string mqHashKey = null)
-        {
-            await base.AfterEventSavedHandle(@event, bytes, mqHashKey);
-            var message = new IGrains.MessageInfo() { TypeCode = @event.TypeCode, BinaryBytes = bytes };
-            _subsManager.Notify(s => s.Tell(message));
         }
         public Task Transfer(string toAccountId, decimal amount)
         {
@@ -43,7 +34,7 @@ namespace Ray.Grain
             var evt = new AmountAddEvent(amount, this.State.Balance + amount);
             return RaiseEvent(evt, uniqueId: uniqueId).AsTask();
         }
-
+        [AlwaysInterleave]
         public Task<decimal> GetBalance()
         {
             return Task.FromResult(this.State.Balance);

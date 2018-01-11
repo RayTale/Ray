@@ -69,6 +69,15 @@ namespace Ray.Core.EventSourcing
             }
         }
         protected abstract IEventHandle EventHandle { get; }
+
+        public Task Tell(byte[] bytes)
+        {
+            using (var wms = new MemoryStream(bytes))
+            {
+                var message = Serializer.Deserialize<W>(wms);
+                return Tell(message);
+            }
+        }
         public async Task Tell(W message)
         {
             var type = MessageTypeMapping.GetType(message.TypeCode);
@@ -83,8 +92,16 @@ namespace Ray.Core.EventSourcing
                         {
                             await OnExecution(@event);
                             this.State.IncrementDoingVersion();//标记将要处理的Version
-                            EventHandle.Apply(this.State, @event);
-                            this.State.UpdateVersion(@event);//更新处理完成的Version
+                            try
+                            {
+                                EventHandle.Apply(this.State, @event);
+                                this.State.UpdateVersion(@event);//更新处理完成的Version
+                            }
+                            catch(Exception e)
+                            {
+                                this.State.DoingVersion = this.State.Version;//标记将要处理的Version
+                                throw e;
+                            }
                             await OnExecuted(@event);
                             await SaveSnapshotAsync();
                         }
@@ -93,11 +110,19 @@ namespace Ray.Core.EventSourcing
                             var eventList = await EventStorage.GetListAsync(this.GrainId, this.State.Version, @event.Version);
                             foreach (var item in eventList)
                             {
-                                await OnExecution(@event);
+                                await OnExecution(item.Event);
                                 this.State.IncrementDoingVersion();//标记将要处理的Version
-                                EventHandle.Apply(this.State, @event);
-                                this.State.UpdateVersion(@event);//更新处理完成的Version
-                                await OnExecuted(@event);
+                                try
+                                {
+                                    EventHandle.Apply(this.State, item.Event);
+                                    this.State.UpdateVersion(item.Event);//更新处理完成的Version
+                                }
+                                catch (Exception e)
+                                {
+                                    this.State.DoingVersion = this.State.Version;//标记将要处理的Version
+                                    throw e;
+                                }
+                                await OnExecuted(item.Event);
                                 await SaveSnapshotAsync();
                             }
                         }
@@ -105,8 +130,16 @@ namespace Ray.Core.EventSourcing
                         {
                             await OnExecution(@event);
                             this.State.IncrementDoingVersion();//标记将要处理的Version
-                            EventHandle.Apply(this.State, @event);
-                            this.State.UpdateVersion(@event);//更新处理完成的Version
+                            try
+                            {
+                                EventHandle.Apply(this.State, @event);
+                                this.State.UpdateVersion(@event);//更新处理完成的Version
+                            }
+                            catch (Exception e)
+                            {
+                                this.State.DoingVersion = this.State.Version;//标记将要处理的Version
+                                throw e;
+                            }
                             await OnExecuted(@event);
                             await SaveSnapshotAsync();
                         }

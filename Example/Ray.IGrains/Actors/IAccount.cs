@@ -1,4 +1,5 @@
 ﻿using Orleans;
+using Orleans.Concurrency;
 using System.Threading.Tasks;
 
 namespace Ray.IGrains.Actors
@@ -9,6 +10,7 @@ namespace Ray.IGrains.Actors
         /// 获取账户余额
         /// </summary>
         /// <returns></returns>
+        [AlwaysInterleave]
         Task<decimal> GetBalance();
         /// <summary>
         /// 增加账户金额

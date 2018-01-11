@@ -74,7 +74,7 @@ namespace Ray.Core.EventSourcing
             storageVersion = this.State.Version;
         }
         protected virtual SnapshotType SnapshotType { get { return SnapshotType.Master; } }
-        protected virtual int SnapshotFrequency => 50;
+        protected virtual int SnapshotFrequency => 200;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual async Task SaveSnapshotAsync()

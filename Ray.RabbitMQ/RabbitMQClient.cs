@@ -53,13 +53,13 @@ namespace Ray.RabbitMQ
         }
         static ConnectionFactory _Factory;
         static RabbitConfig rabbitHost;
-        public static async Task Publish<T>(this RabbitPubAttribute rabbitMQInfo, T data, string key)
+        public static Task Publish<T>(this RabbitPubAttribute rabbitMQInfo, T data, string key)
         {
-            await Publish(data, rabbitMQInfo.Exchange, rabbitMQInfo.GetQueue(key));
+            return Publish(data, rabbitMQInfo.Exchange, rabbitMQInfo.GetQueue(key));
         }
-        public static async Task PublishByCmd<T>(this RabbitPubAttribute rabbitMQInfo, UInt16 cmd, T data, string key)
+        public static Task PublishByCmd<T>(this RabbitPubAttribute rabbitMQInfo, UInt16 cmd, T data, string key)
         {
-            await PublishByCmd<T>(cmd, data, rabbitMQInfo.Exchange, rabbitMQInfo.GetQueue(key));
+            return PublishByCmd<T>(cmd, data, rabbitMQInfo.Exchange, rabbitMQInfo.GetQueue(key));
         }
         /// <summary>
         /// 发送消息到消息队列
@@ -69,7 +69,7 @@ namespace Ray.RabbitMQ
         /// <param name="exchange"></param>
         /// <param name="queue"></param>
         /// <returns></returns>
-        public static async Task Publish<T>(T data, string exchange, string queue, bool persistent = true)
+        public static Task Publish<T>(T data, string exchange, string queue, bool persistent = true)
         {
             byte[] msg;
             using (var ms = new PooledMemoryStream())
@@ -77,9 +77,9 @@ namespace Ray.RabbitMQ
                 Serializer.Serialize(ms, data);
                 msg = ms.ToArray();
             }
-            await Publish(msg, exchange, queue, persistent);
+            return Publish(msg, exchange, queue, persistent);
         }
-        public static async Task PublishByCmd<T>(UInt16 cmd, T data, string exchange, string queue)
+        public static Task PublishByCmd<T>(UInt16 cmd, T data, string exchange, string queue)
         {
             byte[] msg;
             using (var ms = new PooledMemoryStream())
@@ -88,7 +88,7 @@ namespace Ray.RabbitMQ
                 Serializer.Serialize(ms, data);
                 msg = ms.ToArray();
             }
-            await Publish(msg, exchange, queue, false);
+            return Publish(msg, exchange, queue, false);
         }
         public static async Task Publish(byte[] msg, string exchange, string queue, bool persistent = true)
         {

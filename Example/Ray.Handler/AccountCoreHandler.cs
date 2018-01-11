@@ -9,18 +9,16 @@ using System.Threading.Tasks;
 namespace Ray.Handler
 {
     [RabbitSub("Core", "Account", "account")]
-    public sealed class AccountCoreHandler : PartSubHandler<string, MessageInfo>
+    public sealed class AccountCoreHandler : SubHandler<string, MessageInfo>
     {
-        public AccountCoreHandler()
-        {
-            Register<AmountTransferEvent>();
-        }
         public override Task Tell(byte[] bytes, IActorOwnMessage<string> data, MessageInfo msg)
         {
+            var replicatedRef = HandlerStart.Client.GetGrain<IAccountReplicated>(data.StateId);
+            var task = replicatedRef.Tell(bytes);
             switch (data)
             {
-                case AmountTransferEvent value: return AmountAddEventHandler(value);
-                default: return Task.CompletedTask;
+                case AmountTransferEvent value: return Task.WhenAll(task, AmountAddEventHandler(value));
+                default: return task;
             }
         }
         public Task AmountAddEventHandler(AmountTransferEvent value)

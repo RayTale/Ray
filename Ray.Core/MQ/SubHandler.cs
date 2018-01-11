@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Ray.Core.MQ
 {
-    public abstract class AllSubHandler<K, TMessageWrapper> : ISubHandler where TMessageWrapper : MessageWrapper
+    public abstract class SubHandler<K, TMessageWrapper> : ISubHandler where TMessageWrapper : MessageWrapper
     {
         public virtual async Task Notice(byte[] dataBytes, TMessageWrapper message, object data)
         {

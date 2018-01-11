@@ -6,6 +6,7 @@ namespace Coin.Core.EventSourcing
 {
     public interface IReplicatedGrain<W> where W : MessageWrapper
     {
+        Task Tell(byte[] bytes);
         Task Tell(W message);
     }
 }
