@@ -3,7 +3,7 @@ using Ray.Core.EventSourcing;
 
 namespace Ray.MongoES
 {
-    public abstract class MongoESReplicatedGrain<K, S, W> : ESReplicatedGrain<K, S, W>, IMongoGrain
+    public abstract class MongoESRepGrain<K, S, W> : ESRepGrain<K, S, W>, IMongoGrain
         where S : class, IState<K>, new()
         where W : MessageWrapper
     {

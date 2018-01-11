@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Ray.Core.EventSourcing
 {
-    public abstract class ESReplicatedGrain<K, S, W> : Grain
+    public abstract class ESRepGrain<K, S, W> : Grain
         where S : class, IState<K>, new()
         where W : MessageWrapper
     {

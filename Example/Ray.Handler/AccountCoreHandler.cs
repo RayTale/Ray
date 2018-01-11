@@ -13,7 +13,7 @@ namespace Ray.Handler
     {
         public override Task Tell(byte[] bytes, IActorOwnMessage<string> data, MessageInfo msg)
         {
-            var replicatedRef = HandlerStart.Client.GetGrain<IAccountReplicated>(data.StateId);
+            var replicatedRef = HandlerStart.Client.GetGrain<IAccountRep>(data.StateId);
             var task = replicatedRef.Tell(bytes);
             switch (data)
             {

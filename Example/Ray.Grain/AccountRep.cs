@@ -11,7 +11,7 @@ using Ray.MongoES;
 namespace Ray.Grain
 {
     [MongoStorage("Test", "Account")]
-    public sealed class AccountReplicated : MongoESReplicatedGrain<String, AccountState, MessageInfo>, IAccountReplicated
+    public sealed class AccountRep : MongoESRepGrain<String, AccountState, MessageInfo>, IAccountRep
     {
         protected override string GrainId => this.GetPrimaryKeyString();
 
