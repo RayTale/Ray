@@ -33,8 +33,8 @@ namespace Ray.Client
                     await HandlerStart.Start(new[] { "Core", "Read" }, client.ServiceProvider, client);
                     var aActor = client.GetGrain<IAccount>("1");
                     var bActor = client.GetGrain<IAccount>("2");
-                    var aActorReplicated = client.GetGrain<IAccountReplicated>("1");
-                    var bActorReplicated = client.GetGrain<IAccountReplicated>("2");
+                    var aActorReplicated = client.GetGrain<IAccountRep>("1");
+                    var bActorReplicated = client.GetGrain<IAccountRep>("2");
                     while (true)
                     {
                         Console.WriteLine("Press Enter to terminate...");
