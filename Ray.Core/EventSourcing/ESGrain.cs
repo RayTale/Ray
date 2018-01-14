@@ -4,7 +4,7 @@ using Orleans;
 using Ray.Core.Message;
 using Ray.Core.MQ;
 using Microsoft.Extensions.DependencyInjection;
-using Ray.Core.Lib;
+using Ray.Core.Utils;
 using System.Runtime.CompilerServices;
 
 namespace Ray.Core.EventSourcing

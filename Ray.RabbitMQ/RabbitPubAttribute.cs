@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using Ray.Core.Lib;
+using Ray.Core.Utils;
 
 namespace Ray.RabbitMQ
 {

@@ -1,4 +1,4 @@
-﻿namespace Ray.Core.Lib
+﻿namespace Ray.Core.Utils
 {
     using System;
     using System.IO;

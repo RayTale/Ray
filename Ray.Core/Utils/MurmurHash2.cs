@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 
-namespace Ray.Core.Lib
+namespace Ray.Core.Utils
 {
     public class MurmurHash2
     {

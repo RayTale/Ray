@@ -7,7 +7,7 @@ using ProtoBuf;
 using Ray.Core;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection;
-using Ray.Core.Lib;
+using Ray.Core.Utils;
 
 namespace Ray.RabbitMQ
 {

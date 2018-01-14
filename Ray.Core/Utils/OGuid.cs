@@ -5,7 +5,7 @@ using System.Security;
 using System.Text;
 using System.Threading;
 
-namespace Ray.Core.Lib
+namespace Ray.Core.Utils
 {
     public struct OGuid : IComparable<OGuid>, IEquatable<OGuid>
     {

@@ -1,6 +1,6 @@
 ﻿using ProtoBuf;
 using Ray.Core.EventSourcing;
-using Ray.Core.Lib;
+using Ray.Core.Utils;
 using System;
 
 namespace Ray.IGrains.Events
