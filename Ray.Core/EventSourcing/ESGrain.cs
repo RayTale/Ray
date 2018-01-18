@@ -217,7 +217,7 @@ namespace Ray.Core.EventSourcing
         /// </summary>
         /// <param name="msg"></param>
         /// <returns></returns>
-        public async Task SendMsg(IActorOwnMessage<K> msg)
+        public async Task Publish(IActorOwnMessage<K> msg)
         {
             msg.StateId = this.GrainId;
             using (var ms = new PooledMemoryStream())
