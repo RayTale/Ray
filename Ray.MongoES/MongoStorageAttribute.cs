@@ -48,7 +48,7 @@ namespace Ray.MongoES
             }
             if (list == null)
             {
-                list = new List<CollectionInfo>() { GetCollection(DateTime.Now) };
+                list = new List<CollectionInfo>() { GetCollection(DateTime.UtcNow) };
             }
             return list;
         }
@@ -129,7 +129,7 @@ namespace Ray.MongoES
                         collection.Id = ObjectId.GenerateNewId().ToString();
                         collection.Version = cVersion;
                         collection.Type = EventCollection;
-                        collection.CreateTime = DateTime.Now;
+                        collection.CreateTime = DateTime.UtcNow;
                         collection.Name = EventCollection + "_" + cVersion;
                         try
                         {

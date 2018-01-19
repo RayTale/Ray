@@ -168,7 +168,7 @@ namespace Ray.Core.EventSourcing
                 this.State.IncrementDoingVersion();//标记将要处理的Version
                 @event.StateId = GrainId;
                 @event.Version = this.State.Version + 1;
-                @event.Timestamp = DateTime.Now;
+                @event.Timestamp = DateTime.UtcNow;
                 using (var ms = new PooledMemoryStream())
                 {
                     Serializer.Serialize(ms, @event);
