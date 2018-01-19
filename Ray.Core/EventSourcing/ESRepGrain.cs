@@ -97,7 +97,7 @@ namespace Ray.Core.EventSourcing
                                 EventHandle.Apply(this.State, @event);
                                 this.State.UpdateVersion(@event);//更新处理完成的Version
                             }
-                            catch(Exception e)
+                            catch (Exception e)
                             {
                                 this.State.DoingVersion = this.State.Version;//标记将要处理的Version
                                 throw e;
@@ -159,9 +159,9 @@ namespace Ray.Core.EventSourcing
         {
             return Task.CompletedTask;
         }
-        public override async Task OnActivateAsync()
+        public override Task OnActivateAsync()
         {
-            await Active();
+            return Active();
         }
         protected virtual Task CustomSave()
         {
