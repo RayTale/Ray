@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace Ray.IGrains.Actors
 {
-    public interface IAccountRep : IRepGrain<MessageInfo>, IGrainObserver, IGrainWithStringKey
+    public interface IAccountRep : IRepGrain<MessageInfo>, IGrainWithStringKey
     {
         /// <summary>
         /// 获取账户余额
