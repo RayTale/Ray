@@ -53,7 +53,6 @@ namespace Ray.MongoES
             {
                 Serializer.Serialize<T>(ms, data);
                 mState.Data = ms.ToArray();
-
             }
             if (mState.Data != null && mState.Data.Count() > 0)
                 await GetCollection<MongoState<K>>(database, collection).InsertOneAsync(mState, null, new CancellationTokenSource(3000).Token);

@@ -13,26 +13,19 @@ namespace Ray.MongoES
     {
         public string EventDataBase { get; set; }
         public string EventCollection { get; set; }
-        public string SnapshotDataBase { get; set; }
         public string SnapshotCollection { get; set; }
-        public string DenormalizeSnapshotCollection { get; set; }
 
         const string C_CName = "CollectionInfo";
         bool sharding = false;
         int shardingDays;
         public MongoStorageAttribute(
-            string eventDatabase, string collection, bool sharding = false, int shardingDays = 90, string snapshotDatabase = null)
+            string eventDatabase, string collection, bool sharding = false, int shardingDays = 90)
         {
             this.EventDataBase = eventDatabase;
             this.EventCollection = collection + "Event";
             this.SnapshotCollection = collection + "State";
-            this.DenormalizeSnapshotCollection = collection + "DenormalizeState";
             this.sharding = sharding;
             this.shardingDays = shardingDays;
-            if (!string.IsNullOrEmpty(snapshotDatabase))
-                this.SnapshotDataBase = snapshotDatabase;
-            else
-                this.SnapshotDataBase = eventDatabase;
             CreateCollectionIndex();//创建分表索引
             CreateStateIndex();//创建快照索引
         }
@@ -56,7 +49,7 @@ namespace Ray.MongoES
         {
             Task.Run(async () =>
             {
-                var collectionService = MongoStorage.GetCollection<BsonDocument>(SnapshotDataBase, SnapshotCollection);
+                var collectionService = MongoStorage.GetCollection<BsonDocument>(EventDataBase, SnapshotCollection);
                 CancellationTokenSource cancel = new CancellationTokenSource(1);
                 var index = await collectionService.Indexes.ListAsync();
                 var indexList = await index.ToListAsync();
