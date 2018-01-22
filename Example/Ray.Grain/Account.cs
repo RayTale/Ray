@@ -8,17 +8,37 @@ using Ray.IGrains.Events;
 using Ray.MongoES;
 using Ray.Grain.EventHandles;
 using Orleans.Concurrency;
+using Ray.PostgresqlES;
+using Microsoft.Extensions.Options;
 
 namespace Ray.Grain
 {
     [RabbitMQ.RabbitPub("Account", "account")]
-    [MongoStorage("Test", "Account")]
-    public sealed class Account : MongoESGrain<String, AccountState, IGrains.MessageInfo>, IAccount
+    // [MongoStorage("Test", "Account")]
+    public sealed class Account : SqlGrain<String, AccountState, IGrains.MessageInfo>, IAccount
     {
+        SqlConfig config;
+        public Account(IOptions<SqlConfig> configOptions)
+        {
+            config = configOptions.Value;
+        }
         protected override string GrainId => this.GetPrimaryKeyString();
 
         static IEventHandle _eventHandle = new AccountEventHandle();
         protected override IEventHandle EventHandle => _eventHandle;
+
+        static SqlTable _table;
+        public override SqlTable ESSQLTable
+        {
+            get
+            {
+                if (_table == null)
+                {
+                    _table = new SqlTable(config.ConnectionDict["core_event"], "ex_account");
+                }
+                return _table;
+            }
+        }
 
         public override Task OnActivateAsync()
         {

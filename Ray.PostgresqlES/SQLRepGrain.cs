@@ -7,14 +7,6 @@ namespace Ray.PostgresqlES
     where S : class, IState<K>, new()
     where W : MessageWrapper
     {
-        protected SqlTable _sqlTable = null;
-
-        public virtual SqlTable ESSQLTable
-        {
-            get
-            {
-                return _sqlTable;
-            }
-        }
+        public abstract SqlTable ESSQLTable { get; }
     }
 }

@@ -26,7 +26,7 @@ namespace Ray.PostgresqlES
                 return new EventStorage<K>(table);
             }
             else
-                throw new Exception("not find MongoStorageAttribute");
+                throw new Exception("not find sqltable info");
         }
 
         public IStateStorage<S, K> GetStateStorage<K, S>(Type type, Grain grain) where S : class, IState<K>, new()
@@ -37,7 +37,7 @@ namespace Ray.PostgresqlES
                 return new StateStorage<S, K>(table);
             }
             else
-                throw new Exception("not find MongoStorageAttribute");
+                throw new Exception("not find sqltable info");
         }
     }
 }

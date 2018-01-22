@@ -17,7 +17,7 @@ namespace Ray.PostgresqlES
         public SqlTable(string conn, string table, bool sharding = false, int shardingDays = 90)
         {
             Connection = conn;
-            EventTable = table+"_event";
+            EventTable = table + "_event";
             SnapshotTable = table + "_state";
             this.sharding = sharding;
             this.shardingDays = shardingDays;
@@ -58,7 +58,7 @@ namespace Ray.PostgresqlES
                     {
                         TableInfo collection = new TableInfo();
                         collection.Version = cVersion;
-                        collection.Table = EventTable;
+                        collection.Prefix = EventTable;
                         collection.CreateTime = DateTime.UtcNow;
                         collection.Name = EventTable + "_" + cVersion;
                         try
@@ -84,14 +84,14 @@ namespace Ray.PostgresqlES
             return lastTable;
         }
         private List<TableInfo> tableList;
-        const string sql = "SELECT * FROM ray_tablelist where table=@Table order by version asc";
+        const string sql = "SELECT * FROM ray_tablelist where prefix=@Table order by version asc";
         public async Task<List<TableInfo>> GetTableList()
         {
             if (tableList == null)
             {
                 using (var connection = SqlFactory.CreateConnection(Connection))
                 {
-                    tableList = (await connection.QueryAsync<TableInfo>(sql, new {  EventTable })).AsList();
+                    tableList = (await connection.QueryAsync<TableInfo>(sql, new { Table = EventTable })).AsList();
                 }
             }
             return tableList;
@@ -100,7 +100,7 @@ namespace Ray.PostgresqlES
         {
             return SqlFactory.CreateConnection(Connection);
         }
-        public async Task CreateEventTable(TableInfo table)
+        public Task CreateEventTable(TableInfo table)
         {
             const string sql = @"
                     CREATE TABLE ""public"".""{0}"" (
@@ -116,24 +116,28 @@ namespace Ray.PostgresqlES
                             CREATE UNIQUE INDEX ""{0}_State_MsgId"" ON ""public"".""{0}"" USING btree(""stateid"", ""msgid"", ""typecode"");
                             CREATE UNIQUE INDEX ""{0}State_Version"" ON ""public"".""{0}"" USING btree(""stateid"", ""version"");
                             ALTER TABLE ""public"".""{0}"" ADD PRIMARY KEY(""id"");";
-            const string insertSql = "INSERT ray_tablelist(table,name,version,createtime) VALUES(@Table,@Name,@Version,@CreateTime)";
-            using (var connection = SqlFactory.CreateConnection(Connection))
+            const string insertSql = "INSERT into ray_tablelist  VALUES(@Table,@Name,@Version,@CreateTime)";
+            return SQLTask.SQLTaskExecute(async () =>
             {
-                using (var trans = connection.BeginTransaction())
+                using (var connection = SqlFactory.CreateConnection(Connection))
                 {
-                    try
+                    await connection.OpenAsync();
+                    using (var trans = connection.BeginTransaction())
                     {
-                        await connection.ExecuteAsync(string.Format(sql, table.Name), transaction: trans);
-                        await connection.ExecuteAsync(insertSql, new { table.Table, table.Name, table.Version, table.CreateTime }, trans);
-                        trans.Commit();
-                    }
-                    catch (Exception e)
-                    {
-                        trans.Rollback();
-                        throw e;
+                        try
+                        {
+                            await connection.ExecuteAsync(string.Format(sql, table.Name), transaction: trans);
+                            await connection.ExecuteAsync(insertSql, new { table.Prefix, table.Name, table.Version, table.CreateTime }, trans);
+                            trans.Commit();
+                        }
+                        catch (Exception e)
+                        {
+                            trans.Rollback();
+                            throw e;
+                        }
                     }
                 }
-            }
+            });
         }
     }
 }

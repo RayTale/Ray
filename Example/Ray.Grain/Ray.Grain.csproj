@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Ray.MongoES\Ray.MongoES.csproj" />
+    <ProjectReference Include="..\..\Ray.PostgresqlES\Ray.PostgresqlES.csproj" />
     <ProjectReference Include="..\..\Ray.RabbitMQ\Ray.RabbitMQ.csproj" />
     <ProjectReference Include="..\Ray.IGrains\Ray.IGrains.csproj" />
   </ItemGroup>
