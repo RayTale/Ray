@@ -5,7 +5,6 @@ using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using Dapper;
 using Ray.Core.Message;
-using Ray.PostgresqlES.Utils;
 using System.IO;
 using System.Linq;
 using ProtoBuf;
@@ -44,16 +43,15 @@ namespace Ray.PostgresqlES
             {
                 foreach (var table in tableList)
                 {
-                    var sql = $"SELECT typecode,encode(data::bytea,'hex') as data,IsComplete from {table.Name} WHERE version>=@Start and version<=@End";
+                    var sql = $"SELECT typecode,data,IsComplete from {table.Name} WHERE stateid=@StateId and version>@Start and version<=@End";
 
-                    var sqlEventList = await conn.QueryAsync<SqlEvent>(sql, new { Start = (long)startVersion, End = (long)endVersion });
+                    var sqlEventList = await conn.QueryAsync<SqlEvent>(sql, new { StateId = stateId, Start = (long)startVersion, End = (long)endVersion });
                     foreach (var sqlEvent in sqlEventList)
                     {
                         var type = MessageTypeMapping.GetType(sqlEvent.TypeCode);
-                        var data = Hex.HexToBytes(sqlEvent.Data);
                         var eventInfo = new EventInfo<K>();
                         eventInfo.IsComplete = sqlEvent.IsComplete;
-                        using (var ms = new MemoryStream(data))
+                        using (var ms = new MemoryStream(sqlEvent.Data))
                         {
                             var @event = Serializer.Deserialize(type, ms) as IEventBase<K>;
                             readVersion = @event.Version;
@@ -78,7 +76,7 @@ namespace Ray.PostgresqlES
             {
                 foreach (var table in tableList)
                 {
-                    var sql = $"SELECT typecode,encode(data::bytea,'hex') as data,IsComplete from {table.Name} WHERE stateid=@StateId and typecode=@TypeCode and version>=@Start and version<=@End";
+                    var sql = $"SELECT typecode,data,IsComplete from {table.Name} WHERE stateid=@StateId and typecode=@TypeCode and version>@Start and version<=@End";
 
                     var sqlEventList = await conn.QueryAsync<SqlEvent>(sql, new { StateId = stateId, TypeCode = typeCode, Start = (long)startVersion, End = (long)endVersion });
                     foreach (var sqlEvent in sqlEventList)
@@ -86,7 +84,7 @@ namespace Ray.PostgresqlES
                         var type = MessageTypeMapping.GetType(sqlEvent.TypeCode);
                         var eventInfo = new EventInfo<K>();
                         eventInfo.IsComplete = sqlEvent.IsComplete;
-                        using (var ms = new MemoryStream(Hex.HexToBytes(sqlEvent.Data)))
+                        using (var ms = new MemoryStream(sqlEvent.Data))
                         {
                             var @event = Serializer.Deserialize(type, ms) as IEventBase<K>;
                             readVersion = @event.Version;
@@ -105,7 +103,7 @@ namespace Ray.PostgresqlES
         public async Task<bool> SaveAsync<T>(T data, byte[] bytes, string uniqueId = null) where T : IEventBase<K>
         {
             var table = await tableInfo.GetTable(data.Timestamp);
-            var saveSql = $"INSERT INTO {table.Name}(Id,stateid,msgid,typecode,data,version,iscomplete) VALUES(@Id,@StateId,@MsgId,@TypeCode,cast(@Data as bytea),@Version,@IsComplete)";
+            var saveSql = $"INSERT INTO {table.Name}(Id,stateid,msgid,typecode,data,version,iscomplete) VALUES(@Id,@StateId,@MsgId,@TypeCode,@Data,@Version,@IsComplete)";
             data.Id = OGuid.GenerateNewId().ToString();
             string msgId = uniqueId;
             if (string.IsNullOrEmpty(msgId))
@@ -114,7 +112,7 @@ namespace Ray.PostgresqlES
             {
                 using (var conn = tableInfo.CreateConnection())
                 {
-                    await conn.ExecuteAsync(saveSql, new { data.Id, StateId = data.StateId.ToString(), MsgId = msgId, data.TypeCode, Data = Hex.BytesToHex(bytes), Version = (long)data.Version, IsComplete = false });
+                    await conn.ExecuteAsync(saveSql, new { data.Id, StateId = data.StateId.ToString(), MsgId = msgId, data.TypeCode, Data = bytes, Version = (long)data.Version, IsComplete = false });
                 }
                 return true;
             }
