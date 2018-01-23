@@ -24,7 +24,7 @@ namespace Ray.PostgresqlES
         }
 
         object collectionLock = new object();
-        static DateTime startTime = new DateTime(2017, 8, 30);
+        static DateTime startTime = new DateTime(2018, 1, 30);
         public async Task<List<TableInfo>> GetTableList(DateTime? startTime = null)
         {
             List<TableInfo> list = null;
@@ -63,7 +63,7 @@ namespace Ray.PostgresqlES
                         collection.Name = EventTable + "_" + cVersion;
                         try
                         {
-                            CreateEventTable(collection).GetAwaiter().GetResult();
+                            CreateEventTable(collection);
                             lastTable = collection;
                         }
                         catch (Exception ex)
@@ -100,7 +100,7 @@ namespace Ray.PostgresqlES
         {
             return SqlFactory.CreateConnection(Connection);
         }
-        public Task CreateEventTable(TableInfo table)
+        public void CreateEventTable(TableInfo table)
         {
             const string sql = @"
                     CREATE TABLE ""public"".""{0}"" (
@@ -114,30 +114,27 @@ namespace Ray.PostgresqlES
                                     )
                     WITH(OIDS= FALSE);
                             CREATE UNIQUE INDEX ""{0}_State_MsgId"" ON ""public"".""{0}"" USING btree(""stateid"", ""msgid"", ""typecode"");
-                            CREATE UNIQUE INDEX ""{0}State_Version"" ON ""public"".""{0}"" USING btree(""stateid"", ""version"");
+                            CREATE UNIQUE INDEX ""{0}_State_Version"" ON ""public"".""{0}"" USING btree(""stateid"", ""version"");
                             ALTER TABLE ""public"".""{0}"" ADD PRIMARY KEY(""id"");";
-            const string insertSql = "INSERT into ray_tablelist  VALUES(@Table,@Name,@Version,@CreateTime)";
-            return SQLTask.SQLTaskExecute(async () =>
+            const string insertSql = "INSERT into ray_tablelist  VALUES(@Prefix,@Name,@Version,@CreateTime)";
+            using (var connection = SqlFactory.CreateConnection(Connection))
             {
-                using (var connection = SqlFactory.CreateConnection(Connection))
+                connection.Open();
+                using (var trans = connection.BeginTransaction())
                 {
-                    await connection.OpenAsync();
-                    using (var trans = connection.BeginTransaction())
+                    try
                     {
-                        try
-                        {
-                            await connection.ExecuteAsync(string.Format(sql, table.Name), transaction: trans);
-                            await connection.ExecuteAsync(insertSql, new { table.Prefix, table.Name, table.Version, table.CreateTime }, trans);
-                            trans.Commit();
-                        }
-                        catch (Exception e)
-                        {
-                            trans.Rollback();
-                            throw e;
-                        }
+                        connection.Execute(string.Format(sql, table.Name), transaction: trans);
+                        connection.Execute(insertSql, new { table.Prefix, table.Name, table.Version, table.CreateTime }, trans);
+                        trans.Commit();
+                    }
+                    catch (Exception e)
+                    {
+                        trans.Rollback();
+                        throw e;
                     }
                 }
-            });
+            }
         }
     }
 }
