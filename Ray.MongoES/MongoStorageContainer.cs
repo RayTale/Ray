@@ -52,5 +52,16 @@ namespace Ray.MongoES
             else
                 throw new Exception("not find MongoStorageAttribute");
         }
+        public IStateStorage<S, K> GetToDbStateStorage<K, S>(Type type, Grain grain) where S : class, IState<K>, new()
+        {
+            var mongoInfo = GetESMongoInfo<K, S>(type, grain);
+            if (mongoInfo != null)
+            {
+                return new MongoStateStorage<S, K>(mongoInfo.EventDataBase, mongoInfo.ToDbSnapshotCollection);
+            }
+            else
+                throw new Exception("not find MongoStorageAttribute");
+        }
+
     }
 }

@@ -12,6 +12,7 @@ namespace Ray.PostgresqlES
         public string Connection { get; set; }
         public string EventTable { get; set; }
         public string SnapshotTable { get; set; }
+        public string ToDbSnapshotTable { get; set; }
         bool sharding = false;
         int shardingDays;
         public SqlTable(string conn, string table, bool sharding = false, int shardingDays = 90)
@@ -19,6 +20,7 @@ namespace Ray.PostgresqlES
             Connection = conn;
             EventTable = table + "_event";
             SnapshotTable = table + "_state";
+            ToDbSnapshotTable = table + "_todbstate";
             this.sharding = sharding;
             this.shardingDays = shardingDays;
         }

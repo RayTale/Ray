@@ -34,10 +34,21 @@ namespace Ray.PostgresqlES
             var table = GetTableInfo<K, S>(type, grain);
             if (table != null)
             {
-                return new StateStorage<S, K>(table);
+                return new StateStorage<S, K>(table, table.SnapshotTable);
             }
             else
-                throw new Exception("not find sqltable info");
+                throw new Exception("not find state table ");
+        }
+
+        public IStateStorage<S, K> GetToDbStateStorage<K, S>(Type type, Grain grain) where S : class, IState<K>, new()
+        {
+            var table = GetTableInfo<K, S>(type, grain);
+            if (table != null)
+            {
+                return new StateStorage<S, K>(table, table.ToDbSnapshotTable);
+            }
+            else
+                throw new Exception("not find todbstate table ");
         }
     }
 }

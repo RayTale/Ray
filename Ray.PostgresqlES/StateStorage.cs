@@ -10,13 +10,13 @@ namespace Ray.PostgresqlES
     {
         SqlTable tableInfo;
         string deleteSql, getByIdSql, insertSql, updateSql;
-        public StateStorage(SqlTable mongoAttr)
+        public StateStorage(SqlTable mongoAttr,string table)
         {
             this.tableInfo = mongoAttr;
-            deleteSql = $"DELETE FROM {tableInfo.SnapshotTable} where stateid=@StateId";
-            getByIdSql = $"select data FROM {tableInfo.SnapshotTable} where stateid=@StateId";
-            insertSql = $"INSERT into {tableInfo.SnapshotTable}(stateid,data)VALUES(@StateId,@Data)";
-            updateSql = $"update {tableInfo.SnapshotTable} set data=Data where stateid=@StateId";
+            deleteSql = $"DELETE FROM {table} where stateid=@StateId";
+            getByIdSql = $"select data FROM {table} where stateid=@StateId";
+            insertSql = $"INSERT into {table}(stateid,data)VALUES(@StateId,@Data)";
+            updateSql = $"update {table} set data=Data where stateid=@StateId";
         }
         public Task DeleteAsync(K id)
         {
