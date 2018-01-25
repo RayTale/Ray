@@ -1,8 +1,6 @@
-﻿using Orleans;
-using Ray.Core;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 
-namespace Coin.Core.EventSourcing
+namespace Ray.Core.EventSourcing
 {
     public interface IRepGrain<W> where W : MessageWrapper
     {
