@@ -196,13 +196,15 @@ namespace Ray.Core.EventSourcing
             }
             return false;
         }
-        protected virtual async Task AfterEventSavedHandle(IEventBase<K> @event, byte[] bytes,string hashKey = null)
+        protected virtual bool PublishEventToMq { get { return true; } }
+        protected virtual async Task AfterEventSavedHandle(IEventBase<K> @event, byte[] bytes, string hashKey = null)
         {
             try
             {
                 if (string.IsNullOrEmpty(hashKey)) hashKey = GrainId.ToString();
-                //消息写入消息队列                  
-                await MQService.Publish(@event, bytes, hashKey);
+                //消息写入消息队列         
+                if (PublishEventToMq)
+                    await MQService.Publish(@event, bytes, hashKey);
                 //更改消息状态
                 await EventStorage.CompleteAsync(@event);
             }
