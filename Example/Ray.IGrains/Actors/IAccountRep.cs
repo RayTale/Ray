@@ -1,6 +1,6 @@
-﻿using Coin.Core.EventSourcing;
-using Orleans;
+﻿using Orleans;
 using System.Threading.Tasks;
+using Ray.Core.EventSourcing;
 
 namespace Ray.IGrains.Actors
 {
