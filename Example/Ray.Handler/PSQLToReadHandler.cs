@@ -2,11 +2,14 @@
 using Ray.RabbitMQ;
 using System.Threading.Tasks;
 using Ray.IGrains;
+using System;
 
 namespace Ray.Handler
 {
     public abstract class PSQLToReadHandler<K> : PartSubHandler<K, MessageInfo>
     {
+        public PSQLToReadHandler(IServiceProvider svProvider) : base(svProvider)
+        { }
         public override Task Notice(byte[] data)
         {
             return base.Notice(data).ContinueWith(t =>

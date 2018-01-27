@@ -4,6 +4,7 @@ using Ray.IGrains;
 using Ray.IGrains.Actors;
 using Ray.IGrains.Events;
 using Ray.RabbitMQ;
+using System;
 using System.Threading.Tasks;
 
 namespace Ray.Handler
@@ -11,6 +12,9 @@ namespace Ray.Handler
     [RabbitSub("Core", "Account", "account")]
     public sealed class AccountCoreHandler : SubHandler<string, MessageInfo>
     {
+        public AccountCoreHandler(IServiceProvider svProvider) : base(svProvider)
+        {
+        }
         public override Task Tell(byte[] bytes, IActorOwnMessage<string> data, MessageInfo msg)
         {
             var replicatedRef = HandlerStart.Client.GetGrain<IAccountRep>(data.StateId);

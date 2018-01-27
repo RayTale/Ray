@@ -6,7 +6,7 @@ namespace Ray.Core.MQ
     public class SubAttribute : Attribute
     {
         public Type Handler { get; set; }
-        public string Type { get; set; }
-        public SubAttribute(string type) => this.Type = type;
+        public string Group { get; set; }
+        public SubAttribute(string group) => this.Group = group;
     }
 }

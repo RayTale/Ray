@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Ray.Core.Utils;
 
 namespace Ray.RabbitMQ
@@ -34,5 +35,16 @@ namespace Ray.RabbitMQ
         public string Exchange { get; set; }
         public string Queue { get; set; }
         public int QueueCount { get; set; }
+    }
+    public static class RabbitPubAttrExtensions
+    {
+        public static Task Publish<T>(this RabbitPubAttribute rabbitMQInfo, T data, string key)
+        {
+            return RabbitMQClient.Publish(data, rabbitMQInfo.Exchange, rabbitMQInfo.GetQueue(key));
+        }
+        public static Task PublishByCmd<T>(this RabbitPubAttribute rabbitMQInfo, UInt16 cmd, T data, string key)
+        {
+            return RabbitMQClient.PublishByCmd<T>(cmd, data, rabbitMQInfo.Exchange, rabbitMQInfo.GetQueue(key));
+        }
     }
 }

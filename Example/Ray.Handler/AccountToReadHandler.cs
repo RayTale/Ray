@@ -3,13 +3,14 @@ using Ray.RabbitMQ;
 using System.Threading.Tasks;
 using Ray.IGrains;
 using Ray.IGrains.Events;
+using System;
 
 namespace Ray.Handler
 {
     [RabbitSub("Read", "Account", "account")]
     public sealed class AccountToReadHandler : PSQLToReadHandler<string>
     {
-        public AccountToReadHandler()
+        public AccountToReadHandler(IServiceProvider svProvider) : base(svProvider)
         {
             Register<AmountAddEvent>();
             Register<AmountTransferEvent>();

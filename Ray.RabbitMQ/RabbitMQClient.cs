@@ -4,7 +4,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using RabbitMQ.Client;
 using ProtoBuf;
-using Ray.Core;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection;
 using Ray.Core.Utils;
@@ -40,27 +39,22 @@ namespace Ray.RabbitMQ
     }
     public static class RabbitMQClient
     {
-        static RabbitMQClient()
+        public static void Init(IServiceProvider provider)
         {
-            rabbitHost = Global.IocProvider.GetService<IOptions<RabbitConfig>>().Value;
-            _Factory = new ConnectionFactory()
+            if (_Factory == null)
             {
-                UserName = rabbitHost.UserName,
-                Password = rabbitHost.Password,
-                VirtualHost = rabbitHost.VirtualHost,
-                AutomaticRecoveryEnabled = true
-            };
+                rabbitHost = provider.GetService<IOptions<RabbitConfig>>().Value;
+                _Factory = new ConnectionFactory()
+                {
+                    UserName = rabbitHost.UserName,
+                    Password = rabbitHost.Password,
+                    VirtualHost = rabbitHost.VirtualHost,
+                    AutomaticRecoveryEnabled = true
+                };
+            }
         }
         static ConnectionFactory _Factory;
         static RabbitConfig rabbitHost;
-        public static Task Publish<T>(this RabbitPubAttribute rabbitMQInfo, T data, string key)
-        {
-            return Publish(data, rabbitMQInfo.Exchange, rabbitMQInfo.GetQueue(key));
-        }
-        public static Task PublishByCmd<T>(this RabbitPubAttribute rabbitMQInfo, UInt16 cmd, T data, string key)
-        {
-            return PublishByCmd<T>(cmd, data, rabbitMQInfo.Exchange, rabbitMQInfo.GetQueue(key));
-        }
         /// <summary>
         /// 发送消息到消息队列
         /// </summary>

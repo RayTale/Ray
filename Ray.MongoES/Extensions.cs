@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Ray.Core.EventSourcing;
+using System;
 
 namespace Ray.MongoES
 {
@@ -8,6 +9,10 @@ namespace Ray.MongoES
         public static void AddMongoES(this IServiceCollection serviceCollection)
         {
             serviceCollection.AddSingleton<IStorageContainer, MongoStorageContainer>();
+        }
+        public static void InitMongoDb(this IServiceProvider provider)
+        {
+            MongoStorage.Init(provider);
         }
     }
 }

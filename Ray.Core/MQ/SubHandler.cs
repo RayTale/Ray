@@ -8,6 +8,11 @@ namespace Ray.Core.MQ
 {
     public abstract class SubHandler<K, TMessageWrapper> : ISubHandler where TMessageWrapper : MessageWrapper
     {
+        IServiceProvider serviceProvider;
+        public SubHandler(IServiceProvider svProvider)
+        {
+            this.serviceProvider = svProvider;
+        }
         public virtual async Task Notice(byte[] dataBytes, TMessageWrapper message, object data)
         {
             if (data is IActorOwnMessage<K> @event)
@@ -15,7 +20,7 @@ namespace Ray.Core.MQ
         }
         public Task Notice(byte[] bytes)
         {
-            var serializer = Global.IocProvider.GetService<ISerializer>();
+            var serializer = serviceProvider.GetService<ISerializer>();
             using (var ms = new MemoryStream(bytes))
             {
                 var msg = serializer.Deserialize<TMessageWrapper>(ms);

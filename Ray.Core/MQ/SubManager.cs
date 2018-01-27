@@ -10,7 +10,8 @@ namespace Ray.Core.MQ
     public abstract class SubManager : ISubManager
     {
         static Type subscribeType = typeof(SubAttribute), handlerType = typeof(ISubHandler);
-        protected List<SubAttribute> Parse(Assembly[] assemblys)
+        static List<SubAttribute> attrlist = null;
+        public static void Parse(IServiceCollection serviceCollection, params Assembly[] assemblys)
         {
             List<SubAttribute> result = new List<SubAttribute>();
             foreach (var assembly in assemblys)
@@ -26,22 +27,18 @@ namespace Ray.Core.MQ
                             if (attr is SubAttribute value)
                             {
                                 value.Handler = type;
-                                collection.AddSingleton(type);
+                                serviceCollection.AddSingleton(type);
                                 result.Add(value);
                             }
                         }
                     }
                 }
             }
-            provider = collection.BuildServiceProvider();
-            return result;
+            attrlist = result;
         }
-        ServiceCollection collection = new ServiceCollection();
-        IServiceProvider provider = default;
-        public Task Start(Assembly[] assemblys, string[] types = null, string node = null, List<string> nodeList = null)
+        public Task Start(IServiceProvider provider, string[] groups = null, string node = null, List<string> nodeList = null)
         {
-            var attrlist = Parse(assemblys);
-            if (types != null) attrlist = attrlist.Where(a => types.Contains(a.Type)).ToList();
+            if (groups != null) attrlist = attrlist.Where(a => groups.Contains(a.Group)).ToList();
             return Start(attrlist, provider, node, nodeList);
         }
 

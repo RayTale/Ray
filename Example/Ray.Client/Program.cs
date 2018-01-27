@@ -13,6 +13,7 @@ using Microsoft.Extensions.Options;
 using Ray.Core;
 using Ray.Core.Message;
 using System.Diagnostics;
+using Ray.Core.MQ;
 
 namespace Ray.Client
 {
@@ -29,7 +30,8 @@ namespace Ray.Client
             {
                 using (var client = await StartClientWithRetries())
                 {
-                    Global.Init(client.ServiceProvider);
+                    client.ServiceProvider.InitRabbitMq();
+
                     await HandlerStart.Start(new[] { "Core", "Read" }, client.ServiceProvider, client);
                     var aActor = client.GetGrain<IAccount>("1");
                     var bActor = client.GetGrain<IAccount>("2");
@@ -84,13 +86,14 @@ namespace Ray.Client
                         .ConfigureLogging(logging => logging.AddConsole())
                         .ConfigureServices((servicecollection) =>
                         {
+                            SubManager.Parse(servicecollection, typeof(HandlerStart).Assembly);//注册handle
                             servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
                             servicecollection.AddRabbitMQ<MessageInfo>();//注册RabbitMq为默认消息队列
                             servicecollection.PostConfigure<RabbitConfig>(c =>
                             {
                                 c.UserName = "admin";
                                 c.Password = "luohuazhiyu";
-                                c.Hosts = new[] { "127.0.0.1:5672" };
+                                c.Hosts = new[] { "192.168.199.216:5672" };
                                 c.MaxPoolSize = 100;
                                 c.VirtualHost = "/";
                             });

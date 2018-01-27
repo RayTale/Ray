@@ -1,6 +1,8 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Ray.Core.MQ;
 using Ray.Core;
+using System.Reflection;
+using System;
 
 namespace Ray.RabbitMQ
 {
@@ -10,6 +12,10 @@ namespace Ray.RabbitMQ
         {
             serviceCollection.AddSingleton<IMQServiceContainer, MQServiceContainer<W>>();
             serviceCollection.AddSingleton<ISubManager, RabbitSubManager>();
+        }
+        public static void InitRabbitMq(this IServiceProvider provider)
+        {
+            RabbitMQClient.Init(provider);
         }
     }
 }

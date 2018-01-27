@@ -9,6 +9,11 @@ namespace Ray.Core.MQ
 {
     public abstract class PartSubHandler<K, TMessageWrapper> : ISubHandler where TMessageWrapper : MessageWrapper
     {
+        IServiceProvider serviceProvider;
+        public PartSubHandler(IServiceProvider svProvider)
+        {
+            this.serviceProvider = svProvider;
+        }
         Dictionary<string, Type> TypeFuncDict = new Dictionary<string, Type>();
         protected void Register<T>() where T : class
         {
@@ -22,7 +27,7 @@ namespace Ray.Core.MQ
         }
         public virtual Task Notice(byte[] bytes)
         {
-            var serializer = Global.IocProvider.GetService<ISerializer>();
+            var serializer = serviceProvider.GetService<ISerializer>();
             using (var ms = new MemoryStream(bytes))
             {
                 var msg = serializer.Deserialize<TMessageWrapper>(ms);

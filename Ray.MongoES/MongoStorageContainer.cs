@@ -7,6 +7,11 @@ namespace Ray.MongoES
 {
     public class MongoStorageContainer : IStorageContainer
     {
+        IServiceProvider serviceProvider;
+        public MongoStorageContainer(IServiceProvider svProvider)
+        {
+            this.serviceProvider = svProvider;
+        }
         protected static ConcurrentDictionary<Type, MongoStorageAttribute> mongoAttrDict = new ConcurrentDictionary<Type, MongoStorageAttribute>();
 
         static Type eventStorageType = typeof(MongoStorageAttribute);
@@ -37,7 +42,7 @@ namespace Ray.MongoES
             var mongoInfo = GetESMongoInfo<K, S>(type, grain);
             if (mongoInfo != null)
             {
-                return new MongoEventStorage<K>(mongoInfo);
+                return new MongoEventStorage<K>(mongoInfo, serviceProvider);
             }
             else
                 throw new Exception("not find MongoStorageAttribute");

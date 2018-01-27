@@ -25,7 +25,10 @@ namespace Ray.Host
             try
             {
                 var host = await StartSilo();
-                Global.Init(host.Services);
+
+                host.Services.InitRabbitMq();
+                host.Services.InitMongoDb();
+
                 Console.WriteLine("Press Enter to terminate...");
 
                 Console.ReadLine();
@@ -58,7 +61,7 @@ namespace Ray.Host
                 {
                     c.UserName = "admin";
                     c.Password = "luohuazhiyu";
-                    c.Hosts = new[] { "127.0.0.1:5672" };
+                    c.Hosts = new[] { "192.168.199.216:5672" };
                     c.MaxPoolSize = 100;
                     c.VirtualHost = "/";
                 })

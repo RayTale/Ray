@@ -23,7 +23,7 @@ namespace Ray.RabbitMQ
             {
                 if (attribute is RabbitSubAttribute value)
                 {
-
+                    value.Init();
                     for (int i = 0; i < value.QueueList.Count(); i++)
                     {
                         var queue = value.QueueList[i];
@@ -33,7 +33,7 @@ namespace Ray.RabbitMQ
                             consumerList.Add(new ConsumerInfo()
                             {
                                 Exchange = value.Exchange,
-                                Queue = (string.IsNullOrEmpty(node) ? string.Empty : node + "_") + value.Type + "_" + queue.Queue,
+                                Queue = (string.IsNullOrEmpty(node) ? string.Empty : node + "_") + value.Group + "_" + queue.Queue,
                                 RoutingKey = queue.RoutingKey,
                                 Handler = (ISubHandler)provider.GetService(value.Handler)
                             });

@@ -9,11 +9,11 @@ namespace Ray.Handler
     public class HandlerStart
     {
         public static IClusterClient Client { get; set; }
-        public static Task Start(string[] types, IServiceProvider provider, IClusterClient client)
+        public static Task Start(string[] groups, IServiceProvider provider, IClusterClient client)
         {
             Client = client;
             var manager = provider.GetService<ISubManager>();
-            return manager.Start(new[] { typeof(HandlerStart).Assembly }, types);
+            return manager.Start(provider, groups);
         }
     }
 }

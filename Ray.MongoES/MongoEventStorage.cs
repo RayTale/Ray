@@ -9,7 +9,6 @@ using System.Linq;
 using System.Threading;
 using Ray.Core.EventSourcing;
 using Ray.Core.Message;
-using Ray.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -17,10 +16,11 @@ namespace Ray.MongoES
 {
     public class MongoEventStorage<K> : MongoStorage, IEventStorage<K>
     {
-        MongoStorageAttribute mongoAttr;
-        public MongoEventStorage(MongoStorageAttribute mongoAttr)
+        MongoStorageAttribute mongoAttr; IServiceProvider serviceProvider;
+        public MongoEventStorage(MongoStorageAttribute mongoAttr, IServiceProvider svProvider)
         {
             this.mongoAttr = mongoAttr;
+            this.serviceProvider = svProvider;
         }
         public async Task<List<EventInfo<K>>> GetListAsync(K stateId, UInt32 startVersion, UInt32 endVersion, DateTime? startTime = null)
         {
@@ -116,7 +116,7 @@ namespace Ray.MongoES
                 }
                 else
                 {
-                    Global.IocProvider.GetService<ILoggerFactory>().CreateLogger("MongoEventStorage").LogError(ex, $"事件重复插入,Event:{Newtonsoft.Json.JsonConvert.SerializeObject(data)}");
+                    serviceProvider.GetService<ILoggerFactory>().CreateLogger("MongoEventStorage").LogError(ex, $"事件重复插入,Event:{Newtonsoft.Json.JsonConvert.SerializeObject(data)}");
                 }
             }
             return false;

@@ -12,18 +12,16 @@ namespace Ray.RabbitMQ
         List<string> originQueueList;
         string exchange, queue;
         int queueCount;
-        public RabbitSubAttribute(string type, string exchange, string queue, int queueCount = 1) : base(type)
+        public RabbitSubAttribute(string group, string exchange, string queue, int queueCount = 1) : base(group)
         {
             this.exchange = exchange;
             this.queueCount = queueCount;
             this.queue = queue;
-            Init();
         }
         public RabbitSubAttribute(string type, string exchange, List<string> queueList) : base(type)
         {
             this.exchange = exchange;
             originQueueList = queueList;
-            Init();
         }
         QueueInfo BuildQueueInfo(string queue)
         {
@@ -33,7 +31,7 @@ namespace Ray.RabbitMQ
                 Queue = queue
             };
         }
-        private void Init()
+        public void Init()
         {
             this.queueList = new List<QueueInfo>();
             if (originQueueList?.Count > 0)

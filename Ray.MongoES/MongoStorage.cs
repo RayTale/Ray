@@ -2,14 +2,15 @@
 using MongoDB.Driver;
 using Ray.Core;
 using Microsoft.Extensions.DependencyInjection;
+using System;
 
 namespace Ray.MongoES
 {
     public class MongoStorage
     {
-        static MongoStorage()
+        public static void Init(IServiceProvider provider)
         {
-            _Client = new MongoClient(Global.IocProvider.GetService<IOptions<MongoConfig>>().Value.Connection);
+            _Client = new MongoClient(provider.GetService<IOptions<MongoConfig>>().Value.Connection);
         }
         static MongoClient _Client;
         protected static MongoClient Client
