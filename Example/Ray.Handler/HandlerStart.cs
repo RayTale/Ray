@@ -13,7 +13,7 @@ namespace Ray.Handler
         {
             Client = client;
             var manager = provider.GetService<ISubManager>();
-            return manager.Start(provider, groups);
+            return manager.Start(groups);
         }
     }
 }

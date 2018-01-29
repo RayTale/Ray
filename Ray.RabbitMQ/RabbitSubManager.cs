@@ -13,9 +13,13 @@ namespace Ray.RabbitMQ
 {
     public class RabbitSubManager : SubManager
     {
-        ILogger<RabbitSubManager> logger = default;
-        public RabbitSubManager(ILogger<RabbitSubManager> logger) => this.logger = logger;
-        protected override async Task Start(List<SubAttribute> attributes, IServiceProvider provider, string node, List<string> nodeList = null)
+        ILogger<RabbitSubManager> logger = default; IServiceProvider provider;
+        public RabbitSubManager(ILogger<RabbitSubManager> logger, IServiceProvider provider)
+        {
+            this.logger = logger;
+            this.provider = provider;
+        }
+        protected override async Task Start(List<SubAttribute> attributes, string node, List<string> nodeList = null)
         {
             var hash = nodeList == null ? null : new ConsistentHash(nodeList);
             var consumerList = new List<ConsumerInfo>();

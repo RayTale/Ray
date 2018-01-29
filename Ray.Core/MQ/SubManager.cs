@@ -36,12 +36,12 @@ namespace Ray.Core.MQ
             }
             attrlist = result;
         }
-        public Task Start(IServiceProvider provider, string[] groups = null, string node = null, List<string> nodeList = null)
+        public Task Start(string[] groups = null, string node = null, List<string> nodeList = null)
         {
             if (groups != null) attrlist = attrlist.Where(a => groups.Contains(a.Group)).ToList();
-            return Start(attrlist, provider, node, nodeList);
+            return Start(attrlist, node, nodeList);
         }
 
-        protected abstract Task Start(List<SubAttribute> attributes, IServiceProvider provider, string node = null, List<string> nodeList = null);
+        protected abstract Task Start(List<SubAttribute> attributes, string node = null, List<string> nodeList = null);
     }
 }
