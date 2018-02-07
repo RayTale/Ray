@@ -6,13 +6,16 @@ using ProtoBuf;
 using MongoDB.Driver;
 using MongoDB.Bson;
 using Ray.Core.EventSourcing;
+using System;
+using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Ray.MongoES
 {
     public class MongoStateStorage<T, K> : MongoStorage, IStateStorage<T, K> where T : class, IState<K>
     {
         string database, collection;
-        public MongoStateStorage(string database, string collection)
+        public MongoStateStorage(string database, string collection, IServiceProvider svProvider) : base(svProvider.GetService<IOptions<MongoConfig>>())
         {
             this.database = database;
             this.collection = collection;

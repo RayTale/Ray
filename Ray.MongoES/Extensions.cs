@@ -10,9 +10,5 @@ namespace Ray.MongoES
         {
             serviceCollection.AddSingleton<IStorageContainer, MongoStorageContainer>();
         }
-        public static void InitMongoDb(this IServiceProvider provider)
-        {
-            MongoStorage.Init(provider);
-        }
     }
 }

@@ -13,9 +13,5 @@ namespace Ray.RabbitMQ
             serviceCollection.AddSingleton<IMQServiceContainer, MQServiceContainer<W>>();
             serviceCollection.AddSingleton<ISubManager, RabbitSubManager>();
         }
-        public static void InitRabbitMq(this IServiceProvider provider)
-        {
-            RabbitMQClient.Init(provider);
-        }
     }
 }

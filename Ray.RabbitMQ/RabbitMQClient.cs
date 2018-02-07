@@ -39,18 +39,25 @@ namespace Ray.RabbitMQ
     }
     public static class RabbitMQClient
     {
+        static object facLock = new object();
         public static void Init(IServiceProvider provider)
         {
             if (_Factory == null)
             {
-                rabbitHost = provider.GetService<IOptions<RabbitConfig>>().Value;
-                _Factory = new ConnectionFactory()
+                lock (facLock)
                 {
-                    UserName = rabbitHost.UserName,
-                    Password = rabbitHost.Password,
-                    VirtualHost = rabbitHost.VirtualHost,
-                    AutomaticRecoveryEnabled = true
-                };
+                    if (_Factory == null)
+                    {
+                        rabbitHost = provider.GetService<IOptions<RabbitConfig>>().Value;
+                        _Factory = new ConnectionFactory()
+                        {
+                            UserName = rabbitHost.UserName,
+                            Password = rabbitHost.Password,
+                            VirtualHost = rabbitHost.VirtualHost,
+                            AutomaticRecoveryEnabled = true
+                        };
+                    }
+                }
             }
         }
         static ConnectionFactory _Factory;

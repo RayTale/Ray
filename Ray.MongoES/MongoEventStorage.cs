@@ -11,20 +11,24 @@ using Ray.Core.EventSourcing;
 using Ray.Core.Message;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Ray.MongoES
 {
     public class MongoEventStorage<K> : MongoStorage, IEventStorage<K>
     {
         MongoStorageAttribute mongoAttr; IServiceProvider serviceProvider;
+        IOptions<MongoConfig> mongoConfig;
         public MongoEventStorage(MongoStorageAttribute mongoAttr, IServiceProvider svProvider)
+            : base(svProvider.GetService<IOptions<MongoConfig>>())
         {
             this.mongoAttr = mongoAttr;
             this.serviceProvider = svProvider;
+            mongoConfig = svProvider.GetService<IOptions<MongoConfig>>();
         }
         public async Task<List<EventInfo<K>>> GetListAsync(K stateId, UInt32 startVersion, UInt32 endVersion, DateTime? startTime = null)
         {
-            var collectionList = mongoAttr.GetCollectionList(startTime);
+            var collectionList = mongoAttr.GetCollectionList(mongoConfig.Value.SysStartTime, startTime);
             var list = new List<EventInfo<K>>();
             UInt32 readVersion = 0;
             foreach (var collection in collectionList)
@@ -55,7 +59,7 @@ namespace Ray.MongoES
         }
         public async Task<List<EventInfo<K>>> GetListAsync(K stateId, string typeCode, UInt32 startVersion, UInt32 endVersion, DateTime? startTime = null)
         {
-            var collectionList = mongoAttr.GetCollectionList(startTime);
+            var collectionList = mongoAttr.GetCollectionList(mongoConfig.Value.SysStartTime, startTime);
             var list = new List<EventInfo<K>>();
             UInt32 readVersion = 0;
             foreach (var collection in collectionList)
@@ -105,7 +109,7 @@ namespace Ray.MongoES
                 mEvent.MsgId = uniqueId;
             try
             {
-                await GetCollection<MongoEvent<K>>(mongoAttr.EventDataBase, mongoAttr.GetCollection(data.Timestamp).Name).InsertOneAsync(mEvent);
+                await GetCollection<MongoEvent<K>>(mongoAttr.EventDataBase, mongoAttr.GetCollection(mongoConfig.Value.SysStartTime, data.Timestamp).Name).InsertOneAsync(mEvent);
                 return true;
             }
             catch (MongoWriteException ex)
@@ -126,7 +130,7 @@ namespace Ray.MongoES
         {
             var filter = Builders<BsonDocument>.Filter.Eq("_id", data.Id);
             var update = Builders<BsonDocument>.Update.Set("IsComplete", true);
-            await GetCollection<BsonDocument>(mongoAttr.EventDataBase, mongoAttr.GetCollection(data.Timestamp).Name).UpdateOneAsync(filter, update);
+            await GetCollection<BsonDocument>(mongoAttr.EventDataBase, mongoAttr.GetCollection(mongoConfig.Value.SysStartTime, data.Timestamp).Name).UpdateOneAsync(filter, update);
         }
     }
 }

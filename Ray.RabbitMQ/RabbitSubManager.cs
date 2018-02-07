@@ -18,6 +18,7 @@ namespace Ray.RabbitMQ
         {
             this.logger = logger;
             this.provider = provider;
+            RabbitMQClient.Init(provider);
         }
         protected override async Task Start(List<SubAttribute> attributes, string node, List<string> nodeList = null)
         {

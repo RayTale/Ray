@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.Options;
 using MongoDB.Driver;
-using Ray.Core;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 
@@ -8,9 +7,19 @@ namespace Ray.MongoES
 {
     public class MongoStorage
     {
-        public static void Init(IServiceProvider provider)
+        static object lockObj = new object();
+        public MongoStorage(IOptions<MongoConfig> config)
         {
-            _Client = new MongoClient(provider.GetService<IOptions<MongoConfig>>().Value.Connection);
+            if (_Client == null)
+            {
+                lock (lockObj)
+                {
+                    if (_Client == null)
+                    {
+                        _Client = new MongoClient(config.Value.Connection);
+                    }
+                }
+            }
         }
         static MongoClient _Client;
         protected static MongoClient Client

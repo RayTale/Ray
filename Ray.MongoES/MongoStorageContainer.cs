@@ -52,7 +52,7 @@ namespace Ray.MongoES
             var mongoInfo = GetESMongoInfo<K, S>(type, grain);
             if (mongoInfo != null)
             {
-                return new MongoStateStorage<S, K>(mongoInfo.EventDataBase, mongoInfo.SnapshotCollection);
+                return new MongoStateStorage<S, K>(mongoInfo.EventDataBase, mongoInfo.SnapshotCollection, serviceProvider);
             }
             else
                 throw new Exception("not find MongoStorageAttribute");

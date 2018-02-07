@@ -9,8 +9,6 @@ using Ray.RabbitMQ;
 using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
-using Ray.Core;
 using Ray.Core.Message;
 using System.Diagnostics;
 using Ray.Core.MQ;
@@ -30,8 +28,6 @@ namespace Ray.Client
             {
                 using (var client = await StartClientWithRetries())
                 {
-                    client.ServiceProvider.InitRabbitMq();
-
                     await HandlerStart.Start(new[] { "Core", "Read" }, client.ServiceProvider, client);
                     var aActor = client.GetGrain<IAccount>("1");
                     var bActor = client.GetGrain<IAccount>("2");

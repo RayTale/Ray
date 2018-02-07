@@ -8,6 +8,12 @@ namespace Ray.RabbitMQ
     public class MQServiceContainer<W> : IMQServiceContainer
         where W : MessageWrapper, new()
     {
+        IServiceProvider serviceProvider;
+        public MQServiceContainer(IServiceProvider svProvider)
+        {
+            this.serviceProvider = svProvider;
+            RabbitMQClient.Init(svProvider);
+        }
         ConcurrentDictionary<Type, IMQService> typeMQDict = new ConcurrentDictionary<Type, IMQService>();
         public IMQService GetService(Type type)
         {

@@ -26,9 +26,6 @@ namespace Ray.Host
             {
                 var host = await StartSilo();
 
-                host.Services.InitRabbitMq();
-                host.Services.InitMongoDb();
-
                 Console.WriteLine("Press Enter to terminate...");
 
                 Console.ReadLine();
@@ -56,7 +53,11 @@ namespace Ray.Host
                     servicecollection.AddMongoES();//注册MongoDB为事件库
                     servicecollection.AddRabbitMQ<MessageInfo>();//注册RabbitMq为默认消息队列
                 })
-                .Configure<MongoConfig>(c => c.Connection = "mongodb://127.0.0.1:28888")
+                .Configure<MongoConfig>(c =>
+                {
+                    c.SysStartTime = new DateTime(2018, 2, 1);
+                    c.Connection = "mongodb://127.0.0.1:28888";
+                })
                 .Configure<RabbitConfig>(c =>
                 {
                     c.UserName = "admin";

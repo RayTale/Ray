@@ -29,19 +29,19 @@ namespace Ray.MongoES
             CreateCollectionIndex();//创建分表索引
             CreateStateIndex();//创建快照索引
         }
-        public List<CollectionInfo> GetCollectionList(DateTime? startTime = null)
+        public List<CollectionInfo> GetCollectionList(DateTime sysStartTime, DateTime? startTime = null)
         {
             List<CollectionInfo> list = null;
             if (startTime == null)
                 list = GetAllCollectionList();
             else
             {
-                var collection = GetCollection(startTime.Value);
+                var collection = GetCollection(sysStartTime, startTime.Value);
                 list = GetAllCollectionList().Where(c => c.Version >= collection.Version).ToList();
             }
             if (list == null)
             {
-                list = new List<CollectionInfo>() { GetCollection(DateTime.UtcNow) };
+                list = new List<CollectionInfo>() { GetCollection(sysStartTime, DateTime.UtcNow) };
             }
             return list;
         }
@@ -102,15 +102,14 @@ namespace Ray.MongoES
             }
         }
         object collectionLock = new object();
-        static DateTime startTime = new DateTime(2017, 8, 30);
-        public CollectionInfo GetCollection(DateTime eventTime)
+        public CollectionInfo GetCollection(DateTime sysStartTime, DateTime eventTime)
         {
             CollectionInfo lastCollection = null;
             var cList = GetAllCollectionList();
             if (cList.Count > 0) lastCollection = cList.Last();
             //如果不需要分表，直接返回
             if (lastCollection != null && !this.sharding) return lastCollection;
-            var subTime = eventTime.Subtract(startTime);
+            var subTime = eventTime.Subtract(sysStartTime);
             var cVersion = subTime.TotalDays > 0 ? Convert.ToInt32(Math.Floor(subTime.TotalDays / shardingDays)) : 0;
             if (lastCollection == null || cVersion > lastCollection.Version)
             {
@@ -136,7 +135,7 @@ namespace Ray.MongoES
                             if (ex.WriteError.Category == ServerErrorCategory.DuplicateKey)
                             {
                                 collectionList = null;
-                                return GetCollection(eventTime);
+                                return GetCollection(sysStartTime, eventTime);
                             }
                         }
                     }
