@@ -14,7 +14,7 @@
   <ItemGroup>
     <PackageReference Include="Dapper" Version="1.50.4" />
     <PackageReference Include="Npgsql" Version="3.2.6" />
-    <PackageReference Include="protobuf-net" Version="2.3.4" />
+    <PackageReference Include="protobuf-net" Version="2.3.7" />
   </ItemGroup>
 
   <ItemGroup>
