@@ -11,7 +11,7 @@ namespace Ray.Core.EventSourcing
         where S : class, IState<K>, new()
         where W : MessageWrapper
     {
-        UInt32 storageVersion;
+        Int64 storageVersion;
         protected S State
         {
             get;

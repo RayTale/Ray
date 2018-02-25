@@ -26,11 +26,11 @@ namespace Ray.MongoES
             this.serviceProvider = svProvider;
             mongoConfig = svProvider.GetService<IOptions<MongoConfig>>();
         }
-        public async Task<List<EventInfo<K>>> GetListAsync(K stateId, UInt32 startVersion, UInt32 endVersion, DateTime? startTime = null)
+        public async Task<List<EventInfo<K>>> GetListAsync(K stateId, Int64 startVersion, Int64 endVersion, DateTime? startTime = null)
         {
             var collectionList = mongoAttr.GetCollectionList(mongoConfig.Value.SysStartTime, startTime);
             var list = new List<EventInfo<K>>();
-            UInt32 readVersion = 0;
+            Int64 readVersion = 0;
             foreach (var collection in collectionList)
             {
                 var filterBuilder = Builders<BsonDocument>.Filter;
@@ -57,11 +57,11 @@ namespace Ray.MongoES
             }
             return list.OrderBy(e => e.Event.Version).ToList();
         }
-        public async Task<List<EventInfo<K>>> GetListAsync(K stateId, string typeCode, UInt32 startVersion, UInt32 endVersion, DateTime? startTime = null)
+        public async Task<List<EventInfo<K>>> GetListAsync(K stateId, string typeCode, Int64 startVersion, Int64 endVersion, DateTime? startTime = null)
         {
             var collectionList = mongoAttr.GetCollectionList(mongoConfig.Value.SysStartTime, startTime);
             var list = new List<EventInfo<K>>();
-            UInt32 readVersion = 0;
+            Int64 readVersion = 0;
             foreach (var collection in collectionList)
             {
                 var filterBuilder = Builders<BsonDocument>.Filter;

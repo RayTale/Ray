@@ -13,7 +13,7 @@ namespace Ray.MongoES
             set;
         }
         public string MsgId { get; set; }
-        public UInt32 Version
+        public Int64 Version
         {
             get;
             set;

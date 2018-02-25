@@ -6,7 +6,7 @@ namespace Ray.Core.EventSourcing
     public interface IEvent : IMessage
     {
         string Id { get; set; }
-        UInt32 Version { get; set; }
+        Int64 Version { get; set; }
         string CommandId { get; set; }
         DateTime Timestamp { get; set; }
     }

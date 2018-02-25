@@ -9,8 +9,8 @@ namespace Ray.IGrains.States
     {
         #region base
         public string StateId { get; set; }
-        public uint Version { get; set; }
-        public uint DoingVersion { get; set; }
+        public Int64 Version { get; set; }
+        public Int64 DoingVersion { get; set; }
         public DateTime VersionTime { get; set; }
         #endregion
         public decimal Balance { get; set; }

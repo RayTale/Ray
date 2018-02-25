@@ -10,7 +10,7 @@ namespace Ray.IGrains.Events
     {
         #region base
         public string Id { get; set; }
-        public uint Version { get; set; }
+        public Int64 Version { get; set; }
         public string CommandId { get; set; }
         public DateTime Timestamp { get; set; }
         public string StateId { get; set; }

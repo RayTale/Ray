@@ -34,18 +34,18 @@ namespace Ray.PostgresqlES
             }
         }
 
-        public async Task<List<EventInfo<K>>> GetListAsync(K stateId, uint startVersion, uint endVersion, DateTime? startTime = null)
+        public async Task<List<EventInfo<K>>> GetListAsync(K stateId, Int64 startVersion, Int64 endVersion, DateTime? startTime = null)
         {
             var tableList = await tableInfo.GetTableList(startTime);
             var list = new List<EventInfo<K>>();
-            UInt32 readVersion = 0;
+            Int64 readVersion = 0;
             using (var conn = tableInfo.CreateConnection())
             {
                 foreach (var table in tableList)
                 {
                     var sql = $"SELECT typecode,data,IsComplete from {table.Name} WHERE stateid=@StateId and version>@Start and version<=@End";
 
-                    var sqlEventList = await conn.QueryAsync<SqlEvent>(sql, new { StateId = stateId, Start = (long)startVersion, End = (long)endVersion });
+                    var sqlEventList = await conn.QueryAsync<SqlEvent>(sql, new { StateId = stateId, Start = startVersion, End = endVersion });
                     foreach (var sqlEvent in sqlEventList)
                     {
                         var type = MessageTypeMapping.GetType(sqlEvent.TypeCode);
@@ -67,18 +67,18 @@ namespace Ray.PostgresqlES
             return list.OrderBy(e => e.Event.Version).ToList();
         }
 
-        public async Task<List<EventInfo<K>>> GetListAsync(K stateId, string typeCode, uint startVersion, uint endVersion, DateTime? startTime = null)
+        public async Task<List<EventInfo<K>>> GetListAsync(K stateId, string typeCode, Int64 startVersion, Int64 endVersion, DateTime? startTime = null)
         {
             var tableList = await tableInfo.GetTableList(startTime);
             var list = new List<EventInfo<K>>();
-            UInt32 readVersion = 0;
+            Int64 readVersion = 0;
             using (var conn = tableInfo.CreateConnection())
             {
                 foreach (var table in tableList)
                 {
                     var sql = $"SELECT typecode,data,IsComplete from {table.Name} WHERE stateid=@StateId and typecode=@TypeCode and version>@Start and version<=@End";
 
-                    var sqlEventList = await conn.QueryAsync<SqlEvent>(sql, new { StateId = stateId, TypeCode = typeCode, Start = (long)startVersion, End = (long)endVersion });
+                    var sqlEventList = await conn.QueryAsync<SqlEvent>(sql, new { StateId = stateId, TypeCode = typeCode, Start = startVersion, End = endVersion });
                     foreach (var sqlEvent in sqlEventList)
                     {
                         var type = MessageTypeMapping.GetType(sqlEvent.TypeCode);
@@ -112,7 +112,7 @@ namespace Ray.PostgresqlES
             {
                 using (var conn = tableInfo.CreateConnection())
                 {
-                    await conn.ExecuteAsync(saveSql, new { data.Id, StateId = data.StateId.ToString(), MsgId = msgId, data.TypeCode, Data = bytes, Version = (long)data.Version, IsComplete = false });
+                    await conn.ExecuteAsync(saveSql, new { data.Id, StateId = data.StateId.ToString(), MsgId = msgId, data.TypeCode, Data = bytes, Version = data.Version, IsComplete = false });
                 }
                 return true;
             }
