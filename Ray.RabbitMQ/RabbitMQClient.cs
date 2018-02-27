@@ -40,7 +40,7 @@ namespace Ray.RabbitMQ
     public static class RabbitMQClient
     {
         static object facLock = new object();
-        public static void Init(IServiceProvider provider)
+        public static void Init(IOptions<RabbitConfig> config)
         {
             if (_Factory == null)
             {
@@ -48,7 +48,7 @@ namespace Ray.RabbitMQ
                 {
                     if (_Factory == null)
                     {
-                        rabbitHost = provider.GetService<IOptions<RabbitConfig>>().Value;
+                        rabbitHost = config.Value;
                         _Factory = new ConnectionFactory()
                         {
                             UserName = rabbitHost.UserName,

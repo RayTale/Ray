@@ -6,6 +6,7 @@ using Ray.Core.MQ;
 using Microsoft.Extensions.DependencyInjection;
 using Ray.Core.Utils;
 using System.Runtime.CompilerServices;
+using Microsoft.Extensions.Logging;
 
 namespace Ray.Core.EventSourcing
 {
@@ -20,10 +21,11 @@ namespace Ray.Core.EventSourcing
             set;
         }
         protected abstract K GrainId { get; }
-
+        private ILogger<ESGrain<K, S, W>> Logger;
         #region LifeTime
         public override async Task OnActivateAsync()
         {
+            Logger = ServiceProvider.GetService<ILogger<ESGrain<K, S, W>>>();
             await ReadSnapshotAsync();
             while (true)
             {
@@ -190,7 +192,7 @@ namespace Ray.Core.EventSourcing
             }
             catch (Exception ex)
             {
-                this.GetLogger("Event_Raise").Log(LogCodes.EventRaiseError, Orleans.Runtime.Severity.Error, $"applay event {@event.TypeCode} error, eventId={@event.Version}", null, ex);
+                Logger.LogError(LogCodes.EventRaiseError, ex, $"applay event {@event.TypeCode} error, eventId={@event.Version}", null, ex);
                 await OnActivateAsync();//重新激活Actor
                 throw ex;
             }
@@ -210,7 +212,7 @@ namespace Ray.Core.EventSourcing
             }
             catch (Exception e)
             {
-                this.GetLogger("Event_Raise").Log(LogCodes.EventCompleteError, Orleans.Runtime.Severity.Error, "事件complate操作出现致命异常:" + string.Format("Grain类型={0},GrainId={1},StateId={2},Version={3},错误信息:{4}", ThisType.FullName, GrainId, @event.StateId, @event.Version, e.Message), null, e);
+                Logger.LogError(LogCodes.EventCompleteError, e, "事件complate操作出现致命异常:" + string.Format("Grain类型={0},GrainId={1},StateId={2},Version={3},错误信息:{4}", ThisType.FullName, GrainId, @event.StateId, @event.Version, e.Message), null, e);
                 throw e;
             }
         }

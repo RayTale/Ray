@@ -9,33 +9,31 @@ using System.Linq;
 using System.Threading;
 using Ray.Core.EventSourcing;
 using Ray.Core.Message;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace Ray.MongoES
 {
-    public class MongoEventStorage<K> : MongoStorage, IEventStorage<K>
+    public class MongoEventStorage<K> : IEventStorage<K>
     {
-        MongoStorageAttribute mongoAttr; IServiceProvider serviceProvider;
-        IOptions<MongoConfig> mongoConfig;
-        public MongoEventStorage(MongoStorageAttribute mongoAttr, IServiceProvider svProvider)
-            : base(svProvider.GetService<IOptions<MongoConfig>>())
+        MongoStorageAttribute mongoAttr;
+        ILogger<MongoEventStorage<K>> logger;
+        IMongoStorage mongoStorage;
+        public MongoEventStorage(IMongoStorage mongoStorage, ILogger<MongoEventStorage<K>> logger, MongoStorageAttribute mongoAttr)
         {
+            this.mongoStorage = mongoStorage;
             this.mongoAttr = mongoAttr;
-            this.serviceProvider = svProvider;
-            mongoConfig = svProvider.GetService<IOptions<MongoConfig>>();
+            this.logger = logger;
         }
         public async Task<List<EventInfo<K>>> GetListAsync(K stateId, Int64 startVersion, Int64 endVersion, DateTime? startTime = null)
         {
-            var collectionList = mongoAttr.GetCollectionList(mongoConfig.Value.SysStartTime, startTime);
+            var collectionList = mongoAttr.GetCollectionList(mongoStorage, mongoStorage.Config.SysStartTime, startTime);
             var list = new List<EventInfo<K>>();
             Int64 readVersion = 0;
             foreach (var collection in collectionList)
             {
                 var filterBuilder = Builders<BsonDocument>.Filter;
                 var filter = filterBuilder.Eq("StateId", stateId) & filterBuilder.Lte("Version", endVersion) & filterBuilder.Gt("Version", startVersion);
-                var cursor = await GetCollection<BsonDocument>(mongoAttr.EventDataBase, collection.Name).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(3000).Token);
+                var cursor = await mongoStorage.GetCollection<BsonDocument>(mongoAttr.EventDataBase, collection.Name).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(3000).Token);
                 foreach (var document in cursor.ToEnumerable())
                 {
                     var typeCode = document["TypeCode"].AsString;
@@ -59,14 +57,14 @@ namespace Ray.MongoES
         }
         public async Task<List<EventInfo<K>>> GetListAsync(K stateId, string typeCode, Int64 startVersion, Int64 endVersion, DateTime? startTime = null)
         {
-            var collectionList = mongoAttr.GetCollectionList(mongoConfig.Value.SysStartTime, startTime);
+            var collectionList = mongoAttr.GetCollectionList(mongoStorage, mongoStorage.Config.SysStartTime, startTime);
             var list = new List<EventInfo<K>>();
             Int64 readVersion = 0;
             foreach (var collection in collectionList)
             {
                 var filterBuilder = Builders<BsonDocument>.Filter;
                 var filter = filterBuilder.Eq("StateId", stateId) & filterBuilder.Eq("TypeCode", typeCode) & filterBuilder.Gt("Version", startVersion);
-                var cursor = await GetCollection<BsonDocument>(mongoAttr.EventDataBase, collection.Name).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(3000).Token);
+                var cursor = await mongoStorage.GetCollection<BsonDocument>(mongoAttr.EventDataBase, collection.Name).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(3000).Token);
                 foreach (var document in cursor.ToEnumerable())
                 {
                     var type = MessageTypeMapping.GetType(typeCode);
@@ -109,7 +107,7 @@ namespace Ray.MongoES
                 mEvent.MsgId = uniqueId;
             try
             {
-                await GetCollection<MongoEvent<K>>(mongoAttr.EventDataBase, mongoAttr.GetCollection(mongoConfig.Value.SysStartTime, data.Timestamp).Name).InsertOneAsync(mEvent);
+                await mongoStorage.GetCollection<MongoEvent<K>>(mongoAttr.EventDataBase, mongoAttr.GetCollection(mongoStorage, mongoStorage.Config.SysStartTime, data.Timestamp).Name).InsertOneAsync(mEvent);
                 return true;
             }
             catch (MongoWriteException ex)
@@ -120,7 +118,7 @@ namespace Ray.MongoES
                 }
                 else
                 {
-                    serviceProvider.GetService<ILoggerFactory>().CreateLogger("MongoEventStorage").LogError(ex, $"事件重复插入,Event:{Newtonsoft.Json.JsonConvert.SerializeObject(data)}");
+                    logger.LogError(ex, $"事件重复插入,Event:{Newtonsoft.Json.JsonConvert.SerializeObject(data)}");
                 }
             }
             return false;
@@ -130,7 +128,7 @@ namespace Ray.MongoES
         {
             var filter = Builders<BsonDocument>.Filter.Eq("_id", data.Id);
             var update = Builders<BsonDocument>.Update.Set("IsComplete", true);
-            await GetCollection<BsonDocument>(mongoAttr.EventDataBase, mongoAttr.GetCollection(mongoConfig.Value.SysStartTime, data.Timestamp).Name).UpdateOneAsync(filter, update);
+            await mongoStorage.GetCollection<BsonDocument>(mongoAttr.EventDataBase, mongoAttr.GetCollection(mongoStorage, mongoStorage.Config.SysStartTime, data.Timestamp).Name).UpdateOneAsync(filter, update);
         }
     }
 }

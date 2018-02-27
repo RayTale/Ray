@@ -4,10 +4,12 @@ using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Ray.Core.MQ;
 using Ray.Core.Utils;
+using Microsoft.Extensions.Options;
 
 namespace Ray.RabbitMQ
 {
@@ -18,7 +20,7 @@ namespace Ray.RabbitMQ
         {
             this.logger = logger;
             this.provider = provider;
-            RabbitMQClient.Init(provider);
+            RabbitMQClient.Init(provider.GetService<IOptions<RabbitConfig>>());
         }
         protected override async Task Start(List<SubAttribute> attributes, string node, List<string> nodeList = null)
         {

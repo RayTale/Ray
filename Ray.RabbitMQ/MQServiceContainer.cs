@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using Microsoft.Extensions.Options;
 using Ray.Core;
 using Ray.Core.MQ;
 
@@ -8,11 +9,9 @@ namespace Ray.RabbitMQ
     public class MQServiceContainer<W> : IMQServiceContainer
         where W : MessageWrapper, new()
     {
-        IServiceProvider serviceProvider;
-        public MQServiceContainer(IServiceProvider svProvider)
+        public MQServiceContainer(IOptions<RabbitConfig> config)
         {
-            this.serviceProvider = svProvider;
-            RabbitMQClient.Init(svProvider);
+            RabbitMQClient.Init(config);
         }
         ConcurrentDictionary<Type, IMQService> typeMQDict = new ConcurrentDictionary<Type, IMQService>();
         public IMQService GetService(Type type)

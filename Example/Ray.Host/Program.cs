@@ -1,5 +1,4 @@
-﻿using Orleans.Runtime.Configuration;
-using System;
+﻿using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Orleans.Hosting;
@@ -8,7 +7,6 @@ using Ray.Grain;
 using Ray.MongoES;
 using Ray.RabbitMQ;
 using Ray.IGrains;
-using Ray.Core;
 using Ray.Core.Message;
 using Orleans;
 
@@ -42,10 +40,7 @@ namespace Ray.Host
         }
         private static async Task<ISiloHost> StartSilo()
         {
-            var config = ClusterConfiguration.LocalhostPrimarySilo();
-            config.AddMemoryStorageProvider();
             var builder = new SiloHostBuilder()
-                .UseConfiguration(config)
                 .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(Account).Assembly).WithReferences())
                 .ConfigureServices((context, servicecollection) =>
                 {

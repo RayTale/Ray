@@ -26,41 +26,36 @@ namespace Ray.MongoES
             this.SnapshotCollection = collection + "State";
             this.sharding = sharding;
             this.shardingDays = shardingDays;
-            CreateCollectionIndex();//创建分表索引
-            CreateStateIndex();//创建快照索引
         }
-        public List<CollectionInfo> GetCollectionList(DateTime sysStartTime, DateTime? startTime = null)
+        public List<CollectionInfo> GetCollectionList(IMongoStorage storage, DateTime sysStartTime, DateTime? startTime = null)
         {
             List<CollectionInfo> list = null;
             if (startTime == null)
-                list = GetAllCollectionList();
+                list = GetAllCollectionList(storage);
             else
             {
-                var collection = GetCollection(sysStartTime, startTime.Value);
-                list = GetAllCollectionList().Where(c => c.Version >= collection.Version).ToList();
+                var collection = GetCollection(storage, sysStartTime, startTime.Value);
+                list = GetAllCollectionList(storage).Where(c => c.Version >= collection.Version).ToList();
             }
             if (list == null)
             {
-                list = new List<CollectionInfo>() { GetCollection(sysStartTime, DateTime.UtcNow) };
+                list = new List<CollectionInfo>() { GetCollection(storage, sysStartTime, DateTime.UtcNow) };
             }
             return list;
         }
-        private void CreateStateIndex()
+        public async Task CreateStateIndex(IMongoStorage storage)
         {
-            Task.Run(async () =>
+            var collectionService = storage.GetCollection<BsonDocument>(EventDataBase, SnapshotCollection);
+            CancellationTokenSource cancel = new CancellationTokenSource(1);
+            var index = await collectionService.Indexes.ListAsync();
+            var indexList = await index.ToListAsync();
+            if (!indexList.Exists(p => p["name"] == "State"))
             {
-                var collectionService = MongoStorage.GetCollection<BsonDocument>(EventDataBase, SnapshotCollection);
-                CancellationTokenSource cancel = new CancellationTokenSource(1);
-                var index = await collectionService.Indexes.ListAsync();
-                var indexList = await index.ToListAsync();
-                if (!indexList.Exists(p => p["name"] == "State"))
-                {
-                    await collectionService.Indexes.CreateOneAsync("{'StateId':1}", new CreateIndexOptions { Name = "State", Unique = true });
-                }
-            }).ConfigureAwait(false);
+                await collectionService.Indexes.CreateOneAsync("{'StateId':1}", new CreateIndexOptions { Name = "State", Unique = true });
+            }
         }
         private List<CollectionInfo> collectionList;
-        public List<CollectionInfo> GetAllCollectionList()
+        public List<CollectionInfo> GetAllCollectionList(IMongoStorage storage)
         {
             if (collectionList == null)
             {
@@ -68,44 +63,41 @@ namespace Ray.MongoES
                 {
                     if (collectionList == null)
                     {
-                        collectionList = MongoStorage.GetCollection<CollectionInfo>(EventDataBase, C_CName).Find<CollectionInfo>(c => c.Type == EventCollection).ToList();
+                        collectionList = storage.GetCollection<CollectionInfo>(EventDataBase, C_CName).Find<CollectionInfo>(c => c.Type == EventCollection).ToList();
                     }
                 }
             }
             return collectionList;
         }
-        private void CreateCollectionIndex()
+        public async Task CreateCollectionIndex(IMongoStorage storage)
         {
-            Task.Run(async () =>
+            var collectionService = storage.GetCollection<BsonDocument>(EventDataBase, C_CName);
+            CancellationTokenSource cancel = new CancellationTokenSource(1);
+            var index = await collectionService.Indexes.ListAsync();
+            var indexList = await index.ToListAsync();
+            if (!indexList.Exists(p => p["name"] == "Name"))
             {
-                var collectionService = MongoStorage.GetCollection<BsonDocument>(EventDataBase, C_CName);
-                CancellationTokenSource cancel = new CancellationTokenSource(1);
-                var index = await collectionService.Indexes.ListAsync();
-                var indexList = await index.ToListAsync();
-                if (!indexList.Exists(p => p["name"] == "Name"))
-                {
-                    await collectionService.Indexes.CreateOneAsync("{'Name':1}", new CreateIndexOptions { Name = "Name", Unique = true });
-                }
-            }).ConfigureAwait(false);
+                await collectionService.Indexes.CreateOneAsync("{'Name':1}", new CreateIndexOptions { Name = "Name", Unique = true });
+            }
         }
-        private void CreateEventIndex(string collectionName)
+        public async Task CreateEventIndex(IMongoStorage storage, string collectionName)
         {
-            var collectionService = MongoStorage.GetCollection<BsonDocument>(EventDataBase, collectionName);
-            var indexList = collectionService.Indexes.List().ToList();
+            var collectionService = storage.GetCollection<BsonDocument>(EventDataBase, collectionName);
+            var indexList = (await collectionService.Indexes.ListAsync()).ToList();
             if (!indexList.Exists(p => p["name"] == "State_Version") && !indexList.Exists(p => p["name"] == "State_MsgId"))
             {
-                collectionService.Indexes.CreateMany(
-                    new List<CreateIndexModel<BsonDocument>>() {
+                await collectionService.Indexes.CreateManyAsync(
+                      new List<CreateIndexModel<BsonDocument>>() {
                 new CreateIndexModel<BsonDocument>("{'StateId':1,'Version':1}", new CreateIndexOptions { Name = "State_Version",Unique=true }),
                 new CreateIndexModel<BsonDocument>("{'StateId':1,'TypeCode':1,'MsgId':1}", new CreateIndexOptions { Name = "State_MsgId", Unique = true }) }
-                    );
+                      );
             }
         }
         object collectionLock = new object();
-        public CollectionInfo GetCollection(DateTime sysStartTime, DateTime eventTime)
+        public CollectionInfo GetCollection(IMongoStorage storage, DateTime sysStartTime, DateTime eventTime)
         {
             CollectionInfo lastCollection = null;
-            var cList = GetAllCollectionList();
+            var cList = GetAllCollectionList(storage);
             if (cList.Count > 0) lastCollection = cList.Last();
             //如果不需要分表，直接返回
             if (lastCollection != null && !this.sharding) return lastCollection;
@@ -125,17 +117,17 @@ namespace Ray.MongoES
                         collection.Name = EventCollection + "_" + cVersion;
                         try
                         {
-                            MongoStorage.GetCollection<CollectionInfo>(EventDataBase, C_CName).InsertOne(collection);
+                            storage.GetCollection<CollectionInfo>(EventDataBase, C_CName).InsertOne(collection);
                             collectionList.Add(collection);
                             lastCollection = collection;
-                            CreateEventIndex(collection.Name);
+                            CreateEventIndex(storage, collection.Name).GetAwaiter().GetResult();
                         }
                         catch (MongoWriteException ex)
                         {
                             if (ex.WriteError.Category == ServerErrorCategory.DuplicateKey)
                             {
                                 collectionList = null;
-                                return GetCollection(sysStartTime, eventTime);
+                                return GetCollection(storage, sysStartTime, eventTime);
                             }
                         }
                     }

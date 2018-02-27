@@ -8,6 +8,7 @@ namespace Ray.MongoES
     {
         public static void AddMongoES(this IServiceCollection serviceCollection)
         {
+            serviceCollection.AddSingleton<IMongoStorage, MongoStorage>();
             serviceCollection.AddSingleton<IStorageContainer, MongoStorageContainer>();
         }
     }

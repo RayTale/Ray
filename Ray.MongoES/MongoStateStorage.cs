@@ -6,17 +6,16 @@ using ProtoBuf;
 using MongoDB.Driver;
 using MongoDB.Bson;
 using Ray.Core.EventSourcing;
-using System;
-using Microsoft.Extensions.Options;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Ray.MongoES
 {
-    public class MongoStateStorage<T, K> : MongoStorage, IStateStorage<T, K> where T : class, IState<K>
+    public class MongoStateStorage<T, K> : IStateStorage<T, K> where T : class, IState<K>
     {
         string database, collection;
-        public MongoStateStorage(string database, string collection, IServiceProvider svProvider) : base(svProvider.GetService<IOptions<MongoConfig>>())
+        IMongoStorage mongoStorage;
+        public MongoStateStorage(IMongoStorage mongoStorage, string database, string collection)
         {
+            this.mongoStorage = mongoStorage;
             this.database = database;
             this.collection = collection;
         }
@@ -24,13 +23,13 @@ namespace Ray.MongoES
         {
             var filterBuilder = Builders<BsonDocument>.Filter;
             var filter = filterBuilder.Eq("StateId", id);
-            await GetCollection<BsonDocument>(database, collection).DeleteManyAsync(filter);
+            await mongoStorage.GetCollection<BsonDocument>(database, collection).DeleteManyAsync(filter);
         }
         public async Task<T> GetByIdAsync(K id)
         {
             var filterBuilder = Builders<BsonDocument>.Filter;
             var filter = filterBuilder.Eq("StateId", id);
-            var cursor = await GetCollection<BsonDocument>(database, collection).FindAsync<BsonDocument>(filter);
+            var cursor = await mongoStorage.GetCollection<BsonDocument>(database, collection).FindAsync<BsonDocument>(filter);
             var document = await cursor.FirstOrDefaultAsync();
             T result = null;
             if (document != null)
@@ -58,7 +57,7 @@ namespace Ray.MongoES
                 mState.Data = ms.ToArray();
             }
             if (mState.Data != null && mState.Data.Count() > 0)
-                await GetCollection<MongoState<K>>(database, collection).InsertOneAsync(mState, null, new CancellationTokenSource(3000).Token);
+                await mongoStorage.GetCollection<MongoState<K>>(database, collection).InsertOneAsync(mState, null, new CancellationTokenSource(3000).Token);
         }
 
         public async Task UpdateAsync(T data)
@@ -74,7 +73,7 @@ namespace Ray.MongoES
             if (bytes != null && bytes.Count() > 0)
             {
                 var update = Builders<BsonDocument>.Update.Set("Data", bytes);
-                await GetCollection<BsonDocument>(database, collection).UpdateOneAsync(filter, update, null, new CancellationTokenSource(3000).Token);
+                await mongoStorage.GetCollection<BsonDocument>(database, collection).UpdateOneAsync(filter, update, null, new CancellationTokenSource(3000).Token);
             }
         }
     }

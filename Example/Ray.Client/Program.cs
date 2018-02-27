@@ -75,9 +75,8 @@ namespace Ray.Client
             {
                 try
                 {
-                    var config = ClientConfiguration.LocalhostSilo();
                     client = new ClientBuilder()
-                        .UseConfiguration(config)
+                        .ConfigureDefaults()
                         .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IAccount).Assembly).WithReferences())
                         .ConfigureLogging(logging => logging.AddConsole())
                         .ConfigureServices((servicecollection) =>
