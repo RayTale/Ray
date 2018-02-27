@@ -1,7 +1,5 @@
 ﻿using Microsoft.Extensions.Options;
 using MongoDB.Driver;
-using Microsoft.Extensions.DependencyInjection;
-using System;
 
 namespace Ray.MongoES
 {
