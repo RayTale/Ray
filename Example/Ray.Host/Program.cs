@@ -42,6 +42,7 @@ namespace Ray.Host
         {
             var builder = new SiloHostBuilder()
                 .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(Account).Assembly).WithReferences())
+                .ConfigureLocalHostPrimarySilo()
                 .ConfigureServices((context, servicecollection) =>
                 {
                     servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件

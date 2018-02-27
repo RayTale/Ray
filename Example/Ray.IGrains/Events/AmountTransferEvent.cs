@@ -14,7 +14,6 @@ namespace Ray.IGrains.Events
         public string CommandId { get; set; }
         public DateTime Timestamp { get; set; }
         public string StateId { get; set; }
-
         public string TypeCode => this.GetType().FullName;
         #endregion
         public string ToAccountId { get; set; }
