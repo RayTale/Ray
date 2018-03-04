@@ -8,6 +8,8 @@ using Ray.IGrains.Events;
 using Ray.MongoES;
 using Ray.Grain.EventHandles;
 using Orleans.Concurrency;
+using Microsoft.Extensions.DependencyInjection;
+using System.Threading;
 
 namespace Ray.Grain
 {
@@ -20,9 +22,9 @@ namespace Ray.Grain
         static IEventHandle _eventHandle = new AccountEventHandle();
         protected override IEventHandle EventHandle => _eventHandle;
 
-        public override Task OnActivateAsync()
+        public override async Task OnActivateAsync()
         {
-            return base.OnActivateAsync();
+            await base.OnActivateAsync();
         }
         public Task Transfer(string toAccountId, decimal amount)
         {

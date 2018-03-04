@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Dapper;
 using System.IO;
 using ProtoBuf;
+using Ray.Core.Utils;
 
 namespace Ray.PostgresqlES
 {
@@ -20,7 +21,7 @@ namespace Ray.PostgresqlES
         }
         public Task DeleteAsync(K id)
         {
-            return SQLTask.SQLTaskExecute(async () =>
+            return RayTask.Execute(async () =>
             {
                 using (var conn = tableInfo.CreateConnection())
                 {
@@ -31,7 +32,7 @@ namespace Ray.PostgresqlES
 
         public async Task<T> GetByIdAsync(K id)
         {
-            byte[] state = await SQLTask.SQLTaskExecute<byte[]>(async () =>
+            byte[] state = await RayTask.Execute<byte[]>(async () =>
             {
                 using (var conn = tableInfo.CreateConnection())
                 {
@@ -50,7 +51,7 @@ namespace Ray.PostgresqlES
 
         public Task InsertAsync(T data)
         {
-            return SQLTask.SQLTaskExecute(async () =>
+            return RayTask.Execute(async () =>
             {
                 using (MemoryStream ms = new MemoryStream())
                 {
@@ -65,7 +66,7 @@ namespace Ray.PostgresqlES
 
         public Task UpdateAsync(T data)
         {
-            return SQLTask.SQLTaskExecute(async () =>
+            return RayTask.Execute(async () =>
             {
                 using (MemoryStream ms = new MemoryStream())
                 {

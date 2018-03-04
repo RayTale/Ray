@@ -46,7 +46,6 @@ namespace Ray.MongoES
         public async Task CreateStateIndex(IMongoStorage storage)
         {
             var collectionService = storage.GetCollection<BsonDocument>(EventDataBase, SnapshotCollection);
-            CancellationTokenSource cancel = new CancellationTokenSource(1);
             var index = await collectionService.Indexes.ListAsync();
             var indexList = await index.ToListAsync();
             if (!indexList.Exists(p => p["name"] == "State"))
@@ -54,25 +53,9 @@ namespace Ray.MongoES
                 await collectionService.Indexes.CreateOneAsync("{'StateId':1}", new CreateIndexOptions { Name = "State", Unique = true });
             }
         }
-        private List<CollectionInfo> collectionList;
-        public List<CollectionInfo> GetAllCollectionList(IMongoStorage storage)
-        {
-            if (collectionList == null)
-            {
-                lock (collectionLock)
-                {
-                    if (collectionList == null)
-                    {
-                        collectionList = storage.GetCollection<CollectionInfo>(EventDataBase, C_CName).Find<CollectionInfo>(c => c.Type == EventCollection).ToList();
-                    }
-                }
-            }
-            return collectionList;
-        }
         public async Task CreateCollectionIndex(IMongoStorage storage)
         {
             var collectionService = storage.GetCollection<BsonDocument>(EventDataBase, C_CName);
-            CancellationTokenSource cancel = new CancellationTokenSource(1);
             var index = await collectionService.Indexes.ListAsync();
             var indexList = await index.ToListAsync();
             if (!indexList.Exists(p => p["name"] == "Name"))
@@ -92,6 +75,21 @@ namespace Ray.MongoES
                 new CreateIndexModel<BsonDocument>("{'StateId':1,'TypeCode':1,'MsgId':1}", new CreateIndexOptions { Name = "State_MsgId", Unique = true }) }
                       );
             }
+        }
+        private List<CollectionInfo> collectionList;
+        public List<CollectionInfo> GetAllCollectionList(IMongoStorage storage)
+        {
+            if (collectionList == null)
+            {
+                lock (collectionLock)
+                {
+                    if (collectionList == null)
+                    {
+                        collectionList = storage.GetCollection<CollectionInfo>(EventDataBase, C_CName).Find<CollectionInfo>(c => c.Type == EventCollection).ToList();
+                    }
+                }
+            }
+            return collectionList;
         }
         object collectionLock = new object();
         public CollectionInfo GetCollection(IMongoStorage storage, DateTime sysStartTime, DateTime eventTime)

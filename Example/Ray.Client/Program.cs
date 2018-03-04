@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Orleans;
 using Orleans.Runtime;
-using Orleans.Runtime.Configuration;
 using Ray.Handler;
 using Ray.IGrains;
 using Ray.IGrains.Actors;
@@ -12,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Ray.Core.Message;
 using System.Diagnostics;
 using Ray.Core.MQ;
+using System.Net;
 
 namespace Ray.Client
 {
@@ -69,6 +69,8 @@ namespace Ray.Client
 
         private static async Task<IClusterClient> StartClientWithRetries(int initializeAttemptsBeforeFailing = 5)
         {
+            var siloAddress = IPAddress.Loopback;
+            var gatewayPort = 30000;
             int attempt = 0;
             IClusterClient client;
             while (true)
@@ -76,24 +78,25 @@ namespace Ray.Client
                 try
                 {
                     client = new ClientBuilder()
-                        .UseConfiguration(ClientConfiguration.LocalhostSilo())
-                        .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IAccount).Assembly).WithReferences())
-                        .ConfigureLogging(logging => logging.AddConsole())
-                        .ConfigureServices((servicecollection) =>
-                        {
-                            SubManager.Parse(servicecollection, typeof(HandlerStart).Assembly);//注册handle
+                    .ConfigureCluster(options => { options.ClusterId = "helloworldcluster"; })
+                    .UseStaticClustering(options => options.Gateways.Add((new IPEndPoint(siloAddress, gatewayPort)).ToGatewayUri()))
+                    .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IAccount).Assembly).WithReferences())
+                    .ConfigureLogging(logging => logging.AddConsole())
+                    .ConfigureServices((servicecollection) =>
+                    {
+                        SubManager.Parse(servicecollection, typeof(HandlerStart).Assembly);//注册handle
                             servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
                             servicecollection.AddRabbitMQ<MessageInfo>();//注册RabbitMq为默认消息队列
                             servicecollection.PostConfigure<RabbitConfig>(c =>
-                            {
-                                c.UserName = "admin";
-                                c.Password = "luohuazhiyu";
-                                c.Hosts = new[] { "192.168.199.216:5672" };
-                                c.MaxPoolSize = 100;
-                                c.VirtualHost = "/";
-                            });
-                        })
-                        .Build();
+                        {
+                            c.UserName = "admin";
+                            c.Password = "luohuazhiyu";
+                            c.Hosts = new[] { "127.0.0.1:5672" };
+                            c.MaxPoolSize = 100;
+                            c.VirtualHost = "/";
+                        });
+                    })
+                    .Build();
 
                     await client.Connect();
                     Console.WriteLine("Client successfully connect to silo host");

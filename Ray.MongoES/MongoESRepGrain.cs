@@ -1,5 +1,9 @@
 ﻿using Ray.Core;
 using Ray.Core.EventSourcing;
+using Ray.Core.Utils;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Ray.MongoES
 {
@@ -8,7 +12,13 @@ namespace Ray.MongoES
         where W : MessageWrapper
     {
         protected MongoStorageAttribute _mongoInfo = null;
-
+        public override Task OnActivateAsync()
+        {
+            return RayTask.Execute(() =>
+            {
+                return base.OnActivateAsync();
+            });
+        }
         public virtual MongoStorageAttribute ESMongoInfo
         {
             get

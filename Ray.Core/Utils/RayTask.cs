@@ -2,11 +2,11 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Ray.PostgresqlES
+namespace Ray.Core.Utils
 {
-    public static class SQLTask
+    public static class RayTask
     {
-        public static Task<T> SQLTaskExecute<T>(Func<Task<T>> func, int millisecondsDelay = 5000)
+        public static Task<T> Execute<T>(Func<Task<T>> func, int millisecondsDelay = 5000)
         {
             var ts = new TaskCompletionSource<T>();
             var token = new CancellationTokenSource(millisecondsDelay);
@@ -27,7 +27,7 @@ namespace Ray.PostgresqlES
             }).ConfigureAwait(false);
             return ts.Task;
         }
-        public static Task SQLTaskExecute(Func<Task> func, int millisecondsDelay = 5000)
+        public static Task Execute(Func<Task> func, int millisecondsDelay = 5000)
         {
             var ts = new TaskCompletionSource<bool>();
             var token = new CancellationTokenSource(millisecondsDelay);
