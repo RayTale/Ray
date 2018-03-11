@@ -4,9 +4,9 @@ using System.Linq;
 
 namespace Ray.Core.Message
 {
-    public static class MessageTypeMapping
+    public static class MessageTypeMapper
     {
-        static MessageTypeMapping()
+        static MessageTypeMapper()
         {
             var assemblyList = AppDomain.CurrentDomain.GetAssemblies().Where(a => !a.IsDynamic);
             var eventType = typeof(IMessage);

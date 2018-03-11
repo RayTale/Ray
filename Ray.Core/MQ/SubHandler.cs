@@ -24,7 +24,7 @@ namespace Ray.Core.MQ
             using (var ms = new MemoryStream(bytes))
             {
                 var msg = serializer.Deserialize<TMessageWrapper>(ms);
-                var type = MessageTypeMapping.GetType(msg.TypeCode);
+                var type = MessageTypeMapper.GetType(msg.TypeCode);
                 if (type == null)
                 {
                     throw new Exception($"TypeCode for { msg.TypeCode } type does not exist");

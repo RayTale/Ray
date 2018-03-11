@@ -37,7 +37,7 @@ namespace Ray.MongoES
                 foreach (var document in cursor.ToEnumerable())
                 {
                     var typeCode = document["TypeCode"].AsString;
-                    var type = MessageTypeMapping.GetType(typeCode);
+                    var type = MessageTypeMapper.GetType(typeCode);
                     var data = document["Data"].AsByteArray;
                     var eventInfo = new EventInfo<K>();
                     eventInfo.IsComplete = document["IsComplete"].AsBoolean;
@@ -67,7 +67,7 @@ namespace Ray.MongoES
                 var cursor = await mongoStorage.GetCollection<BsonDocument>(mongoAttr.EventDataBase, collection.Name).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(3000).Token);
                 foreach (var document in cursor.ToEnumerable())
                 {
-                    var type = MessageTypeMapping.GetType(typeCode);
+                    var type = MessageTypeMapper.GetType(typeCode);
                     var data = document["Data"].AsByteArray;
                     var eventInfo = new EventInfo<K>();
                     eventInfo.IsComplete = document["IsComplete"].AsBoolean;

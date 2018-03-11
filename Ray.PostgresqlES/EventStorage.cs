@@ -48,7 +48,7 @@ namespace Ray.PostgresqlES
                     var sqlEventList = await conn.QueryAsync<SqlEvent>(sql, new { StateId = stateId, Start = startVersion, End = endVersion });
                     foreach (var sqlEvent in sqlEventList)
                     {
-                        var type = MessageTypeMapping.GetType(sqlEvent.TypeCode);
+                        var type = MessageTypeMapper.GetType(sqlEvent.TypeCode);
                         var eventInfo = new EventInfo<K>();
                         eventInfo.IsComplete = sqlEvent.IsComplete;
                         using (var ms = new MemoryStream(sqlEvent.Data))
@@ -81,7 +81,7 @@ namespace Ray.PostgresqlES
                     var sqlEventList = await conn.QueryAsync<SqlEvent>(sql, new { StateId = stateId, TypeCode = typeCode, Start = startVersion, End = endVersion });
                     foreach (var sqlEvent in sqlEventList)
                     {
-                        var type = MessageTypeMapping.GetType(sqlEvent.TypeCode);
+                        var type = MessageTypeMapper.GetType(sqlEvent.TypeCode);
                         var eventInfo = new EventInfo<K>();
                         eventInfo.IsComplete = sqlEvent.IsComplete;
                         using (var ms = new MemoryStream(sqlEvent.Data))

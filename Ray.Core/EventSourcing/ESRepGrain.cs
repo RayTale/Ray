@@ -80,7 +80,7 @@ namespace Ray.Core.EventSourcing
         }
         public async Task Tell(W message)
         {
-            var type = MessageTypeMapping.GetType(message.TypeCode);
+            var type = MessageTypeMapper.GetType(message.TypeCode);
             if (type != null)
             {
                 using (var ems = new MemoryStream(message.BinaryBytes))
