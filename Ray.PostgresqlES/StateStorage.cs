@@ -41,7 +41,7 @@ namespace Ray.PostgresqlES
             });
             if (state != null)
             {
-                using (MemoryStream ms = new MemoryStream(state))
+                using (var ms = new MemoryStream(state))
                 {
                     return Serializer.Deserialize<T>(ms);
                 }
@@ -53,7 +53,7 @@ namespace Ray.PostgresqlES
         {
             return RayTask.Execute(async () =>
             {
-                using (MemoryStream ms = new MemoryStream())
+                using (var ms = new PooledMemoryStream())
                 {
                     Serializer.Serialize<T>(ms, data);
                     using (var connection = tableInfo.CreateConnection())
@@ -68,7 +68,7 @@ namespace Ray.PostgresqlES
         {
             return RayTask.Execute(async () =>
             {
-                using (MemoryStream ms = new MemoryStream())
+                using (var ms = new PooledMemoryStream())
                 {
                     Serializer.Serialize<T>(ms, data);
                     using (var connection = tableInfo.CreateConnection())

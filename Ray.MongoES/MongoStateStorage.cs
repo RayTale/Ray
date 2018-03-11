@@ -6,6 +6,7 @@ using ProtoBuf;
 using MongoDB.Driver;
 using MongoDB.Bson;
 using Ray.Core.EventSourcing;
+using Ray.Core.Utils;
 
 namespace Ray.MongoES
 {
@@ -37,7 +38,7 @@ namespace Ray.MongoES
                 var data = document["Data"]?.AsByteArray;
                 if (data != null)
                 {
-                    using (MemoryStream ms = new MemoryStream(data))
+                    using (var ms = new MemoryStream(data))
                     {
                         result = Serializer.Deserialize<T>(ms);
                     }
@@ -51,7 +52,7 @@ namespace Ray.MongoES
             var mState = new MongoState<K>();
             mState.StateId = data.StateId;
             mState.Id = ObjectId.GenerateNewId().ToString();
-            using (MemoryStream ms = new MemoryStream())
+            using (var ms = new PooledMemoryStream())
             {
                 Serializer.Serialize<T>(ms, data);
                 mState.Data = ms.ToArray();
@@ -65,7 +66,7 @@ namespace Ray.MongoES
             var filterBuilder = Builders<BsonDocument>.Filter;
             var filter = filterBuilder.Eq("StateId", data.StateId);
             byte[] bytes;
-            using (MemoryStream ms = new MemoryStream())
+            using (var ms = new PooledMemoryStream())
             {
                 Serializer.Serialize<T>(ms, data);
                 bytes = ms.ToArray();
