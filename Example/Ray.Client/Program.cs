@@ -12,6 +12,7 @@ using Ray.Core.Message;
 using System.Diagnostics;
 using Ray.Core.MQ;
 using System.Net;
+using Ray.Core;
 
 namespace Ray.Client
 {
@@ -28,7 +29,8 @@ namespace Ray.Client
             {
                 using (var client = await StartClientWithRetries())
                 {
-                    await HandlerStart.Start(new[] { "Core", "Read" }, client.ServiceProvider, client);
+                    var manager = client.ServiceProvider.GetService<ISubManager>();
+                    await manager.Start(new[] { "Core", "Read" });
                     var aActor = client.GetGrain<IAccount>("1");
                     var bActor = client.GetGrain<IAccount>("2");
                     var aActorReplicated = client.GetGrain<IAccountRep>("1");
@@ -56,7 +58,7 @@ namespace Ray.Client
 
                         var aBalanceReplicated = await aActorReplicated.GetBalance();
                         var bBalanceReplicated = await bActorReplicated.GetBalance();
-                        Console.WriteLine($"1的副本余额为{aBalance * 2},2的副本余额为{bBalance}");
+                        Console.WriteLine($"1的副本余额为{aBalanceReplicated},2的副本余额为{bBalanceReplicated}");
                     }
                 }
             }
@@ -84,21 +86,23 @@ namespace Ray.Client
                     .ConfigureLogging(logging => logging.AddConsole())
                     .ConfigureServices((servicecollection) =>
                     {
-                        SubManager.Parse(servicecollection, typeof(HandlerStart).Assembly);//注册handle
-                            servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
-                            servicecollection.AddRabbitMQ<MessageInfo>();//注册RabbitMq为默认消息队列
-                            servicecollection.PostConfigure<RabbitConfig>(c =>
-                        {
-                            c.UserName = "admin";
-                            c.Password = "luohuazhiyu";
-                            c.Hosts = new[] { "127.0.0.1:5672" };
-                            c.MaxPoolSize = 100;
-                            c.VirtualHost = "/";
-                        });
+                        SubManager.Parse(servicecollection, typeof(AccountCoreHandler).Assembly);//注册handle
+                        servicecollection.AddSingleton<IOrleansClientFactory, OrleansClientFactory>();//注册Client获取方法
+                        servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
+                        servicecollection.AddRabbitMQ<MessageInfo>();//注册RabbitMq为默认消息队列
+                        servicecollection.PostConfigure<RabbitConfig>(c =>
+                    {
+                        c.UserName = "admin";
+                        c.Password = "luohuazhiyu";
+                        c.Hosts = new[] { "127.0.0.1:5672" };
+                        c.MaxPoolSize = 100;
+                        c.VirtualHost = "/";
+                    });
                     })
                     .Build();
 
                     await client.Connect();
+                    OrleansClientFactory.Init(client);
                     Console.WriteLine("Client successfully connect to silo host");
                     break;
                 }

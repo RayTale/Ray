@@ -1,4 +1,5 @@
-﻿using Ray.Core.Message;
+﻿using Ray.Core;
+using Ray.Core.Message;
 using Ray.Core.MQ;
 using Ray.IGrains;
 using Ray.IGrains.Actors;
@@ -12,12 +13,14 @@ namespace Ray.Handler
     [RabbitSub("Core", "Account", "account")]
     public sealed class AccountCoreHandler : SubHandler<string, MessageInfo>
     {
-        public AccountCoreHandler(IServiceProvider svProvider) : base(svProvider)
+        IOrleansClientFactory clientFactory;
+        public AccountCoreHandler(IServiceProvider svProvider, IOrleansClientFactory clientFactory) : base(svProvider)
         {
+            this.clientFactory = clientFactory;
         }
         public override Task Tell(byte[] bytes, IActorOwnMessage<string> data, MessageInfo msg)
         {
-            var replicatedRef = HandlerStart.Client.GetGrain<IAccountRep>(data.StateId);
+            var replicatedRef = clientFactory.GetClient().GetGrain<IAccountRep>(data.StateId);
             var task = replicatedRef.Tell(bytes);
             switch (data)
             {
@@ -27,7 +30,7 @@ namespace Ray.Handler
         }
         public Task AmountAddEventHandler(AmountTransferEvent value)
         {
-            var toActor = HandlerStart.Client.GetGrain<IAccount>(value.ToAccountId);
+            var toActor = clientFactory.GetClient().GetGrain<IAccount>(value.ToAccountId);
             return toActor.AddAmount(value.Amount, value.Id);
         }
     }
