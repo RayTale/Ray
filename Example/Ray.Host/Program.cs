@@ -42,14 +42,11 @@ namespace Ray.Host
         }
         private static async Task<ISiloHost> StartSilo()
         {
-            var siloPort = 11111;
-            int gatewayPort = 30000;
             var siloAddress = IPAddress.Loopback;
 
             var builder = new SiloHostBuilder()
-                .Configure(options => options.ClusterId = "helloworldcluster")
-                .UseDevelopmentClustering(options => options.PrimarySiloEndpoint = new IPEndPoint(siloAddress, siloPort))
-                .ConfigureEndpoints(siloAddress, siloPort, gatewayPort)
+                .UseLocalhostClustering()
+                .Configure<EndpointOptions>(options => options.AdvertisedIPAddress = IPAddress.Loopback)
                 .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(Account).Assembly).WithReferences())
                 .ConfigureServices((context, servicecollection) =>
                 {

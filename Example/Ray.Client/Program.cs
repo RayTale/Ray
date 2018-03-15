@@ -71,8 +71,6 @@ namespace Ray.Client
 
         private static async Task<IClusterClient> StartClientWithRetries(int initializeAttemptsBeforeFailing = 5)
         {
-            var siloAddress = IPAddress.Loopback;
-            var gatewayPort = 30000;
             int attempt = 0;
             IClusterClient client;
             while (true)
@@ -80,8 +78,7 @@ namespace Ray.Client
                 try
                 {
                     client = new ClientBuilder()
-                    .ConfigureCluster(options => { options.ClusterId = "helloworldcluster"; })
-                    .UseStaticClustering(options => options.Gateways.Add((new IPEndPoint(siloAddress, gatewayPort)).ToGatewayUri()))
+                     .UseLocalhostClustering()
                     .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IAccount).Assembly).WithReferences())
                     .ConfigureLogging(logging => logging.AddConsole())
                     .ConfigureServices((servicecollection) =>
