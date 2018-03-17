@@ -13,9 +13,11 @@ namespace Ray.RabbitMQ
 
         public Task Publish(IMessage msg, byte[] bytes, string hashKey)
         {
-            var data = new W();
-            data.TypeCode = msg.TypeCode;
-            data.BinaryBytes = bytes;
+            var data = new W
+            {
+                TypeCode = msg.TypeCode,
+                BinaryBytes = bytes
+            };
             return publisher.Publish(data, hashKey);
         }
     }

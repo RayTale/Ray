@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using RabbitMQ.Client;
 using ProtoBuf;
 using Microsoft.Extensions.Options;
-using Microsoft.Extensions.DependencyInjection;
 using Ray.Core.Utils;
 
 namespace Ray.RabbitMQ
@@ -49,7 +48,7 @@ namespace Ray.RabbitMQ
                     if (_Factory == null)
                     {
                         rabbitHost = config.Value;
-                        _Factory = new ConnectionFactory()
+                        _Factory = new ConnectionFactory
                         {
                             UserName = rabbitHost.UserName,
                             Password = rabbitHost.Password,
