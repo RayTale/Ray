@@ -9,33 +9,34 @@ namespace Ray.RabbitMQ
         public string Password { get; set; }
         public string VirtualHost { get; set; }
         public int MaxPoolSize { get; set; }
+        string[] _hosts;
         public string[] Hosts
         {
             get
             {
-                return hosts;
+                return _hosts;
             }
             set
             {
-                hosts = value;
-                if (hosts != null)
+                _hosts = value;
+                if (_hosts != null)
                 {
-                    list = new List<AmqpTcpEndpoint>();
-                    foreach (var host in hosts)
+                    List = new List<AmqpTcpEndpoint>();
+                    foreach (var host in _hosts)
                     {
-                        list.Add(AmqpTcpEndpoint.Parse(host));
+                        List.Add(AmqpTcpEndpoint.Parse(host));
                     }
                 }
             }
         }
-        List<AmqpTcpEndpoint> list;
-        string[] hosts;
         public List<AmqpTcpEndpoint> EndPoints
         {
             get
             {
-                return list;
+                return List;
             }
         }
+
+        public List<AmqpTcpEndpoint> List { get; set; }
     }
 }

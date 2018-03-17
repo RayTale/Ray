@@ -9,7 +9,7 @@ namespace Ray.RabbitMQ
         where W : MessageWrapper, new()
     {
         RabbitPubAttribute publisher;
-        public RabbitMQService(RabbitPubAttribute rabbitMQInfo) => this.publisher = rabbitMQInfo;
+        public RabbitMQService(RabbitPubAttribute rabbitMQInfo) => publisher = rabbitMQInfo;
 
         public Task Publish(IMessage msg, byte[] bytes, string hashKey)
         {

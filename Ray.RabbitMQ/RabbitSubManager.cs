@@ -4,23 +4,24 @@ using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.DependencyInjection;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Ray.Core.MQ;
 using Ray.Core.Utils;
-using Microsoft.Extensions.Options;
 
 namespace Ray.RabbitMQ
 {
     public class RabbitSubManager : SubManager
     {
-        ILogger<RabbitSubManager> logger = default; IServiceProvider provider;
-        public RabbitSubManager(ILogger<RabbitSubManager> logger, IServiceProvider provider)
+        ILogger<RabbitSubManager> logger = default;
+        IServiceProvider provider;
+        IRabbitMQClient client;
+        public RabbitSubManager(ILogger<RabbitSubManager> logger, IRabbitMQClient client, IServiceProvider provider)
         {
+            this.client = client;
+            this.client = client;
             this.logger = logger;
             this.provider = provider;
-            RabbitMQClient.Init(provider.GetService<IOptions<RabbitConfig>>());
         }
         protected override async Task Start(List<SubAttribute> attributes, string node, List<string> nodeList = null)
         {
@@ -28,21 +29,21 @@ namespace Ray.RabbitMQ
             var consumerList = new List<ConsumerInfo>();
             foreach (var attribute in attributes)
             {
-                if (attribute is RabbitSubAttribute value)
+                if (attribute is RabbitSubAttribute subAttribute)
                 {
-                    value.Init();
-                    for (int i = 0; i < value.QueueList.Count(); i++)
+                    subAttribute.Init(client);
+                    for (int i = 0; i < subAttribute.QueueList.Count(); i++)
                     {
-                        var queue = value.QueueList[i];
+                        var queue = subAttribute.QueueList[i];
                         var hashNode = hash != null ? hash.GetNode(queue.Queue) : node;
                         if (node == hashNode)
                         {
                             consumerList.Add(new ConsumerInfo()
                             {
-                                Exchange = value.Exchange,
-                                Queue = (string.IsNullOrEmpty(node) ? string.Empty : node + "_") + value.Group + "_" + queue.Queue,
+                                Exchange = subAttribute.Exchange,
+                                Queue = (string.IsNullOrEmpty(node) ? string.Empty : node + "_") + subAttribute.Group + "_" + queue.Queue,
                                 RoutingKey = queue.RoutingKey,
-                                Handler = (ISubHandler)provider.GetService(value.Handler)
+                                Handler = (ISubHandler)provider.GetService(subAttribute.Handler)
                             });
                         }
                     }
@@ -57,7 +58,7 @@ namespace Ray.RabbitMQ
         {
             if (consumerList != null)
             {
-                var channel = await RabbitMQClient.PullModel();
+                var channel = await client.PullModel();
 
                 for (int i = 0; i < consumerList.Count; i++)
                 {
@@ -98,7 +99,7 @@ namespace Ray.RabbitMQ
                     consumer.BasicConsumer.ConsumerTag = consumer.Channel.Model.BasicConsume(consumer.Queue, false, consumer.BasicConsumer);
                     if (i % 4 == 0 && i != 0)
                     {
-                        channel = await RabbitMQClient.PullModel();
+                        channel = await client.PullModel();
                     }
                     if (!ConsumerAllList.Contains(consumer))
                     {

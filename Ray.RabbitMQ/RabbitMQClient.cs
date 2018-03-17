@@ -12,6 +12,7 @@ namespace Ray.RabbitMQ
     public class ConnectionWrapper
     {
         public IConnection Connection { get; set; }
+        public IRabbitMQClient Client { get; set; }
         int modelCount = 0;
         public int ModelCount { get { return modelCount; } }
         public int Increment()
@@ -33,34 +34,24 @@ namespace Ray.RabbitMQ
         public IModel Model { get; set; }
         public void Dispose()
         {
-            RabbitMQClient.PushModel(this);
+            Connection.Client.PushModel(this);
         }
     }
-    public static class RabbitMQClient
+    public class RabbitMQClient : IRabbitMQClient
     {
-        static object facLock = new object();
-        public static void Init(IOptions<RabbitConfig> config)
+        public RabbitMQClient(IOptions<RabbitConfig> config)
         {
-            if (_Factory == null)
+            rabbitHost = config.Value;
+            _Factory = new ConnectionFactory
             {
-                lock (facLock)
-                {
-                    if (_Factory == null)
-                    {
-                        rabbitHost = config.Value;
-                        _Factory = new ConnectionFactory
-                        {
-                            UserName = rabbitHost.UserName,
-                            Password = rabbitHost.Password,
-                            VirtualHost = rabbitHost.VirtualHost,
-                            AutomaticRecoveryEnabled = true
-                        };
-                    }
-                }
-            }
+                UserName = rabbitHost.UserName,
+                Password = rabbitHost.Password,
+                VirtualHost = rabbitHost.VirtualHost,
+                AutomaticRecoveryEnabled = true
+            };
         }
-        static ConnectionFactory _Factory;
-        static RabbitConfig rabbitHost;
+        ConnectionFactory _Factory;
+        RabbitConfig rabbitHost;
         /// <summary>
         /// 发送消息到消息队列
         /// </summary>
@@ -69,7 +60,7 @@ namespace Ray.RabbitMQ
         /// <param name="exchange"></param>
         /// <param name="queue"></param>
         /// <returns></returns>
-        public static Task Publish<T>(T data, string exchange, string queue, bool persistent = true)
+        public Task Publish<T>(T data, string exchange, string queue, bool persistent = true)
         {
             byte[] msg;
             using (var ms = new PooledMemoryStream())
@@ -79,18 +70,16 @@ namespace Ray.RabbitMQ
             }
             return Publish(msg, exchange, queue, persistent);
         }
-        public static Task PublishByCmd<T>(UInt16 cmd, T data, string exchange, string queue)
+        public Task PublishByCmd<T>(UInt16 cmd, T data, string exchange, string queue)
         {
-            byte[] msg;
             using (var ms = new PooledMemoryStream())
             {
                 ms.Write(BitConverter.GetBytes(cmd), 0, 2);
                 Serializer.Serialize(ms, data);
-                msg = ms.ToArray();
+                return Publish(ms.ToArray(), exchange, queue, false);
             }
-            return Publish(msg, exchange, queue, false);
         }
-        public static async Task Publish(byte[] msg, string exchange, string queue, bool persistent = true)
+        public async Task Publish(byte[] msg, string exchange, string queue, bool persistent = true)
         {
             using (var channel = await PullModel())
             {
@@ -100,23 +89,19 @@ namespace Ray.RabbitMQ
                 channel.Model.WaitForConfirmsOrDie();
             }
         }
-        public static async Task ExchangeDeclare(string exchange)
+        public async Task ExchangeDeclare(string exchange)
         {
             using (var channel = await PullModel())
             {
                 channel.Model.ExchangeDeclare(exchange, "direct", true);
             }
         }
-        static ConcurrentQueue<ModelWrapper> modelPool = new ConcurrentQueue<ModelWrapper>();
-        static ConcurrentQueue<TaskCompletionSource<ModelWrapper>> modelTaskPool = new ConcurrentQueue<TaskCompletionSource<ModelWrapper>>();
-        static ConcurrentBag<ConnectionWrapper> connectionList = new ConcurrentBag<ConnectionWrapper>();
-        static int connectionCount = 0;
-        static object modelLock = new object();
-        public static IConnection CreateConnection()
-        {
-            return _Factory.CreateConnection(rabbitHost.EndPoints);
-        }
-        public static async Task<ModelWrapper> PullModel()
+        ConcurrentQueue<ModelWrapper> modelPool = new ConcurrentQueue<ModelWrapper>();
+        ConcurrentQueue<TaskCompletionSource<ModelWrapper>> modelTaskPool = new ConcurrentQueue<TaskCompletionSource<ModelWrapper>>();
+        ConcurrentBag<ConnectionWrapper> connectionList = new ConcurrentBag<ConnectionWrapper>();
+        int connectionCount = 0;
+        object modelLock = new object();
+        public async Task<ModelWrapper> PullModel()
         {
             if (!modelPool.TryDequeue(out var model))
             {
@@ -135,7 +120,11 @@ namespace Ray.RabbitMQ
                 }
                 if (conn == null && Interlocked.Increment(ref connectionCount) <= rabbitHost.MaxPoolSize)
                 {
-                    conn = new ConnectionWrapper() { Connection = _Factory.CreateConnection(rabbitHost.EndPoints) };
+                    conn = new ConnectionWrapper
+                    {
+                        Client = this,
+                        Connection = _Factory.CreateConnection(rabbitHost.EndPoints)
+                    };
                     conn.Connection.ConnectionShutdown += (obj, args) =>
                     {
                         conn.Connection = _Factory.CreateConnection(rabbitHost.EndPoints);
@@ -172,7 +161,7 @@ namespace Ray.RabbitMQ
             }
             return model;
         }
-        public static void PushModel(ModelWrapper model)
+        public void PushModel(ModelWrapper model)
         {
             if (model.Model.IsOpen)
             {

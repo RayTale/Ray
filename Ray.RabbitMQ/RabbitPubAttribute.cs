@@ -10,13 +10,14 @@ namespace Ray.RabbitMQ
     {
         public RabbitPubAttribute(string exchange = null, string queue = null, int queueCount = 1)
         {
-            this.Exchange = exchange;
-            this.Queue = queue;
-            this.QueueCount = queueCount;
+            Exchange = exchange;
+            Queue = queue;
+            QueueCount = queueCount;
         }
         ConsistentHash _CHash;
+        public IRabbitMQClient Client { get; set; }
         List<string> nodeList = new List<string>();
-        public void Init()
+        public void Init(IRabbitMQClient client)
         {
             for (int i = 0; i < QueueCount; i++)
             {
@@ -24,7 +25,8 @@ namespace Ray.RabbitMQ
             }
             _CHash = new ConsistentHash(nodeList, QueueCount * 10);
             //申明exchange
-            RabbitMQClient.ExchangeDeclare(this.Exchange).Wait();
+            client.ExchangeDeclare(Exchange).Wait();
+            Client = client;
         }
         public string GetQueue(string key)
         {
@@ -40,11 +42,11 @@ namespace Ray.RabbitMQ
     {
         public static Task Publish<T>(this RabbitPubAttribute rabbitMQInfo, T data, string key)
         {
-            return RabbitMQClient.Publish(data, rabbitMQInfo.Exchange, rabbitMQInfo.GetQueue(key));
+            return rabbitMQInfo.Client.Publish(data, rabbitMQInfo.Exchange, rabbitMQInfo.GetQueue(key));
         }
         public static Task PublishByCmd<T>(this RabbitPubAttribute rabbitMQInfo, UInt16 cmd, T data, string key)
         {
-            return RabbitMQClient.PublishByCmd<T>(cmd, data, rabbitMQInfo.Exchange, rabbitMQInfo.GetQueue(key));
+            return rabbitMQInfo.Client.PublishByCmd<T>(cmd, data, rabbitMQInfo.Exchange, rabbitMQInfo.GetQueue(key));
         }
     }
 }
