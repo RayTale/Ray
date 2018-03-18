@@ -10,7 +10,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\Ray.PostgresqlES\Ray.Postgresql.csproj" />
+    <ProjectReference Include="..\..\..\Ray.Postgresql\Ray.Postgresql.csproj" />
     <ProjectReference Include="..\..\..\Ray.RabbitMQ\Ray.RabbitMQ.csproj" />
     <ProjectReference Include="..\..\Ray.IGrains\Ray.IGrains.csproj" />
   </ItemGroup>
