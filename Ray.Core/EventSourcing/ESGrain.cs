@@ -136,6 +136,7 @@ namespace Ray.Core.EventSourcing
             }
             return _serializer;
         }
+        protected virtual bool PublishToMQ { get; set; } = true;
         protected abstract IEventHandle EventHandle { get; }
         protected async ValueTask<bool> RaiseEvent(IEventBase<K> @event, string uniqueId = null, string hashKey = null)
         {
@@ -153,12 +154,14 @@ namespace Ray.Core.EventSourcing
                     if (result)
                     {
                         EventHandle.Apply(State, @event);
-                        if (string.IsNullOrEmpty(hashKey)) hashKey = GrainId.ToString();
-                        //消息写入消息队列         
-                        await GetMQService().Publish(@event, bytes, hashKey);
 
-                        State.UpdateVersion(@event);//更新处理完成的Version
-
+                        if (PublishToMQ)
+                        {
+                            if (string.IsNullOrEmpty(hashKey)) hashKey = GrainId.ToString();
+                            //消息写入消息队列         
+                            await GetMQService().Publish(@event, bytes, hashKey);
+                            State.UpdateVersion(@event);//更新处理完成的Version
+                        }
                         await SaveSnapshotAsync();
                         return true;
                     }
