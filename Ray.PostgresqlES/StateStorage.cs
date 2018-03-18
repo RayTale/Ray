@@ -5,7 +5,7 @@ using System.IO;
 using ProtoBuf;
 using Ray.Core.Utils;
 
-namespace Ray.PostgresqlES
+namespace Ray.Postgresql
 {
     public class StateStorage<T, K> : IStateStorage<T, K> where T : class, IState<K>
     {
@@ -32,7 +32,7 @@ namespace Ray.PostgresqlES
 
         public async Task<T> GetByIdAsync(K id)
         {
-            byte[] state = await RayTask.Execute<byte[]>(async () =>
+            byte[] state = await RayTask.Execute(async () =>
             {
                 using (var conn = tableInfo.CreateConnection())
                 {

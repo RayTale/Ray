@@ -31,7 +31,7 @@ namespace Ray.Core.MQ
                 }
                 using (var ems = new MemoryStream(msg.BinaryBytes))
                 {
-                    return this.Notice(bytes, msg, serializer.Deserialize(type, ems));
+                    return Notice(bytes, msg, serializer.Deserialize(type, ems));
                 }
             }
         }

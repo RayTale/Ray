@@ -1,4 +1,4 @@
-﻿namespace Ray.PostgresqlES
+﻿namespace Ray.Postgresql
 {
     public interface ISqlGrain
     {

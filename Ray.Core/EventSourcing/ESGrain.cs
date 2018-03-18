@@ -21,7 +21,7 @@ namespace Ray.Core.EventSourcing
             set;
         }
         protected abstract K GrainId { get; }
-        private ILogger<ESGrain<K, S, W>> Logger;
+        protected ILogger<ESGrain<K, S, W>> Logger { get; set; }
         #region LifeTime
         public override async Task OnActivateAsync()
         {
@@ -29,51 +29,31 @@ namespace Ray.Core.EventSourcing
             await ReadSnapshotAsync();
             while (true)
             {
-                var eventList = await EventStorage.GetListAsync(this.GrainId, this.State.Version, this.State.Version + 1000, this.State.VersionTime);
+                var eventList = await GetEventStorage().GetListAsync(GrainId, State.Version, State.Version + 1000, State.VersionTime);
                 foreach (var @event in eventList)
                 {
-                    this.State.IncrementDoingVersion();//标记将要处理的Version
-                    EventHandle.Apply(this.State, @event.Event);
-                    if (!@event.IsComplete)
-                    {
-                        using (var ms = new PooledMemoryStream())
-                        {
-                            Serializer.Serialize(ms, @event.Event);
-                            await AfterEventSavedHandle(@event.Event, ms.ToArray());
-                        }
-                    }
-                    this.State.UpdateVersion(@event.Event);//更新处理完成的Version
+                    State.IncrementDoingVersion();//标记将要处理的Version
+                    EventHandle.Apply(State, @event);
+                    State.UpdateVersion(@event);//更新处理完成的Version
                 }
                 if (eventList.Count < 1000) break;
             };
         }
-        Type thisType = null;
-        private Type ThisType
-        {
-            get
-            {
-                if (thisType == null)
-                {
-                    thisType = this.GetType();
-                }
-                return thisType;
-            }
-        }
         #endregion
         #region State storage
-        protected bool IsNew = false;
+        protected bool IsNew { get; set; } = false;
         protected virtual async Task ReadSnapshotAsync()
         {
             if (SnapshotType != SnapshotType.NoSnapshot)
             {
-                this.State = await StateStore.GetByIdAsync(GrainId);
+                State = await GetStateStore().GetByIdAsync(GrainId);
             }
-            if (this.State == null)
+            if (State == null)
             {
                 IsNew = true;
                 await InitState();
             }
-            storageVersion = this.State.Version;
+            storageVersion = State.Version;
         }
         protected virtual SnapshotType SnapshotType { get { return SnapshotType.Master; } }
         protected virtual int SnapshotFrequency => 200;
@@ -85,15 +65,15 @@ namespace Ray.Core.EventSourcing
             {
                 if (IsNew)
                 {
-                    await StateStore.InsertAsync(this.State);
-                    storageVersion = this.State.Version;
+                    await GetStateStore().InsertAsync(State);
+                    storageVersion = State.Version;
                     IsNew = false;
                 }
                 //如果版本号差超过设置则更新快照
-                else if (this.State.Version - storageVersion >= SnapshotFrequency)
+                else if (State.Version - storageVersion >= SnapshotFrequency)
                 {
-                    await StateStore.UpdateAsync(this.State);
-                    storageVersion = this.State.Version;
+                    await GetStateStore().UpdateAsync(State);
+                    storageVersion = State.Version;
                 }
             }
         }
@@ -103,118 +83,96 @@ namespace Ray.Core.EventSourcing
         /// <returns></returns>
         protected virtual Task InitState()
         {
-            this.State = new S();
-            this.State.StateId = GrainId;
+            State = new S
+            {
+                StateId = GrainId
+            };
             return Task.CompletedTask;
         }
         protected async Task ClearStateAsync()
         {
-            await StateStore.DeleteAsync(GrainId);
+            await GetStateStore().DeleteAsync(GrainId);
         }
         IStateStorage<S, K> _StateStore;
-        private IStateStorage<S, K> StateStore
+
+        private IStateStorage<S, K> GetStateStore()
         {
-            get
+            if (_StateStore == null)
             {
-                if (_StateStore == null)
-                {
-                    _StateStore = ServiceProvider.GetService<IStorageContainer>().GetStateStorage<K, S>(ThisType, this);
-                }
-                return _StateStore;
+                _StateStore = ServiceProvider.GetService<IStorageContainer>().GetStateStorage<K, S>(GetType(), this);
             }
+            return _StateStore;
         }
         #endregion
 
         #region Event
         protected IEventStorage<K> _eventStorage;
-        protected virtual IEventStorage<K> EventStorage
+
+        protected virtual IEventStorage<K> GetEventStorage()
         {
-            get
+            if (_eventStorage == null)
             {
-                if (_eventStorage == null)
-                {
-                    _eventStorage = ServiceProvider.GetService<IStorageContainer>().GetEventStorage<K, S>(ThisType, this);
-                }
-                return _eventStorage;
+                _eventStorage = ServiceProvider.GetService<IStorageContainer>().GetEventStorage<K, S>(GetType(), this);
             }
+            return _eventStorage;
         }
         protected IMQService _mqService;
-        protected virtual IMQService MQService
+
+        protected virtual IMQService GetMQService()
         {
-            get
+            if (_mqService == null)
             {
-                if (_mqService == null)
-                {
-                    _mqService = ServiceProvider.GetService<IMQServiceContainer>().GetService(ThisType);
-                }
-                return _mqService;
+                _mqService = ServiceProvider.GetService<IMQServiceContainer>().GetService(GetType());
             }
+            return _mqService;
         }
         ISerializer _serializer;
-        protected ISerializer Serializer
+
+        protected ISerializer GetSerializer()
         {
-            get
+            if (_serializer == null)
             {
-                if (_serializer == null)
-                {
-                    _serializer = ServiceProvider.GetService<ISerializer>();
-                }
-                return _serializer;
+                _serializer = ServiceProvider.GetService<ISerializer>();
             }
+            return _serializer;
         }
         protected abstract IEventHandle EventHandle { get; }
         protected async ValueTask<bool> RaiseEvent(IEventBase<K> @event, string uniqueId = null, string hashKey = null)
         {
             try
             {
-                this.State.IncrementDoingVersion();//标记将要处理的Version
+                State.IncrementDoingVersion();//标记将要处理的Version
                 @event.StateId = GrainId;
-                @event.Version = this.State.Version + 1;
+                @event.Version = State.Version + 1;
                 @event.Timestamp = DateTime.UtcNow;
                 using (var ms = new PooledMemoryStream())
                 {
-                    Serializer.Serialize(ms, @event);
+                    GetSerializer().Serialize(ms, @event);
                     var bytes = ms.ToArray();
-                    var result = await EventStorage.SaveAsync(@event, bytes, uniqueId);
+                    var result = await GetEventStorage().SaveAsync(@event, bytes, uniqueId);
                     if (result)
                     {
-                        EventHandle.Apply(this.State, @event);
-                        await AfterEventSavedHandle(@event, bytes, hashKey: hashKey);
+                        EventHandle.Apply(State, @event);
+                        if (string.IsNullOrEmpty(hashKey)) hashKey = GrainId.ToString();
+                        //消息写入消息队列         
+                        await GetMQService().Publish(@event, bytes, hashKey);
 
-                        this.State.UpdateVersion(@event);//更新处理完成的Version
+                        State.UpdateVersion(@event);//更新处理完成的Version
 
                         await SaveSnapshotAsync();
                         return true;
                     }
                     else
-                        this.State.DecrementDoingVersion();//还原doing Version
+                        State.DecrementDoingVersion();//还原doing Version
                 }
             }
             catch (Exception ex)
             {
-                Logger.LogError(LogCodes.EventRaiseError, ex, $"applay event {@event.TypeCode} error, eventId={@event.Version}", null, ex);
+                Logger.LogError(LogCodes.EventRaiseError, ex, "applay event {0} error, eventId={1}", @event.TypeCode, @event.Version);
                 await OnActivateAsync();//重新激活Actor
                 throw ex;
             }
             return false;
-        }
-        protected virtual bool PublishEventToMq { get { return true; } }
-        protected virtual async Task AfterEventSavedHandle(IEventBase<K> @event, byte[] bytes, string hashKey = null)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(hashKey)) hashKey = GrainId.ToString();
-                //消息写入消息队列         
-                if (PublishEventToMq)
-                    await MQService.Publish(@event, bytes, hashKey);
-                //更改消息状态
-                await EventStorage.CompleteAsync(@event);
-            }
-            catch (Exception e)
-            {
-                Logger.LogError(LogCodes.EventCompleteError, e, "事件complate操作出现致命异常:" + string.Format("Grain类型={0},GrainId={1},StateId={2},Version={3},错误信息:{4}", ThisType.FullName, GrainId, @event.StateId, @event.Version, e.Message), null, e);
-                throw e;
-            }
         }
         /// <summary>
         /// 发送无状态更改的消息到消息队列
@@ -223,11 +181,11 @@ namespace Ray.Core.EventSourcing
         /// <returns></returns>
         public async Task Publish(IActorOwnMessage<K> msg)
         {
-            msg.StateId = this.GrainId;
+            msg.StateId = GrainId;
             using (var ms = new PooledMemoryStream())
             {
-                Serializer.Serialize(ms, msg);
-                await MQService.Publish(msg, ms.ToArray(), GrainId.ToString());
+                GetSerializer().Serialize(ms, msg);
+                await GetMQService().Publish(msg, ms.ToArray(), GrainId.ToString());
             }
         }
         #endregion

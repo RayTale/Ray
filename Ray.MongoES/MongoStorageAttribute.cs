@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Driver;
 using MongoDB.Bson;
 
-namespace Ray.MongoES
+namespace Ray.MongoDb
 {
     [AttributeUsage(AttributeTargets.Class)]
     public class MongoStorageAttribute : Attribute
@@ -19,11 +18,11 @@ namespace Ray.MongoES
         bool sharding = false;
         int shardingDays;
         public MongoStorageAttribute(
-            string eventDatabase, string collection, bool sharding = false, int shardingDays = 90)
+            string eventDatabase, string eventCollection, string snapshotCollection, bool sharding = false, int shardingDays = 90)
         {
-            this.EventDataBase = eventDatabase;
-            this.EventCollection = collection + "Event";
-            this.SnapshotCollection = collection + "State";
+            EventDataBase = eventDatabase;
+            EventCollection = eventCollection;
+            SnapshotCollection = snapshotCollection;
             this.sharding = sharding;
             this.shardingDays = shardingDays;
         }
@@ -107,12 +106,14 @@ namespace Ray.MongoES
                 {
                     if (lastCollection == null || cVersion > lastCollection.Version)
                     {
-                        var collection = new CollectionInfo();
-                        collection.Id = ObjectId.GenerateNewId().ToString();
-                        collection.Version = cVersion;
-                        collection.Type = EventCollection;
-                        collection.CreateTime = DateTime.UtcNow;
-                        collection.Name = EventCollection + "_" + cVersion;
+                        var collection = new CollectionInfo
+                        {
+                            Id = ObjectId.GenerateNewId().ToString(),
+                            Version = cVersion,
+                            Type = EventCollection,
+                            CreateTime = DateTime.UtcNow,
+                            Name = EventCollection + "_" + cVersion
+                        };
                         try
                         {
                             storage.GetCollection<CollectionInfo>(EventDataBase, C_CName).InsertOne(collection);

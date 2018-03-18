@@ -6,12 +6,12 @@ using Ray.Grain.EventHandles;
 using Ray.IGrains;
 using Ray.IGrains.Actors;
 using Ray.IGrains.States;
-using Ray.MongoES;
+using Ray.MongoDb;
 
 namespace Ray.Grain
 {
-    [MongoStorage("Test", "Account")]
-    public sealed class AccountRep : MongoESRepGrain<String, AccountState, MessageInfo>, IAccountRep
+    [MongoStorage("Test", "Account_Event", "Account_State")]
+    public sealed class AccountRep : MongoRepGrain<String, AccountState, MessageInfo>, IAccountRep
     {
         protected override string GrainId => this.GetPrimaryKeyString();
 
@@ -20,7 +20,7 @@ namespace Ray.Grain
 
         public Task<decimal> GetBalance()
         {
-            return Task.FromResult(this.State.Balance);
+            return Task.FromResult(State.Balance);
         }
     }
 }

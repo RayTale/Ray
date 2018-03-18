@@ -70,13 +70,13 @@ namespace Ray.RabbitMQ
             }
             return Publish(msg, exchange, queue, persistent);
         }
-        public Task PublishByCmd<T>(UInt16 cmd, T data, string exchange, string queue)
+        public Task PublishByCmd<T>(UInt16 cmd, T data, string exchange, string queue, bool persistent = false)
         {
             using (var ms = new PooledMemoryStream())
             {
                 ms.Write(BitConverter.GetBytes(cmd), 0, 2);
                 Serializer.Serialize(ms, data);
-                return Publish(ms.ToArray(), exchange, queue, false);
+                return Publish(ms.ToArray(), exchange, queue, persistent);
             }
         }
         public async Task Publish(byte[] msg, string exchange, string queue, bool persistent = true)

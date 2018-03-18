@@ -11,7 +11,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Ray.Core.Message;
 using System.Diagnostics;
 using Ray.Core.MQ;
-using System.Net;
 using Ray.Core;
 
 namespace Ray.Client
@@ -33,8 +32,6 @@ namespace Ray.Client
                     await manager.Start(new[] { "Core", "Read" });
                     var aActor = client.GetGrain<IAccount>("1");
                     var bActor = client.GetGrain<IAccount>("2");
-                    var aActorReplicated = client.GetGrain<IAccountRep>("1");
-                    var bActorReplicated = client.GetGrain<IAccountRep>("2");
                     while (true)
                     {
                         Console.WriteLine("Press Enter to terminate...");
@@ -52,13 +49,7 @@ namespace Ray.Client
                         Console.WriteLine($"{length}次交易完成，耗时:{stopWatch.ElapsedMilliseconds}ms");
                         await Task.Delay(200);
 
-                        var aBalance = await aActor.GetBalance();
-                        var bBalance = await bActor.GetBalance();
-                        Console.WriteLine($"1的余额为{aBalance},2的余额为{bBalance}");
-
-                        var aBalanceReplicated = await aActorReplicated.GetBalance();
-                        var bBalanceReplicated = await bActorReplicated.GetBalance();
-                        Console.WriteLine($"1的副本余额为{aBalanceReplicated},2的副本余额为{bBalanceReplicated}");
+                        Console.WriteLine($"End:1的余额为{await aActor.GetBalance()},2的余额为{await bActor.GetBalance()}");
                     }
                 }
             }

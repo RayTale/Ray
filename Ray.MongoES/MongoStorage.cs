@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 
-namespace Ray.MongoES
+namespace Ray.MongoDb
 {
     public interface IMongoStorage
     {
@@ -12,21 +12,13 @@ namespace Ray.MongoES
     }
     public class MongoStorage : IMongoStorage
     {
-        MongoConfig config;
         public MongoStorage(IOptions<MongoConfig> config)
         {
-            this.config = config.Value;
-            _Client = new MongoClient(config.Value.Connection);
+            Config = config.Value;
+            Client = new MongoClient(config.Value.Connection);
         }
-        public MongoConfig Config { get { return config; } }
-        MongoClient _Client;
-        public MongoClient Client
-        {
-            get
-            {
-                return _Client;
-            }
-        }
+        public MongoConfig Config { get; }
+        public MongoClient Client { get; }
         public IMongoDatabase GetDatabase(string name)
         {
             return Client.GetDatabase(name);

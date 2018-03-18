@@ -1,9 +1,9 @@
 ﻿using Ray.Core;
 using Ray.Core.EventSourcing;
 
-namespace Ray.PostgresqlES
+namespace Ray.Postgresql
 {
-    public abstract class SqlRepGrain<K, S, W> : ESRepGrain<K, S, W>, ISqlGrain
+    public abstract class SqlRepGrain<K, S, W> : RepGrain<K, S, W>, ISqlGrain
     where S : class, IState<K>, new()
     where W : MessageWrapper
     {

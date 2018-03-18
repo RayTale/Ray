@@ -1,7 +1,7 @@
 ﻿using System;
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace Ray.MongoES
+namespace Ray.MongoDb
 {
     public class MongoEvent<K>
     {
@@ -20,11 +20,6 @@ namespace Ray.MongoES
         }
 
         public string TypeCode
-        {
-            get;
-            set;
-        }
-        public bool IsComplete
         {
             get;
             set;

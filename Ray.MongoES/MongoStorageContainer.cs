@@ -3,9 +3,8 @@ using Orleans;
 using Ray.Core.EventSourcing;
 using System;
 using System.Collections.Concurrent;
-using System.Threading.Tasks;
 
-namespace Ray.MongoES
+namespace Ray.MongoDb
 {
     public class MongoStorageContainer : IStorageContainer
     {
@@ -25,9 +24,10 @@ namespace Ray.MongoES
             {
                 return mongoStorageAttributes[0] as MongoStorageAttribute;
             }
-            return new MongoStorageAttribute("EventSourcing", type.FullName);
+            else
+                throw new Exception("Not find MongoStorageAttribute");
         }
-        private async Task<MongoStorageAttribute> GetESMongoInfo<K, S>(Type type, Grain grain) where S : class, IState<K>, new()
+        private MongoStorageAttribute GetESMongoInfo<K, S>(Type type, Grain grain) where S : class, IState<K>, new()
         {
             if (grain is IMongoGrain mongoGrain && mongoGrain.ESMongoInfo != null)
             {
@@ -36,31 +36,33 @@ namespace Ray.MongoES
             if (!mongoAttrDict.TryGetValue(type, out var _mongoInfo))
             {
                 _mongoInfo = LoadMongoAttr(type);
-                await _mongoInfo.CreateCollectionIndex(mongoStorage);//创建分表索引
-                await _mongoInfo.CreateStateIndex(mongoStorage);//创建快照索引
+#pragma warning disable CS4014 // 由于此调用不会等待，因此在调用完成前将继续执行当前方法
+                _mongoInfo.CreateCollectionIndex(mongoStorage);//创建分表索引
+                _mongoInfo.CreateStateIndex(mongoStorage);//创建快照索引
+#pragma warning restore CS4014 // 由于此调用不会等待，因此在调用完成前将继续执行当前方法
                 mongoAttrDict.TryAdd(type, _mongoInfo);
             }
             return _mongoInfo;
         }
         public IEventStorage<K> GetEventStorage<K, S>(Type type, Grain grain) where S : class, IState<K>, new()
         {
-            var mongoInfo = GetESMongoInfo<K, S>(type, grain).GetAwaiter().GetResult();
+            var mongoInfo = GetESMongoInfo<K, S>(type, grain);
             if (mongoInfo != null)
             {
                 return new MongoEventStorage<K>(mongoStorage, loggerFactory.CreateLogger<MongoEventStorage<K>>(), mongoInfo);
             }
             else
-                throw new Exception("not find MongoStorageAttribute");
+                throw new Exception("Not find MongoStorageAttribute");
         }
         public IStateStorage<S, K> GetStateStorage<K, S>(Type type, Grain grain) where S : class, IState<K>, new()
         {
-            var mongoInfo = GetESMongoInfo<K, S>(type, grain).GetAwaiter().GetResult();
+            var mongoInfo = GetESMongoInfo<K, S>(type, grain);
             if (mongoInfo != null)
             {
                 return new MongoStateStorage<S, K>(mongoStorage, mongoInfo.EventDataBase, mongoInfo.SnapshotCollection);
             }
             else
-                throw new Exception("not find MongoStorageAttribute");
+                throw new Exception("Not find MongoStorageAttribute");
         }
     }
 }

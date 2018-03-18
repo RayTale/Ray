@@ -3,7 +3,7 @@ using Ray.Core.EventSourcing;
 using System;
 using System.Collections.Concurrent;
 
-namespace Ray.PostgresqlES
+namespace Ray.Postgresql
 {
     public class StorageContainer : IStorageContainer
     {

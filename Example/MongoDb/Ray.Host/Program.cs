@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using Orleans.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Ray.Grain;
-using Ray.MongoES;
+using Ray.MongoDb;
 using Ray.RabbitMQ;
 using Ray.IGrains;
 using Ray.Core.Message;
@@ -12,7 +12,7 @@ using Orleans;
 using System.Net;
 using Orleans.Configuration;
 
-namespace Ray.Host
+namespace Ray.MongoHost
 {
     class Program
     {
@@ -51,7 +51,7 @@ namespace Ray.Host
                 .ConfigureServices((context, servicecollection) =>
                 {
                     servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
-                    servicecollection.AddMongoES();//注册MongoDB为事件库
+                    servicecollection.AddMongoDb();//注册MongoDB为事件库
                     servicecollection.AddRabbitMQ<MessageInfo>();//注册RabbitMq为默认消息队列
                 })
                 .Configure<MongoConfig>(c =>

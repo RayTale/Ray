@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Ray.MongoES
+namespace Ray.MongoDb
 {
     public class MongoConfig
     {

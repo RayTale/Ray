@@ -5,13 +5,12 @@ using ProtoBuf;
 using MongoDB.Driver;
 using MongoDB.Bson;
 using System;
-using System.Linq;
 using System.Threading;
 using Ray.Core.EventSourcing;
 using Ray.Core.Message;
 using Microsoft.Extensions.Logging;
 
-namespace Ray.MongoES
+namespace Ray.MongoDb
 {
     public class MongoEventStorage<K> : IEventStorage<K>
     {
@@ -24,10 +23,10 @@ namespace Ray.MongoES
             this.mongoAttr = mongoAttr;
             this.logger = logger;
         }
-        public async Task<List<EventInfo<K>>> GetListAsync(K stateId, Int64 startVersion, Int64 endVersion, DateTime? startTime = null)
+        public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, Int64 startVersion, Int64 endVersion, DateTime? startTime = null)
         {
             var collectionList = mongoAttr.GetCollectionList(mongoStorage, mongoStorage.Config.SysStartTime, startTime);
-            var list = new List<EventInfo<K>>();
+            var list = new List<IEventBase<K>>();
             Int64 readVersion = 0;
             foreach (var collection in collectionList)
             {
@@ -39,26 +38,25 @@ namespace Ray.MongoES
                     var typeCode = document["TypeCode"].AsString;
                     var type = MessageTypeMapper.GetType(typeCode);
                     var data = document["Data"].AsByteArray;
-                    var eventInfo = new EventInfo<K>();
-                    eventInfo.IsComplete = document["IsComplete"].AsBoolean;
                     using (var ms = new MemoryStream(data))
                     {
-                        var @event = Serializer.Deserialize(type, ms) as IEventBase<K>;
-                        readVersion = @event.Version;
-                        eventInfo.Event = @event;
+                        if (Serializer.Deserialize(type, ms) is IEventBase<K> evt)
+                        {
+                            readVersion = evt.Version;
+                            if (readVersion <= endVersion)
+                                list.Add(evt);
+                        }
                     }
-                    if (readVersion <= endVersion)
-                        list.Add(eventInfo);
                 }
                 if (readVersion >= endVersion)
                     break;
             }
-            return list.OrderBy(e => e.Event.Version).ToList();
+            return list;
         }
-        public async Task<List<EventInfo<K>>> GetListAsync(K stateId, string typeCode, Int64 startVersion, Int64 endVersion, DateTime? startTime = null)
+        public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, string typeCode, Int64 startVersion, Int64 endVersion, DateTime? startTime = null)
         {
             var collectionList = mongoAttr.GetCollectionList(mongoStorage, mongoStorage.Config.SysStartTime, startTime);
-            var list = new List<EventInfo<K>>();
+            var list = new List<IEventBase<K>>();
             Int64 readVersion = 0;
             foreach (var collection in collectionList)
             {
@@ -69,28 +67,34 @@ namespace Ray.MongoES
                 {
                     var type = MessageTypeMapper.GetType(typeCode);
                     var data = document["Data"].AsByteArray;
-                    var eventInfo = new EventInfo<K>();
-                    eventInfo.IsComplete = document["IsComplete"].AsBoolean;
                     using (MemoryStream ms = new MemoryStream(data))
                     {
-                        var @event = Serializer.Deserialize(type, ms) as IEventBase<K>;
-                        eventInfo.Event = @event;
+                        if (readVersion <= endVersion)
+                        {
+                            if (Serializer.Deserialize(type, ms) is IEventBase<K> evt)
+                            {
+                                readVersion = evt.Version;
+                                if (readVersion <= endVersion)
+                                    list.Add(evt);
+                            }
+                        }
                     }
-                    if (readVersion <= endVersion)
-                        list.Add(eventInfo);
+
                 }
                 if (readVersion >= endVersion)
                     break;
             }
-            return list.OrderBy(e => e.Event.Version).ToList();
+            return list;
         }
-        public async Task<bool> SaveAsync<T>(T data, byte[] bytes, string uniqueId = null) where T : IEventBase<K>
+        public async Task<bool> SaveAsync(IEventBase<K> data, byte[] bytes, string uniqueId = null)
         {
-            var mEvent = new MongoEvent<K>();
-            mEvent.StateId = data.StateId;
-            mEvent.Version = data.Version;
-            mEvent.TypeCode = data.TypeCode;
-            mEvent.Data = bytes;
+            var mEvent = new MongoEvent<K>
+            {
+                StateId = data.StateId,
+                Version = data.Version,
+                TypeCode = data.TypeCode,
+                Data = bytes
+            };
             if (string.IsNullOrEmpty(data.Id))
             {
                 mEvent.Id = ObjectId.GenerateNewId().ToString();
@@ -122,13 +126,6 @@ namespace Ray.MongoES
                 }
             }
             return false;
-        }
-
-        public async Task CompleteAsync<T>(T data) where T : IEventBase<K>
-        {
-            var filter = Builders<BsonDocument>.Filter.Eq("_id", data.Id);
-            var update = Builders<BsonDocument>.Update.Set("IsComplete", true);
-            await mongoStorage.GetCollection<BsonDocument>(mongoAttr.EventDataBase, mongoAttr.GetCollection(mongoStorage, mongoStorage.Config.SysStartTime, data.Timestamp).Name).UpdateOneAsync(filter, update);
         }
     }
 }

@@ -10,9 +10,7 @@
     <PackageReference Include="Microsoft.Orleans.OrleansRuntime" Version="2.0.0-rc2" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\Ray.MongoES\Ray.MongoES.csproj" />
-    <ProjectReference Include="..\..\Ray.PostgresqlES\Ray.PostgresqlES.csproj" />
-    <ProjectReference Include="..\Ray.Grain\Ray.Grain.csproj" />
+    <ProjectReference Include="..\Ray.Grain\Ray.MongoGrain.csproj" />
   </ItemGroup>
 
 </Project>

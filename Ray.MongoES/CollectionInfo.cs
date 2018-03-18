@@ -1,7 +1,7 @@
 ﻿using System;
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace Ray.MongoES
+namespace Ray.MongoDb
 {
     public class CollectionInfo
     {

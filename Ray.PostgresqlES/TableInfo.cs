@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Ray.PostgresqlES
+namespace Ray.Postgresql
 {
     public class TableInfo
     {

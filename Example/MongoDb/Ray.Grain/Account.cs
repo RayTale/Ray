@@ -5,17 +5,16 @@ using Ray.Core.EventSourcing;
 using Ray.IGrains.Actors;
 using Ray.IGrains.States;
 using Ray.IGrains.Events;
-using Ray.MongoES;
+using Ray.MongoDb;
 using Ray.Grain.EventHandles;
 using Orleans.Concurrency;
-using Microsoft.Extensions.DependencyInjection;
-using System.Threading;
+using Ray.RabbitMQ;
 
 namespace Ray.Grain
 {
-    [RabbitMQ.RabbitPub("Account", "account")]
-    [MongoStorage("Test", "Account")]
-    public sealed class Account : MongoESGrain<String, AccountState, IGrains.MessageInfo>, IAccount
+    [RabbitPub("Account", "account")]
+    [MongoStorage("Test", "Account_Event", "Account_State")]
+    public sealed class Account : MongoGrain<string, AccountState, IGrains.MessageInfo>, IAccount
     {
         protected override string GrainId => this.GetPrimaryKeyString();
 
@@ -39,7 +38,7 @@ namespace Ray.Grain
         [AlwaysInterleave]
         public Task<decimal> GetBalance()
         {
-            return Task.FromResult(this.State.Balance);
+            return Task.FromResult(State.Balance);
         }
     }
 }

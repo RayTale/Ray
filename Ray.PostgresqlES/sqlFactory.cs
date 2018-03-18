@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Data.Common;
 
-namespace Ray.PostgresqlES
+namespace Ray.Postgresql
 {
     public class SqlFactory
     {
@@ -22,8 +22,7 @@ namespace Ray.PostgresqlES
         }
         protected static DbProviderFactory GetFactory(string assemblyQualifiedName)
         {
-            var ft = Type.GetType(assemblyQualifiedName);
-            return (DbProviderFactory)ft.GetField("Instance").GetValue(null);
+            return (DbProviderFactory)Type.GetType(assemblyQualifiedName).GetField("Instance").GetValue(null);
         }
     }
 }

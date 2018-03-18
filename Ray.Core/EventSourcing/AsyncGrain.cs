@@ -4,32 +4,20 @@ using System;
 using System.Threading.Tasks;
 using System.IO;
 using Microsoft.Extensions.DependencyInjection;
+using System.Runtime.CompilerServices;
 
 namespace Ray.Core.EventSourcing
 {
-    public abstract class ESRepGrain<K, S, W> : Grain
+    public abstract class AsyncGrain<K, S, W> : Grain
         where S : class, IState<K>, new()
         where W : MessageWrapper
     {
-        Int64 storageVersion;
         protected S State
         {
             get;
             set;
         }
         protected abstract K GrainId { get; }
-        Type thisType = null;
-        private Type ThisType
-        {
-            get
-            {
-                if (thisType == null)
-                {
-                    thisType = this.GetType();
-                }
-                return thisType;
-            }
-        }
         protected virtual SnapshotType SnapshotType { get { return SnapshotType.Replica; } }
         protected virtual int SnapshotFrequency { get { return 50; } }
         IEventStorage<K> _eventStorage;
@@ -39,7 +27,7 @@ namespace Ray.Core.EventSourcing
             {
                 if (_eventStorage == null)
                 {
-                    _eventStorage = ServiceProvider.GetService<IStorageContainer>().GetEventStorage<K, S>(ThisType, this);
+                    _eventStorage = ServiceProvider.GetService<IStorageContainer>().GetEventStorage<K, S>(GetType(), this);
                 }
                 return _eventStorage;
             }
@@ -51,7 +39,7 @@ namespace Ray.Core.EventSourcing
             {
                 if (_StateStore == null)
                 {
-                    _StateStore = ServiceProvider.GetService<IStorageContainer>().GetStateStorage<K, S>(ThisType, this);
+                    _StateStore = ServiceProvider.GetService<IStorageContainer>().GetStateStorage<K, S>(GetType(), this);
                 }
                 return _StateStore;
             }
@@ -68,8 +56,6 @@ namespace Ray.Core.EventSourcing
                 return _serializer;
             }
         }
-        protected abstract IEventHandle EventHandle { get; }
-
         public Task Tell(byte[] bytes)
         {
             using (var wms = new MemoryStream(bytes))
@@ -85,135 +71,131 @@ namespace Ray.Core.EventSourcing
             {
                 using (var ems = new MemoryStream(message.BinaryBytes))
                 {
-                    var @event = Serializer.Deserialize(type, ems) as IEventBase<K>;
-                    if (@event != null)
+                    if (Serializer.Deserialize(type, ems) is IEventBase<K> @event)
                     {
-                        if (@event.Version == this.State.Version + 1)
+                        if (@event.Version == State.Version + 1)
                         {
-                            await OnExecution(@event);
-                            this.State.IncrementDoingVersion();//标记将要处理的Version
+                            State.IncrementDoingVersion();//标记将要处理的Version
                             try
                             {
-                                EventHandle.Apply(this.State, @event);
-                                this.State.UpdateVersion(@event);//更新处理完成的Version
+                                await Handle(@event);
+                                State.UpdateVersion(@event);//更新处理完成的Version
                             }
                             catch (Exception e)
                             {
-                                this.State.DoingVersion = this.State.Version;//标记将要处理的Version
+                                State.DoingVersion = State.Version;//标记将要处理的Version
                                 throw e;
                             }
                             await OnExecuted(@event);
                             await SaveSnapshotAsync();
                         }
-                        else if (@event.Version > this.State.Version)
+                        else if (@event.Version > State.Version)
                         {
-                            var eventList = await EventStorage.GetListAsync(this.GrainId, this.State.Version, @event.Version);
+                            var eventList = await EventStorage.GetListAsync(GrainId, State.Version, @event.Version);
                             foreach (var item in eventList)
                             {
-                                await OnExecution(item.Event);
-                                this.State.IncrementDoingVersion();//标记将要处理的Version
+                                State.IncrementDoingVersion();//标记将要处理的Version
                                 try
                                 {
-                                    EventHandle.Apply(this.State, item.Event);
-                                    this.State.UpdateVersion(item.Event);//更新处理完成的Version
+                                    await Handle(item);
+                                    State.UpdateVersion(item);//更新处理完成的Version
                                 }
                                 catch (Exception e)
                                 {
-                                    this.State.DoingVersion = this.State.Version;//标记将要处理的Version
+                                    State.DoingVersion = State.Version;//标记将要处理的Version
                                     throw e;
                                 }
-                                await OnExecuted(item.Event);
+                                await OnExecuted(@event);
                                 await SaveSnapshotAsync();
                             }
                         }
-                        if (@event.Version == this.State.Version + 1)
+                        if (@event.Version == State.Version + 1)
                         {
-                            await OnExecution(@event);
-                            this.State.IncrementDoingVersion();//标记将要处理的Version
+                            State.IncrementDoingVersion();//标记将要处理的Version
                             try
                             {
-                                EventHandle.Apply(this.State, @event);
-                                this.State.UpdateVersion(@event);//更新处理完成的Version
+                                await Handle(@event);
+                                State.UpdateVersion(@event);//更新处理完成的Version
                             }
                             catch (Exception e)
                             {
-                                this.State.DoingVersion = this.State.Version;//标记将要处理的Version
+                                State.DoingVersion = State.Version;//标记将要处理的Version
                                 throw e;
                             }
                             await OnExecuted(@event);
                             await SaveSnapshotAsync();
                         }
-                        if (@event.Version > this.State.Version)
+                        if (@event.Version > State.Version)
                         {
-                            throw new Exception($"Event version of the error,Type={ThisType.FullName},StateId={this.GrainId.ToString()},StateVersion={this.State.Version},EventVersion={@event.Version}");
+                            throw new Exception($"Event version of the error,Type={GetType().FullName},StateId={this.GrainId.ToString()},StateVersion={State.Version},EventVersion={@event.Version}");
                         }
                     }
                 }
             }
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected virtual Task Handle(IEventBase<K> @event)
+        {
+            return Task.CompletedTask;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual Task OnExecuted(IEventBase<K> @event)
         {
             return Task.CompletedTask;
         }
-        protected virtual Task OnExecution(IEventBase<K> @event)
-        {
-            return Task.CompletedTask;
-        }
-        public override Task OnActivateAsync()
-        {
-            return Active();
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual Task CustomSave()
         {
             return Task.CompletedTask;
         }
+        Int64 storageVersion;
         protected virtual async Task SaveSnapshotAsync()
         {
             if (SnapshotType == SnapshotType.Replica)
             {
-                if (this.State.Version - storageVersion >= SnapshotFrequency)
+                if (State.Version - storageVersion >= SnapshotFrequency)
                 {
                     await CustomSave();//自定义保存项
                     if (IsNew)
                     {
-                        await StateStore.InsertAsync(this.State);
+                        await StateStore.InsertAsync(State);
                         IsNew = false;
                     }
                     else
                     {
-                        await StateStore.UpdateAsync(this.State);
+                        await StateStore.UpdateAsync(State);
                     }
-                    storageVersion = this.State.Version;
+                    storageVersion = State.Version;
                 }
             }
         }
         #region 初始化数据
-        private async Task Active()
+        public override async Task OnActivateAsync()
         {
             await ReadSnapshotAsync();
             var storageContainer = ServiceProvider.GetService<IStorageContainer>();
             while (true)
             {
-                var eventList = await EventStorage.GetListAsync(this.GrainId, this.State.Version, this.State.Version + 1000, this.State.VersionTime);
+                var eventList = await EventStorage.GetListAsync(GrainId, State.Version, State.Version + 1000, State.VersionTime);
                 foreach (var @event in eventList)
                 {
-                    this.State.IncrementDoingVersion();//标记将要处理的Version
-                    EventHandle.Apply(this.State, @event.Event);
-                    this.State.UpdateVersion(@event.Event);//更新处理完成的Version
+                    State.IncrementDoingVersion();//标记将要处理的Version
+                    await Handle(@event);
+                    State.UpdateVersion(@event);//更新处理完成的Version
                 }
                 if (eventList.Count < 1000) break;
             };
         }
-        protected bool IsNew = false;
+        protected bool IsNew { get; set; } = false;
         protected virtual async Task ReadSnapshotAsync()
         {
-            this.State = await StateStore.GetByIdAsync(GrainId);
-            if (this.State == null)
+            State = await StateStore.GetByIdAsync(GrainId);
+            if (State == null)
             {
                 IsNew = true;
                 await InitState();
             }
-            storageVersion = this.State.Version;
+            storageVersion = State.Version;
         }
         /// <summary>
         /// 初始化状态，必须实现
@@ -221,8 +203,10 @@ namespace Ray.Core.EventSourcing
         /// <returns></returns>
         protected virtual Task InitState()
         {
-            this.State = new S();
-            this.State.StateId = GrainId;
+            State = new S
+            {
+                StateId = GrainId
+            };
             return Task.CompletedTask;
         }
         #endregion
