@@ -18,8 +18,8 @@ namespace Ray.Core.EventSourcing
             set;
         }
         protected abstract K GrainId { get; }
-        protected virtual SnapshotType SnapshotType { get { return SnapshotType.Replica; } }
-        protected virtual int SnapshotFrequency { get { return 500; } }
+        protected virtual bool SaveSnapshot => true;
+        protected virtual int SnapshotFrequency => 500;
         IEventStorage<K> _eventStorage;
         protected IEventStorage<K> EventStorage
         {
@@ -151,7 +151,7 @@ namespace Ray.Core.EventSourcing
         Int64 storageVersion;
         protected virtual async Task SaveSnapshotAsync(bool force = false)
         {
-            if (SnapshotType == SnapshotType.Replica)
+            if (SaveSnapshot)
             {
                 if (force || (State.Version - storageVersion >= SnapshotFrequency))
                 {
@@ -190,7 +190,7 @@ namespace Ray.Core.EventSourcing
         {
             return SaveSnapshotAsync(true);
         }
-        protected bool IsNew { get; set; } = false;
+        protected bool IsNew { get; set; }
         protected virtual async Task ReadSnapshotAsync()
         {
             State = await StateStore.GetByIdAsync(GrainId);

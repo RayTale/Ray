@@ -21,6 +21,9 @@ namespace Ray.Core.EventSourcing
             set;
         }
         protected abstract K GrainId { get; }
+        protected virtual SnapshotType SnapshotType => SnapshotType.Master;
+        protected virtual int SnapshotFrequency => 200;
+        protected virtual bool PublishToMQ => true;
         protected ILogger<ESGrain<K, S, W>> Logger { get; set; }
         #region LifeTime
         public override async Task OnActivateAsync()
@@ -48,10 +51,7 @@ namespace Ray.Core.EventSourcing
         protected bool IsNew { get; set; } = false;
         protected virtual async Task ReadSnapshotAsync()
         {
-            if (SnapshotType != SnapshotType.NoSnapshot)
-            {
-                State = await GetStateStorage().GetByIdAsync(GrainId);
-            }
+            State = await GetStateStorage().GetByIdAsync(GrainId);
             if (State == null)
             {
                 IsNew = true;
@@ -59,8 +59,6 @@ namespace Ray.Core.EventSourcing
             }
             storageVersion = State.Version;
         }
-        protected virtual SnapshotType SnapshotType { get { return SnapshotType.Master; } }
-        protected virtual int SnapshotFrequency => 200;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual async Task SaveSnapshotAsync(bool force = false)
@@ -150,7 +148,6 @@ namespace Ray.Core.EventSourcing
             }
             return _serializer;
         }
-        protected virtual bool PublishToMQ { get; set; } = true;
         protected abstract IEventHandle EventHandle { get; }
         protected async ValueTask<bool> RaiseEvent(IEventBase<K> @event, string uniqueId = null, string hashKey = null)
         {
@@ -185,7 +182,7 @@ namespace Ray.Core.EventSourcing
             }
             catch (Exception ex)
             {
-                Logger.LogError(LogCodes.EventRaiseError, ex, "applay event {0} error, eventId={1}", @event.TypeCode, @event.Version);
+                Logger.LogError(LogCodes.EventRaiseError, ex, "Apply event {0} error, EventId={1}", @event.TypeCode, @event.Version);
                 await OnActivateAsync();//重新激活Actor
                 throw ex;
             }

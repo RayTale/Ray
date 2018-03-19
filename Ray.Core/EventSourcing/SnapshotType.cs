@@ -1,20 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Ray.Core.EventSourcing
+﻿namespace Ray.Core.EventSourcing
 {
     /// <summary>
     /// Event Sourcing快照类型
     /// </summary>
     public enum SnapshotType
     {
-        /// <summary>
-        /// 无快照(不需要保存快照)
-        /// </summary>
-        NoSnapshot,
         /// <summary>
         /// 同步保存在当前Actor上
         /// </summary>
