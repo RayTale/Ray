@@ -19,7 +19,7 @@ namespace Ray.Core.EventSourcing
         }
         protected abstract K GrainId { get; }
         protected virtual SnapshotType SnapshotType { get { return SnapshotType.Replica; } }
-        protected virtual int SnapshotFrequency { get { return 50; } }
+        protected virtual int SnapshotFrequency { get { return 500; } }
         IEventStorage<K> _eventStorage;
         protected IEventStorage<K> EventStorage
         {
@@ -78,7 +78,7 @@ namespace Ray.Core.EventSourcing
                             State.IncrementDoingVersion();//标记将要处理的Version
                             try
                             {
-                                await Handle(@event);
+                                await OnEventDelivered(@event);
                                 State.UpdateVersion(@event);//更新处理完成的Version
                             }
                             catch (Exception e)
@@ -97,7 +97,7 @@ namespace Ray.Core.EventSourcing
                                 State.IncrementDoingVersion();//标记将要处理的Version
                                 try
                                 {
-                                    await Handle(item);
+                                    await OnEventDelivered(item);
                                     State.UpdateVersion(item);//更新处理完成的Version
                                 }
                                 catch (Exception e)
@@ -114,7 +114,7 @@ namespace Ray.Core.EventSourcing
                             State.IncrementDoingVersion();//标记将要处理的Version
                             try
                             {
-                                await Handle(@event);
+                                await OnEventDelivered(@event);
                                 State.UpdateVersion(@event);//更新处理完成的Version
                             }
                             catch (Exception e)
@@ -134,7 +134,7 @@ namespace Ray.Core.EventSourcing
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual Task Handle(IEventBase<K> @event)
+        protected virtual Task OnEventDelivered(IEventBase<K> @event)
         {
             return Task.CompletedTask;
         }
@@ -144,18 +144,18 @@ namespace Ray.Core.EventSourcing
             return Task.CompletedTask;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual Task CustomSave()
+        protected virtual Task OnSaveSnapshot()
         {
             return Task.CompletedTask;
         }
         Int64 storageVersion;
-        protected virtual async Task SaveSnapshotAsync()
+        protected virtual async Task SaveSnapshotAsync(bool force = false)
         {
             if (SnapshotType == SnapshotType.Replica)
             {
-                if (State.Version - storageVersion >= SnapshotFrequency)
+                if (force || (State.Version - storageVersion >= SnapshotFrequency))
                 {
-                    await CustomSave();//自定义保存项
+                    await OnSaveSnapshot();//自定义保存项
                     if (IsNew)
                     {
                         await StateStore.InsertAsync(State);
@@ -180,11 +180,15 @@ namespace Ray.Core.EventSourcing
                 foreach (var @event in eventList)
                 {
                     State.IncrementDoingVersion();//标记将要处理的Version
-                    await Handle(@event);
+                    await OnEventDelivered(@event);
                     State.UpdateVersion(@event);//更新处理完成的Version
                 }
                 if (eventList.Count < 1000) break;
             };
+        }
+        public override Task OnDeactivateAsync()
+        {
+            return SaveSnapshotAsync(true);
         }
         protected bool IsNew { get; set; } = false;
         protected virtual async Task ReadSnapshotAsync()
@@ -193,7 +197,7 @@ namespace Ray.Core.EventSourcing
             if (State == null)
             {
                 IsNew = true;
-                await InitState();
+                await CreateState();
             }
             storageVersion = State.Version;
         }
@@ -201,7 +205,7 @@ namespace Ray.Core.EventSourcing
         /// 初始化状态，必须实现
         /// </summary>
         /// <returns></returns>
-        protected virtual Task InitState()
+        protected virtual Task CreateState()
         {
             State = new S
             {

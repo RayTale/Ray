@@ -14,7 +14,7 @@ namespace Ray.Grain
     public sealed class AccountFlow : MongoAsyncGrain<string, AsyncState<string>, MessageInfo>, IAccountFlow
     {
         protected override string GrainId => this.GetPrimaryKeyString();
-        protected override Task Handle(IEventBase<string> @event)
+        protected override Task OnEventDelivered(IEventBase<string> @event)
         {
             switch (@event)
             {

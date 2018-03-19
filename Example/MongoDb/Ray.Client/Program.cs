@@ -46,7 +46,7 @@ namespace Ray.Client
                         });
                         await Task.WhenAll(tasks);
                         stopWatch.Stop();
-                        Console.WriteLine($"{length}次交易完成，耗时:{stopWatch.ElapsedMilliseconds}ms");
+                        Console.WriteLine($"{length*2}次操作完成，耗时:{stopWatch.ElapsedMilliseconds}ms");
                         await Task.Delay(200);
 
                         Console.WriteLine($"End:1的余额为{await aActor.GetBalance()},2的余额为{await bActor.GetBalance()}");

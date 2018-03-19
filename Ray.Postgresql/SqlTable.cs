@@ -17,8 +17,8 @@ namespace Ray.Postgresql
         public SqlTable(string conn, string eventTable, string snapshotTable, bool sharding = false, int shardingDays = 90)
         {
             Connection = conn;
-            EventTable = eventTable.ToLower();
-            SnapshotTable = snapshotTable.ToLower();
+            EventTable = eventTable;
+            SnapshotTable = snapshotTable;
             this.sharding = sharding;
             this.shardingDays = shardingDays;
             CreateStateTable();
@@ -78,11 +78,13 @@ namespace Ray.Postgresql
                             else
                             {
                                 tableList = null;
-                                return GetTable(eventTime).GetAwaiter().GetResult();
+                                lastTable = null;
                             }
                         }
                     }
                 }
+                if (lastTable == null)
+                    return await GetTable(eventTime);
             }
             return lastTable;
         }

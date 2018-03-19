@@ -32,7 +32,7 @@ namespace Ray.Grain
                 return _table;
             }
         }
-        protected override Task Handle(IEventBase<string> @event)
+        protected override Task OnEventDelivered(IEventBase<string> @event)
         {
             switch (@event)
             {

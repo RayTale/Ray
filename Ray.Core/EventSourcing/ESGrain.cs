@@ -39,6 +39,10 @@ namespace Ray.Core.EventSourcing
                 if (eventList.Count < 1000) break;
             };
         }
+        public override Task OnDeactivateAsync()
+        {
+            return SaveSnapshotAsync(true);
+        }
         #endregion
         #region State storage
         protected bool IsNew { get; set; } = false;
@@ -46,12 +50,12 @@ namespace Ray.Core.EventSourcing
         {
             if (SnapshotType != SnapshotType.NoSnapshot)
             {
-                State = await GetStateStore().GetByIdAsync(GrainId);
+                State = await GetStateStorage().GetByIdAsync(GrainId);
             }
             if (State == null)
             {
                 IsNew = true;
-                await InitState();
+                await CreateState();
             }
             storageVersion = State.Version;
         }
@@ -59,29 +63,39 @@ namespace Ray.Core.EventSourcing
         protected virtual int SnapshotFrequency => 200;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual async Task SaveSnapshotAsync()
+        protected virtual async Task SaveSnapshotAsync(bool force = false)
         {
             if (SnapshotType == SnapshotType.Master)
             {
-                if (IsNew)
-                {
-                    await GetStateStore().InsertAsync(State);
-                    storageVersion = State.Version;
-                    IsNew = false;
-                }
                 //如果版本号差超过设置则更新快照
-                else if (State.Version - storageVersion >= SnapshotFrequency)
+                if (force || (State.Version - storageVersion >= SnapshotFrequency))
                 {
-                    await GetStateStore().UpdateAsync(State);
-                    storageVersion = State.Version;
+                    await OnSaveSnapshot();
+                    if (IsNew)
+                    {
+                        await GetStateStorage().InsertAsync(State);
+
+                        storageVersion = State.Version;
+                        IsNew = false;
+                    }
+                    else
+                    {
+                        await GetStateStorage().UpdateAsync(State);
+                        storageVersion = State.Version;
+                    }
                 }
             }
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected virtual Task OnSaveSnapshot()
+        {
+            return Task.CompletedTask;
         }
         /// <summary>
         /// 初始化状态，必须实现
         /// </summary>
         /// <returns></returns>
-        protected virtual Task InitState()
+        protected virtual Task CreateState()
         {
             State = new S
             {
@@ -91,17 +105,17 @@ namespace Ray.Core.EventSourcing
         }
         protected async Task ClearStateAsync()
         {
-            await GetStateStore().DeleteAsync(GrainId);
+            await GetStateStorage().DeleteAsync(GrainId);
         }
-        IStateStorage<S, K> _StateStore;
+        IStateStorage<S, K> _stateStorage;
 
-        private IStateStorage<S, K> GetStateStore()
+        protected virtual IStateStorage<S, K> GetStateStorage()
         {
-            if (_StateStore == null)
+            if (_stateStorage == null)
             {
-                _StateStore = ServiceProvider.GetService<IStorageContainer>().GetStateStorage<K, S>(GetType(), this);
+                _stateStorage = ServiceProvider.GetService<IStorageContainer>().GetStateStorage<K, S>(GetType(), this);
             }
-            return _StateStore;
+            return _stateStorage;
         }
         #endregion
 

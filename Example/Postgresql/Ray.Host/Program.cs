@@ -27,11 +27,10 @@ namespace Ray.MongoHost
             {
                 var host = await StartSilo();
 
-                Console.WriteLine("Press Enter to terminate...");
-
+                Console.WriteLine("Input any key to stop");
                 Console.ReadLine();
-
                 await host.StopAsync();
+                Console.WriteLine("Input any key to exit");
 
                 return 0;
             }

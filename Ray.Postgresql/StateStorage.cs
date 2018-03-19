@@ -55,7 +55,7 @@ namespace Ray.Postgresql
             {
                 using (var ms = new PooledMemoryStream())
                 {
-                    Serializer.Serialize<T>(ms, data);
+                    Serializer.Serialize(ms, data);
                     using (var connection = tableInfo.CreateConnection())
                     {
                         await connection.ExecuteAsync(insertSql, new { data.StateId, Data = ms.ToArray() });
@@ -70,7 +70,7 @@ namespace Ray.Postgresql
             {
                 using (var ms = new PooledMemoryStream())
                 {
-                    Serializer.Serialize<T>(ms, data);
+                    Serializer.Serialize(ms, data);
                     using (var connection = tableInfo.CreateConnection())
                     {
                         await connection.ExecuteAsync(updateSql, new { data.StateId, Data = ms.ToArray() });

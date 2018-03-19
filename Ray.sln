@@ -29,9 +29,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.PostgresqlHost", "Examp
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.PostgresqlClient", "Example\Postgresql\Ray.Client\Ray.PostgresqlClient.csproj", "{564C0298-A80B-4D7F-8F75-26FBFD1F218F}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.Postgresql", "Ray.Postgresql\Ray.Postgresql.csproj", "{334E6D35-3909-49CA-B754-32147B738BF4}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.PostgreSQL", "Ray.Postgresql\Ray.PostgreSQL.csproj", "{334E6D35-3909-49CA-B754-32147B738BF4}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.MongoDb", "Ray.MongoDb\Ray.MongoDb.csproj", "{A36D1747-C176-4B8B-8141-CD84A87FE0BD}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.MongoDB", "Ray.MongoDb\Ray.MongoDB.csproj", "{A36D1747-C176-4B8B-8141-CD84A87FE0BD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -8,7 +8,7 @@ namespace Ray.Grain
     public abstract class DbGrain<K, S> : SqlAsyncGrain<K, S, MessageInfo>
           where S : class, IState<K>, new()
     {
-        protected override Task Handle(IEventBase<K> @event)
+        protected override Task OnEventDelivered(IEventBase<K> @event)
         {
             return Process(@event).ContinueWith(t =>
             {
