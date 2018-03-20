@@ -7,8 +7,7 @@ using MongoDB.Bson;
 
 namespace Ray.MongoDb
 {
-    [AttributeUsage(AttributeTargets.Class)]
-    public class MongoStorageAttribute : Attribute
+    public class MongoGrainConfig
     {
         public string EventDataBase { get; set; }
         public string EventCollection { get; set; }
@@ -17,7 +16,7 @@ namespace Ray.MongoDb
         const string C_CName = "CollectionInfo";
         bool sharding = false;
         int shardingDays;
-        public MongoStorageAttribute(
+        public MongoGrainConfig(
             string eventDatabase, string eventCollection, string snapshotCollection, bool sharding = false, int shardingDays = 90)
         {
             EventDataBase = eventDatabase;

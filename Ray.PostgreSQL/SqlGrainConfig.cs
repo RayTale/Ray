@@ -7,14 +7,14 @@ using Dapper;
 
 namespace Ray.Postgresql
 {
-    public class SqlTable
+    public class SqlGrainConfig
     {
         public string Connection { get; set; }
         public string EventTable { get; set; }
         public string SnapshotTable { get; set; }
         bool sharding = false;
         int shardingDays;
-        public SqlTable(string conn, string eventTable, string snapshotTable, bool sharding = false, int shardingDays = 90)
+        public SqlGrainConfig(string conn, string eventTable, string snapshotTable, bool sharding = false, int shardingDays = 90)
         {
             Connection = conn;
             EventTable = eventTable;

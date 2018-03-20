@@ -7,8 +7,8 @@ namespace Ray.MongoDb
         where S : class, IState<K>, new()
         where W : MessageWrapper
     {
-        protected MongoStorageAttribute _mongoInfo = null;
-        public virtual MongoStorageAttribute ESMongoInfo
+        protected MongoGrainConfig _mongoInfo = null;
+        public virtual MongoGrainConfig ESMongoInfo
         {
             get
             {

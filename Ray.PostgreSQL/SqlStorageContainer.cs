@@ -1,16 +1,12 @@
 ﻿using Orleans;
 using Ray.Core.EventSourcing;
 using System;
-using System.Collections.Concurrent;
 
 namespace Ray.Postgresql
 {
-    public class StorageContainer : IStorageContainer
+    public class SqlStorageContainer : IStorageContainer
     {
-        protected static ConcurrentDictionary<Type, SqlTable> mongoAttrDict = new ConcurrentDictionary<Type, SqlTable>();
-
-        static Type eventStorageType = typeof(SqlTable);
-        private SqlTable GetTableInfo<K, S>(Type type, Grain grain) where S : class, IState<K>, new()
+        private SqlGrainConfig GetTableInfo<K, S>(Type type, Grain grain) where S : class, IState<K>, new()
         {
             if (grain is ISqlGrain sqlGrain && sqlGrain.ESSQLTable != null)
             {
@@ -23,7 +19,7 @@ namespace Ray.Postgresql
             var table = GetTableInfo<K, S>(type, grain);
             if (table != null)
             {
-                return new EventStorage<K>(table);
+                return new SqlEventStorage<K>(table);
             }
             else
                 throw new Exception("not find sqltable info");
@@ -34,7 +30,7 @@ namespace Ray.Postgresql
             var table = GetTableInfo<K, S>(type, grain);
             if (table != null)
             {
-                return new StateStorage<S, K>(table);
+                return new SqlStateStorage<S, K>(table);
             }
             else
                 throw new Exception("not find sqltable info");

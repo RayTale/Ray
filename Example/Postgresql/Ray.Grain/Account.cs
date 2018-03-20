@@ -26,14 +26,14 @@ namespace Ray.Grain
 
         static IEventHandle _eventHandle = new AccountEventHandle();
         protected override IEventHandle EventHandle => _eventHandle;
-        static SqlTable _table;
-        public override SqlTable ESSQLTable
+        static SqlGrainConfig _table;
+        public override SqlGrainConfig ESSQLTable
         {
             get
             {
                 if (_table == null)
                 {
-                    _table = new SqlTable(config.ConnectionDict["core_event"], "account_event", "account_state");
+                    _table = new SqlGrainConfig(config.ConnectionDict["core_event"], "account_event", "account_state");
                 }
                 return _table;
             }

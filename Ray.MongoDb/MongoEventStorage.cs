@@ -14,25 +14,25 @@ namespace Ray.MongoDb
 {
     public class MongoEventStorage<K> : IEventStorage<K>
     {
-        MongoStorageAttribute mongoAttr;
+        MongoGrainConfig grainConfig;
         ILogger<MongoEventStorage<K>> logger;
         IMongoStorage mongoStorage;
-        public MongoEventStorage(IMongoStorage mongoStorage, ILogger<MongoEventStorage<K>> logger, MongoStorageAttribute mongoAttr)
+        public MongoEventStorage(IMongoStorage mongoStorage, ILogger<MongoEventStorage<K>> logger, MongoGrainConfig grainConfig)
         {
             this.mongoStorage = mongoStorage;
-            this.mongoAttr = mongoAttr;
+            this.grainConfig = grainConfig;
             this.logger = logger;
         }
         public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, Int64 startVersion, Int64 endVersion, DateTime? startTime = null)
         {
-            var collectionList = mongoAttr.GetCollectionList(mongoStorage, mongoStorage.Config.SysStartTime, startTime);
+            var collectionList = grainConfig.GetCollectionList(mongoStorage, mongoStorage.Config.SysStartTime, startTime);
             var list = new List<IEventBase<K>>();
             Int64 readVersion = 0;
             foreach (var collection in collectionList)
             {
                 var filterBuilder = Builders<BsonDocument>.Filter;
                 var filter = filterBuilder.Eq("StateId", stateId) & filterBuilder.Lte("Version", endVersion) & filterBuilder.Gt("Version", startVersion);
-                var cursor = await mongoStorage.GetCollection<BsonDocument>(mongoAttr.EventDataBase, collection.Name).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(3000).Token);
+                var cursor = await mongoStorage.GetCollection<BsonDocument>(grainConfig.EventDataBase, collection.Name).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(3000).Token);
                 foreach (var document in cursor.ToEnumerable())
                 {
                     var typeCode = document["TypeCode"].AsString;
@@ -55,14 +55,14 @@ namespace Ray.MongoDb
         }
         public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, string typeCode, Int64 startVersion, Int64 endVersion, DateTime? startTime = null)
         {
-            var collectionList = mongoAttr.GetCollectionList(mongoStorage, mongoStorage.Config.SysStartTime, startTime);
+            var collectionList = grainConfig.GetCollectionList(mongoStorage, mongoStorage.Config.SysStartTime, startTime);
             var list = new List<IEventBase<K>>();
             Int64 readVersion = 0;
             foreach (var collection in collectionList)
             {
                 var filterBuilder = Builders<BsonDocument>.Filter;
                 var filter = filterBuilder.Eq("StateId", stateId) & filterBuilder.Eq("TypeCode", typeCode) & filterBuilder.Gt("Version", startVersion);
-                var cursor = await mongoStorage.GetCollection<BsonDocument>(mongoAttr.EventDataBase, collection.Name).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(3000).Token);
+                var cursor = await mongoStorage.GetCollection<BsonDocument>(grainConfig.EventDataBase, collection.Name).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(3000).Token);
                 foreach (var document in cursor.ToEnumerable())
                 {
                     var type = MessageTypeMapper.GetType(typeCode);
@@ -111,7 +111,7 @@ namespace Ray.MongoDb
                 mEvent.MsgId = uniqueId;
             try
             {
-                await mongoStorage.GetCollection<MongoEvent<K>>(mongoAttr.EventDataBase, mongoAttr.GetCollection(mongoStorage, mongoStorage.Config.SysStartTime, data.Timestamp).Name).InsertOneAsync(mEvent);
+                await mongoStorage.GetCollection<MongoEvent<K>>(grainConfig.EventDataBase, grainConfig.GetCollection(mongoStorage, mongoStorage.Config.SysStartTime, data.Timestamp).Name).InsertOneAsync(mEvent);
                 return true;
             }
             catch (MongoWriteException ex)

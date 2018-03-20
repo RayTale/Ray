@@ -19,14 +19,14 @@ namespace Ray.Grain
         }
         protected override string GrainId => this.GetPrimaryKeyString();
 
-        static SqlTable _table;
-        public override SqlTable ESSQLTable
+        static SqlGrainConfig _table;
+        public override SqlGrainConfig ESSQLTable
         {
             get
             {
                 if (_table == null)
                 {
-                    _table = new SqlTable(config.ConnectionDict["core_event"], "account_event", "account_db_state");
+                    _table = new SqlGrainConfig(config.ConnectionDict["core_event"], "account_event", "account_db_state");
                 }
                 return _table;
             }

@@ -7,7 +7,7 @@ namespace Ray.Postgresql
     {
         public static void AddPostgresql(this IServiceCollection serviceCollection)
         {
-            serviceCollection.AddSingleton<IStorageContainer, StorageContainer>();
+            serviceCollection.AddSingleton<IStorageContainer, SqlStorageContainer>();
         }
     }
 }

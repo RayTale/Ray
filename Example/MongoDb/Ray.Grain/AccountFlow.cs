@@ -10,10 +10,19 @@ using Ray.MongoDb;
 
 namespace Ray.Grain
 {
-    [MongoStorage("Test", "Account_Event", "Account_Flow_State")]
     public sealed class AccountFlow : MongoAsyncGrain<string, AsyncState<string>, MessageInfo>, IAccountFlow
     {
         protected override string GrainId => this.GetPrimaryKeyString();
+        static MongoGrainConfig _ESMongoInfo;
+        public override MongoGrainConfig ESMongoInfo
+        {
+            get
+            {
+                if (_ESMongoInfo == null)
+                    _ESMongoInfo = new MongoGrainConfig("Test", "Account_Event", "Account_Flow_State");
+                return _ESMongoInfo;
+            }
+        }
         protected override Task OnEventDelivered(IEventBase<string> @event)
         {
             switch (@event)

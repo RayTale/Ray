@@ -13,13 +13,22 @@ using Ray.RabbitMQ;
 namespace Ray.Grain
 {
     [RabbitPub("Account", "account")]
-    [MongoStorage("Test", "Account_Event", "Account_State")]
     public sealed class Account : MongoGrain<string, AccountState, IGrains.MessageInfo>, IAccount
     {
         protected override string GrainId => this.GetPrimaryKeyString();
 
         static IEventHandle _eventHandle = new AccountEventHandle();
         protected override IEventHandle EventHandle => _eventHandle;
+        static MongoGrainConfig _ESMongoInfo;
+        public override MongoGrainConfig ESMongoInfo
+        {
+            get
+            {
+                if (_ESMongoInfo == null)
+                    _ESMongoInfo = new MongoGrainConfig("Test", "Account_Event", "Account_State");
+                return _ESMongoInfo;
+            }
+        }
 
         public override async Task OnActivateAsync()
         {

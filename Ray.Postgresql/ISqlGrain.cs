@@ -2,6 +2,6 @@
 {
     public interface ISqlGrain
     {
-        SqlTable ESSQLTable { get; }
+        SqlGrainConfig ESSQLTable { get; }
     }
 }

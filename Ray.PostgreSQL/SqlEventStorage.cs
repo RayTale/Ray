@@ -10,12 +10,12 @@ using Ray.Core.Utils;
 
 namespace Ray.Postgresql
 {
-    public class EventStorage<K> : IEventStorage<K>
+    public class SqlEventStorage<K> : IEventStorage<K>
     {
-        SqlTable tableInfo;
-        public EventStorage(SqlTable mongoAttr)
+        SqlGrainConfig tableInfo;
+        public SqlEventStorage(SqlGrainConfig tableInfo)
         {
-            this.tableInfo = mongoAttr;
+            this.tableInfo = tableInfo;
         }
 
         public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, Int64 startVersion, Int64 endVersion, DateTime? startTime = null)

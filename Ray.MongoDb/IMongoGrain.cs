@@ -2,6 +2,6 @@
 {
     public interface IMongoGrain
     {
-        MongoStorageAttribute ESMongoInfo { get; }
+        MongoGrainConfig ESMongoInfo { get; }
     }
 }

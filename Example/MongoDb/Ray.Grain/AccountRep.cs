@@ -10,12 +10,21 @@ using Ray.MongoDb;
 
 namespace Ray.Grain
 {
-    [MongoStorage("Test", "Account_Event", "Account_State")]
     public sealed class AccountRep : MongoRepGrain<String, AccountState, MessageInfo>, IAccountRep
     {
         protected override string GrainId => this.GetPrimaryKeyString();
 
         static IEventHandle _eventHandle = new AccountEventHandle();
+        static MongoGrainConfig _ESMongoInfo;
+        public override MongoGrainConfig ESMongoInfo
+        {
+            get
+            {
+                if (_ESMongoInfo == null)
+                    _ESMongoInfo = new MongoGrainConfig("Test", "Account_Event", "Account_State");
+                return _ESMongoInfo;
+            }
+        }
         protected override IEventHandle EventHandle => _eventHandle;
 
         public Task<decimal> GetBalance()
