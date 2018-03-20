@@ -14,7 +14,6 @@ namespace Ray.Core.EventSourcing
         where S : class, IState<K>, new()
         where W : MessageWrapper
     {
-        Int64 storageVersion;
         protected S State
         {
             get;
@@ -22,7 +21,9 @@ namespace Ray.Core.EventSourcing
         }
         protected abstract K GrainId { get; }
         protected virtual SnapshotType SnapshotType => SnapshotType.Master;
-        protected virtual int SnapshotFrequency => 200;
+        protected virtual int SnapshotFrequency => 500;
+        protected Int64 StateStorageVersion { get; set; }
+        protected virtual int SnapshotMinFrequency => 50;
         protected virtual bool PublishToMQ => true;
         protected ILogger<ESGrain<K, S, W>> Logger { get; set; }
         #region LifeTime
@@ -44,7 +45,10 @@ namespace Ray.Core.EventSourcing
         }
         public override Task OnDeactivateAsync()
         {
-            return SaveSnapshotAsync(true);
+            if (State.Version - StateStorageVersion >= SnapshotMinFrequency)
+                return SaveSnapshotAsync(true);
+            else
+                return Task.CompletedTask;
         }
         #endregion
         #region State storage
@@ -57,7 +61,7 @@ namespace Ray.Core.EventSourcing
                 IsNew = true;
                 await CreateState();
             }
-            storageVersion = State.Version;
+            StateStorageVersion = State.Version;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -66,20 +70,20 @@ namespace Ray.Core.EventSourcing
             if (SnapshotType == SnapshotType.Master)
             {
                 //如果版本号差超过设置则更新快照
-                if (force || (State.Version - storageVersion >= SnapshotFrequency))
+                if (force || (State.Version - StateStorageVersion >= SnapshotFrequency))
                 {
                     await OnSaveSnapshot();
                     if (IsNew)
                     {
                         await GetStateStorage().InsertAsync(State);
 
-                        storageVersion = State.Version;
+                        StateStorageVersion = State.Version;
                         IsNew = false;
                     }
                     else
                     {
                         await GetStateStorage().UpdateAsync(State);
-                        storageVersion = State.Version;
+                        StateStorageVersion = State.Version;
                     }
                 }
             }

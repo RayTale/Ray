@@ -7,7 +7,7 @@ namespace Ray.Core.EventSourcing
     {
         string Id { get; set; }
         Int64 Version { get; set; }
-        string CommandId { get; set; }
+        string TraceId { get; set; }
         DateTime Timestamp { get; set; }
     }
 

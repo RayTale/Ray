@@ -20,6 +20,8 @@ namespace Ray.Core.EventSourcing
         protected abstract K GrainId { get; }
         protected virtual bool SaveSnapshot => true;
         protected virtual int SnapshotFrequency => 500;
+        protected Int64 StateStorageVersion { get; set; }
+        protected virtual int SnapshotMinFrequency => 1;
         IEventStorage<K> _eventStorage;
         protected IEventStorage<K> EventStorage
         {
@@ -148,12 +150,11 @@ namespace Ray.Core.EventSourcing
         {
             return Task.CompletedTask;
         }
-        Int64 storageVersion;
         protected virtual async Task SaveSnapshotAsync(bool force = false)
         {
             if (SaveSnapshot)
             {
-                if (force || (State.Version - storageVersion >= SnapshotFrequency))
+                if (force || (State.Version - StateStorageVersion >= SnapshotFrequency))
                 {
                     await OnSaveSnapshot();//自定义保存项
                     if (IsNew)
@@ -165,7 +166,7 @@ namespace Ray.Core.EventSourcing
                     {
                         await StateStore.UpdateAsync(State);
                     }
-                    storageVersion = State.Version;
+                    StateStorageVersion = State.Version;
                 }
             }
         }
@@ -188,7 +189,10 @@ namespace Ray.Core.EventSourcing
         }
         public override Task OnDeactivateAsync()
         {
-            return SaveSnapshotAsync(true);
+            if (State.Version - StateStorageVersion >= SnapshotMinFrequency)
+                return SaveSnapshotAsync(true);
+            else
+                return Task.CompletedTask;
         }
         protected bool IsNew { get; set; }
         protected virtual async Task ReadSnapshotAsync()
@@ -199,7 +203,7 @@ namespace Ray.Core.EventSourcing
                 IsNew = true;
                 await CreateState();
             }
-            storageVersion = State.Version;
+            StateStorageVersion = State.Version;
         }
         /// <summary>
         /// 初始化状态，必须实现
