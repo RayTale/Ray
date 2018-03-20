@@ -17,6 +17,9 @@ namespace Ray.MongoDb
         {
             if (grain is IMongoGrain mongoGrain && mongoGrain.ESMongoInfo != null)
             {
+#pragma warning disable CS4014 // 由于此调用不会等待，因此在调用完成前将继续执行当前方法
+                mongoGrain.ESMongoInfo.CreateIndex(mongoStorage);
+#pragma warning restore CS4014 // 由于此调用不会等待，因此在调用完成前将继续执行当前方法
                 return mongoGrain.ESMongoInfo;
             }
             return null;
@@ -26,10 +29,6 @@ namespace Ray.MongoDb
             var mongoInfo = GetESMongoInfo<K, S>(type, grain);
             if (mongoInfo != null)
             {
-#pragma warning disable CS4014 // 由于此调用不会等待，因此在调用完成前将继续执行当前方法
-                mongoInfo.CreateCollectionIndex(mongoStorage);//创建分表索引
-                mongoInfo.CreateStateIndex(mongoStorage);//创建快照索引
-#pragma warning restore CS4014 // 由于此调用不会等待，因此在调用完成前将继续执行当前方法
                 return new MongoEventStorage<K>(mongoStorage, loggerFactory.CreateLogger<MongoEventStorage<K>>(), mongoInfo);
             }
             else

@@ -12,7 +12,7 @@ namespace Ray.MongoDb
         public string EventDataBase { get; set; }
         public string EventCollection { get; set; }
         public string SnapshotCollection { get; set; }
-
+        public bool IndexCreated { get; set; }
         const string C_CName = "CollectionInfo";
         bool sharding = false;
         int shardingDays;
@@ -41,24 +41,25 @@ namespace Ray.MongoDb
             }
             return list;
         }
-        public async Task CreateStateIndex(IMongoStorage storage)
+        public async Task CreateIndex(IMongoStorage storage)
         {
-            var collectionService = storage.GetCollection<BsonDocument>(EventDataBase, SnapshotCollection);
-            var index = await collectionService.Indexes.ListAsync();
-            var indexList = await index.ToListAsync();
-            if (!indexList.Exists(p => p["name"] == "State"))
+            if (!IndexCreated)
             {
-                await collectionService.Indexes.CreateOneAsync("{'StateId':1}", new CreateIndexOptions { Name = "State", Unique = true });
-            }
-        }
-        public async Task CreateCollectionIndex(IMongoStorage storage)
-        {
-            var collectionService = storage.GetCollection<BsonDocument>(EventDataBase, C_CName);
-            var index = await collectionService.Indexes.ListAsync();
-            var indexList = await index.ToListAsync();
-            if (!indexList.Exists(p => p["name"] == "Name"))
-            {
-                await collectionService.Indexes.CreateOneAsync("{'Name':1}", new CreateIndexOptions { Name = "Name", Unique = true });
+                var stateCollection = storage.GetCollection<BsonDocument>(EventDataBase, SnapshotCollection);
+                var stateIndex = await stateCollection.Indexes.ListAsync();
+                var stateIndexList = await stateIndex.ToListAsync();
+                if (!stateIndexList.Exists(p => p["name"] == "State"))
+                {
+                    await stateCollection.Indexes.CreateOneAsync("{'StateId':1}", new CreateIndexOptions { Name = "State", Unique = true });
+                }
+                var collection = storage.GetCollection<BsonDocument>(EventDataBase, C_CName);
+                var index = await collection.Indexes.ListAsync();
+                var indexList = await index.ToListAsync();
+                if (!indexList.Exists(p => p["name"] == "Name"))
+                {
+                    await collection.Indexes.CreateOneAsync("{'Name':1}", new CreateIndexOptions { Name = "Name", Unique = true });
+                }
+                IndexCreated = true;
             }
         }
         public async Task CreateEventIndex(IMongoStorage storage, string collectionName)
