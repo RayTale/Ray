@@ -8,7 +8,7 @@ namespace Ray.MongoDb
         where W : MessageWrapper
     {
         protected MongoGrainConfig _mongoInfo = null;
-        public virtual MongoGrainConfig ESMongoInfo
+        public virtual MongoGrainConfig GrainConfig
         {
             get
             {

@@ -13,7 +13,7 @@ namespace Ray.Grain
     {
         protected override string GrainId => this.GetPrimaryKeyString();
         static MongoGrainConfig _ESMongoInfo;
-        public override MongoGrainConfig ESMongoInfo
+        public override MongoGrainConfig GrainConfig
         {
             get
             {

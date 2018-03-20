@@ -15,12 +15,12 @@ namespace Ray.MongoDb
         }
         private MongoGrainConfig GetESMongoInfo<K, S>(Type type, Grain grain) where S : class, IState<K>, new()
         {
-            if (grain is IMongoGrain mongoGrain && mongoGrain.ESMongoInfo != null)
+            if (grain is IMongoGrain mongoGrain && mongoGrain.GrainConfig != null)
             {
 #pragma warning disable CS4014 // 由于此调用不会等待，因此在调用完成前将继续执行当前方法
-                mongoGrain.ESMongoInfo.CreateIndex(mongoStorage);
+                mongoGrain.GrainConfig.CreateIndex(mongoStorage);
 #pragma warning restore CS4014 // 由于此调用不会等待，因此在调用完成前将继续执行当前方法
-                return mongoGrain.ESMongoInfo;
+                return mongoGrain.GrainConfig;
             }
             return null;
         }

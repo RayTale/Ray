@@ -7,6 +7,6 @@ namespace Ray.MongoDb
         where S : class, IState<K>, new()
         where W : MessageWrapper
     {
-        public abstract MongoGrainConfig ESMongoInfo { get; }
+        public abstract MongoGrainConfig GrainConfig { get; }
     }
 }

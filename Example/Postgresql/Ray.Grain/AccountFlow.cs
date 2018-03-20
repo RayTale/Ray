@@ -21,7 +21,7 @@ namespace Ray.Grain
         protected override string GrainId => this.GetPrimaryKeyString();
 
         static SqlGrainConfig _table;
-        public override SqlGrainConfig ESSQLTable
+        public override SqlGrainConfig GrainConfig
         {
             get
             {

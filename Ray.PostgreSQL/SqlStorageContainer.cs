@@ -8,9 +8,9 @@ namespace Ray.Postgresql
     {
         private SqlGrainConfig GetTableInfo<K, S>(Type type, Grain grain) where S : class, IState<K>, new()
         {
-            if (grain is ISqlGrain sqlGrain && sqlGrain.ESSQLTable != null)
+            if (grain is ISqlGrain sqlGrain && sqlGrain.GrainConfig != null)
             {
-                return sqlGrain.ESSQLTable;
+                return sqlGrain.GrainConfig;
             }
             return null;
         }

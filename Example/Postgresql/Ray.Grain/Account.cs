@@ -27,7 +27,7 @@ namespace Ray.Grain
         static IEventHandle _eventHandle = new AccountEventHandle();
         protected override IEventHandle EventHandle => _eventHandle;
         static SqlGrainConfig _table;
-        public override SqlGrainConfig ESSQLTable
+        public override SqlGrainConfig GrainConfig
         {
             get
             {

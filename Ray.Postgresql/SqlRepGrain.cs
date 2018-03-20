@@ -7,6 +7,6 @@ namespace Ray.Postgresql
     where S : class, IState<K>, new()
     where W : MessageWrapper
     {
-        public abstract SqlGrainConfig ESSQLTable { get; }
+        public abstract SqlGrainConfig GrainConfig { get; }
     }
 }

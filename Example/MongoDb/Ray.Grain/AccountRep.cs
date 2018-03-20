@@ -16,7 +16,7 @@ namespace Ray.Grain
 
         static IEventHandle _eventHandle = new AccountEventHandle();
         static MongoGrainConfig _ESMongoInfo;
-        public override MongoGrainConfig ESMongoInfo
+        public override MongoGrainConfig GrainConfig
         {
             get
             {
