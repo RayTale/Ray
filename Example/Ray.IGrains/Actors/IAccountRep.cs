@@ -4,7 +4,7 @@ using Ray.Core.EventSourcing;
 
 namespace Ray.IGrains.Actors
 {
-    public interface IAccountRep : IAsyncGrain<MessageInfo>, IGrainWithStringKey
+    public interface IAccountRep : IAsyncGrain, IGrainWithStringKey
     {
         /// <summary>
         /// 获取账户余额

@@ -2,7 +2,7 @@
 
 namespace Ray.Core.EventSourcing
 {
-    public interface IAsyncGrain<W> where W : MessageWrapper
+    public interface IAsyncGrain
     {
         Task Tell(byte[] bytes);
     }

@@ -14,10 +14,10 @@ namespace Ray.Core.MQ
         {
             this.serviceProvider = svProvider;
         }
-        public virtual async Task Notice(byte[] dataBytes, TMessageWrapper message, object data)
+        public virtual async Task Notice(byte[] bytes, TMessageWrapper message, object data)
         {
             if (data is IActorOwnMessage<K> @event)
-                await Tell(dataBytes, @event, message);
+                await Tell(bytes, @event, message);
         }
         public Task Notice(byte[] bytes)
         {
@@ -37,7 +37,7 @@ namespace Ray.Core.MQ
             }
         }
 
-        public abstract Task Tell(byte[] dataBytes, IActorOwnMessage<K> data, TMessageWrapper msg);
+        public abstract Task Tell(byte[] bytes, IActorOwnMessage<K> data, TMessageWrapper msg);
 
     }
 }
