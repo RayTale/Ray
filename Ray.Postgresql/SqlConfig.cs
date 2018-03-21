@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace Ray.Postgresql
+namespace Ray.PostgreSQL
 {
     public class SqlConfig
     {

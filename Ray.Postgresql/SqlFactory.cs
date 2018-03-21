@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Data.Common;
 
-namespace Ray.Postgresql
+namespace Ray.PostgreSQL
 {
     public class SqlFactory
     {

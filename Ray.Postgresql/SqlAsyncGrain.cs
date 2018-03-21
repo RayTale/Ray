@@ -1,7 +1,7 @@
 ﻿using Ray.Core;
 using Ray.Core.EventSourcing;
 
-namespace Ray.Postgresql
+namespace Ray.PostgreSQL
 {
     public abstract class SqlAsyncGrain<K, S, W> : AsyncGrain<K, S, W>, ISqlGrain
     where S : class, IState<K>, new()

@@ -5,7 +5,7 @@ using System.IO;
 using ProtoBuf;
 using Ray.Core.Utils;
 
-namespace Ray.Postgresql
+namespace Ray.PostgreSQL
 {
     public class SqlStateStorage<T, K> : IStateStorage<T, K> where T : class, IState<K>
     {

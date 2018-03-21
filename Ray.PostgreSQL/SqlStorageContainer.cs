@@ -2,7 +2,7 @@
 using Ray.Core.EventSourcing;
 using System;
 
-namespace Ray.Postgresql
+namespace Ray.PostgreSQL
 {
     public class SqlStorageContainer : IStorageContainer
     {

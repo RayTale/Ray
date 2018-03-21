@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Ray.Core.EventSourcing;
 
-namespace Ray.Postgresql
+namespace Ray.PostgreSQL
 {
     public static class Extensions
     {
