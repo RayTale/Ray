@@ -7,7 +7,7 @@ using Ray.IGrains;
 using Ray.IGrains.Actors;
 using Ray.IGrains.Events;
 using Ray.IGrains.States;
-using Ray.Postgresql;
+using Ray.PostgreSQL;
 
 namespace Ray.Grain
 {

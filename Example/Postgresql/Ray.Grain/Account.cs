@@ -5,7 +5,7 @@ using Ray.Core.EventSourcing;
 using Ray.IGrains.Actors;
 using Ray.IGrains.States;
 using Ray.IGrains.Events;
-using Ray.Postgresql;
+using Ray.PostgreSQL;
 using Ray.Grain.EventHandles;
 using Orleans.Concurrency;
 using Ray.RabbitMQ;

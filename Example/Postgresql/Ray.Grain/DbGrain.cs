@@ -1,7 +1,7 @@
 ﻿using System.Threading.Tasks;
 using Ray.Core.EventSourcing;
 using Ray.IGrains;
-using Ray.Postgresql;
+using Ray.PostgreSQL;
 
 namespace Ray.Grain
 {
