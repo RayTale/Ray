@@ -47,7 +47,6 @@ namespace Ray.RabbitMQ
                             });
                         }
                     }
-
                 }
             }
             await Start(consumerList);

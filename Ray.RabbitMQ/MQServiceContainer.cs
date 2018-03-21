@@ -22,14 +22,14 @@ namespace Ray.RabbitMQ
             {
                 lock (typeLock)
                 {
-                    value = new RabbitMQService<W>(GetRabbitMQAttr(type));
+                    value = new RabbitMQService<W>(GetAttribute(type));
                     serviceDict.TryAdd(type, value);
                 }
             }
             return value;
         }
         static Type rabbitMQType = typeof(RabbitPubAttribute);
-        public  RabbitPubAttribute GetRabbitMQAttr(Type type)
+        public  RabbitPubAttribute GetAttribute(Type type)
         {
             var rabbitMQAttributes = type.GetCustomAttributes(rabbitMQType, true);
             RabbitPubAttribute pubAttribute = null;
