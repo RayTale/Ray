@@ -1,7 +1,7 @@
 ﻿using System.Threading.Tasks;
 using Ray.Core.EventSourcing;
 using Ray.IGrains;
-using Ray.MongoDb;
+using Ray.MongoDB;
 
 namespace Ray.Grain
 {

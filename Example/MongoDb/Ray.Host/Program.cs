@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using Orleans.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Ray.Grain;
-using Ray.MongoDb;
+using Ray.MongoDB;
 using Ray.RabbitMQ;
 using Ray.IGrains;
 using Ray.Core.Message;

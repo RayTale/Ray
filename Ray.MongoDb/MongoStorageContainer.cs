@@ -3,7 +3,7 @@ using Orleans;
 using Ray.Core.EventSourcing;
 using System;
 
-namespace Ray.MongoDb
+namespace Ray.MongoDB
 {
     public class MongoStorageContainer : IStorageContainer
     {

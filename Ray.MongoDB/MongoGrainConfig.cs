@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using MongoDB.Driver;
 using MongoDB.Bson;
 
-namespace Ray.MongoDb
+namespace Ray.MongoDB
 {
     public class MongoGrainConfig
     {

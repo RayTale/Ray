@@ -10,7 +10,7 @@ using Ray.Core.EventSourcing;
 using Ray.Core.Message;
 using Microsoft.Extensions.Logging;
 
-namespace Ray.MongoDb
+namespace Ray.MongoDB
 {
     public class MongoEventStorage<K> : IEventStorage<K>
     {

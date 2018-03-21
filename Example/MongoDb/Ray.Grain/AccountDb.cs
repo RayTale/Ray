@@ -5,7 +5,7 @@ using Ray.Core.EventSourcing;
 using Ray.IGrains.Actors;
 using Ray.IGrains.Events;
 using Ray.IGrains.States;
-using Ray.MongoDb;
+using Ray.MongoDB;
 
 namespace Ray.Grain
 {

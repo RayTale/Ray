@@ -8,7 +8,7 @@ using MongoDB.Bson;
 using Ray.Core.EventSourcing;
 using Ray.Core.Utils;
 
-namespace Ray.MongoDb
+namespace Ray.MongoDB
 {
     public class MongoStateStorage<T, K> : IStateStorage<T, K> where T : class, IState<K>
     {

@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Ray.Core.EventSourcing;
 
-namespace Ray.MongoDb
+namespace Ray.MongoDB
 {
     public static class Extensions
     {

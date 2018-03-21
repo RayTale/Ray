@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 
-namespace Ray.MongoDb
+namespace Ray.MongoDB
 {
     public interface IMongoStorage
     {

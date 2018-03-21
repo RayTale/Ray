@@ -1,4 +1,4 @@
-﻿namespace Ray.MongoDb
+﻿namespace Ray.MongoDB
 {
     public interface IMongoGrain
     {
