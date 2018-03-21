@@ -1,8 +1,7 @@
 ﻿namespace Ray.Core
 {
-    public class LogCodes
+    public class LogEventIds
     {
         public static int EventRaiseError => 1001;
-        public static int EventCompleteError => 1002;
     }
 }

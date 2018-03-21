@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using Orleans;
 using Ray.Core;
 using Ray.Core.MQ;
 
@@ -15,7 +16,7 @@ namespace Ray.RabbitMQ
         }
         ConcurrentDictionary<Type, IMQService> serviceDict = new ConcurrentDictionary<Type, IMQService>();
         object typeLock = new object();
-        public IMQService GetService(Type type)
+        public IMQService GetService(Type type, Grain grain)
         {
             if (!serviceDict.TryGetValue(type, out var value))
             {

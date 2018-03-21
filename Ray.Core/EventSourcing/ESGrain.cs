@@ -138,7 +138,7 @@ namespace Ray.Core.EventSourcing
         {
             if (_mqService == null)
             {
-                _mqService = ServiceProvider.GetService<IMQServiceContainer>().GetService(GetType());
+                _mqService = ServiceProvider.GetService<IMQServiceContainer>().GetService(GetType(), this);
             }
             return _mqService;
         }
@@ -186,7 +186,7 @@ namespace Ray.Core.EventSourcing
             }
             catch (Exception ex)
             {
-                Logger.LogError(LogCodes.EventRaiseError, ex, "Apply event {0} error, EventId={1}", @event.TypeCode, @event.Version);
+                Logger.LogError(LogEventIds.EventRaiseError, ex, "Apply event {0} error, EventId={1}", @event.TypeCode, @event.Version);
                 await OnActivateAsync();//重新激活Actor
                 throw ex;
             }
