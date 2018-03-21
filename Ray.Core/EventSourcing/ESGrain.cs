@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Threading.Tasks;
+using System.Runtime.CompilerServices;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using Orleans;
 using Ray.Core.Message;
 using Ray.Core.MQ;
-using Microsoft.Extensions.DependencyInjection;
 using Ray.Core.Utils;
-using System.Runtime.CompilerServices;
-using Microsoft.Extensions.Logging;
 
 namespace Ray.Core.EventSourcing
 {
@@ -14,17 +14,13 @@ namespace Ray.Core.EventSourcing
         where S : class, IState<K>, new()
         where W : MessageWrapper
     {
-        protected S State
-        {
-            get;
-            set;
-        }
+        protected S State { get; set; }
         protected abstract K GrainId { get; }
         protected virtual SnapshotType SnapshotType => SnapshotType.Master;
         protected virtual int SnapshotFrequency => 500;
         protected Int64 StateStorageVersion { get; set; }
         protected virtual int SnapshotMinFrequency => 50;
-        protected virtual bool PublishToMQ => true;
+        protected virtual bool SupportAsync => true;
         protected ILogger<ESGrain<K, S, W>> Logger { get; set; }
         #region LifeTime
         public override async Task OnActivateAsync()
@@ -89,10 +85,7 @@ namespace Ray.Core.EventSourcing
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual Task OnSaveSnapshot()
-        {
-            return Task.CompletedTask;
-        }
+        protected virtual Task OnSaveSnapshot() => Task.CompletedTask;
         /// <summary>
         /// 初始化状态，必须实现
         /// </summary>
@@ -105,9 +98,9 @@ namespace Ray.Core.EventSourcing
             };
             return Task.CompletedTask;
         }
-        protected async Task ClearStateAsync()
+        protected Task ClearStateAsync()
         {
-            await GetStateStorage().DeleteAsync(GrainId);
+            return GetStateStorage().DeleteAsync(GrainId);
         }
         IStateStorage<S, K> _stateStorage;
 
@@ -169,14 +162,12 @@ namespace Ray.Core.EventSourcing
                     if (result)
                     {
                         EventHandle.Apply(State, @event);
-
-                        if (PublishToMQ)
+                        if (SupportAsync)
                         {
-                            if (string.IsNullOrEmpty(hashKey)) hashKey = GrainId.ToString();
-                            //消息写入消息队列         
-                            await GetMQService().Publish(@event, bytes, hashKey);
-                            State.UpdateVersion(@event);//更新处理完成的Version
+                            //消息写入消息队列，以提供异步服务        
+                            await GetMQService().Publish(@event, bytes, string.IsNullOrEmpty(hashKey) ? GrainId.ToString() : hashKey);
                         }
+                        State.UpdateVersion(@event);//更新处理完成的Version
                         await SaveSnapshotAsync();
                         return true;
                     }
@@ -187,7 +178,6 @@ namespace Ray.Core.EventSourcing
             catch (Exception ex)
             {
                 Logger.LogError(LogEventIds.EventRaiseError, ex, "Apply event {0} error, EventId={1}", @event.TypeCode, @event.Version);
-                await OnActivateAsync();//重新激活Actor
                 throw ex;
             }
             return false;

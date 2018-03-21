@@ -12,11 +12,7 @@ namespace Ray.Core.EventSourcing
         where S : class, IState<K>, new()
         where W : MessageWrapper
     {
-        protected S State
-        {
-            get;
-            set;
-        }
+        protected S State { get; set; }
         protected abstract K GrainId { get; }
         protected virtual bool SaveSnapshot => true;
         protected virtual int SnapshotFrequency => 500;
@@ -136,20 +132,11 @@ namespace Ray.Core.EventSourcing
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual Task OnEventDelivered(IEventBase<K> @event)
-        {
-            return Task.CompletedTask;
-        }
+        protected virtual Task OnEventDelivered(IEventBase<K> @event) => Task.CompletedTask;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual Task OnExecuted(IEventBase<K> @event)
-        {
-            return Task.CompletedTask;
-        }
+        protected virtual Task OnExecuted(IEventBase<K> @event) => Task.CompletedTask;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual Task OnSaveSnapshot()
-        {
-            return Task.CompletedTask;
-        }
+        protected virtual Task OnSaveSnapshot() => Task.CompletedTask;
         protected virtual async Task SaveSnapshotAsync(bool force = false)
         {
             if (SaveSnapshot)
