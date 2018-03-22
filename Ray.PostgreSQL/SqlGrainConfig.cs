@@ -57,7 +57,7 @@ namespace Ray.PostgreSQL
                 {
                     if (lastTable == null || cVersion > lastTable.Version)
                     {
-                        TableInfo table = new TableInfo
+                        var table = new TableInfo
                         {
                             Version = cVersion,
                             Prefix = EventTable,
@@ -71,7 +71,7 @@ namespace Ray.PostgreSQL
                         }
                         catch (Exception ex)
                         {
-                            if (ex is Npgsql.PostgresException e && e.SqlState != "42P07")
+                            if (ex is Npgsql.PostgresException e && e.SqlState != "42P07" && e.SqlState != "23505")
                             {
                                 throw ex;
                             }
@@ -128,7 +128,7 @@ namespace Ray.PostgreSQL
                     try
                     {
                         connection.Execute(string.Format(sql, table.Name), transaction: trans);
-                        connection.Execute(insertSql, new { table.Prefix, table.Name, table.Version, table.CreateTime }, trans);
+                        connection.Execute(insertSql, table, trans);
                         trans.Commit();
                     }
                     catch (Exception e)
