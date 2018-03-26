@@ -18,8 +18,7 @@ namespace Ray.RabbitMQ
         IRabbitMQClient client;
         public RabbitSubManager(ILogger<RabbitSubManager> logger, IRabbitMQClient client, IServiceProvider provider)
         {
-            this.client = client;
-            this.client = client;
+            this.client = client;            
             this.logger = logger;
             this.provider = provider;
         }
