@@ -117,8 +117,8 @@ namespace Ray.PostgreSQL
                                     ""version"" int8 NOT NULL
                                     )
                             WITH (OIDS=FALSE);                      
-                            CREATE UNIQUE INDEX ""Event_State_MsgId"" ON ""public"".""{0}"" USING btree (""stateid"", ""msgid"", ""typecode"");
-                            CREATE UNIQUE INDEX ""Event_State_Version"" ON ""public"".""{0}"" USING btree(""stateid"", ""version"");";
+                            CREATE UNIQUE INDEX ""{0}_Event_State_MsgId"" ON ""public"".""{0}"" USING btree (""stateid"", ""msgid"", ""typecode"");
+                            CREATE UNIQUE INDEX ""{0}_Event_State_Version"" ON ""public"".""{0}"" USING btree(""stateid"", ""version"");";
             const string insertSql = "INSERT into ray_tablelist  VALUES(@Prefix,@Name,@Version,@CreateTime)";
             using (var connection = SqlFactory.CreateConnection(Connection))
             {
