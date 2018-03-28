@@ -177,6 +177,7 @@ namespace Ray.Core.EventSourcing
             }
             catch (Exception ex)
             {
+                State.DecrementDoingVersion();//还原doing Version
                 Logger.LogError(LogEventIds.EventRaiseError, ex, "Apply event {0} error, EventId={1}", @event.TypeCode, @event.Version);
                 throw ex;
             }
