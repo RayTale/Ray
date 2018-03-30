@@ -43,5 +43,6 @@ namespace Ray.Core.MQ
         }
 
         protected abstract Task Start(List<SubAttribute> attributes, string node = null, List<string> nodeList = null);
+        public abstract void Stop();
     }
 }

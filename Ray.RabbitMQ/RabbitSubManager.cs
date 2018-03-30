@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -18,7 +17,7 @@ namespace Ray.RabbitMQ
         IRabbitMQClient client;
         public RabbitSubManager(ILogger<RabbitSubManager> logger, IRabbitMQClient client, IServiceProvider provider)
         {
-            this.client = client;            
+            this.client = client;
             this.logger = logger;
             this.provider = provider;
         }
@@ -51,7 +50,7 @@ namespace Ray.RabbitMQ
             await Start(consumerList);
         }
 
-        static ConcurrentBag<ConsumerInfo> ConsumerAllList = new ConcurrentBag<ConsumerInfo>();
+        List<ConsumerInfo> ConsumerList { get; set; }
         public async Task Start(List<ConsumerInfo> consumerList)
         {
             if (consumerList != null)
@@ -99,11 +98,8 @@ namespace Ray.RabbitMQ
                     {
                         channel = await client.PullModel();
                     }
-                    if (!ConsumerAllList.Contains(consumer))
-                    {
-                        ConsumerAllList.Add(consumer);
-                    }
                 }
+                ConsumerList = consumerList;
             }
         }
         /// <summary>
@@ -111,12 +107,25 @@ namespace Ray.RabbitMQ
         /// </summary>
         /// <param name="consumer"></param>
         /// <returns></returns>
-        public static void ReStart(ConsumerInfo consumer)
+        public void ReStart(ConsumerInfo consumer)
         {
             if (consumer.Channel.Model.IsOpen)
             {
                 consumer.Channel.Model.BasicCancel(consumer.BasicConsumer.ConsumerTag);
                 consumer.BasicConsumer.ConsumerTag = consumer.Channel.Model.BasicConsume(consumer.Queue, false, consumer.BasicConsumer);
+            }
+        }
+        public override void Stop()
+        {
+            if (ConsumerList != null)
+            {
+                foreach (var consumer in ConsumerList)
+                {
+                    if (consumer.Channel.Model.IsOpen)
+                    {
+                        consumer.Channel.Model.BasicCancel(consumer.BasicConsumer.ConsumerTag);
+                    }
+                }
             }
         }
     }
