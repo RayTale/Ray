@@ -151,6 +151,7 @@ namespace Ray.Core.EventSourcing
             try
             {
                 State.IncrementDoingVersion();//标记将要处理的Version
+                @event.Id = OGuid.GenerateNewId().ToString();
                 @event.StateId = GrainId;
                 @event.Version = State.Version + 1;
                 @event.Timestamp = DateTime.UtcNow;

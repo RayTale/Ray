@@ -86,7 +86,6 @@ namespace Ray.PostgreSQL
         {
             var table = await tableInfo.GetTable(data.Timestamp);
             var saveSql = $"INSERT INTO {table.Name}(Id,stateid,msgid,typecode,data,version) VALUES(@Id,@StateId,@MsgId,@TypeCode,@Data,@Version)";
-            data.Id = OGuid.GenerateNewId().ToString();
             string msgId = uniqueId;
             if (string.IsNullOrEmpty(msgId))
                 msgId = data.Id;

@@ -95,16 +95,7 @@ namespace Ray.MongoDB
                 TypeCode = data.TypeCode,
                 Data = bytes
             };
-            if (string.IsNullOrEmpty(data.Id))
-            {
-                mEvent.Id = ObjectId.GenerateNewId().ToString();
-                data.Id = mEvent.Id;
-            }
-            else
-            {
-                mEvent.Id = data.Id;
-            }
-
+            mEvent.Id = data.Id;
             if (string.IsNullOrEmpty(uniqueId))
                 mEvent.MsgId = mEvent.Id;
             else
