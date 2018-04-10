@@ -39,7 +39,7 @@ namespace Ray.RabbitMQ
                             consumerList.Add(new ConsumerInfo()
                             {
                                 Exchange = subAttribute.Exchange,
-                                Queue = (string.IsNullOrEmpty(node) ? string.Empty : node + "_") + subAttribute.Group + "_" + queue.Queue,
+                                Queue = subAttribute.Group + "_" + queue.Queue,
                                 RoutingKey = queue.RoutingKey,
                                 Handler = (ISubHandler)provider.GetService(subAttribute.Handler)
                             });
