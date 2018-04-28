@@ -6,18 +6,18 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Ray.Core.MQ
 {
-    public abstract class SubHandler<K, TMessageWrapper> : ISubHandler 
+    public abstract class SubHandler<TMessageWrapper> : ISubHandler
         where TMessageWrapper : MessageWrapper
     {
         IServiceProvider serviceProvider;
         public SubHandler(IServiceProvider svProvider)
         {
-            this.serviceProvider = svProvider;
+            serviceProvider = svProvider;
         }
         public virtual async Task Notice(byte[] bytes, TMessageWrapper message, object data)
         {
-            if (data is IActorOwnMessage<K> @event)
-                await Tell(bytes, @event, message);
+            if (data is IMessage msgData)
+                await Tell(bytes, msgData, message);
         }
         public Task Notice(byte[] bytes)
         {
@@ -37,7 +37,7 @@ namespace Ray.Core.MQ
             }
         }
 
-        public abstract Task Tell(byte[] bytes, IActorOwnMessage<K> data, TMessageWrapper msg);
+        public abstract Task Tell(byte[] bytes, IMessage data, TMessageWrapper msg);
 
     }
 }

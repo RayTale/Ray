@@ -5,13 +5,13 @@ using Ray.Core.Message;
 
 namespace Ray.Core.MQ
 {
-    public abstract class MultHandler<K, TMessageWrapper> : SubHandler<K, TMessageWrapper>
+    public abstract class MultHandler<K, TMessageWrapper> : SubHandler<TMessageWrapper>
         where TMessageWrapper : MessageWrapper
     {
         public MultHandler(IServiceProvider svProvider) : base(svProvider)
         {
         }
-        public override Task Tell(byte[] bytes, IActorOwnMessage<K> data, TMessageWrapper msg)
+        public override Task Tell(byte[] bytes, IMessage data, TMessageWrapper msg)
         {
             if (data is IEventBase<K> evt)
             {
@@ -23,6 +23,6 @@ namespace Ray.Core.MQ
             }
         }
         protected abstract Task SendToAsyncGrain(byte[] bytes, IEventBase<K> evt);
-        public virtual Task LocalProcess(byte[] dataBytes, IActorOwnMessage<K> data, TMessageWrapper msg) => Task.CompletedTask;
+        public virtual Task LocalProcess(byte[] dataBytes, IMessage data, TMessageWrapper msg) => Task.CompletedTask;
     }
 }
