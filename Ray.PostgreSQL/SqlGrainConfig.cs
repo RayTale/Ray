@@ -110,8 +110,8 @@ namespace Ray.PostgreSQL
             const string sql = @"
                     CREATE TABLE ""public"".""{0}"" (
                                     ""id"" varchar(30) COLLATE ""default"" NOT NULL PRIMARY KEY,
-                                    ""stateid"" varchar(30) COLLATE ""default"" NOT NULL,
-                                    ""msgid"" varchar(30) COLLATE ""default"" NOT NULL,
+                                    ""stateid"" varchar(50) COLLATE ""default"" NOT NULL,
+                                    ""msgid"" varchar(50) COLLATE ""default"" NOT NULL,
                                     ""typecode"" varchar(100) COLLATE ""default"" NOT NULL,
                                     ""data"" bytea NOT NULL,
                                     ""version"" int8 NOT NULL
@@ -144,7 +144,7 @@ namespace Ray.PostgreSQL
         {
             const string sql = @"
                     CREATE TABLE if not exists ""public"".""{0}""(
-                    ""stateid"" varchar(30) COLLATE ""default"" NOT NULL PRIMARY KEY,
+                    ""stateid"" varchar(50) COLLATE ""default"" NOT NULL PRIMARY KEY,
                     ""data"" bytea NOT NULL)";
             using (var connection = SqlFactory.CreateConnection(Connection))
             {
