@@ -10,16 +10,19 @@ using Ray.IGrains.Actors;
 namespace Ray.Handler
 {
     [RabbitSub("Read", "Account", "account")]
-    public sealed class AccountToDbHandler : SubHandler<string, MessageInfo>
+    public sealed class AccountToDbHandler : SubHandler<MessageInfo>
     {
         IOrleansClientFactory clientFactory;
         public AccountToDbHandler(IServiceProvider svProvider, IOrleansClientFactory clientFactory) : base(svProvider)
         {
             this.clientFactory = clientFactory;
         }
-        public override Task Tell(byte[] bytes, IActorOwnMessage<string> data, MessageInfo msg)
+
+        public override Task Tell(byte[] bytes, IMessage data, MessageInfo msg)
         {
-            return clientFactory.GetClient().GetGrain<IAccountDb>(data.StateId).Tell(bytes);
+            if(data is IActorOwnMessage<string> actorData)
+                return clientFactory.GetClient().GetGrain<IAccountDb>(actorData.StateId).Tell(bytes);
+            return Task.CompletedTask;
         }
     }
 }
