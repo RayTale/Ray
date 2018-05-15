@@ -1,18 +1,18 @@
-﻿using System;
-using System.Threading.Tasks;
-using System.Runtime.CompilerServices;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.DependencyInjection;
 using Orleans;
 using Ray.Core.Message;
 using Ray.Core.MQ;
 using Ray.Core.Utils;
+using System;
+using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 
 namespace Ray.Core.EventSourcing
 {
     public abstract class ESGrain<K, S, W> : Grain
         where S : class, IState<K>, new()
-        where W : MessageWrapper
+        where W : MessageWrapper, new()
     {
         protected S State { get; set; }
         protected abstract K GrainId { get; }
@@ -155,9 +155,10 @@ namespace Ray.Core.EventSourcing
                 @event.StateId = GrainId;
                 @event.Version = State.Version + 1;
                 @event.Timestamp = DateTime.UtcNow;
+                var serializer = GetSerializer();
                 using (var ms = new PooledMemoryStream())
                 {
-                    GetSerializer().Serialize(ms, @event);
+                    serializer.Serialize(ms, @event);
                     var bytes = ms.ToArray();
                     var result = await GetEventStorage().SaveAsync(@event, bytes, uniqueId);
                     if (result)
@@ -165,8 +166,16 @@ namespace Ray.Core.EventSourcing
                         EventHandle.Apply(State, @event);
                         if (SupportAsync)
                         {
-                            //消息写入消息队列，以提供异步服务        
-                            await GetMQService().Publish(@event, bytes, string.IsNullOrEmpty(hashKey) ? GrainId.ToString() : hashKey);
+                            var data = new W
+                            {
+                                TypeCode = @event.TypeCode,
+                                BinaryBytes = ms.ToArray()
+                            };
+                            ms.Position = 0;
+                            ms.SetLength(0);
+                            serializer.Serialize(ms, data);
+                            //消息写入消息队列，以提供异步服务
+                            await GetMQService().Publish(ms.ToArray(), string.IsNullOrEmpty(hashKey) ? GrainId.ToString() : hashKey);
                         }
                         State.UpdateVersion(@event);//更新处理完成的Version
                         await SaveSnapshotAsync();
@@ -189,13 +198,23 @@ namespace Ray.Core.EventSourcing
         /// </summary>
         /// <param name="msg"></param>
         /// <returns></returns>
-        public async Task Publish(IActorOwnMessage<K> msg)
+        public async Task Publish(IActorOwnMessage<K> msg, string hashKey = null)
         {
-            msg.StateId = GrainId;
+            if (string.IsNullOrEmpty(hashKey))
+                hashKey = GrainId.ToString();
+            var serializer = GetSerializer();
             using (var ms = new PooledMemoryStream())
             {
-                GetSerializer().Serialize(ms, msg);
-                await GetMQService().Publish(msg, ms.ToArray(), GrainId.ToString());
+                serializer.Serialize(ms, msg);
+                var data = new W
+                {
+                    TypeCode = msg.TypeCode,
+                    BinaryBytes = ms.ToArray()
+                };
+                ms.Position = 0;
+                ms.SetLength(0);
+                serializer.Serialize(ms, data);
+                await GetMQService().Publish(ms.ToArray(), hashKey);
             }
         }
         #endregion

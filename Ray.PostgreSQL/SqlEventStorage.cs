@@ -1,12 +1,11 @@
-﻿using Ray.Core.EventSourcing;
+﻿using Dapper;
+using ProtoBuf;
+using Ray.Core.EventSourcing;
+using Ray.Core.Message;
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
-using Dapper;
-using Ray.Core.Message;
 using System.IO;
-using ProtoBuf;
-using Ray.Core.Utils;
+using System.Threading.Tasks;
 
 namespace Ray.PostgreSQL
 {
@@ -82,7 +81,7 @@ namespace Ray.PostgreSQL
             return list;
         }
 
-        public async Task<bool> SaveAsync(IEventBase<K> data, byte[] bytes, string uniqueId = null) 
+        public async Task<bool> SaveAsync(IEventBase<K> data, byte[] bytes, string uniqueId = null)
         {
             var table = await tableInfo.GetTable(data.Timestamp);
             var saveSql = $"INSERT INTO {table.Name}(Id,stateid,msgid,typecode,data,version) VALUES(@Id,@StateId,@MsgId,@TypeCode,@Data,@Version)";

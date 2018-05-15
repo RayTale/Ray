@@ -189,7 +189,7 @@
         }
         ArrayPool<byte> m_Pool;
         byte[] _currentbuffer;
-        bool _CanWrite;
+        readonly bool _CanWrite;
         long _Length;
         long _Position;
     }

@@ -1,10 +1,9 @@
-﻿using Ray.Core.Message;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 
 namespace Ray.Core.MQ
 {
     public interface IMQService
     {
-        Task Publish(IMessage msg, byte[] bytes, string hashKey);
+        Task Publish(byte[] bytes, string hashKey);
     }
 }

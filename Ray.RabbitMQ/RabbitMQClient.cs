@@ -62,13 +62,11 @@ namespace Ray.RabbitMQ
         /// <returns></returns>
         public Task Publish<T>(T data, string exchange, string queue, bool persistent = true)
         {
-            byte[] msg;
             using (var ms = new PooledMemoryStream())
             {
                 Serializer.Serialize(ms, data);
-                msg = ms.ToArray();
+                return Publish(ms.ToArray(), exchange, queue, persistent);
             }
-            return Publish(msg, exchange, queue, persistent);
         }
         public Task PublishByCmd<T>(UInt16 cmd, T data, string exchange, string queue, bool persistent = false)
         {
@@ -100,7 +98,7 @@ namespace Ray.RabbitMQ
         ConcurrentQueue<TaskCompletionSource<ModelWrapper>> modelTaskPool = new ConcurrentQueue<TaskCompletionSource<ModelWrapper>>();
         ConcurrentBag<ConnectionWrapper> connectionList = new ConcurrentBag<ConnectionWrapper>();
         int connectionCount = 0;
-        object modelLock = new object();
+        readonly object modelLock = new object();
         public async Task<ModelWrapper> PullModel()
         {
             if (!modelPool.TryDequeue(out var model))

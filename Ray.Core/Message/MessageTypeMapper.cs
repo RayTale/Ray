@@ -27,8 +27,7 @@ namespace Ray.Core.Message
         /// <returns></returns>
         public static Type GetType(string typeCode)
         {
-            Type type = null;
-            EventTypeDict.TryGetValue(typeCode, out type);
+            EventTypeDict.TryGetValue(typeCode, out var type);
             return type;
         }
     }

@@ -40,13 +40,13 @@ namespace Ray.RabbitMQ
     }
     public static class RabbitPubAttrExtensions
     {
-        public static Task Publish<T>(this RabbitPubAttribute rabbitMQInfo, T data, string key, bool persistent = true)
+        public static async Task Publish(this RabbitPubAttribute rabbitMQInfo, byte[] bytes, string key, bool persistent = true)
         {
-            return rabbitMQInfo.Client.Publish(data, rabbitMQInfo.Exchange, rabbitMQInfo.GetQueue(key), persistent);
+            await rabbitMQInfo.Client.Publish(bytes, rabbitMQInfo.Exchange, rabbitMQInfo.GetQueue(key), persistent);
         }
-        public static Task PublishByCmd<T>(this RabbitPubAttribute rabbitMQInfo, UInt16 cmd, T data, string key, bool persistent = true)
+        public static async Task PublishByCmd<T>(this RabbitPubAttribute rabbitMQInfo, UInt16 cmd, T data, string key, bool persistent = true)
         {
-            return rabbitMQInfo.Client.PublishByCmd<T>(cmd, data, rabbitMQInfo.Exchange, rabbitMQInfo.GetQueue(key), persistent);
+            await rabbitMQInfo.Client.PublishByCmd<T>(cmd, data, rabbitMQInfo.Exchange, rabbitMQInfo.GetQueue(key), persistent);
         }
     }
 }

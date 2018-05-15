@@ -12,20 +12,23 @@ namespace Ray.PostgreSQL
         public string Connection { get; set; }
         public string EventTable { get; set; }
         public string SnapshotTable { get; set; }
-        bool sharding = false;
-        int shardingDays;
-        public SqlGrainConfig(string conn, string eventTable, string snapshotTable, bool sharding = false, int shardingDays = 90)
+
+        readonly bool sharding = false;
+        readonly int shardingDays;
+        readonly int stateIdLength;
+        public SqlGrainConfig(string conn, string eventTable, string snapshotTable, bool sharding = false, int shardingDays = 90, int stateIdLength = 50)
         {
             Connection = conn;
             EventTable = eventTable;
             SnapshotTable = snapshotTable;
             this.sharding = sharding;
             this.shardingDays = shardingDays;
+            this.stateIdLength = stateIdLength;
             CreateStateTable();
         }
 
-        object collectionLock = new object();
-        static DateTime startTime = new DateTime(2018, 1, 30);
+        readonly object collectionLock = new object();
+        static readonly DateTime startTime = new DateTime(2018, 1, 30);
         public async Task<List<TableInfo>> GetTableList(DateTime? startTime = null)
         {
             List<TableInfo> list = null;
@@ -110,13 +113,13 @@ namespace Ray.PostgreSQL
             const string sql = @"
                     CREATE TABLE ""public"".""{0}"" (
                                     ""id"" varchar(30) COLLATE ""default"" NOT NULL PRIMARY KEY,
-                                    ""stateid"" varchar(50) COLLATE ""default"" NOT NULL,
+                                    ""stateid"" varchar({1}) COLLATE ""default"" NOT NULL,
                                     ""msgid"" varchar(50) COLLATE ""default"" NOT NULL,
                                     ""typecode"" varchar(100) COLLATE ""default"" NOT NULL,
                                     ""data"" bytea NOT NULL,
                                     ""version"" int8 NOT NULL
                                     )
-                            WITH (OIDS=FALSE);                      
+                            WITH (OIDS=FALSE);
                             CREATE UNIQUE INDEX ""{0}_Event_State_MsgId"" ON ""public"".""{0}"" USING btree (""stateid"", ""msgid"", ""typecode"");
                             CREATE UNIQUE INDEX ""{0}_Event_State_Version"" ON ""public"".""{0}"" USING btree(""stateid"", ""version"");";
             const string insertSql = "INSERT into ray_tablelist  VALUES(@Prefix,@Name,@Version,@CreateTime)";
@@ -127,7 +130,7 @@ namespace Ray.PostgreSQL
                 {
                     try
                     {
-                        connection.Execute(string.Format(sql, table.Name), transaction: trans);
+                        connection.Execute(string.Format(sql, table.Name, stateIdLength), transaction: trans);
                         connection.Execute(insertSql, table, trans);
                         trans.Commit();
                     }
@@ -144,12 +147,12 @@ namespace Ray.PostgreSQL
         {
             const string sql = @"
                     CREATE TABLE if not exists ""public"".""{0}""(
-                    ""stateid"" varchar(50) COLLATE ""default"" NOT NULL PRIMARY KEY,
+                    ""stateid"" varchar({1}) COLLATE ""default"" NOT NULL PRIMARY KEY,
                     ""data"" bytea NOT NULL)";
             using (var connection = SqlFactory.CreateConnection(Connection))
             {
                 connection.Open();
-                connection.Execute(string.Format(sql, SnapshotTable));
+                connection.Execute(string.Format(sql, SnapshotTable, stateIdLength));
             }
         }
     }
