@@ -12,7 +12,7 @@ namespace Ray.IGrains.Events
         public Int64 Version { get; set; }
         public DateTime Timestamp { get; set; }
         public string StateId { get; set; }
-        public string TypeCode => this.GetType().FullName;
+        public string TypeCode => GetType().FullName;
         #endregion
         public string ToAccountId { get; set; }
         public decimal Amount { get; set; }

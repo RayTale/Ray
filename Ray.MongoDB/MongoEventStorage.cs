@@ -9,7 +9,6 @@ using System.Threading;
 using Ray.Core.EventSourcing;
 using Ray.Core.Message;
 using Microsoft.Extensions.Logging;
-using Ray.Core.Utils;
 
 namespace Ray.MongoDB
 {
@@ -91,7 +90,7 @@ namespace Ray.MongoDB
         {
             var mEvent = new MongoEvent<K>
             {
-                Id = OGuid.GenerateNewId().ToString(),
+                Id = new ObjectId(),
                 StateId = data.StateId,
                 Version = data.Version,
                 TypeCode = data.TypeCode,

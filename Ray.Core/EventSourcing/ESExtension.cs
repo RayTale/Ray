@@ -26,10 +26,12 @@ namespace Ray.Core.EventSourcing
         {
             state.DoingVersion -= 1;
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string GetUniqueId<K>(this IEventBase<K> @event)
         {
             return @event.Version.ToString();
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string GetEventId<K>(this IEventBase<K> @event)
         {
             return $"{@event.StateId}{@event.Version}";
