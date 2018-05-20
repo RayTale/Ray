@@ -28,7 +28,7 @@ namespace Ray.Core.MQ
                 var type = MessageTypeMapper.GetType(msg.TypeCode);
                 if (type == null)
                 {
-                    throw new Exception($"TypeCode for { msg.TypeCode } type does not exist");
+                    throw new Exception($"{ msg.TypeCode } does not exist");
                 }
                 using (var ems = new MemoryStream(msg.BinaryBytes))
                 {

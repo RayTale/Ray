@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+using System.Collections.Concurrent;
 
 namespace Ray.PostgreSQL
 {
@@ -16,7 +17,7 @@ namespace Ray.PostgreSQL
         {
             this.tableInfo = tableInfo;
         }
-
+        ConcurrentDictionary<string, string> oneListSqlDict = new ConcurrentDictionary<string, string>();
         public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, Int64 startVersion, Int64 endVersion, DateTime? startTime = null)
         {
             var tableList = await tableInfo.GetTableList(startTime);
@@ -26,8 +27,11 @@ namespace Ray.PostgreSQL
             {
                 foreach (var table in tableList)
                 {
-                    var sql = $"SELECT typecode,data from {table.Name} WHERE stateid=@StateId and version>@Start and version<=@End order by version asc";
-
+                    if (!oneListSqlDict.TryGetValue(table.Name, out var sql))
+                    {
+                        sql = $"SELECT typecode,data from {table.Name} WHERE stateid=@StateId and version>@Start and version<=@End order by version asc";
+                        oneListSqlDict.TryAdd(table.Name, sql);
+                    }
                     var sqlEventList = await conn.QueryAsync<SqlEvent>(sql, new { StateId = stateId, Start = startVersion, End = endVersion });
                     foreach (var sqlEvent in sqlEventList)
                     {
@@ -48,7 +52,7 @@ namespace Ray.PostgreSQL
             }
             return list;
         }
-
+        ConcurrentDictionary<string, string> twoListSqlDict = new ConcurrentDictionary<string, string>();
         public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, string typeCode, Int64 startVersion, Int64 endVersion, DateTime? startTime = null)
         {
             var tableList = await tableInfo.GetTableList(startTime);
@@ -58,8 +62,11 @@ namespace Ray.PostgreSQL
             {
                 foreach (var table in tableList)
                 {
-                    var sql = $"SELECT typecode,data from {table.Name} WHERE stateid=@StateId and typecode=@TypeCode and version>@Start and version<=@End order by version asc";
-
+                    if (!twoListSqlDict.TryGetValue(table.Name, out var sql))
+                    {
+                        sql = $"SELECT typecode,data from {table.Name} WHERE stateid=@StateId and typecode=@TypeCode and version>@Start and version<=@End order by version asc";
+                        twoListSqlDict.TryAdd(table.Name, sql);
+                    }
                     var sqlEventList = await conn.QueryAsync<SqlEvent>(sql, new { StateId = stateId, TypeCode = typeCode, Start = startVersion, End = endVersion });
                     foreach (var sqlEvent in sqlEventList)
                     {
@@ -80,11 +87,15 @@ namespace Ray.PostgreSQL
             }
             return list;
         }
-
+        ConcurrentDictionary<string, string> saveSqlDict = new ConcurrentDictionary<string, string>();
         public async Task<bool> SaveAsync(IEventBase<K> evt, byte[] bytes, string uniqueId = null)
         {
             var table = await tableInfo.GetTable(evt.Timestamp);
-            var saveSql = $"INSERT INTO {table.Name}(stateid,uniqueId,typecode,data,version) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version)";
+            if (!saveSqlDict.TryGetValue(table.Name, out var saveSql))
+            {
+                saveSql = $"INSERT INTO {table.Name}(stateid,uniqueId,typecode,data,version) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version)";
+                saveSqlDict.TryAdd(table.Name, saveSql);
+            }
             if (string.IsNullOrEmpty(uniqueId))
                 uniqueId = evt.GetUniqueId();
             try

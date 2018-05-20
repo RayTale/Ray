@@ -15,7 +15,7 @@ namespace Ray.Core.EventSourcing
         protected S State { get; set; }
         protected abstract K GrainId { get; }
         protected virtual bool SaveSnapshot => true;
-        protected virtual int SnapshotFrequency => 20;
+        protected virtual int SnapshotFrequency => 50;
         protected Int64 StateStorageVersion { get; set; }
         protected virtual int SnapshotMinFrequency => 1;
         IEventStorage<K> _eventStorage;
