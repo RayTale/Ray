@@ -29,27 +29,48 @@ namespace Ray.Client
                 using (var client = await StartClientWithRetries())
                 {
                     var manager = client.ServiceProvider.GetService<ISubManager>();
-                    await manager.Start(new[] { "Core", "Read" });
-                    var aActor = client.GetGrain<IAccount>("1");
-                    var bActor = client.GetGrain<IAccount>("2");
+                    await manager.Start(new[] { "Core", "Read", "Rep" });
+                    //Console.WriteLine("Press Enter to actor count");
+                    var actorAcount = 20;
+                    IAccount[] actors = new IAccount[actorAcount];
+                    for (int i = 0; i < actorAcount; i++)
+                    {
+                        actors[i] = client.GetGrain<IAccount>(i.ToString());
+                    }
                     while (true)
                     {
                         Console.WriteLine("Press Enter to terminate...");
                         var length = int.Parse(Console.ReadLine());
+
                         var stopWatch = new Stopwatch();
                         stopWatch.Start();
-                        var tasks = new Task[length * 2];
+                        var tasks = new Task[length * actorAcount];
                         Parallel.For(0, length, i =>
                         {
-                            tasks[i * 2] = aActor.AddAmount(1000);//1用户充值1000
-                            tasks[i * 2 + 1] = aActor.Transfer("2", 500);//转给2用户500
+                            var transfer = false;
+                            for (int x = 0; x < actorAcount; x++)
+                            {
+                                if (!transfer)
+                                {
+                                    tasks[i * actorAcount + x] = actors[x].AddAmount(1000);
+                                    transfer = true;
+                                }
+                                else
+                                {
+                                    tasks[i * actorAcount + x] = actors[x - 1].Transfer(x.ToString(), 500);
+                                    transfer = false;
+                                }
+
+                            }
                         });
                         await Task.WhenAll(tasks);
                         stopWatch.Stop();
-                        Console.WriteLine($"{length * 2}次操作完成，耗时:{stopWatch.ElapsedMilliseconds}ms");
+                        Console.WriteLine($"{length * actorAcount}次操作完成，耗时:{stopWatch.ElapsedMilliseconds}ms");
                         await Task.Delay(200);
-
-                        Console.WriteLine($"End:1的余额为{await aActor.GetBalance()},2的余额为{await bActor.GetBalance()}");
+                        for (int i = 0; i < actorAcount; i++)
+                        {
+                            Console.WriteLine($"End:{i}的余额为{await actors[i].GetBalance()}");
+                        }
                     }
                 }
             }
@@ -81,7 +102,7 @@ namespace Ray.Client
                         servicecollection.PostConfigure<RabbitConfig>(c =>
                     {
                         c.UserName = "admin";
-                        c.Password = "luohuazhiyu";
+                        c.Password = "admin";
                         c.Hosts = new[] { "127.0.0.1:5672" };
                         c.MaxPoolSize = 100;
                         c.VirtualHost = "/";
@@ -89,8 +110,7 @@ namespace Ray.Client
                     })
                     .Build();
 
-                    await client.Connect();
-                    OrleansClientFactory.Init(client);
+                    await client.ConnectAndFill();
                     Console.WriteLine("Client successfully connect to silo host");
                     break;
                 }

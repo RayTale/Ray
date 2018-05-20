@@ -43,7 +43,7 @@ namespace Ray.Grain
         public async Task AmountAddEventHandler(AmountTransferEvent value)
         {
             var toActor = GrainFactory.GetGrain<IAccount>(value.ToAccountId);
-            await toActor.AddAmount(value.Amount, value.Id);
+            await toActor.AddAmount(value.Amount, value.GetUniqueId());
         }
     }
 }

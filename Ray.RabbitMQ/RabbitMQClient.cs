@@ -30,15 +30,57 @@ namespace Ray.RabbitMQ
     }
     public class ModelWrapper : IDisposable
     {
+        IBasicProperties persistentProperties;
+        IBasicProperties noPersistentProperties;
+        public ModelWrapper(ConnectionWrapper connectionWrapper, IModel model)
+        {
+            Connection = connectionWrapper;
+            Model = model;
+            persistentProperties = this.Model.CreateBasicProperties();
+            persistentProperties.Persistent = true;
+            noPersistentProperties = this.Model.CreateBasicProperties();
+            noPersistentProperties.Persistent = false;
+        }
         public ConnectionWrapper Connection { get; set; }
         public IModel Model { get; set; }
         public void Dispose()
         {
             Connection.Client.PushModel(this);
         }
+        /// <summary>
+        /// 发送消息到消息队列
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="data"></param>
+        /// <param name="exchange"></param>
+        /// <param name="queue"></param>
+        /// <returns></returns>
+        public void Publish<T>(T data, string exchange, string queue, bool persistent = true)
+        {
+            using (var ms = new PooledMemoryStream())
+            {
+                Serializer.Serialize(ms, data);
+                Publish(ms.ToArray(), exchange, queue, persistent);
+            }
+        }
+        public void PublishByCmd<T>(UInt16 cmd, T data, string exchange, string queue, bool persistent = false)
+        {
+            using (var ms = new PooledMemoryStream())
+            {
+                ms.Write(BitConverter.GetBytes(cmd), 0, 2);
+                Serializer.Serialize(ms, data);
+                Publish(ms.ToArray(), exchange, queue, persistent);
+            }
+        }
+        public void Publish(byte[] msg, string exchange, string queue, bool persistent = true)
+        {
+            this.Model.BasicPublish(exchange, queue, persistent ? persistentProperties : noPersistentProperties, msg);
+        }
     }
     public class RabbitMQClient : IRabbitMQClient
     {
+        ConnectionFactory _Factory;
+        RabbitConfig rabbitHost;
         public RabbitMQClient(IOptions<RabbitConfig> config)
         {
             rabbitHost = config.Value;
@@ -50,43 +92,6 @@ namespace Ray.RabbitMQ
                 AutomaticRecoveryEnabled = true
             };
         }
-        ConnectionFactory _Factory;
-        RabbitConfig rabbitHost;
-        /// <summary>
-        /// 发送消息到消息队列
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="data"></param>
-        /// <param name="exchange"></param>
-        /// <param name="queue"></param>
-        /// <returns></returns>
-        public Task Publish<T>(T data, string exchange, string queue, bool persistent = true)
-        {
-            using (var ms = new PooledMemoryStream())
-            {
-                Serializer.Serialize(ms, data);
-                return Publish(ms.ToArray(), exchange, queue, persistent);
-            }
-        }
-        public Task PublishByCmd<T>(UInt16 cmd, T data, string exchange, string queue, bool persistent = false)
-        {
-            using (var ms = new PooledMemoryStream())
-            {
-                ms.Write(BitConverter.GetBytes(cmd), 0, 2);
-                Serializer.Serialize(ms, data);
-                return Publish(ms.ToArray(), exchange, queue, persistent);
-            }
-        }
-        public async Task Publish(byte[] msg, string exchange, string queue, bool persistent = true)
-        {
-            using (var channel = await PullModel())
-            {
-                var prop = channel.Model.CreateBasicProperties();
-                prop.Persistent = persistent;
-                channel.Model.BasicPublish(exchange, queue, prop, msg);
-                channel.Model.WaitForConfirmsOrDie();
-            }
-        }
         public async Task ExchangeDeclare(string exchange)
         {
             using (var channel = await PullModel())
@@ -95,6 +100,7 @@ namespace Ray.RabbitMQ
             }
         }
         ConcurrentQueue<ModelWrapper> modelPool = new ConcurrentQueue<ModelWrapper>();
+        ConcurrentBag<ModelWrapper> modelList = new ConcurrentBag<ModelWrapper>();
         ConcurrentQueue<TaskCompletionSource<ModelWrapper>> modelTaskPool = new ConcurrentQueue<TaskCompletionSource<ModelWrapper>>();
         ConcurrentBag<ConnectionWrapper> connectionList = new ConcurrentBag<ConnectionWrapper>();
         int connectionCount = 0;
@@ -132,8 +138,9 @@ namespace Ray.RabbitMQ
                 }
                 if (conn != null)
                 {
-                    model = new ModelWrapper() { Connection = conn, Model = conn.Connection.CreateModel() };
+                    model = new ModelWrapper(conn, conn.Connection.CreateModel());
                     model.Model.ConfirmSelect();
+                    modelList.Add(model);
                 }
                 else
                 {
@@ -176,6 +183,14 @@ namespace Ray.RabbitMQ
             {
                 model.Model.Dispose();
                 model.Connection.Decrement();
+            }
+        }
+
+        public void Dispose()
+        {
+            foreach (var model in modelList)
+            {
+                model.Model.WaitForConfirmsOrDie();
             }
         }
     }

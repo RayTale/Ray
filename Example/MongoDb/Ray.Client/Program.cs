@@ -46,7 +46,7 @@ namespace Ray.Client
                         });
                         await Task.WhenAll(tasks);
                         stopWatch.Stop();
-                        Console.WriteLine($"{length*2}次操作完成，耗时:{stopWatch.ElapsedMilliseconds}ms");
+                        Console.WriteLine($"{length * 2}次操作完成，耗时:{stopWatch.ElapsedMilliseconds}ms");
                         await Task.Delay(200);
 
                         Console.WriteLine($"End:1的余额为{await aActor.GetBalance()},2的余额为{await bActor.GetBalance()}");
@@ -88,9 +88,7 @@ namespace Ray.Client
                     });
                     })
                     .Build();
-
-                    await client.Connect();
-                    OrleansClientFactory.Init(client);
+                    await client.ConnectAndFill();
                     Console.WriteLine("Client successfully connect to silo host");
                     break;
                 }

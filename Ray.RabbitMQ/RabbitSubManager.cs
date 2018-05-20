@@ -36,13 +36,16 @@ namespace Ray.RabbitMQ
                         var hashNode = hash != null ? hash.GetNode(queue.Queue) : node;
                         if (node == hashNode)
                         {
-                            consumerList.Add(new ConsumerInfo()
+                            for (int x = 0; x < 10; x++)
                             {
-                                Exchange = subAttribute.Exchange,
-                                Queue = subAttribute.Group + "_" + queue.Queue,
-                                RoutingKey = queue.RoutingKey,
-                                Handler = (ISubHandler)provider.GetService(subAttribute.Handler)
-                            });
+                                consumerList.Add(new ConsumerInfo()
+                                {
+                                    Exchange = subAttribute.Exchange,
+                                    Queue = subAttribute.Group + "_" + queue.Queue,
+                                    RoutingKey = queue.RoutingKey,
+                                    Handler = (ISubHandler)provider.GetService(subAttribute.Handler)
+                                });
+                            }
                         }
                     }
                 }

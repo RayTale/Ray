@@ -66,12 +66,12 @@ namespace Ray.MongoDB
         {
             var collectionService = storage.GetCollection<BsonDocument>(EventDataBase, collectionName);
             var indexList = (await collectionService.Indexes.ListAsync()).ToList();
-            if (!indexList.Exists(p => p["name"] == "State_Version") && !indexList.Exists(p => p["name"] == "State_MsgId"))
+            if (!indexList.Exists(p => p["name"] == "State_Version") && !indexList.Exists(p => p["name"] == "State_UniqueId"))
             {
                 await collectionService.Indexes.CreateManyAsync(
                       new List<CreateIndexModel<BsonDocument>>() {
                 new CreateIndexModel<BsonDocument>("{'StateId':1,'Version':1}", new CreateIndexOptions { Name = "State_Version",Unique=true }),
-                new CreateIndexModel<BsonDocument>("{'StateId':1,'TypeCode':1,'MsgId':1}", new CreateIndexOptions { Name = "State_MsgId", Unique = true }) }
+                new CreateIndexModel<BsonDocument>("{'StateId':1,'TypeCode':1,'UniqueId':1}", new CreateIndexOptions { Name = "State_UniqueId", Unique = true }) }
                       );
             }
         }

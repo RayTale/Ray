@@ -46,6 +46,7 @@ namespace Ray.MongoHost
 
             var builder = new SiloHostBuilder()
                 .UseLocalhostClustering()
+                .UseDashboard()
                 .Configure<EndpointOptions>(options => options.AdvertisedIPAddress = IPAddress.Loopback)
                 .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(Account).Assembly).WithReferences())
                 .ConfigureServices((context, servicecollection) =>
@@ -57,13 +58,13 @@ namespace Ray.MongoHost
                 .Configure<SqlConfig>(c =>
                 {
                     c.ConnectionDict = new Dictionary<string, string> {
-                        { "core_event","Server=127.0.0.1;Port=5432;Database=Ray;User Id=postgres;Password=luohuazhiyu;Pooling=true;MaxPoolSize=20;"}
+                        { "core_event","Server=127.0.0.1;Port=5432;Database=Ray;User Id=postgres;Password=extop;Pooling=true;MaxPoolSize=20;"}
                     };
                 })
                 .Configure<RabbitConfig>(c =>
                 {
                     c.UserName = "admin";
-                    c.Password = "luohuazhiyu";
+                    c.Password = "admin";
                     c.Hosts = new[] { "127.0.0.1:5672" };
                     c.MaxPoolSize = 100;
                     c.VirtualHost = "/";

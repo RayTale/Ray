@@ -35,7 +35,7 @@ namespace Ray.Grain
         {
             var toActor = GrainFactory.GetGrain<IAccount>(value.ToAccountId);
             var balance = await toActor.GetBalance();
-            await toActor.AddAmount(value.Amount, value.Id);
+            await toActor.AddAmount(value.Amount, value.GetUniqueId());
         }
     }
 }

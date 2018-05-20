@@ -9,9 +9,7 @@ namespace Ray.IGrains.Events
     public class AmountAddEvent : IEventBase<string>
     {
         #region base
-        public string Id { get; set; }
         public Int64 Version { get; set; }
-        public string TraceId { get; set; }
         public DateTime Timestamp { get; set; }
         public string StateId { get; set; }
 
@@ -22,7 +20,6 @@ namespace Ray.IGrains.Events
         public AmountAddEvent() { }
         public AmountAddEvent(decimal amount, decimal balance)
         {
-            Id = OGuid.GenerateNewId().ToString();
             Amount = amount;
             Balance = balance;
         }

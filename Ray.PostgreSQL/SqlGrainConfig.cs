@@ -24,6 +24,7 @@ namespace Ray.PostgreSQL
             this.sharding = sharding;
             this.shardingDays = shardingDays;
             this.stateIdLength = stateIdLength;
+            CreateTableListTable();
             CreateStateTable();
         }
 
@@ -112,15 +113,14 @@ namespace Ray.PostgreSQL
         {
             const string sql = @"
                     CREATE TABLE ""public"".""{0}"" (
-                                    ""id"" varchar(30) COLLATE ""default"" NOT NULL PRIMARY KEY,
                                     ""stateid"" varchar({1}) COLLATE ""default"" NOT NULL,
-                                    ""msgid"" varchar(50) COLLATE ""default"" NOT NULL,
+                                    ""uniqueid"" varchar(50) COLLATE ""default"" NOT NULL,
                                     ""typecode"" varchar(100) COLLATE ""default"" NOT NULL,
                                     ""data"" bytea NOT NULL,
                                     ""version"" int8 NOT NULL
                                     )
                             WITH (OIDS=FALSE);
-                            CREATE UNIQUE INDEX ""{0}_Event_State_MsgId"" ON ""public"".""{0}"" USING btree (""stateid"", ""msgid"", ""typecode"");
+                            CREATE UNIQUE INDEX ""{0}_Event_State_UniqueId"" ON ""public"".""{0}"" USING btree (""stateid"", ""uniqueid"", ""typecode"");
                             CREATE UNIQUE INDEX ""{0}_Event_State_Version"" ON ""public"".""{0}"" USING btree(""stateid"", ""version"");";
             const string insertSql = "INSERT into ray_tablelist  VALUES(@Prefix,@Name,@Version,@CreateTime)";
             using (var connection = SqlFactory.CreateConnection(Connection))
@@ -151,8 +151,23 @@ namespace Ray.PostgreSQL
                     ""data"" bytea NOT NULL)";
             using (var connection = SqlFactory.CreateConnection(Connection))
             {
-                connection.Open();
                 connection.Execute(string.Format(sql, SnapshotTable, stateIdLength));
+            }
+        }
+        private void CreateTableListTable()
+        {
+            const string sql = @"
+                    CREATE TABLE IF Not EXISTS ""public"".""ray_tablelist""(
+                    ""prefix"" varchar(255) COLLATE ""default"",
+                    ""name"" varchar(255) COLLATE ""default"",
+                    ""version"" int4,
+                    ""createtime"" timestamp(6)
+                    )
+                    WITH(OIDS= FALSE);
+                     CREATE UNIQUE INDEX IF NOT EXISTS ""table_version"" ON ""public"".""ray_tablelist"" USING btree(""prefix"", ""version""); ";
+            using (var connection = SqlFactory.CreateConnection(Connection))
+            {
+                connection.Execute(string.Format(sql, connection.Database));
             }
         }
     }

@@ -9,6 +9,7 @@ using System.Threading;
 using Ray.Core.EventSourcing;
 using Ray.Core.Message;
 using Microsoft.Extensions.Logging;
+using Ray.Core.Utils;
 
 namespace Ray.MongoDB
 {
@@ -67,7 +68,7 @@ namespace Ray.MongoDB
                 {
                     var type = MessageTypeMapper.GetType(typeCode);
                     var data = document["Data"].AsByteArray;
-                    using (MemoryStream ms = new MemoryStream(data))
+                    using (var ms = new MemoryStream(data))
                     {
                         if (readVersion <= endVersion)
                         {
@@ -90,16 +91,13 @@ namespace Ray.MongoDB
         {
             var mEvent = new MongoEvent<K>
             {
+                Id = OGuid.GenerateNewId().ToString(),
                 StateId = data.StateId,
                 Version = data.Version,
                 TypeCode = data.TypeCode,
-                Data = bytes
+                Data = bytes,
+                UniqueId = string.IsNullOrEmpty(uniqueId) ? data.GetUniqueId() : uniqueId
             };
-            mEvent.Id = data.Id;
-            if (string.IsNullOrEmpty(uniqueId))
-                mEvent.MsgId = mEvent.Id;
-            else
-                mEvent.MsgId = uniqueId;
             try
             {
                 await mongoStorage.GetCollection<MongoEvent<K>>(grainConfig.EventDataBase, grainConfig.GetCollection(mongoStorage, mongoStorage.Config.SysStartTime, data.Timestamp).Name).InsertOneAsync(mEvent);
@@ -113,7 +111,7 @@ namespace Ray.MongoDB
                 }
                 else
                 {
-                    logger.LogError(ex, $"事件重复插入,Event:{Newtonsoft.Json.JsonConvert.SerializeObject(data)}");
+                    logger.LogError(ex, $"Event Duplicate,Event:{Newtonsoft.Json.JsonConvert.SerializeObject(data)}");
                 }
             }
             return false;

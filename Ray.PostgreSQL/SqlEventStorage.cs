@@ -81,18 +81,17 @@ namespace Ray.PostgreSQL
             return list;
         }
 
-        public async Task<bool> SaveAsync(IEventBase<K> data, byte[] bytes, string uniqueId = null)
+        public async Task<bool> SaveAsync(IEventBase<K> evt, byte[] bytes, string uniqueId = null)
         {
-            var table = await tableInfo.GetTable(data.Timestamp);
-            var saveSql = $"INSERT INTO {table.Name}(Id,stateid,msgid,typecode,data,version) VALUES(@Id,@StateId,@MsgId,@TypeCode,@Data,@Version)";
-            string msgId = uniqueId;
-            if (string.IsNullOrEmpty(msgId))
-                msgId = data.Id;
+            var table = await tableInfo.GetTable(evt.Timestamp);
+            var saveSql = $"INSERT INTO {table.Name}(stateid,uniqueId,typecode,data,version) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version)";
+            if (string.IsNullOrEmpty(uniqueId))
+                uniqueId = evt.GetUniqueId();
             try
             {
                 using (var conn = tableInfo.CreateConnection())
                 {
-                    await conn.ExecuteAsync(saveSql, new { data.Id, StateId = data.StateId.ToString(), MsgId = msgId, data.TypeCode, Data = bytes, data.Version });
+                    await conn.ExecuteAsync(saveSql, new { StateId = evt.StateId.ToString(), UniqueId = uniqueId, evt.TypeCode, Data = bytes, evt.Version });
                 }
                 return true;
             }

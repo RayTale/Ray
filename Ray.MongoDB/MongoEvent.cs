@@ -12,7 +12,7 @@ namespace Ray.MongoDB
             get;
             set;
         }
-        public string MsgId { get; set; }
+        public string UniqueId { get; set; }
         public Int64 Version
         {
             get;
