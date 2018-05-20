@@ -15,7 +15,7 @@ namespace Ray.Core.EventSourcing
         protected S State { get; set; }
         protected abstract K GrainId { get; }
         protected virtual bool SaveSnapshot => true;
-        protected virtual int SnapshotFrequency => 500;
+        protected virtual int SnapshotFrequency => 20;
         protected Int64 StateStorageVersion { get; set; }
         protected virtual int SnapshotMinFrequency => 1;
         IEventStorage<K> _eventStorage;
@@ -89,7 +89,7 @@ namespace Ray.Core.EventSourcing
                         }
                         else if (@event.Version > State.Version)
                         {
-                            var eventList = await EventStorage.GetListAsync(GrainId, State.Version, @event.Version);
+                            var eventList = await EventStorage.GetListAsync(GrainId, State.Version, @event.Version, State.VersionTime);
                             foreach (var item in eventList)
                             {
                                 State.IncrementDoingVersion();//标记将要处理的Version
@@ -161,7 +161,6 @@ namespace Ray.Core.EventSourcing
         public override async Task OnActivateAsync()
         {
             await ReadSnapshotAsync();
-            var storageContainer = ServiceProvider.GetService<IStorageContainer>();
             while (true)
             {
                 var eventList = await EventStorage.GetListAsync(GrainId, State.Version, State.Version + 1000, State.VersionTime);
@@ -171,6 +170,7 @@ namespace Ray.Core.EventSourcing
                     await OnEventDelivered(@event);
                     State.UpdateVersion(@event);//更新处理完成的Version
                 }
+                await SaveSnapshotAsync();
                 if (eventList.Count < 1000) break;
             };
         }

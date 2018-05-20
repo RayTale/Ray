@@ -10,14 +10,18 @@ namespace Ray.PostgreSQL
     public class SqlStateStorage<T, K> : IStateStorage<T, K> where T : class, IState<K>
     {
         SqlGrainConfig tableInfo;
-        string deleteSql, getByIdSql, insertSql, updateSql;
+        private readonly string deleteSql;
+        private readonly string getByIdSql;
+        private readonly string insertSql;
+        private readonly string updateSql;
+
         public SqlStateStorage(SqlGrainConfig table)
         {
             tableInfo = table;
             deleteSql = $"DELETE FROM {tableInfo.SnapshotTable} where stateid=@StateId";
             getByIdSql = $"select data FROM {tableInfo.SnapshotTable} where stateid=@StateId";
             insertSql = $"INSERT into {tableInfo.SnapshotTable}(stateid,data)VALUES(@StateId,@Data)";
-            updateSql = $"update {tableInfo.SnapshotTable} set data=Data where stateid=@StateId";
+            updateSql = $"update {tableInfo.SnapshotTable} set data=@Data where stateid=@StateId";
         }
         public async Task DeleteAsync(K id)
         {

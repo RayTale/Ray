@@ -9,7 +9,8 @@ namespace Ray.Core.MQ
 {
     public abstract class SubManager : ISubManager
     {
-        static Type subscribeType = typeof(SubAttribute), handlerType = typeof(ISubHandler);
+        private static readonly Type subscribeType = typeof(SubAttribute);
+        private static readonly Type handlerType = typeof(ISubHandler);
         static List<SubAttribute> attrlist = null;
         public static void Parse(IServiceCollection serviceCollection, params Assembly[] assemblys)
         {
