@@ -16,26 +16,40 @@ namespace Ray.RabbitMQ
         }
         ConsistentHash _CHash;
         public IRabbitMQClient Client { get; set; }
-        List<string> nodeList = new List<string>();
+        List<string> nodeList;
         Dictionary<string, ModelWrapper> models = new Dictionary<string, ModelWrapper>();
         public void Init(IRabbitMQClient client)
         {
-            for (int i = 0; i < QueueCount; i++)
+            var isOnce = QueueCount == 1;
+            if (isOnce)
             {
-                var queue = $"{ Queue}_{i}";
-                nodeList.Add(queue);
-                models.Add(queue, client.PullModel().GetAwaiter().GetResult());
+                models.Add(Queue, client.PullModel().GetAwaiter().GetResult());
             }
-            _CHash = new ConsistentHash(nodeList, QueueCount * 10);
+            else
+            {
+                nodeList = new List<string>();
+                for (int i = 0; i < QueueCount; i++)
+                {
+                    var queue = $"{ Queue}_{i}";
+                    nodeList.Add(queue);
+                    models.Add(queue, client.PullModel().GetAwaiter().GetResult());
+                }
+                _CHash = new ConsistentHash(nodeList, QueueCount * 10);
+            }
             //申明exchange
             client.ExchangeDeclare(Exchange).Wait();
             Client = client;
         }
         public (string queue, ModelWrapper model) GetQueue(string key)
         {
-            if (QueueCount == 1) return (Queue, models.First().Value);
-            var queue = _CHash.GetNode(key);
-            return (queue, models[Queue]);
+            var queue = QueueCount == 1 ? Queue : _CHash.GetNode(key);
+            var model = models[queue];
+            if (model.Model.IsClosed)
+            {
+                model.Dispose();
+                models[queue] = Client.PullModel().GetAwaiter().GetResult();
+            }
+            return (queue, );
         }
 
         public string Exchange { get; set; }

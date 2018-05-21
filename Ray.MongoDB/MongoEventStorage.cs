@@ -53,11 +53,10 @@ namespace Ray.MongoDB
             }
             return list;
         }
-        public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, string typeCode, Int64 startVersion, Int64 endVersion, DateTime? startTime = null)
+        public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, string typeCode, Int64 startVersion, Int32 limit, DateTime? startTime = null)
         {
             var collectionList = grainConfig.GetCollectionList(mongoStorage, mongoStorage.Config.SysStartTime, startTime);
             var list = new List<IEventBase<K>>();
-            Int64 readVersion = 0;
             foreach (var collection in collectionList)
             {
                 var filterBuilder = Builders<BsonDocument>.Filter;
@@ -69,19 +68,14 @@ namespace Ray.MongoDB
                     var data = document["Data"].AsByteArray;
                     using (var ms = new MemoryStream(data))
                     {
-                        if (readVersion <= endVersion)
+                        if (Serializer.Deserialize(type, ms) is IEventBase<K> evt)
                         {
-                            if (Serializer.Deserialize(type, ms) is IEventBase<K> evt)
-                            {
-                                readVersion = evt.Version;
-                                if (readVersion <= endVersion)
-                                    list.Add(evt);
-                            }
+                            list.Add(evt);
                         }
                     }
 
                 }
-                if (readVersion >= endVersion)
+                if (list.Count >= limit)
                     break;
             }
             return list;
