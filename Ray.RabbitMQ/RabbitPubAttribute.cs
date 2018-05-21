@@ -47,9 +47,9 @@ namespace Ray.RabbitMQ
             if (model.Model.IsClosed)
             {
                 model.Dispose();
-                models[queue] = Client.PullModel().GetAwaiter().GetResult();
+                model = models[queue] = Client.PullModel().GetAwaiter().GetResult();
             }
-            return (queue, );
+            return (queue, model);
         }
 
         public string Exchange { get; set; }
