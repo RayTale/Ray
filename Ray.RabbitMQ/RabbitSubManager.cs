@@ -54,68 +54,88 @@ namespace Ray.RabbitMQ
         }
 
         List<ConsumerInfo> ConsumerList { get; set; }
+        ConsistentHash _CHash;
+        Dictionary<string, ModelWrapper> modelDict = new Dictionary<string, ModelWrapper>();
         public async Task Start(List<ConsumerInfo> consumerList)
         {
             if (consumerList != null)
             {
-                var channel = await client.PullModel();
-
+                for (int i = 0; i < (int)Math.Ceiling(consumerList.Count / 4.0); i++)
+                {
+                    modelDict.Add(i.ToString(), await client.PullModel());
+                }
+                _CHash = new ConsistentHash(modelDict.Keys, modelDict.Keys.Count * 5);
                 for (int i = 0; i < consumerList.Count; i++)
                 {
                     var consumer = consumerList[i];
-                    consumer.Channel = channel;
-                    channel.Model.ExchangeDeclare(consumer.Exchange, "direct", true);
-                    channel.Model.QueueDeclare(consumer.Queue, true, false, false, null);
-                    channel.Model.QueueBind(consumer.Queue, consumer.Exchange, consumer.RoutingKey);
-                    consumer.BasicConsumer = new EventingBasicConsumer(consumer.Channel.Model);
-                    consumer.BasicConsumer.Received += (ch, ea) =>
-                    {
-                        try
-                        {
-                            consumer.Handler.Notice(ea.Body).ContinueWith(t =>
-                            {
-                                if (t.Exception == null && !t.IsCanceled)
-                                {
-                                    consumer.Channel.Model.BasicAck(ea.DeliveryTag, false);
-                                }
-                                else if (t.Exception != null)
-                                {
-                                    throw t.Exception;
-                                }
-                                else if (t.IsCanceled)
-                                {
-                                    throw new Exception("Message processing timeout");
-                                }
-                            }).GetAwaiter().GetResult();
-                        }
-                        catch (Exception exception)
-                        {
-                            //需要记录错误日志
-                            var e = exception.InnerException ?? exception;
-                            logger.LogError(e, $"An error occurred in {consumer.Exchange}-{consumer.Queue}");
-                            ReStart(consumer);//重启队列
-                        }
-                    };
-                    consumer.BasicConsumer.ConsumerTag = consumer.Channel.Model.BasicConsume(consumer.Queue, false, consumer.BasicConsumer);
-                    if (i % 4 == 0 && i != 0)
-                    {
-                        channel = await client.PullModel();
-                    }
+                    await StartSub(consumer);
                 }
                 ConsumerList = consumerList;
             }
+        }
+        private async Task StartSub(ConsumerInfo consumer)
+        {
+            consumer.Channel = await GetModel(consumer);
+            consumer.BasicConsumer = new EventingBasicConsumer(consumer.Channel.Model);
+            consumer.BasicConsumer.Received += async (ch, ea) =>
+            {
+                try
+                {
+                    await consumer.Handler.Notice(ea.Body).ContinueWith(t =>
+                    {
+                        if (t.Exception == null && !t.IsCanceled)
+                        {
+                            consumer.Channel.Model.BasicAck(ea.DeliveryTag, false);
+                        }
+                        else if (t.Exception != null)
+                        {
+                            throw t.Exception;
+                        }
+                        else if (t.IsCanceled)
+                        {
+                            throw new Exception("Message processing timeout");
+                        }
+                    });
+                }
+                catch (Exception exception)
+                {
+                    //需要记录错误日志
+                    var e = exception.InnerException ?? exception;
+                    logger.LogError(e, $"An error occurred in {consumer.Exchange}-{consumer.Queue}");
+                    await ReStart(consumer);//重启队列
+                }
+            };
+            consumer.BasicConsumer.ConsumerTag = consumer.Channel.Model.BasicConsume(consumer.Queue, false, consumer.BasicConsumer);
+        }
+        private async Task<ModelWrapper> GetModel(ConsumerInfo consumer)
+        {
+            var key = _CHash.GetNode(consumer.Queue);
+            var channel = modelDict[key];
+            if (channel.Model.IsClosed)
+            {
+                channel.Model.Dispose();
+                modelDict[key] = channel = await client.PullModel();
+            }
+            channel.Model.ExchangeDeclare(consumer.Exchange, "direct", true);
+            channel.Model.QueueDeclare(consumer.Queue, true, false, false, null);
+            channel.Model.QueueBind(consumer.Queue, consumer.Exchange, consumer.RoutingKey);
+            return channel;
         }
         /// <summary>
         /// 重启消费者
         /// </summary>
         /// <param name="consumer"></param>
         /// <returns></returns>
-        public void ReStart(ConsumerInfo consumer)
+        public async Task ReStart(ConsumerInfo consumer)
         {
             if (consumer.Channel.Model.IsOpen)
             {
                 consumer.Channel.Model.BasicCancel(consumer.BasicConsumer.ConsumerTag);
                 consumer.BasicConsumer.ConsumerTag = consumer.Channel.Model.BasicConsume(consumer.Queue, false, consumer.BasicConsumer);
+            }
+            else
+            {
+                await StartSub(consumer);
             }
         }
         public override void Stop()

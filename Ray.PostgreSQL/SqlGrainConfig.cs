@@ -96,7 +96,7 @@ namespace Ray.PostgreSQL
         const string sql = "SELECT * FROM ray_tablelist where prefix=@Table order by version asc";
         public async Task<List<TableInfo>> GetTableList()
         {
-            if (tableList == null)
+            if (tableList == null || tableList.Count == 0)
             {
                 using (var connection = SqlFactory.CreateConnection(Connection))
                 {
@@ -137,7 +137,10 @@ namespace Ray.PostgreSQL
                     catch (Exception e)
                     {
                         trans.Rollback();
-                        throw e;
+                        if (e is Npgsql.PostgresException ne && ne.ErrorCode == -2147467259)
+                            return;
+                        else
+                            throw e;
                     }
                 }
             }
@@ -151,7 +154,17 @@ namespace Ray.PostgreSQL
                     ""data"" bytea NOT NULL)";
             using (var connection = SqlFactory.CreateConnection(Connection))
             {
-                connection.Execute(string.Format(sql, SnapshotTable, stateIdLength));
+                try
+                {
+                    connection.Execute(string.Format(sql, SnapshotTable, stateIdLength));
+                }
+                catch (Exception e)
+                {
+                    if (e is Npgsql.PostgresException ne && ne.ErrorCode == -2147467259)
+                        return;
+                    else
+                        throw e;
+                }
             }
         }
         private void CreateTableListTable()
@@ -163,11 +176,21 @@ namespace Ray.PostgreSQL
                     ""version"" int4,
                     ""createtime"" timestamp(6)
                     )
-                    WITH(OIDS= FALSE);
-                     CREATE UNIQUE INDEX IF NOT EXISTS ""table_version"" ON ""public"".""ray_tablelist"" USING btree(""prefix"", ""version""); ";
+                    WITH (OIDS=FALSE);
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""table_version"" ON ""public"".""ray_tablelist"" USING btree(""prefix"", ""version"")";
             using (var connection = SqlFactory.CreateConnection(Connection))
             {
-                connection.Execute(string.Format(sql, connection.Database));
+                try
+                {
+                    connection.Execute(sql);
+                }
+                catch (Exception e)
+                {
+                    if (e is Npgsql.PostgresException ne && ne.ErrorCode == -2147467259)
+                        return;
+                    else
+                        throw e;
+                }
             }
         }
     }

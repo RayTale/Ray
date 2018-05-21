@@ -35,7 +35,7 @@ namespace Ray.MongoDB
                 var collection = GetCollection(storage, sysStartTime, startTime.Value);
                 list = GetAllCollectionList(storage).Where(c => c.Version >= collection.Version).ToList();
             }
-            if (list == null)
+            if (list == null || list.Count == 0)
             {
                 list = new List<CollectionInfo>() { GetCollection(storage, sysStartTime, DateTime.UtcNow) };
             }

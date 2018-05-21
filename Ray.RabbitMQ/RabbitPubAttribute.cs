@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using Ray.Core.Utils;
-using System.Linq;
 
 namespace Ray.RabbitMQ
 {
@@ -34,22 +34,27 @@ namespace Ray.RabbitMQ
                     nodeList.Add(queue);
                     models.Add(queue, client.PullModel().GetAwaiter().GetResult());
                 }
-                _CHash = new ConsistentHash(nodeList, QueueCount * 10);
+                _CHash = new ConsistentHash(nodeList, QueueCount * 5);
             }
             //申明exchange
             client.ExchangeDeclare(Exchange).Wait();
             Client = client;
         }
+        ConcurrentDictionary<string, (string queue, ModelWrapper model)> queueDict = new ConcurrentDictionary<string, (string queue, ModelWrapper model)>();
         public (string queue, ModelWrapper model) GetQueue(string key)
         {
-            var queue = QueueCount == 1 ? Queue : _CHash.GetNode(key);
-            var model = models[queue];
-            if (model.Model.IsClosed)
+            if (!queueDict.TryGetValue(key, out var result))
             {
-                model.Dispose();
-                model = models[queue] = Client.PullModel().GetAwaiter().GetResult();
+                var queue = QueueCount == 1 ? Queue : _CHash.GetNode(key);
+                result = (queue, models[queue]);
+                queueDict.TryAdd(key, result);
             }
-            return (queue, model);
+            if (result.model.Model.IsClosed)
+            {
+                result.model.Dispose();
+                result.model = models[result.queue] = Client.PullModel().GetAwaiter().GetResult();
+            }
+            return result;
         }
 
         public string Exchange { get; set; }
