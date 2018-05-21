@@ -36,16 +36,13 @@ namespace Ray.RabbitMQ
                         var hashNode = hash != null ? hash.GetNode(queue.Queue) : node;
                         if (node == hashNode)
                         {
-                            for (int x = 0; x < 10; x++)
+                            consumerList.Add(new ConsumerInfo()
                             {
-                                consumerList.Add(new ConsumerInfo()
-                                {
-                                    Exchange = subAttribute.Exchange,
-                                    Queue = subAttribute.Group + "_" + queue.Queue,
-                                    RoutingKey = queue.RoutingKey,
-                                    Handler = (ISubHandler)provider.GetService(subAttribute.Handler)
-                                });
-                            }
+                                Exchange = subAttribute.Exchange,
+                                Queue = $"{ subAttribute.Group}_{queue.Queue}",
+                                RoutingKey = queue.RoutingKey,
+                                Handler = (ISubHandler)provider.GetService(subAttribute.Handler)
+                            });
                         }
                     }
                 }
@@ -54,17 +51,10 @@ namespace Ray.RabbitMQ
         }
 
         List<ConsumerInfo> ConsumerList { get; set; }
-        ConsistentHash _CHash;
-        Dictionary<string, ModelWrapper> modelDict = new Dictionary<string, ModelWrapper>();
         public async Task Start(List<ConsumerInfo> consumerList)
         {
             if (consumerList != null)
             {
-                for (int i = 0; i < (int)Math.Ceiling(consumerList.Count / 4.0); i++)
-                {
-                    modelDict.Add(i.ToString(), await client.PullModel());
-                }
-                _CHash = new ConsistentHash(modelDict.Keys, modelDict.Keys.Count * 5);
                 for (int i = 0; i < consumerList.Count; i++)
                 {
                     var consumer = consumerList[i];
@@ -75,7 +65,7 @@ namespace Ray.RabbitMQ
         }
         private async Task StartSub(ConsumerInfo consumer)
         {
-            consumer.Channel = await GetModel(consumer);
+            await InitModel(consumer);
             consumer.BasicConsumer = new EventingBasicConsumer(consumer.Channel.Model);
             consumer.BasicConsumer.Received += async (ch, ea) =>
             {
@@ -107,19 +97,27 @@ namespace Ray.RabbitMQ
             };
             consumer.BasicConsumer.ConsumerTag = consumer.Channel.Model.BasicConsume(consumer.Queue, false, consumer.BasicConsumer);
         }
-        private async Task<ModelWrapper> GetModel(ConsumerInfo consumer)
+        private async Task InitModel(ConsumerInfo consumer)
         {
-            var key = _CHash.GetNode(consumer.Queue);
-            var channel = modelDict[key];
-            if (channel.Model.IsClosed)
+            if (consumer.Channel == default)
             {
-                channel.Model.Dispose();
-                modelDict[key] = channel = await client.PullModel();
+                consumer.Channel = await client.PullModel();
             }
-            channel.Model.ExchangeDeclare(consumer.Exchange, "direct", true);
-            channel.Model.QueueDeclare(consumer.Queue, true, false, false, null);
-            channel.Model.QueueBind(consumer.Queue, consumer.Exchange, consumer.RoutingKey);
-            return channel;
+            else
+            {
+                if (consumer.Channel.Model.IsClosed)
+                {
+                    consumer.Channel.Dispose();
+                    consumer.Channel = await client.PullModel();
+                }
+                else
+                {
+                    return;
+                }
+            }
+            consumer.Channel.Model.ExchangeDeclare(consumer.Exchange, "direct", true);
+            consumer.Channel.Model.QueueDeclare(consumer.Queue, true, false, false, null);
+            consumer.Channel.Model.QueueBind(consumer.Queue, consumer.Exchange, consumer.RoutingKey);
         }
         /// <summary>
         /// 重启消费者

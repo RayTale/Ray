@@ -112,7 +112,7 @@ namespace Ray.RabbitMQ
                 ConnectionWrapper conn = null;
                 foreach (var item in connectionList)
                 {
-                    if (item.Increment() <= 15)
+                    if (item.Increment() <= 20)
                     {
                         conn = item;
                         break;
