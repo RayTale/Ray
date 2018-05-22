@@ -195,9 +195,8 @@ namespace Ray.Core.EventSourcing
         /// <summary>
         /// 发送无状态更改的消息到消息队列
         /// </summary>
-        /// <param name="msg"></param>
         /// <returns></returns>
-        public async Task Publish(IActorOwnMessage<K> msg, string hashKey = null)
+        public async Task Publish(IMessage msg, string hashKey = null)
         {
             if (string.IsNullOrEmpty(hashKey))
                 hashKey = GrainId.ToString();
