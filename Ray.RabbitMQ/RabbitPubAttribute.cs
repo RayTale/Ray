@@ -34,7 +34,7 @@ namespace Ray.RabbitMQ
                     nodeList.Add(queue);
                     models.Add(queue, client.PullModel().GetAwaiter().GetResult());
                 }
-                _CHash = new ConsistentHash(nodeList, QueueCount * 5);
+                _CHash = new ConsistentHash(nodeList, QueueCount * 10);
             }
             //申明exchange
             client.ExchangeDeclare(Exchange).Wait();
