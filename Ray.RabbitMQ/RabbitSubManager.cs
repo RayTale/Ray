@@ -41,6 +41,7 @@ namespace Ray.RabbitMQ
                                 Exchange = subAttribute.Exchange,
                                 Queue = $"{ subAttribute.Group}_{queue.Queue}",
                                 RoutingKey = queue.RoutingKey,
+                                AutoAck = subAttribute.AutoAck,
                                 Handler = (ISubHandler)provider.GetService(subAttribute.Handler)
                             });
                         }
@@ -73,11 +74,12 @@ namespace Ray.RabbitMQ
                 {
                     await consumer.Handler.Notice(ea.Body).ContinueWith(t =>
                     {
-                        if (t.Exception == null && !t.IsCanceled)
+                        if ((!consumer.AutoAck) && t.Exception == null && !t.IsCanceled)
                         {
                             consumer.Channel.Model.BasicAck(ea.DeliveryTag, false);
+                            return;
                         }
-                        else if (t.Exception != null)
+                        if (t.Exception != null)
                         {
                             throw t.Exception;
                         }
@@ -95,7 +97,7 @@ namespace Ray.RabbitMQ
                     await ReStart(consumer);//重启队列
                 }
             };
-            consumer.BasicConsumer.ConsumerTag = consumer.Channel.Model.BasicConsume(consumer.Queue, false, consumer.BasicConsumer);
+            consumer.BasicConsumer.ConsumerTag = consumer.Channel.Model.BasicConsume(consumer.Queue, consumer.AutoAck, consumer.BasicConsumer);
         }
         private async Task InitModel(ConsumerInfo consumer)
         {
@@ -156,6 +158,7 @@ namespace Ray.RabbitMQ
         public string Exchange { get; set; }
         public string Queue { get; set; }
         public string RoutingKey { get; set; }
+        public bool AutoAck { get; set; }
         public ISubHandler Handler { get; set; }
         public ModelWrapper Channel { get; set; }
         public EventingBasicConsumer BasicConsumer { get; set; }
