@@ -145,6 +145,7 @@ namespace Ray.RabbitMQ
                     if (consumer.Channel.Model.IsOpen)
                     {
                         consumer.Channel.Model.BasicCancel(consumer.BasicConsumer.ConsumerTag);
+                        consumer.Channel.Dispose();
                     }
                 }
             }
