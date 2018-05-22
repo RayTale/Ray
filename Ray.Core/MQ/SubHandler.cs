@@ -14,10 +14,10 @@ namespace Ray.Core.MQ
         {
             serviceProvider = svProvider;
         }
-        public virtual async Task Notice(byte[] bytes, TMessageWrapper message, object data)
+        public virtual async Task Notice(byte[] wrapBytes, byte[] dataBytes, TMessageWrapper message, object data)
         {
             if (data is IMessage msgData)
-                await Tell(bytes, msgData, message);
+                await Tell(wrapBytes, dataBytes, msgData, message);
         }
         public Task Notice(byte[] bytes)
         {
@@ -32,12 +32,11 @@ namespace Ray.Core.MQ
                 }
                 using (var ems = new MemoryStream(msg.BinaryBytes))
                 {
-                    return Notice(bytes, msg, serializer.Deserialize(type, ems));
+                    return Notice(bytes, msg.BinaryBytes, msg, serializer.Deserialize(type, ems));
                 }
             }
         }
 
-        public abstract Task Tell(byte[] bytes, IMessage data, TMessageWrapper msg);
-
+        public abstract Task Tell(byte[] wrapBytes, byte[] dataBytes, IMessage data, TMessageWrapper msg);
     }
 }

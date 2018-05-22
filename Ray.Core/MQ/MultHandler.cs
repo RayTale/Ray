@@ -11,15 +11,15 @@ namespace Ray.Core.MQ
         public MultHandler(IServiceProvider svProvider) : base(svProvider)
         {
         }
-        public override Task Tell(byte[] bytes, IMessage data, TMessageWrapper msg)
+        public override Task Tell(byte[] wrapBytes, byte[] dataBytes, IMessage data, TMessageWrapper msg)
         {
             if (data is IEventBase<K> evt)
             {
-                return Task.WhenAll(SendToAsyncGrain(bytes, evt), LocalProcess(bytes, data, msg));
+                return Task.WhenAll(SendToAsyncGrain(wrapBytes, evt), LocalProcess(dataBytes, data, msg));
             }
             else
             {
-                return LocalProcess(bytes, data, msg);
+                return LocalProcess(dataBytes, data, msg);
             }
         }
         protected abstract Task SendToAsyncGrain(byte[] bytes, IEventBase<K> evt);

@@ -18,10 +18,11 @@ namespace Ray.Handler
         {
             this.clientFactory = clientFactory;
         }
-        public override Task Tell(byte[] bytes, IMessage data, MessageInfo msg)
+
+        public override Task Tell(byte[] wrapBytes, byte[] dataBytes, IMessage data, MessageInfo msg)
         {
             if (data is IEventBase<string> evt)
-                return clientFactory.CreateClient().GetGrain<IAccountDb>(evt.StateId).Tell(bytes);
+                return clientFactory.CreateClient().GetGrain<IAccountDb>(evt.StateId).Tell(wrapBytes);
             return Task.CompletedTask;
         }
     }
