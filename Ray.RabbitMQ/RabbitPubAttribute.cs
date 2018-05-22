@@ -8,14 +8,16 @@ namespace Ray.RabbitMQ
     [AttributeUsage(AttributeTargets.Class)]
     public class RabbitPubAttribute : Attribute
     {
-        public RabbitPubAttribute(string exchange = null, string queue = null, int queueCount = 1)
+        public RabbitPubAttribute(string exchange = null, string queue = null, int queueCount = 1, bool cacheHashKey = false)
         {
             Exchange = exchange;
             Queue = queue;
             QueueCount = queueCount;
+            CacheHashKey = cacheHashKey;
         }
         ConsistentHash _CHash;
         public IRabbitMQClient Client { get; set; }
+        public bool CacheHashKey { get; set; }
         List<string> nodeList;
         Dictionary<string, ModelWrapper> models = new Dictionary<string, ModelWrapper>();
         public void Init(IRabbitMQClient client)
@@ -43,18 +45,32 @@ namespace Ray.RabbitMQ
         ConcurrentDictionary<string, (string queue, ModelWrapper model)> queueDict = new ConcurrentDictionary<string, (string queue, ModelWrapper model)>();
         public (string queue, ModelWrapper model) GetQueue(string key)
         {
-            if (!queueDict.TryGetValue(key, out var result))
+            if (CacheHashKey)
+            {
+                if (!queueDict.TryGetValue(key, out var result))
+                {
+                    var queue = QueueCount == 1 ? Queue : _CHash.GetNode(key);
+                    result = (queue, models[queue]);
+                    queueDict.TryAdd(key, result);
+                }
+                if (result.model.Model.IsClosed)
+                {
+                    result.model.Dispose();
+                    result.model = models[result.queue] = Client.PullModel().GetAwaiter().GetResult();
+                }
+                return result;
+            }
+            else
             {
                 var queue = QueueCount == 1 ? Queue : _CHash.GetNode(key);
-                result = (queue, models[queue]);
-                queueDict.TryAdd(key, result);
+                var model = models[queue];
+                if (model.Model.IsClosed)
+                {
+                    model.Dispose();
+                    model = models[queue] = Client.PullModel().GetAwaiter().GetResult();
+                }
+                return (queue, model);
             }
-            if (result.model.Model.IsClosed)
-            {
-                result.model.Dispose();
-                result.model = models[result.queue] = Client.PullModel().GetAwaiter().GetResult();
-            }
-            return result;
         }
 
         public string Exchange { get; set; }
