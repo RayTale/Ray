@@ -11,14 +11,14 @@ using Ray.PostgreSQL;
 
 namespace Ray.Grain
 {
-    public sealed class AccountFlow : SqlAsyncGrain<string, AsyncState<string>, MessageInfo>, IAccountFlow
+    public sealed class AccountFlow : SqlAsyncGrain<long, AsyncState<long>, MessageInfo>, IAccountFlow
     {
         SqlConfig config;
         public AccountFlow(IOptions<SqlConfig> configOptions)
         {
             config = configOptions.Value;
         }
-        protected override string GrainId => this.GetPrimaryKeyString();
+        protected override long GrainId => this.GetPrimaryKeyLong();
 
         static SqlGrainConfig _table;
         public override SqlGrainConfig GrainConfig
@@ -32,7 +32,7 @@ namespace Ray.Grain
                 return _table;
             }
         }
-        protected override Task OnEventDelivered(IEventBase<string> @event)
+        protected override Task OnEventDelivered(IEventBase<long> @event)
         {
             switch (@event)
             {

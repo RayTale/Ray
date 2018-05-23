@@ -10,14 +10,14 @@ using Ray.PostgreSQL;
 
 namespace Ray.Grain
 {
-    public sealed class AccountDb : DbGrain<string, AsyncState<string>>, IAccountDb
+    public sealed class AccountDb : DbGrain<long, AsyncState<long>>, IAccountDb
     {
         SqlConfig config;
         public AccountDb(IOptions<SqlConfig> configOptions)
         {
             config = configOptions.Value;
         }
-        protected override string GrainId => this.GetPrimaryKeyString();
+        protected override long GrainId => this.GetPrimaryKeyLong();
 
         static SqlGrainConfig _table;
         public override SqlGrainConfig GrainConfig
@@ -32,7 +32,7 @@ namespace Ray.Grain
             }
         }
 
-        protected override Task Process(IEventBase<string> @event)
+        protected override Task Process(IEventBase<long> @event)
         {
             switch (@event)
             {
