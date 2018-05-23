@@ -24,7 +24,8 @@ namespace Ray.RabbitMQ
         protected override async Task Start(List<SubAttribute> attributes, string node, List<string> nodeList = null)
         {
             var hash = nodeList == null ? null : new ConsistentHash(nodeList);
-            var consumerList = new List<ConsumerInfo>();
+            var consumerList = new SortedList<int, ConsumerInfo>();
+            var rd = new Random((int)DateTime.UtcNow.Ticks);
             foreach (var attribute in attributes)
             {
                 if (attribute is RabbitSubAttribute subAttribute)
@@ -36,7 +37,7 @@ namespace Ray.RabbitMQ
                         var hashNode = hash != null ? hash.GetNode(queue.Queue) : node;
                         if (node == hashNode)
                         {
-                            consumerList.Add(new ConsumerInfo()
+                            consumerList.Add(rd.Next(), new ConsumerInfo()
                             {
                                 Exchange = subAttribute.Exchange,
                                 Queue = $"{ subAttribute.Group}_{queue.Queue}",
@@ -48,7 +49,7 @@ namespace Ray.RabbitMQ
                     }
                 }
             }
-            await Start(consumerList);
+            await Start(consumerList.Values.ToList());
         }
 
         List<ConsumerInfo> ConsumerList { get; set; }

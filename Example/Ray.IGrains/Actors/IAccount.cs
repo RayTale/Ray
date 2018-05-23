@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace Ray.IGrains.Actors
 {
-    public interface IAccount : IGrainWithStringKey
+    public interface IAccount : IGrainWithIntegerKey
     {
         /// <summary>
         /// 获取账户余额
@@ -25,6 +25,6 @@ namespace Ray.IGrains.Actors
         /// <param name="toAccountId">目标账户ID</param>
         /// <param name="amount">转账金额</param>
         /// <returns></returns>
-        Task Transfer(string toAccountId, decimal amount);
+        Task Transfer(long toAccountId, decimal amount);
     }
 }

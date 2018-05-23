@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 namespace Ray.Handler
 {
     [RabbitSub("Core", "Account", "account")]
-    public sealed class AccountCoreHandler : MultHandler<string, MessageInfo>
+    public sealed class AccountCoreHandler : MultHandler<long, MessageInfo>
     {
         IOrleansClientFactory clientFactory;
         public AccountCoreHandler(IServiceProvider svProvider, IOrleansClientFactory clientFactory) : base(svProvider)
@@ -18,7 +18,7 @@ namespace Ray.Handler
             this.clientFactory = clientFactory;
         }
 
-        protected override Task SendToAsyncGrain(byte[] bytes, IEventBase<string> evt)
+        protected override Task SendToAsyncGrain(byte[] bytes, IEventBase<long> evt)
         {
             var client = clientFactory.CreateClient();
             return client.GetGrain<IAccountFlow>(evt.StateId).Tell(bytes);

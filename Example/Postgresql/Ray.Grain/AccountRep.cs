@@ -11,14 +11,14 @@ using Ray.PostgreSQL;
 
 namespace Ray.Grain
 {
-    public sealed class AccountRep : SqlRepGrain<string, AccountState, MessageInfo>, IAccountRep
+    public sealed class AccountRep : SqlRepGrain<long, AccountState, MessageInfo>, IAccountRep
     {
         SqlConfig config;
         public AccountRep(IOptions<SqlConfig> configOptions)
         {
             config = configOptions.Value;
         }
-        protected override string GrainId => this.GetPrimaryKeyString();
+        protected override long GrainId => this.GetPrimaryKeyLong();
 
         static SqlGrainConfig _table;
         public override SqlGrainConfig GrainConfig

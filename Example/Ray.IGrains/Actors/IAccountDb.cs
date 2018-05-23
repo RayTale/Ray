@@ -3,7 +3,7 @@ using Ray.Core.EventSourcing;
 
 namespace Ray.IGrains.Actors
 {
-    public interface IAccountDb : IAsyncGrain, IGrainWithStringKey
+    public interface IAccountDb : IAsyncGrain, IGrainWithIntegerKey
     {
     }
 }

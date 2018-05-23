@@ -14,7 +14,7 @@ using Microsoft.Extensions.Options;
 namespace Ray.Grain
 {
     [RabbitPub("Account", "account")]
-    public sealed class Account : SqlGrain<string, AccountState, IGrains.MessageInfo>, IAccount
+    public sealed class Account : SqlGrain<long, AccountState, IGrains.MessageInfo>, IAccount
     {
         SqlConfig config;
         public Account(IOptions<SqlConfig> configOptions)
@@ -22,7 +22,7 @@ namespace Ray.Grain
             config = configOptions.Value;
         }
 
-        protected override string GrainId => this.GetPrimaryKeyString();
+        protected override long GrainId => this.GetPrimaryKeyLong();
 
         static IEventHandle _eventHandle = new AccountEventHandle();
         protected override IEventHandle EventHandle => _eventHandle;
@@ -42,7 +42,7 @@ namespace Ray.Grain
         {
             await base.OnActivateAsync();
         }
-        public Task Transfer(string toAccountId, decimal amount)
+        public Task Transfer(long toAccountId, decimal amount)
         {
             var evt = new AmountTransferEvent(toAccountId, amount, this.State.Balance - amount);
             return RaiseEvent(evt).AsTask();

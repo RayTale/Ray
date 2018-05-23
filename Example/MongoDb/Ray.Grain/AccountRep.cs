@@ -10,9 +10,9 @@ using Ray.MongoDB;
 
 namespace Ray.Grain
 {
-    public sealed class AccountRep : MongoRepGrain<String, AccountState, MessageInfo>, IAccountRep
+    public sealed class AccountRep : MongoRepGrain<long, AccountState, MessageInfo>, IAccountRep
     {
-        protected override string GrainId => this.GetPrimaryKeyString();
+        protected override long GrainId => this.GetPrimaryKeyLong();
 
         static IEventHandle _eventHandle = new AccountEventHandle();
         static MongoGrainConfig _ESMongoInfo;

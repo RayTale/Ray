@@ -30,8 +30,8 @@ namespace Ray.Client
                 {
                     var manager = client.ServiceProvider.GetService<ISubManager>();
                     await manager.Start(new[] { "Core", "Read" });
-                    var aActor = client.GetGrain<IAccount>("1");
-                    var bActor = client.GetGrain<IAccount>("2");
+                    var aActor = client.GetGrain<IAccount>(1);
+                    var bActor = client.GetGrain<IAccount>(2);
                     while (true)
                     {
                         Console.WriteLine("Press Enter to terminate...");
@@ -42,7 +42,7 @@ namespace Ray.Client
                         Parallel.For(0, length, i =>
                         {
                             tasks[i * 2] = aActor.AddAmount(1000);//1用户充值1000
-                            tasks[i * 2 + 1] = aActor.Transfer("2", 500);//转给2用户500
+                            tasks[i * 2 + 1] = aActor.Transfer(2, 500);//转给2用户500
                         });
                         await Task.WhenAll(tasks);
                         stopWatch.Stop();

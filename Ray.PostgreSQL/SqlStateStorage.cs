@@ -1,9 +1,9 @@
-﻿using Ray.Core.EventSourcing;
-using System.Threading.Tasks;
-using Dapper;
-using System.IO;
+﻿using Dapper;
 using ProtoBuf;
+using Ray.Core.EventSourcing;
 using Ray.Core.Utils;
+using System.IO;
+using System.Threading.Tasks;
 
 namespace Ray.PostgreSQL
 {
@@ -27,7 +27,7 @@ namespace Ray.PostgreSQL
         {
             using (var conn = tableInfo.CreateConnection())
             {
-                await conn.ExecuteAsync(deleteSql, new { StateId = id });
+                await conn.ExecuteAsync(deleteSql, new { StateId = id.ToString() });
             }
         }
 
@@ -36,7 +36,7 @@ namespace Ray.PostgreSQL
             byte[] state;
             using (var conn = tableInfo.CreateConnection())
             {
-                state = await conn.ExecuteScalarAsync<byte[]>(getByIdSql, new { StateId = id });
+                state = await conn.ExecuteScalarAsync<byte[]>(getByIdSql, new { StateId = id.ToString() });
             }
             if (state != null)
             {
@@ -55,7 +55,7 @@ namespace Ray.PostgreSQL
                 Serializer.Serialize(ms, data);
                 using (var connection = tableInfo.CreateConnection())
                 {
-                    await connection.ExecuteAsync(insertSql, new { data.StateId, Data = ms.ToArray() });
+                    await connection.ExecuteAsync(insertSql, new { StateId = data.StateId.ToString(), Data = ms.ToArray() });
                 }
             }
         }
@@ -67,7 +67,7 @@ namespace Ray.PostgreSQL
                 Serializer.Serialize(ms, data);
                 using (var connection = tableInfo.CreateConnection())
                 {
-                    await connection.ExecuteAsync(updateSql, new { data.StateId, Data = ms.ToArray() });
+                    await connection.ExecuteAsync(updateSql, new { StateId = data.StateId.ToString(), Data = ms.ToArray() });
                 }
             }
         }

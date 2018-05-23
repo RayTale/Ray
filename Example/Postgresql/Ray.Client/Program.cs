@@ -35,7 +35,7 @@ namespace Ray.Client
                     IAccount[] actors = new IAccount[actorAcount];
                     for (int i = 0; i < actorAcount; i++)
                     {
-                        actors[i] = client.GetGrain<IAccount>(i.ToString());
+                        actors[i] = client.GetGrain<IAccount>(i);
                     }
                     while (true)
                     {
@@ -57,7 +57,7 @@ namespace Ray.Client
                                 }
                                 else
                                 {
-                                    tasks[i * actorAcount + x] = actors[x - 1].Transfer(x.ToString(), 500);
+                                    tasks[i * actorAcount + x] = actors[x - 1].Transfer(x, 500);
                                     transfer = false;
                                 }
 
@@ -103,9 +103,9 @@ namespace Ray.Client
                     {
                         c.UserName = "admin";
                         c.Password = "admin";
-                        c.Hosts = new[] { "127.0.0.1:5672" };
+                        c.Hosts = new[] { "192.168.125.230:5672" };
                         c.MaxPoolSize = 100;
-                        c.VirtualHost = "/";
+                        c.VirtualHost = "test";
                     });
                     })
                     .Build();

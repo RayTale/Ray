@@ -6,12 +6,12 @@ using System;
 namespace Ray.IGrains.Events
 {
     [ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
-    public class AmountAddEvent : IEventBase<string>
+    public class AmountAddEvent : IEventBase<long>
     {
         #region base
         public Int64 Version { get; set; }
         public DateTime Timestamp { get; set; }
-        public string StateId { get; set; }
+        public long StateId { get; set; }
 
         public string TypeCode => GetType().FullName;
         #endregion

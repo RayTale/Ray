@@ -3,10 +3,10 @@ using ProtoBuf;
 using Ray.Core.EventSourcing;
 using Ray.Core.Message;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
-using System.Collections.Concurrent;
 
 namespace Ray.PostgreSQL
 {
@@ -32,7 +32,7 @@ namespace Ray.PostgreSQL
                         sql = $"SELECT typecode,data from {table.Name} WHERE stateid=@StateId and version>@Start and version<=@End order by version asc";
                         oneListSqlDict.TryAdd(table.Name, sql);
                     }
-                    var sqlEventList = await conn.QueryAsync<SqlEvent>(sql, new { StateId = stateId, Start = startVersion, End = endVersion });
+                    var sqlEventList = await conn.QueryAsync<SqlEvent>(sql, new { StateId = stateId.ToString(), Start = startVersion, End = endVersion });
                     foreach (var sqlEvent in sqlEventList)
                     {
                         var type = MessageTypeMapper.GetType(sqlEvent.TypeCode);
@@ -66,7 +66,7 @@ namespace Ray.PostgreSQL
                         sql = $"SELECT typecode,data from {table.Name} WHERE stateid=@StateId and typecode=@TypeCode and version>@Start order by version asc limit @Limit";
                         twoListSqlDict.TryAdd(table.Name, sql);
                     }
-                    var sqlEventList = await conn.QueryAsync<SqlEvent>(sql, new { StateId = stateId, TypeCode = typeCode, Start = startVersion, Limit = limit - list.Count });
+                    var sqlEventList = await conn.QueryAsync<SqlEvent>(sql, new { StateId = stateId.ToString(), TypeCode = typeCode, Start = startVersion, Limit = limit - list.Count });
                     foreach (var sqlEvent in sqlEventList)
                     {
                         var type = MessageTypeMapper.GetType(sqlEvent.TypeCode);

@@ -21,7 +21,7 @@ namespace Ray.Handler
 
         public override Task Tell(byte[] wrapBytes, byte[] dataBytes, IMessage data, MessageInfo msg)
         {
-            if (data is IEventBase<string> evt)
+            if (data is IEventBase<long> evt)
                 return clientFactory.CreateClient().GetGrain<IAccountDb>(evt.StateId).Tell(wrapBytes);
             return Task.CompletedTask;
         }
