@@ -132,7 +132,7 @@ namespace Ray.RabbitMQ
             if (consumer.Channel.Model.IsOpen)
             {
                 consumer.Channel.Model.BasicCancel(consumer.BasicConsumer.ConsumerTag);
-                consumer.BasicConsumer.ConsumerTag = consumer.Channel.Model.BasicConsume(consumer.Queue, false, consumer.BasicConsumer);
+                consumer.BasicConsumer.ConsumerTag = consumer.Channel.Model.BasicConsume(consumer.Queue, consumer.AutoAck, consumer.BasicConsumer);
             }
             else
             {
