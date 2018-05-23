@@ -6,7 +6,7 @@ using Ray.Core.Message;
 namespace Ray.Core.MQ
 {
     public abstract class MultHandler<K, TMessageWrapper> : SubHandler<TMessageWrapper>
-        where TMessageWrapper : MessageWrapper
+        where TMessageWrapper : IMessageWrapper
     {
         public MultHandler(IServiceProvider svProvider) : base(svProvider)
         {

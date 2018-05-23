@@ -12,8 +12,8 @@ namespace Ray.Handler
     [RabbitSub("Core", "Account", "account")]
     public sealed class AccountCoreHandler : MultHandler<long, MessageInfo>
     {
-        IOrleansClientFactory clientFactory;
-        public AccountCoreHandler(IServiceProvider svProvider, IOrleansClientFactory clientFactory) : base(svProvider)
+        IClientFactory clientFactory;
+        public AccountCoreHandler(IServiceProvider svProvider, IClientFactory clientFactory) : base(svProvider)
         {
             this.clientFactory = clientFactory;
         }

@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Ray.Core.MQ
 {
     public abstract class SubHandler<TMessageWrapper> : ISubHandler
-        where TMessageWrapper : MessageWrapper
+        where TMessageWrapper : IMessageWrapper
     {
         IServiceProvider serviceProvider;
         public SubHandler(IServiceProvider svProvider)
@@ -25,14 +25,9 @@ namespace Ray.Core.MQ
             using (var ms = new MemoryStream(bytes))
             {
                 var msg = serializer.Deserialize<TMessageWrapper>(ms);
-                var type = MessageTypeMapper.GetType(msg.TypeCode);
-                if (type == null)
-                {
-                    throw new Exception($"{ msg.TypeCode } does not exist");
-                }
                 using (var ems = new MemoryStream(msg.BinaryBytes))
                 {
-                    return Notice(bytes, msg.BinaryBytes, msg, serializer.Deserialize(type, ems));
+                    return Notice(bytes, msg.BinaryBytes, msg, serializer.Deserialize(MessageTypeMapper.GetType(msg.TypeCode), ems));
                 }
             }
         }

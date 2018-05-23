@@ -6,7 +6,7 @@ namespace Ray.RabbitMQ
 {
     public static class Extensions
     {
-        public static void AddRabbitMQ<W>(this IServiceCollection serviceCollection) where W : MessageWrapper, new()
+        public static void AddRabbitMQ<W>(this IServiceCollection serviceCollection) where W : IMessageWrapper, new()
         {
             serviceCollection.AddSingleton<IRabbitMQClient, RabbitMQClient>();
             serviceCollection.AddSingleton<IMQServiceContainer, MQServiceContainer<W>>();

@@ -75,7 +75,7 @@ namespace Ray.Client
                     .ConfigureServices((servicecollection) =>
                     {
                         SubManager.Parse(servicecollection, typeof(AccountCoreHandler).Assembly);//注册handle
-                        servicecollection.AddSingleton<IOrleansClientFactory, OrleansClientFactory>();//注册Client获取方法
+                        servicecollection.AddSingleton<IClientFactory, ClientFactory>();//注册Client获取方法
                         servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
                         servicecollection.AddRabbitMQ<MessageInfo>();//注册RabbitMq为默认消息队列
                         servicecollection.PostConfigure<RabbitConfig>(c =>

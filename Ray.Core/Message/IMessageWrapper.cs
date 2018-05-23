@@ -1,9 +1,6 @@
-﻿using Orleans.Concurrency;
-
-namespace Ray.Core
+﻿namespace Ray.Core
 {
-
-    public interface MessageWrapper
+    public interface IMessageWrapper
     {
         string TypeCode { get; set; }
         byte[] BinaryBytes { get; set; }

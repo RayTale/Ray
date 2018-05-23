@@ -10,7 +10,7 @@ namespace Ray.Core.EventSourcing
 {
     public abstract class AsyncGrain<K, S, W> : Grain
         where S : class, IState<K>, new()
-        where W : MessageWrapper
+        where W : IMessageWrapper
     {
         protected S State { get; set; }
         protected abstract K GrainId { get; }

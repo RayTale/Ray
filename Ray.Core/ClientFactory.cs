@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 
 namespace Ray.Core
 {
-    public class OrleansClientFactory : IOrleansClientFactory
+    public class ClientFactory : IClientFactory
     {
         static IClusterClient _client;
         public static void Build(IClusterClient client)
@@ -31,7 +31,7 @@ namespace Ray.Core
         public static async Task ConnectAndFill(this IClusterClient client)
         {
             await client.Connect();
-            OrleansClientFactory.Build(client);
+            ClientFactory.Build(client);
         }
     }
 }

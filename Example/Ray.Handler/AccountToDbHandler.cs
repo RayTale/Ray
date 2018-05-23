@@ -13,8 +13,8 @@ namespace Ray.Handler
     [RabbitSub("Read", "Account", "account")]
     public sealed class AccountToDbHandler : SubHandler<MessageInfo>
     {
-        IOrleansClientFactory clientFactory;
-        public AccountToDbHandler(IServiceProvider svProvider, IOrleansClientFactory clientFactory) : base(svProvider)
+        IClientFactory clientFactory;
+        public AccountToDbHandler(IServiceProvider svProvider, IClientFactory clientFactory) : base(svProvider)
         {
             this.clientFactory = clientFactory;
         }

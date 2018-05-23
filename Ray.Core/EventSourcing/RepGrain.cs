@@ -4,7 +4,7 @@ namespace Ray.Core.EventSourcing
 {
     public abstract class RepGrain<K, S, W> : AsyncGrain<K, S, W>
         where S : class, IState<K>, new()
-        where W : MessageWrapper
+        where W : IMessageWrapper
     {
         protected override bool SaveSnapshot => false;
         protected abstract IEventHandle EventHandle { get; }

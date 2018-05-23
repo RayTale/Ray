@@ -64,25 +64,6 @@ namespace Ray.Core.Utils
             }
             ayKeys = circle.Keys.ToArray();
         }
-
-        //we keep this function just for performance compare  
-        private string GetNode_slow(String key)
-        {
-            int hash = BetterHash(key);
-            if (circle.ContainsKey(hash))
-            {
-                return circle[hash];
-            }
-
-            int first = circle.Keys.FirstOrDefault(h => h >= hash);
-            if (first == new int())
-            {
-                first = ayKeys[0];
-            }
-            string node = circle[first];
-            return node;
-        }
-
         //return the index of first item that >= val.  
         //if not exist, return 0;  
         //ay should be ordered array.  
@@ -120,22 +101,13 @@ namespace Ray.Core.Utils
 
         public string GetNode(String key)
         {
-            //return GetNode_slow(key);  
-
-            int hash = BetterHash(key);
-
-            int first = First_ge(ayKeys, hash);
-
-            //int diff = circle.Keys[first] - hash;  
-
-            return circle[ayKeys[first]];
+            return circle[ayKeys[First_ge(ayKeys, BetterHash(key))]];
         }
 
         //default String.GetHashCode() can't well spread strings like "1", "2", "3"  
         public static int BetterHash(String key)
         {
-            uint hash = MurmurHash2.Hash(Encoding.UTF8.GetBytes(key));
-            return (int)hash;
+            return (int)MurmurHash2.Hash(Encoding.UTF8.GetBytes(key));
         }
     }
 

@@ -5,7 +5,7 @@ namespace Ray.MongoDB
 {
     public abstract class MongoRepGrain<K, S, W> : RepGrain<K, S, W>, IMongoGrain
         where S : class, IState<K>, new()
-        where W : MessageWrapper
+        where W : IMessageWrapper
     {
         protected MongoGrainConfig _mongoInfo = null;
         public virtual MongoGrainConfig GrainConfig

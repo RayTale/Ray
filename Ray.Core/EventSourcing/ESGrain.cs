@@ -12,7 +12,7 @@ namespace Ray.Core.EventSourcing
 {
     public abstract class ESGrain<K, S, W> : Grain
         where S : class, IState<K>, new()
-        where W : MessageWrapper, new()
+        where W : IMessageWrapper, new()
     {
         protected S State { get; set; }
         protected abstract K GrainId { get; }

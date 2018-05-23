@@ -6,7 +6,7 @@ namespace Ray.IGrains
 {
     [ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
     [Immutable]
-    public class MessageInfo: MessageWrapper
+    public class MessageInfo: IMessageWrapper
     {
         public string TypeCode { get; set; }
         public byte[] BinaryBytes { get; set; }

@@ -7,7 +7,7 @@ using Ray.Core.MQ;
 namespace Ray.RabbitMQ
 {
     public class MQServiceContainer<W> : IMQServiceContainer
-        where W : MessageWrapper, new()
+        where W : IMessageWrapper, new()
     {
         IRabbitMQClient client;
         public MQServiceContainer(IRabbitMQClient client)
