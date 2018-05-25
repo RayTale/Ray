@@ -32,7 +32,7 @@ namespace Ray.MongoDB
             {
                 var filterBuilder = Builders<BsonDocument>.Filter;
                 var filter = filterBuilder.Eq("StateId", stateId) & filterBuilder.Lte("Version", endVersion) & filterBuilder.Gt("Version", startVersion);
-                var cursor = await mongoStorage.GetCollection<BsonDocument>(grainConfig.EventDataBase, collection.Name).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(3000).Token);
+                var cursor = await mongoStorage.GetCollection<BsonDocument>(grainConfig.EventDataBase, collection.Name).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(10000).Token);
                 foreach (var document in cursor.ToEnumerable())
                 {
                     var typeCode = document["TypeCode"].AsString;
@@ -61,7 +61,7 @@ namespace Ray.MongoDB
             {
                 var filterBuilder = Builders<BsonDocument>.Filter;
                 var filter = filterBuilder.Eq("StateId", stateId) & filterBuilder.Eq("TypeCode", typeCode) & filterBuilder.Gt("Version", startVersion);
-                var cursor = await mongoStorage.GetCollection<BsonDocument>(grainConfig.EventDataBase, collection.Name).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(3000).Token);
+                var cursor = await mongoStorage.GetCollection<BsonDocument>(grainConfig.EventDataBase, collection.Name).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(10000).Token);
                 foreach (var document in cursor.ToEnumerable())
                 {
                     var type = MessageTypeMapper.GetType(typeCode);
