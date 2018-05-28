@@ -112,7 +112,7 @@ namespace Ray.RabbitMQ
                 ConnectionWrapper conn = null;
                 foreach (var item in connectionList)
                 {
-                    if (item.Increment() <= 20)
+                    if (item.Increment() <= 16)
                     {
                         conn = item;
                         break;
@@ -124,17 +124,20 @@ namespace Ray.RabbitMQ
                 }
                 if (conn == null && Interlocked.Increment(ref connectionCount) <= rabbitHost.MaxPoolSize)
                 {
-                    conn = new ConnectionWrapper
+                    Task.Run(() =>
                     {
-                        Client = this,
-                        Connection = _Factory.CreateConnection(rabbitHost.EndPoints)
-                    };
-                    conn.Connection.ConnectionShutdown += (obj, args) =>
-                    {
-                        conn.Connection = _Factory.CreateConnection(rabbitHost.EndPoints);
-                        conn.Reset();
-                    };
-                    connectionList.Add(conn);
+                        conn = new ConnectionWrapper
+                        {
+                            Client = this,
+                            Connection = _Factory.CreateConnection(rabbitHost.EndPoints)
+                        };
+                        conn.Connection.ConnectionShutdown += (obj, args) =>
+                        {
+                            conn.Connection = _Factory.CreateConnection(rabbitHost.EndPoints);
+                            conn.Reset();
+                        };
+                        connectionList.Add(conn);
+                    }).GetAwaiter().GetResult();
                 }
                 if (conn != null)
                 {

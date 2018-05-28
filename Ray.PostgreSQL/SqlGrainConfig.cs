@@ -29,7 +29,7 @@ namespace Ray.PostgreSQL
         }
 
         readonly object collectionLock = new object();
-        static readonly DateTime startTime = new DateTime(2018, 1, 30);
+        static readonly DateTime startTime = new DateTime(2018, 5, 20);
         public async Task<List<TableInfo>> GetTableList(DateTime? startTime = null)
         {
             List<TableInfo> list = null;
@@ -112,7 +112,7 @@ namespace Ray.PostgreSQL
         private void CreateEventTable(TableInfo table)
         {
             const string sql = @"
-                    CREATE TABLE ""public"".""{0}"" (
+                    CREATE TABLE public.{0} (
                                     ""stateid"" varchar({1}) COLLATE ""default"" NOT NULL,
                                     ""uniqueid"" varchar(50) COLLATE ""default"" NOT NULL,
                                     ""typecode"" varchar(100) COLLATE ""default"" NOT NULL,
@@ -149,7 +149,7 @@ namespace Ray.PostgreSQL
         private void CreateStateTable()
         {
             const string sql = @"
-                    CREATE TABLE if not exists ""public"".""{0}""(
+                    CREATE TABLE if not exists public.{0}(
                     ""stateid"" varchar({1}) COLLATE ""default"" NOT NULL PRIMARY KEY,
                     ""data"" bytea NOT NULL)";
             using (var connection = SqlFactory.CreateConnection(Connection))
@@ -170,14 +170,14 @@ namespace Ray.PostgreSQL
         private void CreateTableListTable()
         {
             const string sql = @"
-                    CREATE TABLE IF Not EXISTS ""public"".""ray_tablelist""(
+                    CREATE TABLE IF Not EXISTS public.ray_tablelist(
                     ""prefix"" varchar(255) COLLATE ""default"",
                     ""name"" varchar(255) COLLATE ""default"",
                     ""version"" int4,
                     ""createtime"" timestamp(6)
                     )
                     WITH (OIDS=FALSE);
-                    CREATE UNIQUE INDEX IF NOT EXISTS ""table_version"" ON ""public"".""ray_tablelist"" USING btree(""prefix"", ""version"")";
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""table_version"" ON public.ray_tablelist USING btree(""prefix"", ""version"")";
             using (var connection = SqlFactory.CreateConnection(Connection))
             {
                 try

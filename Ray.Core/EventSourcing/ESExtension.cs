@@ -34,7 +34,7 @@ namespace Ray.Core.EventSourcing
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string GetEventId<K>(this IEventBase<K> @event)
         {
-            return $"{@event.StateId}{@event.Version}";
+            return $"{@event.StateId}_{@event.Version}";
         }
     }
 }

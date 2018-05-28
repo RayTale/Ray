@@ -9,13 +9,13 @@ namespace Ray.RabbitMQ
     public class MQServiceContainer<W> : IMQServiceContainer
         where W : IMessageWrapper, new()
     {
-        IRabbitMQClient client;
+        readonly IRabbitMQClient client;
         public MQServiceContainer(IRabbitMQClient client)
         {
             this.client = client;
         }
         ConcurrentDictionary<Type, IMQService> serviceDict = new ConcurrentDictionary<Type, IMQService>();
-        object typeLock = new object();
+        readonly object typeLock = new object();
         public IMQService GetService(Type type, Grain grain)
         {
             if (!serviceDict.TryGetValue(type, out var value))
@@ -28,7 +28,7 @@ namespace Ray.RabbitMQ
             }
             return value;
         }
-        static Type rabbitMQType = typeof(RabbitPubAttribute);
+        static readonly Type rabbitMQType = typeof(RabbitPubAttribute);
         public RabbitPubAttribute GetAttribute(Type type)
         {
             var rabbitMQAttributes = type.GetCustomAttributes(rabbitMQType, true);

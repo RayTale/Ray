@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.IO;
 using Microsoft.Extensions.DependencyInjection;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 
 namespace Ray.Core.EventSourcing
 {
@@ -82,7 +83,7 @@ namespace Ray.Core.EventSourcing
                             catch (Exception e)
                             {
                                 State.DoingVersion = State.Version;//标记将要处理的Version
-                                throw e;
+                                ExceptionDispatchInfo.Capture(e).Throw();
                             }
                             await OnExecuted(@event);
                             await SaveSnapshotAsync();
@@ -101,7 +102,7 @@ namespace Ray.Core.EventSourcing
                                 catch (Exception e)
                                 {
                                     State.DoingVersion = State.Version;//标记将要处理的Version
-                                    throw e;
+                                    ExceptionDispatchInfo.Capture(e).Throw();
                                 }
                                 await OnExecuted(@event);
                                 await SaveSnapshotAsync();
@@ -118,7 +119,7 @@ namespace Ray.Core.EventSourcing
                             catch (Exception e)
                             {
                                 State.DoingVersion = State.Version;//标记将要处理的Version
-                                throw e;
+                                ExceptionDispatchInfo.Capture(e).Throw();
                             }
                             await OnExecuted(@event);
                             await SaveSnapshotAsync();
@@ -137,6 +138,8 @@ namespace Ray.Core.EventSourcing
         protected virtual Task OnExecuted(IEventBase<K> @event) => Task.CompletedTask;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual Task OnSaveSnapshot() => Task.CompletedTask;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected virtual Task OnSavedSnapshot() => Task.CompletedTask;
         protected virtual async Task SaveSnapshotAsync(bool force = false)
         {
             if (SaveSnapshot)
@@ -154,6 +157,7 @@ namespace Ray.Core.EventSourcing
                         await StateStore.UpdateAsync(State);
                     }
                     StateStorageVersion = State.Version;
+                    await OnSavedSnapshot();
                 }
             }
         }

@@ -14,10 +14,11 @@ namespace Ray.Core.MQ
         {
             serviceProvider = svProvider;
         }
-        public virtual async Task Notice(byte[] wrapBytes, byte[] dataBytes, TMessageWrapper message, object data)
+        public virtual Task Notice(byte[] wrapBytes, byte[] dataBytes, TMessageWrapper message, object data)
         {
             if (data is IMessage msgData)
-                await Tell(wrapBytes, dataBytes, msgData, message);
+                return Tell(wrapBytes, dataBytes, msgData, message);
+            return Task.CompletedTask;
         }
         public Task Notice(byte[] bytes)
         {
@@ -25,13 +26,19 @@ namespace Ray.Core.MQ
             using (var ms = new MemoryStream(bytes))
             {
                 var msg = serializer.Deserialize<TMessageWrapper>(ms);
+                var type = MessageTypeMapper.GetType(msg.TypeCode);
+                if (type == null)
+                {
+                    throw new Exception($"{ msg.TypeCode } does not exist");
+                }
                 using (var ems = new MemoryStream(msg.BinaryBytes))
                 {
-                    return Notice(bytes, msg.BinaryBytes, msg, serializer.Deserialize(MessageTypeMapper.GetType(msg.TypeCode), ems));
+                    return Notice(bytes, msg.BinaryBytes, msg, serializer.Deserialize(type, ems));
                 }
             }
         }
 
         public abstract Task Tell(byte[] wrapBytes, byte[] dataBytes, IMessage data, TMessageWrapper msg);
+
     }
 }

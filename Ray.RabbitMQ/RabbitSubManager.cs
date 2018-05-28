@@ -73,28 +73,16 @@ namespace Ray.RabbitMQ
             {
                 try
                 {
-                    await consumer.Handler.Notice(ea.Body).ContinueWith(t =>
+                    await consumer.Handler.Notice(ea.Body);
+                    if (!consumer.AutoAck)
                     {
-                        if ((!consumer.AutoAck) && t.Exception == null && !t.IsCanceled)
-                        {
-                            consumer.Channel.Model.BasicAck(ea.DeliveryTag, false);
-                            return;
-                        }
-                        if (t.Exception != null)
-                        {
-                            throw t.Exception;
-                        }
-                        else if (t.IsCanceled)
-                        {
-                            throw new Exception("Message processing timeout");
-                        }
-                    });
+                        consumer.Channel.Model.BasicAck(ea.DeliveryTag, false);
+                    }
                 }
                 catch (Exception exception)
                 {
                     //需要记录错误日志
-                    var e = exception.InnerException ?? exception;
-                    logger.LogError(e, $"An error occurred in {consumer.Exchange}-{consumer.Queue}");
+                    logger.LogError(exception.InnerException ?? exception, $"An error occurred in {consumer.Exchange}-{consumer.Queue}");
                     await ReStart(consumer);//重启队列
                 }
             };
