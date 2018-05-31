@@ -6,7 +6,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Orleans.OrleansCodeGenerator.Build" Version="2.1.0" />
-    <PackageReference Include="Npgsql" Version="4.0.0-rc1" />
+    <PackageReference Include="Npgsql" Version="4.0.0" />
   </ItemGroup>
 
   <ItemGroup>
