@@ -29,14 +29,14 @@ namespace Ray.Core.EventSourcing
             await ReadSnapshotAsync();
             while (true)
             {
-                var eventList = await GetEventStorage().GetListAsync(GrainId, State.Version, State.Version + 1000, State.VersionTime);
+                var eventList = await GetEventStorage().GetListAsync(GrainId, State.Version, State.Version + 5000, State.VersionTime);
                 foreach (var @event in eventList)
                 {
                     State.IncrementDoingVersion();//标记将要处理的Version
                     EventHandle.Apply(State, @event);
                     State.UpdateVersion(@event);//更新处理完成的Version
                 }
-                if (eventList.Count < 1000) break;
+                if (eventList.Count < 5000) break;
             };
         }
         public override Task OnDeactivateAsync()

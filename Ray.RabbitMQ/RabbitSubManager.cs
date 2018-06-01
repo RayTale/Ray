@@ -63,6 +63,21 @@ namespace Ray.RabbitMQ
                     await StartSub(consumer);
                 }
                 ConsumerList = consumerList;
+#pragma warning disable CS4014 // 由于此调用不会等待，因此在调用完成前将继续执行当前方法
+                RestartMonitor();
+#pragma warning restore CS4014 // 由于此调用不会等待，因此在调用完成前将继续执行当前方法
+            }
+        }
+        private async Task RestartMonitor()
+        {
+            while (true)
+            {
+                await Task.Delay(10 * 1000);
+                foreach (var consumer in ConsumerList)
+                {
+                    if (consumer.Channel.Model == null || consumer.Channel.Model.IsClosed)
+                        await ReStart(consumer);
+                }
             }
         }
         private async Task StartSub(ConsumerInfo consumer)
@@ -83,7 +98,7 @@ namespace Ray.RabbitMQ
                 {
                     //需要记录错误日志
                     logger.LogError(exception.InnerException ?? exception, $"An error occurred in {consumer.Exchange}-{consumer.Queue}");
-                    await ReStart(consumer);//重启队列
+                    consumer.Channel.Model.Dispose();
                 }
             };
             consumer.BasicConsumer.ConsumerTag = consumer.Channel.Model.BasicConsume(consumer.Queue, consumer.AutoAck, consumer.BasicConsumer);
@@ -119,13 +134,9 @@ namespace Ray.RabbitMQ
         {
             if (consumer.Channel.Model.IsOpen)
             {
-                consumer.Channel.Model.BasicCancel(consumer.BasicConsumer.ConsumerTag);
-                consumer.BasicConsumer.ConsumerTag = consumer.Channel.Model.BasicConsume(consumer.Queue, consumer.AutoAck, consumer.BasicConsumer);
+                consumer.Channel.Model.Dispose();
             }
-            else
-            {
-                await StartSub(consumer);
-            }
+            await StartSub(consumer);
         }
         public override void Stop()
         {

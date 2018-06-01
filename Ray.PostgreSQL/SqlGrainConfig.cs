@@ -114,7 +114,7 @@ namespace Ray.PostgreSQL
             const string sql = @"
                     CREATE TABLE public.{0} (
                                     ""stateid"" varchar({1}) COLLATE ""default"" NOT NULL,
-                                    ""uniqueid"" varchar(50) COLLATE ""default"" NOT NULL,
+                                    ""uniqueid"" varchar(250) COLLATE ""default"" NOT NULL,
                                     ""typecode"" varchar(100) COLLATE ""default"" NOT NULL,
                                     ""data"" bytea NOT NULL,
                                     ""version"" int8 NOT NULL
