@@ -168,7 +168,7 @@ namespace Ray.Core.EventSourcing
                             var data = new W
                             {
                                 TypeCode = @event.TypeCode,
-                                BinaryBytes = ms.ToArray()
+                                BinaryBytes = bytes
                             };
                             ms.Position = 0;
                             ms.SetLength(0);
