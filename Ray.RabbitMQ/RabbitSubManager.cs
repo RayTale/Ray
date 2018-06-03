@@ -15,6 +15,7 @@ namespace Ray.RabbitMQ
         ILogger<RabbitSubManager> logger = default;
         IServiceProvider provider;
         IRabbitMQClient client;
+        bool IsClosed = false;
         public RabbitSubManager(ILogger<RabbitSubManager> logger, IRabbitMQClient client, IServiceProvider provider)
         {
             this.client = client;
@@ -73,16 +74,29 @@ namespace Ray.RabbitMQ
             while (true)
             {
                 await Task.Delay(10 * 1000);
+
                 foreach (var consumer in ConsumerList)
                 {
-                    if (consumer.Channel.Model == null || consumer.Channel.Model.IsClosed)
-                        await ReStart(consumer);
+                    if (consumer.NeedRestart)
+                    {
+                        consumer.Close();
+                        if (!IsClosed)
+                        {
+                            await StartSub(consumer);
+                        }
+                    }
                 }
             }
         }
         private async Task StartSub(ConsumerInfo consumer)
         {
-            await InitModel(consumer);
+            consumer.NeedRestart = false;
+            consumer.Channel = await client.PullModel();
+            consumer.Channel.Model.ExchangeDeclare(consumer.Exchange, "direct", true);
+            consumer.Channel.Model.QueueDeclare(consumer.Queue, true, false, false, null);
+            consumer.Channel.Model.BasicQos(0, 10, false);
+            consumer.Channel.Model.QueueBind(consumer.Queue, consumer.Exchange, consumer.RoutingKey);
+
             consumer.BasicConsumer = new EventingBasicConsumer(consumer.Channel.Model);
             consumer.BasicConsumer.Received += async (ch, ea) =>
             {
@@ -98,57 +112,19 @@ namespace Ray.RabbitMQ
                 {
                     //需要记录错误日志
                     logger.LogError(exception.InnerException ?? exception, $"An error occurred in {consumer.Exchange}-{consumer.Queue}");
-                    consumer.Channel.Model.Dispose();
+                    consumer.NeedRestart = true;
                 }
             };
             consumer.BasicConsumer.ConsumerTag = consumer.Channel.Model.BasicConsume(consumer.Queue, consumer.AutoAck, consumer.BasicConsumer);
         }
-        private async Task InitModel(ConsumerInfo consumer)
-        {
-            if (consumer.Channel == default)
-            {
-                consumer.Channel = await client.PullModel();
-            }
-            else
-            {
-                if (consumer.Channel.Model.IsClosed)
-                {
-                    consumer.Channel.Dispose();
-                    consumer.Channel = await client.PullModel();
-                }
-                else
-                {
-                    return;
-                }
-            }
-            consumer.Channel.Model.ExchangeDeclare(consumer.Exchange, "direct", true);
-            consumer.Channel.Model.QueueDeclare(consumer.Queue, true, false, false, null);
-            consumer.Channel.Model.QueueBind(consumer.Queue, consumer.Exchange, consumer.RoutingKey);
-        }
-        /// <summary>
-        /// 重启消费者
-        /// </summary>
-        /// <param name="consumer"></param>
-        /// <returns></returns>
-        public async Task ReStart(ConsumerInfo consumer)
-        {
-            if (consumer.Channel.Model.IsOpen)
-            {
-                consumer.Channel.Model.Dispose();
-            }
-            await StartSub(consumer);
-        }
         public override void Stop()
         {
+            IsClosed = true;
             if (ConsumerList != null)
             {
                 foreach (var consumer in ConsumerList)
                 {
-                    if (consumer.Channel.Model.IsOpen)
-                    {
-                        consumer.Channel.Model.BasicCancel(consumer.BasicConsumer.ConsumerTag);
-                        consumer.Channel.Dispose();
-                    }
+                    consumer.NeedRestart = true;
                 }
             }
         }
@@ -159,8 +135,19 @@ namespace Ray.RabbitMQ
         public string Queue { get; set; }
         public string RoutingKey { get; set; }
         public bool AutoAck { get; set; }
+        public bool NeedRestart { get; set; }
         public ISubHandler Handler { get; set; }
         public ModelWrapper Channel { get; set; }
         public EventingBasicConsumer BasicConsumer { get; set; }
+        public void Close()
+        {
+            if (Channel != default && Channel.Model.IsOpen)
+            {
+                BasicConsumer.Model.BasicCancel(BasicConsumer.ConsumerTag);
+                BasicConsumer.Model.QueueUnbind(Queue, Exchange, RoutingKey);
+                BasicConsumer.Model.Dispose();
+            }
+            Channel?.Dispose();
+        }
     }
 }
