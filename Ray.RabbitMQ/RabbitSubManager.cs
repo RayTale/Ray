@@ -94,7 +94,7 @@ namespace Ray.RabbitMQ
             consumer.Channel = await client.PullModel();
             consumer.Channel.Model.ExchangeDeclare(consumer.Exchange, "direct", true);
             consumer.Channel.Model.QueueDeclare(consumer.Queue, true, false, false, null);
-            consumer.Channel.Model.BasicQos(0, 10, false);
+            consumer.Channel.Model.BasicQos(0, 100, false);
             consumer.Channel.Model.QueueBind(consumer.Queue, consumer.Exchange, consumer.RoutingKey);
 
             consumer.BasicConsumer = new EventingBasicConsumer(consumer.Channel.Model);
