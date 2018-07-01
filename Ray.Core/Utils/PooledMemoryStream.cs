@@ -187,6 +187,10 @@
         {
             return new ArraySegment<byte>(_currentbuffer, 0, (int)_Length);
         }
+        public ReadOnlyMemory<byte> ToReadOnlyMemory()
+        {
+            return new ReadOnlyMemory<byte>(_currentbuffer, 0, (int)_Length);
+        }
         ArrayPool<byte> m_Pool;
         byte[] _currentbuffer;
         readonly bool _CanWrite;

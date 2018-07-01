@@ -12,6 +12,7 @@ using Ray.Core.Message;
 using System.Diagnostics;
 using Ray.Core.MQ;
 using Ray.Core;
+using System.Linq;
 
 namespace Ray.Client
 {
@@ -24,46 +25,58 @@ namespace Ray.Client
 
         private static async Task<int> RunMainAsync()
         {
+            var servicecollection = new ServiceCollection();
+            SubManager.Parse(servicecollection, typeof(AccountCoreHandler).Assembly);//注册handle
+            servicecollection.AddSingleton<IClientFactory, ClientFactory>();//注册Client获取方法
+            servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
+            servicecollection.AddRabbitMQ<MessageInfo>();//注册RabbitMq为默认消息队列
+            servicecollection.AddLogging(logging => logging.AddConsole());
+            servicecollection.PostConfigure<RabbitConfig>(c =>
+            {
+                c.UserName = "admin";
+                c.Password = "admin";
+                c.Hosts = new[] { "127.0.0.1:5672" };
+                c.MaxPoolSize = 100;
+                c.VirtualHost = "/";
+            });
+            var provider = servicecollection.BuildServiceProvider();
             try
             {
                 using (var client = await StartClientWithRetries())
                 {
-                    var manager = client.ServiceProvider.GetService<ISubManager>();
+                    var manager = provider.GetService<ISubManager>();
                     await manager.Start(new[] { "Core", "Read", "Rep" });
-                    //Console.WriteLine("Press Enter to actor count");
-                    var actorAcount = 20;
-                    IAccount[] actors = new IAccount[actorAcount];
-                    for (int i = 0; i < actorAcount; i++)
-                    {
-                        actors[i] = client.GetGrain<IAccount>(i);
-                    }
                     while (true)
                     {
-                        Console.WriteLine("Press Enter to terminate...");
+                        Console.WriteLine("Press Enter to count...X100");
+                        var actorAcount = int.Parse(Console.ReadLine()) * 100;
+                        IAccount[] actors = new IAccount[actorAcount];
+                        for (int i = 0; i < actorAcount; i++)
+                        {
+                            actors[i] = client.GetGrain<IAccount>(i);
+                        }
+                        Console.WriteLine("Press Enter for times...");
                         var length = int.Parse(Console.ReadLine());
-
                         var stopWatch = new Stopwatch();
                         stopWatch.Start();
-                        var tasks = new Task[length * actorAcount];
-                        Parallel.For(0, length, i =>
+
+                        for (int i = 0; i < length; i++)
                         {
                             var transfer = false;
-                            for (int x = 0; x < actorAcount; x++)
+                            await Task.WhenAll(Enumerable.Range(0, actorAcount).Select(async x =>
                             {
                                 if (!transfer)
                                 {
-                                    tasks[i * actorAcount + x] = actors[x].AddAmount(1000);
+                                    await actors[x].AddAmount(1000);
                                     transfer = true;
                                 }
                                 else
                                 {
-                                    tasks[i * actorAcount + x] = actors[x - 1].Transfer(x, 500);
+                                    await actors[x - 1].Transfer(x, 500);
                                     transfer = false;
                                 }
-
-                            }
-                        });
-                        await Task.WhenAll(tasks);
+                            }));
+                        }
                         stopWatch.Stop();
                         Console.WriteLine($"{length * actorAcount}次操作完成，耗时:{stopWatch.ElapsedMilliseconds}ms");
                         await Task.Delay(200);
@@ -89,28 +102,14 @@ namespace Ray.Client
             {
                 try
                 {
-                    client = new ClientBuilder()
-                     .UseLocalhostClustering()
-                    .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IAccount).Assembly).WithReferences())
-                    .ConfigureLogging(logging => logging.AddConsole())
-                    .ConfigureServices((servicecollection) =>
+                    client = await ClientFactory.Build(() =>
                     {
-                        SubManager.Parse(servicecollection, typeof(AccountCoreHandler).Assembly);//注册handle
-                        servicecollection.AddSingleton<IClientFactory, ClientFactory>();//注册Client获取方法
-                        servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
-                        servicecollection.AddRabbitMQ<MessageInfo>();//注册RabbitMq为默认消息队列
-                        servicecollection.PostConfigure<RabbitConfig>(c =>
-                    {
-                        c.UserName = "admin";
-                        c.Password = "admin";
-                        c.Hosts = new[] { "192.168.125.230:5672" };
-                        c.MaxPoolSize = 100;
-                        c.VirtualHost = "test";
+                        var builder = new ClientBuilder()
+                        .UseLocalhostClustering()
+                        .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IAccount).Assembly).WithReferences())
+                        .ConfigureLogging(logging => logging.AddConsole());
+                        return builder;
                     });
-                    })
-                    .Build();
-
-                    await client.ConnectAndFill();
                     Console.WriteLine("Client successfully connect to silo host");
                     break;
                 }

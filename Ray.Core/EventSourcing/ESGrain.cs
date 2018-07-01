@@ -18,8 +18,9 @@ namespace Ray.Core.EventSourcing
         protected abstract K GrainId { get; }
         protected virtual SnapshotType SnapshotType => SnapshotType.Master;
         protected virtual int SnapshotFrequency => 500;
+        protected virtual int EventNumberPerRead => 2000;
         protected Int64 StateStorageVersion { get; set; }
-        protected virtual int SnapshotMinFrequency => 50;
+        protected virtual int SnapshotMinFrequency => 20;
         protected virtual bool SupportAsync => true;
         protected ILogger<ESGrain<K, S, W>> Logger { get; set; }
         #region LifeTime
@@ -29,29 +30,26 @@ namespace Ray.Core.EventSourcing
             await ReadSnapshotAsync();
             while (true)
             {
-                var eventList = await GetEventStorage().GetListAsync(GrainId, State.Version, State.Version + 5000, State.VersionTime);
+                var eventList = await (await GetEventStorage()).GetListAsync(GrainId, State.Version, State.Version + EventNumberPerRead, State.VersionTime);
                 foreach (var @event in eventList)
                 {
                     State.IncrementDoingVersion();//标记将要处理的Version
                     EventHandle.Apply(State, @event);
                     State.UpdateVersion(@event);//更新处理完成的Version
                 }
-                if (eventList.Count < 5000) break;
+                if (eventList.Count < EventNumberPerRead) break;
             };
         }
         public override Task OnDeactivateAsync()
         {
-            if (State.Version - StateStorageVersion >= SnapshotMinFrequency)
-                return SaveSnapshotAsync(true);
-            else
-                return Task.CompletedTask;
+            return State.Version - StateStorageVersion >= SnapshotMinFrequency ? SaveSnapshotAsync(true) : Task.CompletedTask;
         }
         #endregion
         #region State storage
         protected bool IsNew { get; set; } = false;
         protected virtual async Task ReadSnapshotAsync()
         {
-            State = await GetStateStorage().GetByIdAsync(GrainId);
+            State = await (await GetStateStorage()).GetByIdAsync(GrainId);
             if (State == null)
             {
                 IsNew = true;
@@ -71,14 +69,14 @@ namespace Ray.Core.EventSourcing
                     await OnSaveSnapshot();
                     if (IsNew)
                     {
-                        await GetStateStorage().InsertAsync(State);
+                        await (await GetStateStorage()).InsertAsync(State);
 
                         StateStorageVersion = State.Version;
                         IsNew = false;
                     }
                     else
                     {
-                        await GetStateStorage().UpdateAsync(State);
+                        await (await GetStateStorage()).UpdateAsync(State);
                         StateStorageVersion = State.Version;
                     }
                 }
@@ -98,17 +96,17 @@ namespace Ray.Core.EventSourcing
             };
             return Task.CompletedTask;
         }
-        protected Task ClearStateAsync()
+        protected async Task ClearStateAsync()
         {
-            return GetStateStorage().DeleteAsync(GrainId);
+            await (await GetStateStorage()).DeleteAsync(GrainId);
         }
         IStateStorage<S, K> _stateStorage;
 
-        protected virtual IStateStorage<S, K> GetStateStorage()
+        protected virtual async ValueTask<IStateStorage<S, K>> GetStateStorage()
         {
             if (_stateStorage == null)
             {
-                _stateStorage = ServiceProvider.GetService<IStorageContainer>().GetStateStorage<K, S>(GetType(), this);
+                _stateStorage = await ServiceProvider.GetService<IStorageContainer>().GetStateStorage<K, S>(GetType(), this);
             }
             return _stateStorage;
         }
@@ -117,11 +115,11 @@ namespace Ray.Core.EventSourcing
         #region Event
         protected IEventStorage<K> _eventStorage;
 
-        protected virtual IEventStorage<K> GetEventStorage()
+        protected virtual async ValueTask<IEventStorage<K>> GetEventStorage()
         {
             if (_eventStorage == null)
             {
-                _eventStorage = ServiceProvider.GetService<IStorageContainer>().GetEventStorage<K, S>(GetType(), this);
+                _eventStorage = await ServiceProvider.GetService<IStorageContainer>().GetEventStorage<K, S>(GetType(), this);
             }
             return _eventStorage;
         }
@@ -159,7 +157,7 @@ namespace Ray.Core.EventSourcing
                 {
                     serializer.Serialize(ms, @event);
                     var bytes = ms.ToArray();
-                    var result = await GetEventStorage().SaveAsync(@event, bytes, uniqueId);
+                    var result = await (await GetEventStorage()).SaveAsync(@event, bytes, uniqueId);
                     if (result)
                     {
                         EventHandle.Apply(State, @event);

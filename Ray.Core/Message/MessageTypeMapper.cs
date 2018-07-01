@@ -12,23 +12,19 @@ namespace Ray.Core.Message
             var eventType = typeof(IMessage);
             foreach (var assembly in assemblyList)
             {
-                var allType = assembly.GetExportedTypes().Where(t => eventType.IsAssignableFrom(t));
+                var allType = assembly.GetExportedTypes().Where(t => eventType.IsAssignableFrom(t) && t.IsClass && t.GetConstructors().Any(c => c.GetParameters().Length == 0));
                 foreach (var type in allType)
                 {
-                    EventTypeDict.Add(type.FullName, type);
+                    if (Activator.CreateInstance(type) is IMessage msg)
+                    {
+                        if (!string.IsNullOrEmpty(msg.TypeCode))
+                            EventTypeDict.Add(msg.TypeCode, type);
+                        else
+                            EventTypeDict.Add(type.FullName, type);
+                    }
                 }
             }
         }
-        static Dictionary<string, Type> EventTypeDict = new Dictionary<string, Type>();
-        /// <summary>
-        /// 根据typecode获取Type对象
-        /// </summary>
-        /// <param name="typeCode">Type对象的唯一标识</param>
-        /// <returns></returns>
-        public static Type GetType(string typeCode)
-        {
-            EventTypeDict.TryGetValue(typeCode, out var type);
-            return type;
-        }
+        public static Dictionary<string, Type> EventTypeDict { get; } = new Dictionary<string, Type>();
     }
 }

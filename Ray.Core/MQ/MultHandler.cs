@@ -13,14 +13,9 @@ namespace Ray.Core.MQ
         }
         public override Task Tell(byte[] wrapBytes, byte[] dataBytes, IMessage data, TMessageWrapper msg)
         {
-            if (data is IEventBase<K> evt)
-            {
-                return Task.WhenAll(SendToAsyncGrain(wrapBytes, evt), LocalProcess(dataBytes, data, msg));
-            }
-            else
-            {
-                return LocalProcess(dataBytes, data, msg);
-            }
+            return data is IEventBase<K> evt
+                ? Task.WhenAll(SendToAsyncGrain(wrapBytes, evt), LocalProcess(dataBytes, data, msg))
+                : LocalProcess(dataBytes, data, msg);
         }
         protected abstract Task SendToAsyncGrain(byte[] bytes, IEventBase<K> evt);
         public virtual Task LocalProcess(byte[] dataBytes, IMessage data, TMessageWrapper msg) => Task.CompletedTask;

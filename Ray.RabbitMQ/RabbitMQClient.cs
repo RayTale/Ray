@@ -6,6 +6,7 @@ using RabbitMQ.Client;
 using ProtoBuf;
 using Microsoft.Extensions.Options;
 using Ray.Core.Utils;
+using System.Collections.Generic;
 
 namespace Ray.RabbitMQ
 {
@@ -36,9 +37,9 @@ namespace Ray.RabbitMQ
         {
             Connection = connectionWrapper;
             Model = model;
-            persistentProperties = this.Model.CreateBasicProperties();
+            persistentProperties = Model.CreateBasicProperties();
             persistentProperties.Persistent = true;
-            noPersistentProperties = this.Model.CreateBasicProperties();
+            noPersistentProperties = Model.CreateBasicProperties();
             noPersistentProperties.Persistent = false;
         }
         public ConnectionWrapper Connection { get; set; }
@@ -89,7 +90,7 @@ namespace Ray.RabbitMQ
                 UserName = rabbitHost.UserName,
                 Password = rabbitHost.Password,
                 VirtualHost = rabbitHost.VirtualHost,
-                AutomaticRecoveryEnabled = true
+                AutomaticRecoveryEnabled = false
             };
         }
         public async Task ExchangeDeclare(string exchange)
@@ -100,28 +101,41 @@ namespace Ray.RabbitMQ
             }
         }
         ConcurrentQueue<ModelWrapper> modelPool = new ConcurrentQueue<ModelWrapper>();
-        ConcurrentBag<ModelWrapper> modelList = new ConcurrentBag<ModelWrapper>();
+        List<ModelWrapper> modelList = new List<ModelWrapper>();
         ConcurrentQueue<TaskCompletionSource<ModelWrapper>> modelTaskPool = new ConcurrentQueue<TaskCompletionSource<ModelWrapper>>();
-        ConcurrentBag<ConnectionWrapper> connectionList = new ConcurrentBag<ConnectionWrapper>();
+        ConcurrentQueue<ConnectionWrapper> connectionQueue = new ConcurrentQueue<ConnectionWrapper>();
         int connectionCount = 0;
         readonly object modelLock = new object();
         public async Task<ModelWrapper> PullModel()
         {
-            if (!modelPool.TryDequeue(out var model))
+            ConnectionWrapper GetConnection()
             {
-                ConnectionWrapper conn = null;
-                foreach (var item in connectionList)
+                var fullList = new List<ConnectionWrapper>();
+                while (connectionQueue.TryDequeue(out var connectionWrapper))
                 {
-                    if (item.Increment() <= 16)
+                    if (connectionWrapper.Connection.IsOpen)
                     {
-                        conn = item;
-                        break;
-                    }
-                    else
-                    {
-                        item.Decrement();
+                        if (connectionWrapper.Increment() <= 16)
+                        {
+                            connectionQueue.Enqueue(connectionWrapper);
+                            return connectionWrapper;
+                        }
+                        else
+                        {
+                            connectionWrapper.Decrement();
+                            fullList.Add(connectionWrapper);
+                        }
                     }
                 }
+                foreach (var item in fullList)
+                {
+                    connectionQueue.Enqueue(item);
+                }
+                return null;
+            }
+            if (!modelPool.TryDequeue(out var model))
+            {
+                var conn = GetConnection();
                 if (conn == null && Interlocked.Increment(ref connectionCount) <= rabbitHost.MaxPoolSize)
                 {
                     Task.Run(() =>
@@ -131,13 +145,13 @@ namespace Ray.RabbitMQ
                             Client = this,
                             Connection = _Factory.CreateConnection(rabbitHost.EndPoints)
                         };
-                        conn.Connection.ConnectionShutdown += (obj, args) =>
-                        {
-                            conn.Connection = _Factory.CreateConnection(rabbitHost.EndPoints);
-                            conn.Reset();
-                        };
-                        connectionList.Add(conn);
+                        conn.Increment();
+                        connectionQueue.Enqueue(conn);
                     }).GetAwaiter().GetResult();
+                }
+                else
+                {
+                    Interlocked.Decrement(ref connectionCount);
                 }
                 if (conn != null)
                 {
@@ -145,11 +159,6 @@ namespace Ray.RabbitMQ
                     model.Model.ConfirmSelect();
                     modelList.Add(model);
                 }
-                else
-                {
-                    Interlocked.Decrement(ref connectionCount);
-                }
-
             }
             if (model == null)
             {
@@ -161,11 +170,6 @@ namespace Ray.RabbitMQ
                     taskSource.SetException(new Exception("get rabbitmq's model timeout"));
                 });
                 model = await taskSource.Task;
-            }
-            if (model.Model.IsClosed)
-            {
-                model.Connection.Decrement();
-                model = await PullModel();
             }
             return model;
         }
@@ -186,6 +190,7 @@ namespace Ray.RabbitMQ
             {
                 model.Model.Dispose();
                 model.Connection.Decrement();
+                modelList.Remove(model);
             }
         }
 

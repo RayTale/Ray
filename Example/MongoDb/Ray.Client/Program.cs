@@ -26,15 +26,30 @@ namespace Ray.Client
         {
             try
             {
+                var servicecollection = new ServiceCollection();
+                SubManager.Parse(servicecollection, typeof(AccountCoreHandler).Assembly);//注册handle
+                servicecollection.AddSingleton<IClientFactory, ClientFactory>();//注册Client获取方法
+                servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
+                servicecollection.AddRabbitMQ<MessageInfo>();//注册RabbitMq为默认消息队列
+                servicecollection.AddLogging(logging => logging.AddConsole());
+                servicecollection.PostConfigure<RabbitConfig>(c =>
+                {
+                    c.UserName = "admin";
+                    c.Password = "admin";
+                    c.Hosts = new[] { "127.0.0.1:5672" };
+                    c.MaxPoolSize = 100;
+                    c.VirtualHost = "/";
+                });
+                var provider = servicecollection.BuildServiceProvider();
                 using (var client = await StartClientWithRetries())
                 {
-                    var manager = client.ServiceProvider.GetService<ISubManager>();
-                    await manager.Start(new[] { "Core", "Read" });
+                    var manager = provider.GetService<ISubManager>();
+                    await manager.Start(new[] { "Core", "Read", "Rep" });
                     var aActor = client.GetGrain<IAccount>(1);
                     var bActor = client.GetGrain<IAccount>(2);
                     while (true)
                     {
-                        Console.WriteLine("Press Enter to terminate...");
+                        Console.WriteLine("Press Enter for times...");
                         var length = int.Parse(Console.ReadLine());
                         var stopWatch = new Stopwatch();
                         stopWatch.Start();
@@ -68,29 +83,17 @@ namespace Ray.Client
             {
                 try
                 {
-                    client = new ClientBuilder()
-                     .UseLocalhostClustering()
-                    .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IAccount).Assembly).WithReferences())
-                    .ConfigureLogging(logging => logging.AddConsole())
-                    .ConfigureServices((servicecollection) =>
+                    client = await ClientFactory.Build(() =>
                     {
-                        SubManager.Parse(servicecollection, typeof(AccountCoreHandler).Assembly);//注册handle
-                        servicecollection.AddSingleton<IClientFactory, ClientFactory>();//注册Client获取方法
-                        servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
-                        servicecollection.AddRabbitMQ<MessageInfo>();//注册RabbitMq为默认消息队列
-                        servicecollection.PostConfigure<RabbitConfig>(c =>
-                    {
-                        c.UserName = "admin";
-                        c.Password = "luohuazhiyu";
-                        c.Hosts = new[] { "127.0.0.1:5672" };
-                        c.MaxPoolSize = 100;
-                        c.VirtualHost = "/";
+                        var builder = new ClientBuilder()
+                        .UseLocalhostClustering()
+                        .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IAccount).Assembly).WithReferences())
+                        .ConfigureLogging(logging => logging.AddConsole());
+                        return builder;
                     });
-                    })
-                    .Build();
-                    await client.ConnectAndFill();
                     Console.WriteLine("Client successfully connect to silo host");
                     break;
+
                 }
                 catch (SiloUnavailableException)
                 {

@@ -36,15 +36,17 @@ namespace Ray.MongoDB
                 foreach (var document in cursor.ToEnumerable())
                 {
                     var typeCode = document["TypeCode"].AsString;
-                    var type = MessageTypeMapper.GetType(typeCode);
-                    var data = document["Data"].AsByteArray;
-                    using (var ms = new MemoryStream(data))
+                    if (MessageTypeMapper.EventTypeDict.TryGetValue(typeCode, out var type))
                     {
-                        if (Serializer.Deserialize(type, ms) is IEventBase<K> evt)
+                        var data = document["Data"].AsByteArray;
+                        using (var ms = new MemoryStream(data))
                         {
-                            readVersion = evt.Version;
-                            if (readVersion <= endVersion)
-                                list.Add(evt);
+                            if (Serializer.Deserialize(type, ms) is IEventBase<K> evt)
+                            {
+                                readVersion = evt.Version;
+                                if (readVersion <= endVersion)
+                                    list.Add(evt);
+                            }
                         }
                     }
                 }
@@ -64,16 +66,17 @@ namespace Ray.MongoDB
                 var cursor = await mongoStorage.GetCollection<BsonDocument>(grainConfig.EventDataBase, collection.Name).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(10000).Token);
                 foreach (var document in cursor.ToEnumerable())
                 {
-                    var type = MessageTypeMapper.GetType(typeCode);
-                    var data = document["Data"].AsByteArray;
-                    using (var ms = new MemoryStream(data))
+                    if (MessageTypeMapper.EventTypeDict.TryGetValue(typeCode, out var type))
                     {
-                        if (Serializer.Deserialize(type, ms) is IEventBase<K> evt)
+                        var data = document["Data"].AsByteArray;
+                        using (var ms = new MemoryStream(data))
                         {
-                            list.Add(evt);
+                            if (Serializer.Deserialize(type, ms) is IEventBase<K> evt)
+                            {
+                                list.Add(evt);
+                            }
                         }
                     }
-
                 }
                 if (list.Count >= limit)
                     break;

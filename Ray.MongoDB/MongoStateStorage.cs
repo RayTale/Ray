@@ -12,7 +12,8 @@ namespace Ray.MongoDB
 {
     public class MongoStateStorage<T, K> : IStateStorage<T, K> where T : class, IState<K>
     {
-        string database, collection;
+        private readonly string database;
+        private readonly string collection;
         IMongoStorage mongoStorage;
         public MongoStateStorage(IMongoStorage mongoStorage, string database, string collection)
         {

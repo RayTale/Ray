@@ -1,4 +1,6 @@
 ﻿using Dapper;
+using Npgsql;
+using NpgsqlTypes;
 using ProtoBuf;
 using Ray.Core.EventSourcing;
 using Ray.Core.Message;
@@ -17,69 +19,81 @@ namespace Ray.PostgreSQL
         {
             this.tableInfo = tableInfo;
         }
-        ConcurrentDictionary<string, string> oneListSqlDict = new ConcurrentDictionary<string, string>();
         public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, Int64 startVersion, Int64 endVersion, DateTime? startTime = null)
         {
-            var tableList = await tableInfo.GetTableList(startTime);
-            var list = new List<IEventBase<K>>();
-            Int64 readVersion = 0;
-            using (var conn = tableInfo.CreateConnection())
+            var originList = new List<SqlEvent>((int)(endVersion - startVersion));
+            await Task.Run(async () =>
             {
-                foreach (var table in tableList)
+                var tableList = await tableInfo.GetTableList(startTime);
+                using (var conn = tableInfo.CreateConnection() as NpgsqlConnection)
                 {
-                    if (!oneListSqlDict.TryGetValue(table.Name, out var sql))
+                    await conn.OpenAsync();
+                    foreach (var table in tableList)
                     {
-                        sql = $"SELECT typecode,data from {table.Name} WHERE stateid=@StateId and version>@Start and version<=@End order by version asc";
-                        oneListSqlDict.TryAdd(table.Name, sql);
-                    }
-                    var sqlEventList = await conn.QueryAsync<SqlEvent>(sql, new { StateId = stateId.ToString(), Start = startVersion, End = endVersion });
-                    foreach (var sqlEvent in sqlEventList)
-                    {
-                        var type = MessageTypeMapper.GetType(sqlEvent.TypeCode);
-                        using (var ms = new MemoryStream(sqlEvent.Data))
+                        var sql = $"COPY (SELECT typecode,data from {table.Name} WHERE stateid='{stateId.ToString()}' and version>{startVersion} and version<={endVersion} order by version asc) TO STDOUT (FORMAT BINARY)";
+                        using (var reader = conn.BeginBinaryExport(sql))
                         {
-                            if (Serializer.Deserialize(type, ms) is IEventBase<K> evt)
+                            while (reader.StartRow() != -1)
                             {
-                                readVersion = evt.Version;
-                                if (readVersion <= endVersion)
-                                    list.Add(evt);
+                                originList.Add(new SqlEvent { TypeCode = reader.Read<string>(NpgsqlDbType.Varchar), Data = reader.Read<byte[]>(NpgsqlDbType.Bytea) });
                             }
                         }
                     }
-                    if (readVersion >= endVersion)
-                        break;
+                }
+            }).ConfigureAwait(false);
+
+            var list = new List<IEventBase<K>>(originList.Count);
+            foreach (var origin in originList)
+            {
+                if (MessageTypeMapper.EventTypeDict.TryGetValue(origin.TypeCode, out var type))
+                {
+                    using (var ms = new MemoryStream(origin.Data))
+                    {
+                        if (Serializer.Deserialize(type, ms) is IEventBase<K> evt)
+                        {
+                            list.Add(evt);
+                        }
+                    }
                 }
             }
             return list;
         }
-        ConcurrentDictionary<string, string> twoListSqlDict = new ConcurrentDictionary<string, string>();
         public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, string typeCode, Int64 startVersion, Int32 limit, DateTime? startTime = null)
         {
-            var tableList = await tableInfo.GetTableList(startTime);
-            var list = new List<IEventBase<K>>();
-            using (var conn = tableInfo.CreateConnection())
+            var originList = new List<byte[]>(limit);
+            if (MessageTypeMapper.EventTypeDict.TryGetValue(typeCode, out var type))
             {
-                foreach (var table in tableList)
+                await Task.Run(async () =>
                 {
-                    if (!twoListSqlDict.TryGetValue(table.Name, out var sql))
+                    var tableList = await tableInfo.GetTableList(startTime);
+                    using (var conn = tableInfo.CreateConnection() as NpgsqlConnection)
                     {
-                        sql = $"SELECT typecode,data from {table.Name} WHERE stateid=@StateId and typecode=@TypeCode and version>@Start order by version asc limit @Limit";
-                        twoListSqlDict.TryAdd(table.Name, sql);
-                    }
-                    var sqlEventList = await conn.QueryAsync<SqlEvent>(sql, new { StateId = stateId.ToString(), TypeCode = typeCode, Start = startVersion, Limit = limit - list.Count });
-                    foreach (var sqlEvent in sqlEventList)
-                    {
-                        var type = MessageTypeMapper.GetType(sqlEvent.TypeCode);
-                        using (var ms = new MemoryStream(sqlEvent.Data))
+                        await conn.OpenAsync();
+                        foreach (var table in tableList)
                         {
-                            if (Serializer.Deserialize(type, ms) is IEventBase<K> evt)
+                            var sql = $"COPY (SELECT data from {table.Name} WHERE stateid='{stateId.ToString()}' and typecode='{typeCode}' and version>{startVersion} order by version asc limit {limit}) TO STDOUT (FORMAT BINARY)";
+                            using (var reader = conn.BeginBinaryExport(sql))
                             {
-                                list.Add(evt);
+                                while (reader.StartRow() != -1)
+                                {
+                                    originList.Add(reader.Read<byte[]>(NpgsqlDbType.Bytea));
+                                }
                             }
+                            if (originList.Count >= limit)
+                                break;
                         }
                     }
-                    if (list.Count >= limit)
-                        break;
+                }).ConfigureAwait(false);
+            }
+            var list = new List<IEventBase<K>>(originList.Count);
+            foreach (var origin in originList)
+            {
+                using (var ms = new MemoryStream(origin))
+                {
+                    if (Serializer.Deserialize(type, ms) is IEventBase<K> evt)
+                    {
+                        list.Add(evt);
+                    }
                 }
             }
             return list;
@@ -105,7 +119,7 @@ namespace Ray.PostgreSQL
             }
             catch (Exception ex)
             {
-                if (!(ex is Npgsql.PostgresException e && e.SqlState == "23505"))
+                if (!(ex is PostgresException e && e.SqlState == "23505"))
                 {
                     throw ex;
                 }

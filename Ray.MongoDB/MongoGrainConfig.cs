@@ -14,8 +14,8 @@ namespace Ray.MongoDB
         public string SnapshotCollection { get; set; }
         public bool IndexCreated { get; set; }
         const string C_CName = "CollectionInfo";
-        bool sharding = false;
-        int shardingDays;
+        readonly bool sharding = false;
+        readonly int shardingDays;
         public MongoGrainConfig(
             string eventDatabase, string eventCollection, string snapshotCollection, bool sharding = false, int shardingDays = 90)
         {
@@ -50,14 +50,14 @@ namespace Ray.MongoDB
                 var stateIndexList = await stateIndex.ToListAsync();
                 if (!stateIndexList.Exists(p => p["name"] == "State"))
                 {
-                    await stateCollection.Indexes.CreateOneAsync("{'StateId':1}", new CreateIndexOptions { Name = "State", Unique = true });
+                    await stateCollection.Indexes.CreateOneAsync(new CreateIndexModel<BsonDocument>("{'StateId':1}", new CreateIndexOptions { Name = "State", Unique = true }));
                 }
                 var collection = storage.GetCollection<BsonDocument>(EventDataBase, C_CName);
                 var index = await collection.Indexes.ListAsync();
                 var indexList = await index.ToListAsync();
                 if (!indexList.Exists(p => p["name"] == "Name"))
                 {
-                    await collection.Indexes.CreateOneAsync("{'Name':1}", new CreateIndexOptions { Name = "Name", Unique = true });
+                    await collection.Indexes.CreateOneAsync(new CreateIndexModel<BsonDocument>("{'Name':1}", new CreateIndexOptions { Name = "Name", Unique = true }));
                 }
                 IndexCreated = true;
             }

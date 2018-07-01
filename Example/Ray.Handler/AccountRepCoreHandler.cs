@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace Ray.Handler
 {
-    [RabbitSub("Rep", "Account", "account")]
+    [RabbitSub("Rep", "Account", "account", QueueCount = 20)]
     public sealed class AccountRepCoreHandler : MultHandler<long, MessageInfo>
     {
         IClientFactory clientFactory;
@@ -20,7 +20,7 @@ namespace Ray.Handler
 
         protected override Task SendToAsyncGrain(byte[] bytes, IEventBase<long> evt)
         {
-            var client = clientFactory.CreateClient();
+            var client = clientFactory.GetClient();
             return client.GetGrain<IAccountRep>(evt.StateId).Tell(bytes);
         }
     }

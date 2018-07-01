@@ -16,32 +16,28 @@ namespace Ray.Core.EventSourcing
         protected S State { get; set; }
         protected abstract K GrainId { get; }
         protected virtual bool SaveSnapshot => true;
-        protected virtual int SnapshotFrequency => 50;
+        protected virtual int SnapshotFrequency => 20;
+        protected virtual int EventNumberPerRead => 2000;
+        protected virtual bool FullyActive => false;
         protected Int64 StateStorageVersion { get; set; }
         protected virtual int SnapshotMinFrequency => 1;
         IEventStorage<K> _eventStorage;
-        protected IEventStorage<K> EventStorage
+        protected async ValueTask<IEventStorage<K>> GetEventStorage()
         {
-            get
+            if (_eventStorage == null)
             {
-                if (_eventStorage == null)
-                {
-                    _eventStorage = ServiceProvider.GetService<IStorageContainer>().GetEventStorage<K, S>(GetType(), this);
-                }
-                return _eventStorage;
+                _eventStorage = await ServiceProvider.GetService<IStorageContainer>().GetEventStorage<K, S>(GetType(), this);
             }
+            return _eventStorage;
         }
         IStateStorage<S, K> _StateStore;
-        private IStateStorage<S, K> StateStore
+        private async ValueTask<IStateStorage<S, K>> GetStateStore()
         {
-            get
+            if (_StateStore == null)
             {
-                if (_StateStore == null)
-                {
-                    _StateStore = ServiceProvider.GetService<IStorageContainer>().GetStateStorage<K, S>(GetType(), this);
-                }
-                return _StateStore;
+                _StateStore = await ServiceProvider.GetService<IStorageContainer>().GetStateStorage<K, S>(GetType(), this);
             }
+            return _StateStore;
         }
         ISerializer _serializer;
         protected ISerializer Serializer
@@ -65,8 +61,7 @@ namespace Ray.Core.EventSourcing
         }
         public async Task Tell(W message)
         {
-            var type = MessageTypeMapper.GetType(message.TypeCode);
-            if (type != null)
+            if (MessageTypeMapper.EventTypeDict.TryGetValue(message.TypeCode, out var type))
             {
                 using (var ems = new MemoryStream(message.BinaryBytes))
                 {
@@ -90,7 +85,7 @@ namespace Ray.Core.EventSourcing
                         }
                         else if (@event.Version > State.Version)
                         {
-                            var eventList = await EventStorage.GetListAsync(GrainId, State.Version, @event.Version, State.VersionTime);
+                            var eventList = await (await GetEventStorage()).GetListAsync(GrainId, State.Version, @event.Version, State.VersionTime);
                             foreach (var item in eventList)
                             {
                                 State.IncrementDoingVersion();//标记将要处理的Version
@@ -105,8 +100,8 @@ namespace Ray.Core.EventSourcing
                                     ExceptionDispatchInfo.Capture(e).Throw();
                                 }
                                 await OnExecuted(@event);
-                                await SaveSnapshotAsync();
                             }
+                            await SaveSnapshotAsync();
                         }
                         if (@event.Version == State.Version + 1)
                         {
@@ -149,12 +144,12 @@ namespace Ray.Core.EventSourcing
                     await OnSaveSnapshot();//自定义保存项
                     if (IsNew)
                     {
-                        await StateStore.InsertAsync(State);
+                        await (await GetStateStore()).InsertAsync(State);
                         IsNew = false;
                     }
                     else
                     {
-                        await StateStore.UpdateAsync(State);
+                        await (await GetStateStore()).UpdateAsync(State);
                     }
                     StateStorageVersion = State.Version;
                     await OnSavedSnapshot();
@@ -165,30 +160,30 @@ namespace Ray.Core.EventSourcing
         public override async Task OnActivateAsync()
         {
             await ReadSnapshotAsync();
-            while (true)
+            if (FullyActive)
             {
-                var eventList = await EventStorage.GetListAsync(GrainId, State.Version, State.Version + 5000, State.VersionTime);
-                foreach (var @event in eventList)
+                while (true)
                 {
-                    State.IncrementDoingVersion();//标记将要处理的Version
-                    await OnEventDelivered(@event);
-                    State.UpdateVersion(@event);//更新处理完成的Version
-                }
-                await SaveSnapshotAsync();
-                if (eventList.Count < 5000) break;
-            };
+                    var eventList = await (await GetEventStorage()).GetListAsync(GrainId, State.Version, State.Version + EventNumberPerRead, State.VersionTime);
+                    foreach (var @event in eventList)
+                    {
+                        State.IncrementDoingVersion();//标记将要处理的Version
+                        await OnEventDelivered(@event);
+                        State.UpdateVersion(@event);//更新处理完成的Version
+                    }
+                    await SaveSnapshotAsync();
+                    if (eventList.Count < EventNumberPerRead) break;
+                };
+            }
         }
         public override Task OnDeactivateAsync()
         {
-            if (State.Version - StateStorageVersion >= SnapshotMinFrequency)
-                return SaveSnapshotAsync(true);
-            else
-                return Task.CompletedTask;
+            return State.Version - StateStorageVersion >= SnapshotMinFrequency ? SaveSnapshotAsync(true) : Task.CompletedTask;
         }
         protected bool IsNew { get; set; }
         protected virtual async Task ReadSnapshotAsync()
         {
-            State = await StateStore.GetByIdAsync(GrainId);
+            State = await (await GetStateStore()).GetByIdAsync(GrainId);
             if (State == null)
             {
                 IsNew = true;

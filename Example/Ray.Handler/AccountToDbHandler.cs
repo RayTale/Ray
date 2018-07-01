@@ -10,7 +10,7 @@ using Ray.Core.EventSourcing;
 
 namespace Ray.Handler
 {
-    [RabbitSub("Read", "Account", "account")]
+    [RabbitSub("Read", "Account", "account", QueueCount = 20)]
     public sealed class AccountToDbHandler : SubHandler<MessageInfo>
     {
         IClientFactory clientFactory;
@@ -22,7 +22,7 @@ namespace Ray.Handler
         public override Task Tell(byte[] wrapBytes, byte[] dataBytes, IMessage data, MessageInfo msg)
         {
             if (data is IEventBase<long> evt)
-                return clientFactory.CreateClient().GetGrain<IAccountDb>(evt.StateId).Tell(wrapBytes);
+                return clientFactory.GetClient().GetGrain<IAccountDb>(evt.StateId).Tell(wrapBytes);
             return Task.CompletedTask;
         }
     }

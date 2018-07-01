@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using Ray.Core;
 using Ray.Core.MQ;
 using Ray.Core.Utils;
 
@@ -15,7 +16,7 @@ namespace Ray.RabbitMQ
         ILogger<RabbitSubManager> logger = default;
         IServiceProvider provider;
         IRabbitMQClient client;
-        bool IsClosed = false;
+        const ushort startQos = 3;
         public RabbitSubManager(ILogger<RabbitSubManager> logger, IRabbitMQClient client, IServiceProvider provider)
         {
             this.client = client;
@@ -43,6 +44,8 @@ namespace Ray.RabbitMQ
                                 Exchange = subAttribute.Exchange,
                                 Queue = $"{ subAttribute.Group}_{queue.Queue}",
                                 RoutingKey = queue.RoutingKey,
+                                MaxQos = subAttribute.MaxQos,
+                                ErrorReject = subAttribute.ErrorReject,
                                 AutoAck = subAttribute.AutoAck,
                                 Handler = (ISubHandler)provider.GetService(subAttribute.Handler)
                             });
@@ -50,18 +53,19 @@ namespace Ray.RabbitMQ
                     }
                 }
             }
-            await Start(consumerList.Values.ToList());
+            await Start(consumerList.Values.ToList(), 1);
         }
 
-        List<ConsumerInfo> ConsumerList { get; set; }
-        public async Task Start(List<ConsumerInfo> consumerList)
+        private List<ConsumerInfo> ConsumerList { get; set; }
+        public async Task Start(List<ConsumerInfo> consumerList, int delay = 0)
         {
             if (consumerList != null)
             {
                 for (int i = 0; i < consumerList.Count; i++)
                 {
-                    var consumer = consumerList[i];
-                    await StartSub(consumer);
+                    await StartSub(consumerList[i]);
+                    if (delay != 0)
+                        await Task.Delay(delay * 500);
                 }
                 ConsumerList = consumerList;
 #pragma warning disable CS4014 // 由于此调用不会等待，因此在调用完成前将继续执行当前方法
@@ -69,62 +73,121 @@ namespace Ray.RabbitMQ
 #pragma warning restore CS4014 // 由于此调用不会等待，因此在调用完成前将继续执行当前方法
             }
         }
+        DateTime restartStatisticalStartTime = DateTime.UtcNow;
+        int restartStatisticalCount = 0;
         private async Task RestartMonitor()
         {
             while (true)
             {
                 await Task.Delay(10 * 1000);
-
-                foreach (var consumer in ConsumerList)
+                var nowTime = DateTime.UtcNow;
+                try
                 {
-                    if (consumer.NeedRestart)
+                    restartStatisticalCount = restartStatisticalCount + ConsumerList.Where(consumer => consumer.NeedRestart).Count();
+                    if (restartStatisticalCount > ConsumerList.Count / 3)
                     {
-                        consumer.Close();
-                        if (!IsClosed)
+                        ClientFactory.ReBuild();
+                        restartStatisticalStartTime = nowTime;
+                        restartStatisticalCount = 0;
+                    }
+                    else if ((nowTime - restartStatisticalStartTime).Minutes > 10)
+                    {
+                        restartStatisticalStartTime = nowTime;
+                        restartStatisticalCount = 0;
+                    }
+
+                    foreach (var consumer in ConsumerList)
+                    {
+                        if (consumer.NeedRestart ||
+                            consumer.BasicConsumer == null ||
+                            !consumer.BasicConsumer.IsRunning ||
+                            consumer.Channel.Model.IsClosed)
                         {
                             await StartSub(consumer);
                         }
-                    }
-                }
-            }
-        }
-        private async Task StartSub(ConsumerInfo consumer)
-        {
-            consumer.NeedRestart = false;
-            consumer.Channel = await client.PullModel();
-            consumer.Channel.Model.ExchangeDeclare(consumer.Exchange, "direct", true);
-            consumer.Channel.Model.QueueDeclare(consumer.Queue, true, false, false, null);
-            consumer.Channel.Model.BasicQos(0, 100, false);
-            consumer.Channel.Model.QueueBind(consumer.Queue, consumer.Exchange, consumer.RoutingKey);
-
-            consumer.BasicConsumer = new EventingBasicConsumer(consumer.Channel.Model);
-            consumer.BasicConsumer.Received += async (ch, ea) =>
-            {
-                try
-                {
-                    await consumer.Handler.Notice(ea.Body);
-                    if (!consumer.AutoAck)
-                    {
-                        consumer.Channel.Model.BasicAck(ea.DeliveryTag, false);
+                        else if ((nowTime - consumer.StartTime).TotalMinutes >= 5)
+                        {
+                            await StartSub(consumer, true);//扩容操作
+                        }
                     }
                 }
                 catch (Exception exception)
                 {
-                    //需要记录错误日志
-                    logger.LogError(exception.InnerException ?? exception, $"An error occurred in {consumer.Exchange}-{consumer.Queue}");
-                    consumer.NeedRestart = true;
+                    logger.LogError(exception.InnerException ?? exception, "消息队列守护线程发生错误");
                 }
+            }
+        }
+        private async Task StartSub(ConsumerInfo consumer, bool expand = false)
+        {
+            if (expand && consumer.NowQos == consumer.MaxQos) return;
+            if (consumer.BasicConsumer != null)
+            {
+                consumer.Close();
+            }
+            consumer.Channel = await client.PullModel();
+            if (consumer.NowQos == 0)
+            {
+                consumer.Channel.Model.ExchangeDeclare(consumer.Exchange, "direct", true);
+                consumer.Channel.Model.QueueDeclare(consumer.Queue, true, false, false, null);
+                consumer.Channel.Model.QueueBind(consumer.Queue, consumer.Exchange, consumer.RoutingKey);
+            }
+            consumer.NowQos = expand ? (ushort)(consumer.NowQos + startQos) : startQos;
+            if (consumer.NowQos > consumer.MaxQos) consumer.NowQos = consumer.MaxQos;
+
+            consumer.Channel.Model.BasicQos(0, consumer.NowQos, false);
+
+            consumer.BasicConsumer = new EventingBasicConsumer(consumer.Channel.Model);
+            consumer.BasicConsumer.Received += async (ch, ea) =>
+            {
+                await Process(consumer, ea, 0);
             };
             consumer.BasicConsumer.ConsumerTag = consumer.Channel.Model.BasicConsume(consumer.Queue, consumer.AutoAck, consumer.BasicConsumer);
+            consumer.StartTime = DateTime.UtcNow;
+            consumer.NeedRestart = false;
+        }
+        private async Task Process(ConsumerInfo consumer, BasicDeliverEventArgs ea, int count)
+        {
+            if (count > 0)
+                await Task.Delay(count * 1000);
+            try
+            {
+                await consumer.Handler.Notice(ea.Body);
+                if (!consumer.AutoAck)
+                {
+                    try
+                    {
+                        consumer.Channel.Model.BasicAck(ea.DeliveryTag, false);
+                    }
+                    catch
+                    {
+                        consumer.NeedRestart = true;
+                    }
+                }
+            }
+            catch (Exception exception)
+            {
+                logger.LogError(exception.InnerException ?? exception, $"An error occurred in {consumer.Exchange}-{consumer.Queue}");
+                if (consumer.ErrorReject)
+                {
+                    consumer.Channel.Model.BasicReject(ea.DeliveryTag, true);
+                }
+                else
+                {
+                    if (count > 3)
+                        consumer.NeedRestart = true;
+                    else
+                        await Process(consumer, ea, count + 1);
+                }
+            }
         }
         public override void Stop()
         {
-            IsClosed = true;
             if (ConsumerList != null)
             {
                 foreach (var consumer in ConsumerList)
                 {
-                    consumer.NeedRestart = true;
+                    consumer.NeedRestart = false;
+                    consumer.Close();
                 }
             }
         }
@@ -134,18 +197,25 @@ namespace Ray.RabbitMQ
         public string Exchange { get; set; }
         public string Queue { get; set; }
         public string RoutingKey { get; set; }
+        public ushort MaxQos { get; set; }
+        public ushort NowQos { get; set; }
         public bool AutoAck { get; set; }
+        public bool ErrorReject { get; set; }
         public bool NeedRestart { get; set; }
         public ISubHandler Handler { get; set; }
         public ModelWrapper Channel { get; set; }
         public EventingBasicConsumer BasicConsumer { get; set; }
+        public DateTime StartTime { get; set; }
         public void Close()
         {
             if (Channel != default && Channel.Model.IsOpen)
             {
-                BasicConsumer.Model.BasicCancel(BasicConsumer.ConsumerTag);
-                BasicConsumer.Model.QueueUnbind(Queue, Exchange, RoutingKey);
+                if (!NeedRestart)
+                    BasicConsumer.Model.Abort();
+                else
+                    BasicConsumer.Model.Close();
                 BasicConsumer.Model.Dispose();
+                BasicConsumer = null;
             }
             Channel?.Dispose();
         }

@@ -4,6 +4,7 @@ using System.Data.Common;
 using System.Linq;
 using System.Threading.Tasks;
 using Dapper;
+using System.Collections.Concurrent;
 
 namespace Ray.PostgreSQL
 {
@@ -24,11 +25,14 @@ namespace Ray.PostgreSQL
             this.sharding = sharding;
             this.shardingDays = shardingDays;
             this.stateIdLength = stateIdLength;
-            CreateTableListTable();
-            CreateStateTable();
+
+        }
+        public async Task Build()
+        {
+            await CreateTableListTable();
+            await CreateStateTable();
         }
 
-        readonly object collectionLock = new object();
         static readonly DateTime startTime = new DateTime(2018, 5, 20);
         public async Task<List<TableInfo>> GetTableList(DateTime? startTime = null)
         {
@@ -57,34 +61,28 @@ namespace Ray.PostgreSQL
             var cVersion = subTime.TotalDays > 0 ? Convert.ToInt32(Math.Floor(subTime.TotalDays / shardingDays)) : 0;
             if (lastTable == null || cVersion > lastTable.Version)
             {
-                lock (collectionLock)
+                var table = new TableInfo
                 {
-                    if (lastTable == null || cVersion > lastTable.Version)
+                    Version = cVersion,
+                    Prefix = EventTable,
+                    CreateTime = DateTime.UtcNow,
+                    Name = EventTable + "_" + cVersion
+                };
+                try
+                {
+                    await CreateEventTable(table);
+                    lastTable = table;
+                }
+                catch (Exception ex)
+                {
+                    if (ex is Npgsql.PostgresException e && e.SqlState != "42P07" && e.SqlState != "23505")
                     {
-                        var table = new TableInfo
-                        {
-                            Version = cVersion,
-                            Prefix = EventTable,
-                            CreateTime = DateTime.UtcNow,
-                            Name = EventTable + "_" + cVersion
-                        };
-                        try
-                        {
-                            CreateEventTable(table);
-                            lastTable = table;
-                        }
-                        catch (Exception ex)
-                        {
-                            if (ex is Npgsql.PostgresException e && e.SqlState != "42P07" && e.SqlState != "23505")
-                            {
-                                throw ex;
-                            }
-                            else
-                            {
-                                tableList = null;
-                                lastTable = null;
-                            }
-                        }
+                        throw ex;
+                    }
+                    else
+                    {
+                        tableList = null;
+                        lastTable = null;
                     }
                 }
                 if (lastTable == null)
@@ -109,7 +107,9 @@ namespace Ray.PostgreSQL
         {
             return SqlFactory.CreateConnection(Connection);
         }
-        private void CreateEventTable(TableInfo table)
+        static ConcurrentDictionary<string, bool> createEventTableListDict = new ConcurrentDictionary<string, bool>();
+        static ConcurrentQueue<TaskCompletionSource<bool>> createEventTableListTaskList = new ConcurrentQueue<TaskCompletionSource<bool>>();
+        private async Task CreateEventTable(TableInfo table)
         {
             const string sql = @"
                     CREATE TABLE public.{0} (
@@ -123,51 +123,114 @@ namespace Ray.PostgreSQL
                             CREATE UNIQUE INDEX ""{0}_Event_State_UniqueId"" ON ""public"".""{0}"" USING btree (""stateid"", ""uniqueid"", ""typecode"");
                             CREATE UNIQUE INDEX ""{0}_Event_State_Version"" ON ""public"".""{0}"" USING btree(""stateid"", ""version"");";
             const string insertSql = "INSERT into ray_tablelist  VALUES(@Prefix,@Name,@Version,@CreateTime)";
-            using (var connection = SqlFactory.CreateConnection(Connection))
+            var key = $"{Connection}-{table.Name}-{stateIdLength}";
+            if (createEventTableListDict.TryAdd(key, true))
             {
-                connection.Open();
-                using (var trans = connection.BeginTransaction())
+                using (var connection = SqlFactory.CreateConnection(Connection))
                 {
-                    try
+                    await connection.OpenAsync();
+                    using (var trans = connection.BeginTransaction())
                     {
-                        connection.Execute(string.Format(sql, table.Name, stateIdLength), transaction: trans);
-                        connection.Execute(insertSql, table, trans);
-                        trans.Commit();
+                        try
+                        {
+                            await connection.ExecuteAsync(string.Format(sql, table.Name, stateIdLength), transaction: trans);
+                            await connection.ExecuteAsync(insertSql, table, trans);
+                            trans.Commit();
+                            createEventTableListDict[key] = true;
+                        }
+                        catch (Exception e)
+                        {
+                            trans.Rollback();
+                            if (e is Npgsql.PostgresException ne && ne.ErrorCode == -2147467259)
+                                return;
+                            else
+                            {
+                                createEventTableListDict.TryRemove(key, out var v);
+                                throw e;
+                            }
+                        }
                     }
-                    catch (Exception e)
+                }
+                while (true)
+                {
+                    if (createEventTableListTaskList.TryDequeue(out var task))
                     {
-                        trans.Rollback();
-                        if (e is Npgsql.PostgresException ne && ne.ErrorCode == -2147467259)
-                            return;
-                        else
-                            throw e;
+                        task.TrySetResult(true);
                     }
+                    else
+                        break;
+                }
+            }
+            else if (createEventTableListDict[key] == false)
+            {
+                var task = new TaskCompletionSource<bool>();
+                createEventTableListTaskList.Enqueue(task);
+                try
+                {
+                    await task.Task;
+                }
+                catch
+                {
+                    await CreateEventTable(table);
                 }
             }
         }
-
-        private void CreateStateTable()
+        static ConcurrentDictionary<string, bool> createStateTableDict = new ConcurrentDictionary<string, bool>();
+        static ConcurrentQueue<TaskCompletionSource<bool>> createStateTableTaskList = new ConcurrentQueue<TaskCompletionSource<bool>>();
+        private async Task CreateStateTable()
         {
             const string sql = @"
                     CREATE TABLE if not exists public.{0}(
                     ""stateid"" varchar({1}) COLLATE ""default"" NOT NULL PRIMARY KEY,
                     ""data"" bytea NOT NULL)";
-            using (var connection = SqlFactory.CreateConnection(Connection))
+            var key = $"{Connection}-{SnapshotTable}-{stateIdLength}";
+            if (createStateTableDict.TryAdd(key, false))
             {
+                using (var connection = SqlFactory.CreateConnection(Connection))
+                {
+                    try
+                    {
+                        await connection.ExecuteAsync(string.Format(sql, SnapshotTable, stateIdLength));
+                        createStateTableDict[key] = true;
+                    }
+                    catch (Exception e)
+                    {
+                        if (e is Npgsql.PostgresException ne && ne.ErrorCode == -2147467259)
+                            return;
+                        else
+                        {
+                            createStateTableDict.TryRemove(key, out var v);
+                            throw e;
+                        }
+                    }
+                }
+                while (true)
+                {
+                    if (createStateTableTaskList.TryDequeue(out var task))
+                    {
+                        task.TrySetResult(true);
+                    }
+                    else
+                        break;
+                }
+            }
+            else if (createStateTableDict[key] == false)
+            {
+                var task = new TaskCompletionSource<bool>();
+                createStateTableTaskList.Enqueue(task);
                 try
                 {
-                    connection.Execute(string.Format(sql, SnapshotTable, stateIdLength));
+                    await task.Task;
                 }
-                catch (Exception e)
+                catch
                 {
-                    if (e is Npgsql.PostgresException ne && ne.ErrorCode == -2147467259)
-                        return;
-                    else
-                        throw e;
+                    await CreateStateTable();
                 }
             }
         }
-        private void CreateTableListTable()
+        static ConcurrentDictionary<string, bool> createTableListDict = new ConcurrentDictionary<string, bool>();
+        static ConcurrentQueue<TaskCompletionSource<bool>> createTableListTaskList = new ConcurrentQueue<TaskCompletionSource<bool>>();
+        private async Task CreateTableListTable()
         {
             const string sql = @"
                     CREATE TABLE IF Not EXISTS public.ray_tablelist(
@@ -178,18 +241,47 @@ namespace Ray.PostgreSQL
                     )
                     WITH (OIDS=FALSE);
                     CREATE UNIQUE INDEX IF NOT EXISTS ""table_version"" ON public.ray_tablelist USING btree(""prefix"", ""version"")";
-            using (var connection = SqlFactory.CreateConnection(Connection))
+            if (createTableListDict.TryAdd(Connection, true))
             {
+                using (var connection = SqlFactory.CreateConnection(Connection))
+                {
+                    try
+                    {
+                        await connection.ExecuteAsync(sql);
+                        createTableListDict[Connection] = true;
+                    }
+                    catch (Exception e)
+                    {
+                        if (e is Npgsql.PostgresException ne && ne.ErrorCode == -2147467259)
+                            return;
+                        else
+                        {
+                            createTableListDict.TryRemove(Connection, out var v);
+                            throw e;
+                        }
+                    }
+                }
+                while (true)
+                {
+                    if (createTableListTaskList.TryDequeue(out var task))
+                    {
+                        task.TrySetResult(true);
+                    }
+                    else
+                        break;
+                }
+            }
+            else if (createTableListDict[Connection] == false)
+            {
+                var task = new TaskCompletionSource<bool>();
+                createTableListTaskList.Enqueue(task);
                 try
                 {
-                    connection.Execute(sql);
+                    await task.Task;
                 }
-                catch (Exception e)
+                catch
                 {
-                    if (e is Npgsql.PostgresException ne && ne.ErrorCode == -2147467259)
-                        return;
-                    else
-                        throw e;
+                    await CreateTableListTable();
                 }
             }
         }

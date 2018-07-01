@@ -4,6 +4,6 @@ namespace Ray.Core
 {
     public interface IClientFactory
     {
-        IClusterClient CreateClient();
+        IClusterClient GetClient();
     }
 }
