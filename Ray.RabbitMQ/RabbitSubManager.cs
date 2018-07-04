@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
@@ -17,6 +18,7 @@ namespace Ray.RabbitMQ
         IServiceProvider provider;
         IRabbitMQClient client;
         const ushort startQos = 3;
+        Timer monitorTimer;
         public RabbitSubManager(ILogger<RabbitSubManager> logger, IRabbitMQClient client, IServiceProvider provider)
         {
             this.client = client;
@@ -68,53 +70,47 @@ namespace Ray.RabbitMQ
                         await Task.Delay(delay * 500);
                 }
                 ConsumerList = consumerList;
-#pragma warning disable CS4014 // 由于此调用不会等待，因此在调用完成前将继续执行当前方法
-                RestartMonitor();
-#pragma warning restore CS4014 // 由于此调用不会等待，因此在调用完成前将继续执行当前方法
+                monitorTimer = new Timer(state => { Restart().Wait(); }, null, 5 * 1000, 10 * 1000);
             }
         }
         DateTime restartStatisticalStartTime = DateTime.UtcNow;
         int restartStatisticalCount = 0;
-        private async Task RestartMonitor()
+        private async Task Restart()
         {
-            while (true)
+            try
             {
-                await Task.Delay(10 * 1000);
                 var nowTime = DateTime.UtcNow;
-                try
+                restartStatisticalCount = restartStatisticalCount + ConsumerList.Where(consumer => consumer.NeedRestart).Count();
+                if (restartStatisticalCount > ConsumerList.Count / 3)
                 {
-                    restartStatisticalCount = restartStatisticalCount + ConsumerList.Where(consumer => consumer.NeedRestart).Count();
-                    if (restartStatisticalCount > ConsumerList.Count / 3)
-                    {
-                        ClientFactory.ReBuild();
-                        restartStatisticalStartTime = nowTime;
-                        restartStatisticalCount = 0;
-                    }
-                    else if ((nowTime - restartStatisticalStartTime).Minutes > 10)
-                    {
-                        restartStatisticalStartTime = nowTime;
-                        restartStatisticalCount = 0;
-                    }
+                    ClientFactory.ReBuild();
+                    restartStatisticalStartTime = nowTime;
+                    restartStatisticalCount = 0;
+                }
+                else if ((nowTime - restartStatisticalStartTime).Minutes > 10)
+                {
+                    restartStatisticalStartTime = nowTime;
+                    restartStatisticalCount = 0;
+                }
 
-                    foreach (var consumer in ConsumerList)
+                foreach (var consumer in ConsumerList)
+                {
+                    if (consumer.NeedRestart ||
+                        consumer.BasicConsumer == null ||
+                        !consumer.BasicConsumer.IsRunning ||
+                        consumer.Channel.Model.IsClosed)
                     {
-                        if (consumer.NeedRestart ||
-                            consumer.BasicConsumer == null ||
-                            !consumer.BasicConsumer.IsRunning ||
-                            consumer.Channel.Model.IsClosed)
-                        {
-                            await StartSub(consumer);
-                        }
-                        else if ((nowTime - consumer.StartTime).TotalMinutes >= 5)
-                        {
-                            await StartSub(consumer, true);//扩容操作
-                        }
+                        await StartSub(consumer);
+                    }
+                    else if ((nowTime - consumer.StartTime).TotalMinutes >= 5)
+                    {
+                        await StartSub(consumer, true);//扩容操作
                     }
                 }
-                catch (Exception exception)
-                {
-                    logger.LogError(exception.InnerException ?? exception, "消息队列守护线程发生错误");
-                }
+            }
+            catch (Exception exception)
+            {
+                logger.LogError(exception.InnerException ?? exception, "消息队列守护线程发生错误");
             }
         }
         private async Task StartSub(ConsumerInfo consumer, bool expand = false)
