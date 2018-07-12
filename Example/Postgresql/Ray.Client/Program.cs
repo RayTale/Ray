@@ -44,46 +44,20 @@ namespace Ray.Client
             {
                 using (var client = await StartClientWithRetries())
                 {
-                    var manager = provider.GetService<ISubManager>();
-                    await manager.Start(new[] { "Core", "Read", "Rep" });
+                    //var manager = provider.GetService<ISubManager>();
+                    //await manager.Start(new[] { "Core", "Read", "Rep" });
                     while (true)
                     {
-                        Console.WriteLine("Press Enter to count...X100");
-                        var actorAcount = int.Parse(Console.ReadLine()) * 100;
-                        IAccount[] actors = new IAccount[actorAcount];
-                        for (int i = 0; i < actorAcount; i++)
-                        {
-                            actors[i] = client.GetGrain<IAccount>(i);
-                        }
+                        var actor = client.GetGrain<IAccount>(0);
                         Console.WriteLine("Press Enter for times...");
                         var length = int.Parse(Console.ReadLine());
                         var stopWatch = new Stopwatch();
                         stopWatch.Start();
-
-                        for (int i = 0; i < length; i++)
-                        {
-                            var transfer = false;
-                            await Task.WhenAll(Enumerable.Range(0, actorAcount).Select(async x =>
-                            {
-                                if (!transfer)
-                                {
-                                    await actors[x].AddAmount(1000);
-                                    transfer = true;
-                                }
-                                else
-                                {
-                                    await actors[x - 1].Transfer(x, 500);
-                                    transfer = false;
-                                }
-                            }));
-                        }
+                        await Task.WhenAll(Enumerable.Range(0, length).Select(x => actor.AddAmount(1000)));
                         stopWatch.Stop();
-                        Console.WriteLine($"{length * actorAcount}次操作完成，耗时:{stopWatch.ElapsedMilliseconds}ms");
+                        Console.WriteLine($"{length }次操作完成，耗时:{stopWatch.ElapsedMilliseconds}ms");
                         await Task.Delay(200);
-                        for (int i = 0; i < actorAcount; i++)
-                        {
-                            Console.WriteLine($"End:{i}的余额为{await actors[i].GetBalance()}");
-                        }
+                        Console.WriteLine($"余额为{await actor.GetBalance()}");
                     }
                 }
             }

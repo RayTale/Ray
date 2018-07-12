@@ -16,12 +16,10 @@ namespace Ray.IGrains.Events
         public string TypeCode => GetType().FullName;
         #endregion
         public decimal Amount { get; set; }
-        public decimal Balance { get; set; }
         public AmountAddEvent() { }
-        public AmountAddEvent(decimal amount, decimal balance)
+        public AmountAddEvent(decimal amount)
         {
             Amount = amount;
-            Balance = balance;
         }
     }
 }

@@ -24,7 +24,7 @@ namespace Ray.Grain.EventHandles
         }
         private void AmountAddEventHandle(AccountState state, AmountAddEvent evt)
         {
-            state.Balance = evt.Balance;
+            state.Balance += evt.Amount;
         }
     }
 }

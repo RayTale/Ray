@@ -54,7 +54,7 @@ namespace Ray.PostgreSQL
         {
             TableInfo lastTable = null;
             var cList = await GetTableList();
-            if (cList.Count > 0) lastTable = cList.Last();
+            if (cList.Count > 0) lastTable = cList[cList.Count - 1];
             //如果不需要分表，直接返回
             if (lastTable != null && !sharding) return lastTable;
             var subTime = eventTime.Subtract(startTime);

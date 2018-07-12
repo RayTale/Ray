@@ -8,6 +8,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Ray.PostgreSQL
@@ -99,7 +100,7 @@ namespace Ray.PostgreSQL
             return list;
         }
         ConcurrentDictionary<string, string> saveSqlDict = new ConcurrentDictionary<string, string>();
-        public async Task<bool> SaveAsync(IEventBase<K> evt, byte[] bytes, string uniqueId = null)
+        public async ValueTask<bool> SaveAsync(IEventBase<K> evt, byte[] bytes, string uniqueId = null)
         {
             var table = await tableInfo.GetTable(evt.Timestamp);
             if (!saveSqlDict.TryGetValue(table.Name, out var saveSql))
@@ -107,21 +108,85 @@ namespace Ray.PostgreSQL
                 saveSql = $"INSERT INTO {table.Name}(stateid,uniqueId,typecode,data,version) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version)";
                 saveSqlDict.TryAdd(table.Name, saveSql);
             }
-            if (string.IsNullOrEmpty(uniqueId))
-                uniqueId = evt.GetUniqueId();
             try
             {
                 using (var conn = tableInfo.CreateConnection())
                 {
-                    await conn.ExecuteAsync(saveSql, new { StateId = evt.StateId.ToString(), UniqueId = uniqueId, evt.TypeCode, Data = bytes, evt.Version });
+                    return (await conn.ExecuteAsync(saveSql, new { StateId = evt.StateId.ToString(), UniqueId = uniqueId, evt.TypeCode, Data = bytes, evt.Version })) > 0;
                 }
-                return true;
             }
             catch (Exception ex)
             {
                 if (!(ex is PostgresException e && e.SqlState == "23505"))
                 {
                     throw ex;
+                }
+            }
+            return false;
+        }
+        ConcurrentDictionary<string, string> copySaveSqlDict = new ConcurrentDictionary<string, string>();
+        public async ValueTask<bool> BatchSaveAsync(List<EventSaveWrap<K>> list)
+        {
+            var table = await tableInfo.GetTable(DateTime.UtcNow);
+            if (list.Count > 5)
+            {
+                if (!copySaveSqlDict.TryGetValue(table.Name, out var saveSql))
+                {
+                    saveSql = $"copy {table.Name}(stateid,uniqueId,typecode,data,version) FROM STDIN (FORMAT BINARY)";
+                    copySaveSqlDict.TryAdd(table.Name, saveSql);
+                }
+                try
+                {
+                    await Task.Run(async () =>
+                    {
+                        using (var conn = tableInfo.CreateConnection() as NpgsqlConnection)
+                        {
+                            await conn.OpenAsync();
+                            using (var writer = conn.BeginBinaryImport(saveSql))
+                            {
+                                foreach (var evt in list)
+                                {
+                                    writer.StartRow();
+                                    writer.Write(evt.Evt.StateId.ToString(), NpgsqlDbType.Varchar);
+                                    writer.Write(evt.UniqueId, NpgsqlDbType.Varchar);
+                                    writer.Write(evt.Evt.TypeCode, NpgsqlDbType.Varchar);
+                                    writer.Write(evt.Bytes, NpgsqlDbType.Bytea);
+                                    writer.Write(evt.Evt.Version, NpgsqlDbType.Bigint);
+                                }
+                                writer.Complete();
+                            }
+                        }
+                    }).ConfigureAwait(false);
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    if (!(ex is PostgresException e && e.SqlState == "23505"))
+                    {
+                        throw ex;
+                    }
+                }
+            }
+            else
+            {
+                if (!saveSqlDict.TryGetValue(table.Name, out var saveSql))
+                {
+                    saveSql = $"INSERT INTO {table.Name}(stateid,uniqueId,typecode,data,version) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version)";
+                    saveSqlDict.TryAdd(table.Name, saveSql);
+                }
+                try
+                {
+                    using (var conn = tableInfo.CreateConnection())
+                    {
+                        return (await conn.ExecuteAsync(saveSql, list.Select(data => new { StateId = data.Evt.StateId.ToString(), data.UniqueId, data.Evt.TypeCode, Data = data.Bytes, data.Evt.Version }).ToList())) > 0;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    if (!(ex is PostgresException e && e.SqlState == "23505"))
+                    {
+                        throw ex;
+                    }
                 }
             }
             return false;
