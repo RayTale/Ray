@@ -5,7 +5,9 @@ using Ray.Core.Message;
 using Ray.Core.MQ;
 using Ray.Core.Utils;
 using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 
 namespace Ray.Core.EventSourcing
@@ -144,7 +146,83 @@ namespace Ray.Core.EventSourcing
             return _serializer;
         }
         protected abstract IEventHandle EventHandle { get; }
-        protected async ValueTask<bool> RaiseEvent(IEventBase<K> @event, string uniqueId = null, string hashKey = null)
+        #region Transaction
+        protected bool beginTransaction = false;
+        private DateTime beginTransactionTime;
+        private List<EventSaveWrap<K>> transactionEventList;
+        protected async Task BeginTransaction()
+        {
+            if (beginTransaction)
+            {
+                if ((DateTime.UtcNow - beginTransactionTime).TotalMinutes > 1)
+                {
+                    await RollbackTransaction();//事务阻赛超过一分钟自动回滚
+                }
+                throw new Exception("The transaction already exists");
+            }
+            if (transactionEventList == null)
+                transactionEventList = new List<EventSaveWrap<K>>();
+            beginTransaction = true;
+            beginTransactionTime = DateTime.UtcNow;
+        }
+        protected async ValueTask<bool> CommitTransaction()
+        {
+            if (transactionEventList.Count == 0) return true;
+            var serializer = GetSerializer();
+            using (var ms = new PooledMemoryStream())
+            {
+                foreach (var @event in transactionEventList)
+                {
+                    serializer.Serialize(ms, @event.Evt);
+                    @event.Bytes = ms.ToArray();
+                    ms.Position = 0;
+                    ms.SetLength(0);
+                }
+            }
+            var saved = await (await GetEventStorage()).BatchSaveAsync(transactionEventList);
+            if (saved)
+            {
+                if (SupportAsync)
+                {
+                    var mqService = GetMQService();
+                    using (var ms = new PooledMemoryStream())
+                    {
+                        foreach (var @event in transactionEventList)
+                        {
+                            var data = new W
+                            {
+                                TypeCode = @event.Evt.TypeCode,
+                                BinaryBytes = @event.Bytes
+                            };
+                            serializer.Serialize(ms, data);
+                            //消息写入消息队列，以提供异步服务
+                            await mqService.Publish(ms.ToArray(), @event.HashKey);
+                            ms.Position = 0;
+                            ms.SetLength(0);
+                        }
+                    }
+                }
+                await SaveSnapshotAsync();
+                transactionEventList.Clear();
+                beginTransaction = false;
+            }
+            else
+            {
+                await RollbackTransaction();
+            }
+            return saved;
+        }
+        protected async Task RollbackTransaction()
+        {
+            if (beginTransaction)
+            {
+                await OnActivateAsync();
+                transactionEventList.Clear();
+                beginTransaction = false;
+            }
+        }
+        #endregion
+        protected async ValueTask<bool> RaiseEvent(IEventBase<K> @event, string uniqueId = null, string hashKey = null, bool isTransaction = false)
         {
             try
             {
@@ -152,41 +230,59 @@ namespace Ray.Core.EventSourcing
                 @event.StateId = GrainId;
                 @event.Version = State.Version + 1;
                 @event.Timestamp = DateTime.UtcNow;
-                var serializer = GetSerializer();
-                using (var ms = new PooledMemoryStream())
+                if (beginTransaction)
                 {
-                    serializer.Serialize(ms, @event);
-                    var bytes = ms.ToArray();
-                    var result = await (await GetEventStorage()).SaveAsync(@event, bytes, uniqueId);
-                    if (result)
+                    if (!isTransaction)
+                        throw new Exception("The transaction is in progress!");
+                    transactionEventList.Add(new EventSaveWrap<K>(@event, null, string.IsNullOrEmpty(uniqueId) ? @event.GetUniqueId() : uniqueId, string.IsNullOrEmpty(hashKey) ? GrainId.ToString() : hashKey));
+                    EventHandle.Apply(State, @event);
+                    State.UpdateVersion(@event);//更新处理完成的Version
+                    return true;
+                }
+                else
+                {
+                    var serializer = GetSerializer();
+                    using (var ms = new PooledMemoryStream())
                     {
-                        EventHandle.Apply(State, @event);
-                        if (SupportAsync)
+                        serializer.Serialize(ms, @event);
+                        var bytes = ms.ToArray();
+                        var saved = await (await GetEventStorage()).SaveAsync(@event, bytes, string.IsNullOrEmpty(uniqueId) ? @event.GetUniqueId() : uniqueId);
+                        if (saved)
                         {
-                            var data = new W
+                            if (SupportAsync)
                             {
-                                TypeCode = @event.TypeCode,
-                                BinaryBytes = bytes
-                            };
-                            ms.Position = 0;
-                            ms.SetLength(0);
-                            serializer.Serialize(ms, data);
-                            //消息写入消息队列，以提供异步服务
-                            await GetMQService().Publish(ms.ToArray(), string.IsNullOrEmpty(hashKey) ? GrainId.ToString() : hashKey);
+                                var data = new W
+                                {
+                                    TypeCode = @event.TypeCode,
+                                    BinaryBytes = bytes
+                                };
+                                ms.Position = 0;
+                                ms.SetLength(0);
+                                serializer.Serialize(ms, data);
+                                //消息写入消息队列，以提供异步服务
+                                await Task.WhenAll(Task.Factory.StartNew(() =>
+                                {
+                                    EventHandle.Apply(State, @event);
+                                }), GetMQService().Publish(ms.ToArray(), string.IsNullOrEmpty(hashKey) ? GrainId.ToString() : hashKey));
+                            }
+                            else
+                            {
+                                EventHandle.Apply(State, @event);
+                            }
+                            State.UpdateVersion(@event);//更新处理完成的Version
+                            await SaveSnapshotAsync();
+                            return true;
                         }
-                        State.UpdateVersion(@event);//更新处理完成的Version
-                        await SaveSnapshotAsync();
-                        return true;
+                        else
+                            State.DecrementDoingVersion();//还原doing Version
                     }
-                    else
-                        State.DecrementDoingVersion();//还原doing Version
                 }
             }
             catch (Exception ex)
             {
                 State.DecrementDoingVersion();//还原doing Version
                 Logger.LogError(LogEventIds.EventRaiseError, ex, "Apply event {0} error, EventId={1}", @event.TypeCode, @event.Version);
-                throw ex;
+                ExceptionDispatchInfo.Capture(ex).Throw();
             }
             return false;
         }

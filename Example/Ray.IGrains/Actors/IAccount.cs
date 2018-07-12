@@ -18,6 +18,7 @@ namespace Ray.IGrains.Actors
         /// <param name="amount">金额</param>
         /// <param name="uniqueId">操作辨识ID(防止多次执行)</param>
         /// <returns></returns>
+        [AlwaysInterleave]
         Task AddAmount(decimal amount, string uniqueId = null);
         /// <summary>
         /// 转账
