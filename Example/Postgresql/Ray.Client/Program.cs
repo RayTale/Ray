@@ -53,7 +53,7 @@ namespace Ray.Client
                         var length = int.Parse(Console.ReadLine());
                         var stopWatch = new Stopwatch();
                         stopWatch.Start();
-                        await Task.WhenAll(Enumerable.Range(0, length).Select(x => client.GetGrain<IAccount>(x).AddAmount(1000)));
+                        await Task.WhenAll(Enumerable.Range(0, length).Select(x => client.GetGrain<IAccount>(0).AddAmount(1000)));
                         stopWatch.Stop();
                         Console.WriteLine($"{length }次操作完成，耗时:{stopWatch.ElapsedMilliseconds}ms");
                         await Task.Delay(200);
