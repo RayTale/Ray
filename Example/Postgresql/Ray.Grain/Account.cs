@@ -31,6 +31,7 @@ namespace Ray.Grain
         static IEventHandle _eventHandle = new AccountEventHandle();
         protected override IEventHandle EventHandle => _eventHandle;
         static SqlGrainConfig _table;
+        protected override bool SupportAsync => false;
         public override SqlGrainConfig GrainConfig
         {
             get
@@ -42,12 +43,12 @@ namespace Ray.Grain
                 return _table;
             }
         }
-        BufferBlock<EventFlowWrap<AmountAddEvent>> addAmountBufferBlock;
+        BufferBlock<EventFlowWrap<long>> addAmountBufferBlock;
         public override async Task OnActivateAsync()
         {
             await base.OnActivateAsync();
-            addAmountBufferBlock = new BufferBlock<EventFlowWrap<AmountAddEvent>>();
-            RegisterTimer(Trans, null, new TimeSpan(0, 0, 5), new TimeSpan(0, 0, 30));
+            addAmountBufferBlock = new BufferBlock<EventFlowWrap<long>>();
+            RegisterTimer(Trans, null, new TimeSpan(0, 0, 5), new TimeSpan(0, 0, 20));
         }
         public Task Transfer(long toAccountId, decimal amount)
         {
@@ -68,7 +69,7 @@ namespace Ray.Grain
             {
                 await Task.Delay(10);
                 int counts = 0;
-                var events = new List<EventFlowWrap<AmountAddEvent>>(firstBlock);
+                var events = new List<EventFlowWrap<long>>(firstBlock);
                 while (addAmountBufferBlock.TryReceiveAll(out var block))
                 {
                     await Task.Delay(10);
@@ -105,7 +106,7 @@ namespace Ray.Grain
             }
             return false;
         }
-        public async Task ReTry(IList<EventFlowWrap<AmountAddEvent>> events)
+        public async Task ReTry(IList<EventFlowWrap<long>> events)
         {
             foreach (var evt in events)
             {
@@ -123,11 +124,11 @@ namespace Ray.Grain
         public async Task AddAmount(decimal amount, string uniqueId = null)
         {
             var evt = new AmountAddEvent(amount);
-            //await RaiseEvent(evt, uniqueId: uniqueId);
-            var task = EventFlowWrap<AmountAddEvent>.Create(evt, uniqueId);
-            await addAmountBufferBlock.SendAsync(task);
-            await Trans(null);
-            await task.TaskSource.Task;
+            await RaiseEvent(evt, uniqueId: uniqueId);
+            //var task = EventFlowWrap<long>.Create(evt, uniqueId);
+            //await addAmountBufferBlock.SendAsync(task);
+            //await Trans(null);
+            //await task.TaskSource.Task;
             //var stopWatch = new Stopwatch();
             //stopWatch.Start();
             //for (int i = 0; i < 100; i++)
@@ -142,20 +143,5 @@ namespace Ray.Grain
         {
             return Task.FromResult(State.Balance);
         }
-    }
-    public class EventFlowWrap<T>
-    {
-        public static EventFlowWrap<CT> Create<CT>(CT value, string uniqueId = null)
-        {
-            return new EventFlowWrap<CT>
-            {
-                TaskSource = new TaskCompletionSource<bool>(),
-                Value = value,
-                UniqueId = uniqueId
-            };
-        }
-        public TaskCompletionSource<bool> TaskSource { get; set; }
-        public T Value { get; set; }
-        public string UniqueId { get; set; }
     }
 }

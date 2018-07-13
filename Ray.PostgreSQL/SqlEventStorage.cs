@@ -9,11 +9,13 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
+using System.Threading.Tasks.Dataflow;
 
 namespace Ray.PostgreSQL
 {
-    public class SqlEventStorage<K> : IEventStorage<K>
+    public class SqlEventStorage<K> : IEventStorage<K>, IEventFlowStorage
     {
         SqlGrainConfig tableInfo;
         public SqlEventStorage(SqlGrainConfig tableInfo)
@@ -99,8 +101,77 @@ namespace Ray.PostgreSQL
             }
             return list;
         }
-        ConcurrentDictionary<string, string> saveSqlDict = new ConcurrentDictionary<string, string>();
+
+        static ConcurrentDictionary<string, string> saveSqlDict = new ConcurrentDictionary<string, string>();
         public async ValueTask<bool> SaveAsync(IEventBase<K> evt, byte[] bytes, string uniqueId = null)
+        {
+            var wrap = EventBytesFlowWrap<K>.Create(evt, bytes, uniqueId);
+            await tableInfo.EventFlow.SendAsync(wrap);
+            await TriggerFlowProcess();
+            return await wrap.TaskSource.Task;
+        }
+        int isProcessing = 0;
+        public async Task TriggerFlowProcess()
+        {
+            if (Interlocked.CompareExchange(ref isProcessing, 1, 0) == 0)
+            {
+                while (await FlowProcess()) { }
+                Interlocked.Exchange(ref isProcessing, 0);
+            }
+        }
+        private async ValueTask<bool> FlowProcess()
+        {
+            if (tableInfo.EventFlow.TryReceiveAll(out var firstBlock))
+            {
+                await Task.Delay(10);
+                int counts = 0;
+                var events = new List<object>(firstBlock);
+                while (tableInfo.EventFlow.TryReceiveAll(out var block))
+                {
+                    await Task.Delay(10);
+                    events.AddRange(block);
+                    counts++;
+                    if (counts > 5) break;
+                }
+                var wrapList = events.Select(wrap => wrap as EventBytesFlowWrap<K>).ToList();
+                try
+                {
+                    var saved = await BatchSaveAsync(wrapList.Select(data => new EventSaveWrap<K>(data.Value, data.Bytes, data.UniqueId)).ToList());
+                    if (saved)
+                    {
+                        foreach (var wrap in wrapList)
+                        {
+                            wrap.TaskSource.SetResult(true);
+                        }
+                    }
+                    else
+                    {
+                        await ReTry(wrapList);
+                    }
+                }
+                catch
+                {
+                    await ReTry(wrapList);
+                }
+                return true;
+            }
+            return false;
+        }
+        public async Task ReTry(List<EventBytesFlowWrap<K>> wrapList)
+        {
+            foreach (var data in wrapList)
+            {
+                try
+                {
+                    data.TaskSource.TrySetResult(await SingleSaveAsync(data.Value, data.Bytes, data.UniqueId));
+                }
+                catch (Exception e)
+                {
+                    data.TaskSource.TrySetException(e);
+                }
+            }
+        }
+        private async Task<bool> SingleSaveAsync(IEventBase<K> evt, byte[] bytes, string uniqueId = null)
         {
             var table = await tableInfo.GetTable(evt.Timestamp);
             if (!saveSqlDict.TryGetValue(table.Name, out var saveSql))
@@ -124,11 +195,11 @@ namespace Ray.PostgreSQL
             }
             return false;
         }
-        ConcurrentDictionary<string, string> copySaveSqlDict = new ConcurrentDictionary<string, string>();
+        static ConcurrentDictionary<string, string> copySaveSqlDict = new ConcurrentDictionary<string, string>();
         public async ValueTask<bool> BatchSaveAsync(List<EventSaveWrap<K>> list)
         {
             var table = await tableInfo.GetTable(DateTime.UtcNow);
-            if (list.Count > 5)
+            if (list.Count > 1)
             {
                 if (!copySaveSqlDict.TryGetValue(table.Name, out var saveSql))
                 {

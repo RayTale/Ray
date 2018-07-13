@@ -5,6 +5,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Dapper;
 using System.Collections.Concurrent;
+using System.Threading.Tasks.Dataflow;
+using Ray.Core.EventSourcing;
 
 namespace Ray.PostgreSQL
 {
@@ -13,10 +15,12 @@ namespace Ray.PostgreSQL
         public string Connection { get; set; }
         public string EventTable { get; set; }
         public string SnapshotTable { get; set; }
-
+        public string EventFlowKey { get; }
+        public BufferBlock<object> EventFlow { get; }
         readonly bool sharding = false;
         readonly int shardingDays;
         readonly int stateIdLength;
+        static ConcurrentDictionary<string, BufferBlock<object>> flowDict = new ConcurrentDictionary<string, BufferBlock<object>>();
         public SqlGrainConfig(string conn, string eventTable, string snapshotTable, bool sharding = false, int shardingDays = 90, int stateIdLength = 50)
         {
             Connection = conn;
@@ -25,7 +29,16 @@ namespace Ray.PostgreSQL
             this.sharding = sharding;
             this.shardingDays = shardingDays;
             this.stateIdLength = stateIdLength;
-
+            EventFlowKey = $"{ conn}-{eventTable}";
+            if (!flowDict.TryGetValue(EventFlowKey, out var flow))
+            {
+                flow = new BufferBlock<object>();
+                if (!flowDict.TryAdd(EventFlowKey, flow))
+                {
+                    flow = flowDict[EventFlowKey];
+                }
+            }
+            EventFlow = flow;
         }
         public async Task Build()
         {
