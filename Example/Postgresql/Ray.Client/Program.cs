@@ -31,14 +31,14 @@ namespace Ray.Client
             servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
             servicecollection.AddRabbitMQ<MessageInfo>();//注册RabbitMq为默认消息队列
             servicecollection.AddLogging(logging => logging.AddConsole());
-            servicecollection.PostConfigure<RabbitConfig>(c =>
-            {
-                c.UserName = "admin";
-                c.Password = "admin";
-                c.Hosts = new[] { "127.0.0.1:5672" };
-                c.MaxPoolSize = 100;
-                c.VirtualHost = "/";
-            });
+            //servicecollection.PostConfigure<RabbitConfig>(c =>
+            //{
+            //    c.UserName = "admin";
+            //    c.Password = "admin";
+            //    c.Hosts = new[] { "127.0.0.1:5672" };
+            //    c.MaxPoolSize = 100;
+            //    c.VirtualHost = "/";
+            //});
             var provider = servicecollection.BuildServiceProvider();
             try
             {
@@ -48,16 +48,16 @@ namespace Ray.Client
                     //await manager.Start(new[] { "Core", "Read", "Rep" });
                     while (true)
                     {
-                        var actor = client.GetGrain<IAccount>(0);
+                        // var actor = client.GetGrain<IAccount>(0);
                         Console.WriteLine("Press Enter for times...");
                         var length = int.Parse(Console.ReadLine());
                         var stopWatch = new Stopwatch();
                         stopWatch.Start();
-                        await Task.WhenAll(Enumerable.Range(0, length).Select(x => actor.AddAmount(1000)));
+                        await Task.WhenAll(Enumerable.Range(0, length).Select(x => client.GetGrain<IAccount>(x).AddAmount(1000)));
                         stopWatch.Stop();
                         Console.WriteLine($"{length }次操作完成，耗时:{stopWatch.ElapsedMilliseconds}ms");
                         await Task.Delay(200);
-                        Console.WriteLine($"余额为{await actor.GetBalance()}");
+                        Console.WriteLine($"余额为{await client.GetGrain<IAccount>(0).GetBalance()}");
                     }
                 }
             }

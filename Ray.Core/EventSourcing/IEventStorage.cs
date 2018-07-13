@@ -4,6 +4,10 @@ using System.Collections.Generic;
 
 namespace Ray.Core.EventSourcing
 {
+    public interface IEventFlowStorage
+    {
+        Task TriggerFlowProcess();
+    }
     public interface IEventStorage<K>
     {
         Task<IList<IEventBase<K>>> GetListAsync(K stateId, Int64 startVersion, Int64 endVersion, DateTime? startTime = null);
