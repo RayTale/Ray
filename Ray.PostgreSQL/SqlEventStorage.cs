@@ -125,15 +125,11 @@ namespace Ray.PostgreSQL
         {
             if (EventFlow.TryReceiveAll(out var firstBlock))
             {
-                await Task.Delay(50);
-                int counts = 0;
                 var events = new List<object>(firstBlock);
                 while (EventFlow.TryReceiveAll(out var block))
                 {
-                    await Task.Delay(10);
                     events.AddRange(block);
-                    counts++;
-                    if (counts > 5) break;
+                    if (events.Count > 1000) break;
                 }
                 var wrapList = events.Select(wrap => wrap as EventBytesTransactionWrap<K>).ToList();
                 try
