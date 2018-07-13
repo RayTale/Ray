@@ -68,23 +68,24 @@ namespace Ray.Grain
         {
             if (addAmountBufferBlock.TryReceiveAll(out var firstBlock))
             {
-                await Task.Delay(50);
-                int counts = 0;
                 var events = new List<EventTransactionWrap<long>>(firstBlock);
-                while (addAmountBufferBlock.TryReceiveAll(out var block))
-                {
-                    await Task.Delay(10);
-                    events.AddRange(block);
-                    counts++;
-                    if (counts > 5) break;
-                }
+                await BeginTransaction();
                 try
                 {
-                    await BeginTransaction();
-                    foreach (var evt in events)
+                    foreach (var evt in firstBlock)
                     {
                         await RaiseEvent(evt.Value, evt.UniqueId, isTransaction: true);
                     }
+                    while (addAmountBufferBlock.TryReceiveAll(out var block))
+                    {
+                        events.AddRange(block);
+                        foreach (var evt in block)
+                        {
+                            await RaiseEvent(evt.Value, evt.UniqueId, isTransaction: true);
+                        }
+                        if (events.Count > 10000) break;
+                    }
+
                     var commited = await CommitTransaction();
                     if (commited)
                     {
