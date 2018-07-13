@@ -72,7 +72,7 @@ namespace Ray.Grain
                 var events = new List<EventFlowWrap<long>>(firstBlock);
                 while (addAmountBufferBlock.TryReceiveAll(out var block))
                 {
-                    await Task.Delay(10);
+                    await Task.Delay(50);
                     events.AddRange(block);
                     counts++;
                     if (counts > 5) break;

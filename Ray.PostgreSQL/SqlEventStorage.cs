@@ -18,9 +18,12 @@ namespace Ray.PostgreSQL
     public class SqlEventStorage<K> : IEventStorage<K>, IEventFlowStorage
     {
         SqlGrainConfig tableInfo;
+        BufferBlock<EventBytesFlowWrap<K>> EventFlow;
+        int isProcessing = 0;
         public SqlEventStorage(SqlGrainConfig tableInfo)
         {
             this.tableInfo = tableInfo;
+            EventFlow = new BufferBlock<EventBytesFlowWrap<K>>();
         }
         public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, Int64 startVersion, Int64 endVersion, DateTime? startTime = null)
         {
@@ -106,11 +109,10 @@ namespace Ray.PostgreSQL
         public async ValueTask<bool> SaveAsync(IEventBase<K> evt, byte[] bytes, string uniqueId = null)
         {
             var wrap = EventBytesFlowWrap<K>.Create(evt, bytes, uniqueId);
-            await tableInfo.EventFlow.SendAsync(wrap);
+            await EventFlow.SendAsync(wrap);
             await TriggerFlowProcess();
             return await wrap.TaskSource.Task;
         }
-        int isProcessing = 0;
         public async Task TriggerFlowProcess()
         {
             if (Interlocked.CompareExchange(ref isProcessing, 1, 0) == 0)
@@ -121,12 +123,12 @@ namespace Ray.PostgreSQL
         }
         private async ValueTask<bool> FlowProcess()
         {
-            if (tableInfo.EventFlow.TryReceiveAll(out var firstBlock))
+            if (EventFlow.TryReceiveAll(out var firstBlock))
             {
-                await Task.Delay(10);
+                await Task.Delay(50);
                 int counts = 0;
                 var events = new List<object>(firstBlock);
-                while (tableInfo.EventFlow.TryReceiveAll(out var block))
+                while (EventFlow.TryReceiveAll(out var block))
                 {
                     await Task.Delay(10);
                     events.AddRange(block);
