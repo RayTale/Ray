@@ -43,12 +43,12 @@ namespace Ray.Grain
                 return _table;
             }
         }
-        BufferBlock<EventFlowWrap<long>> addAmountBufferBlock;
+        BufferBlock<EventTransactionWrap<long>> addAmountBufferBlock;
         public override async Task OnActivateAsync()
         {
             await base.OnActivateAsync();
-            addAmountBufferBlock = new BufferBlock<EventFlowWrap<long>>();
-            RegisterTimer(Trans, null, new TimeSpan(0, 0, 5), new TimeSpan(0, 0, 20));
+            addAmountBufferBlock = new BufferBlock<EventTransactionWrap<long>>();
+            RegisterTimer(Trans, null, new TimeSpan(0, 0, 5), new TimeSpan(0, 0, 5));
         }
         public Task Transfer(long toAccountId, decimal amount)
         {
@@ -59,6 +59,7 @@ namespace Ray.Grain
         {
             if (Interlocked.CompareExchange(ref process, 1, 0) == 0)
             {
+                Console.WriteLine("enter process");
                 while (await BatchProcess()) { }
                 Interlocked.Exchange(ref process, 0);
             }
@@ -69,7 +70,7 @@ namespace Ray.Grain
             {
                 await Task.Delay(50);
                 int counts = 0;
-                var events = new List<EventFlowWrap<long>>(firstBlock);
+                var events = new List<EventTransactionWrap<long>>(firstBlock);
                 while (addAmountBufferBlock.TryReceiveAll(out var block))
                 {
                     await Task.Delay(10);
@@ -106,7 +107,7 @@ namespace Ray.Grain
             }
             return false;
         }
-        public async Task ReTry(IList<EventFlowWrap<long>> events)
+        public async Task ReTry(IList<EventTransactionWrap<long>> events)
         {
             foreach (var evt in events)
             {
@@ -124,11 +125,11 @@ namespace Ray.Grain
         public async Task AddAmount(decimal amount, string uniqueId = null)
         {
             var evt = new AmountAddEvent(amount);
-            await RaiseEvent(evt, uniqueId: uniqueId);
-            //var task = EventFlowWrap<long>.Create(evt, uniqueId);
-            //await addAmountBufferBlock.SendAsync(task);
-            //await Trans(null);
-            //await task.TaskSource.Task;
+            //await RaiseEvent(evt, uniqueId: uniqueId);
+            var task = EventTransactionWrap<long>.Create(evt, uniqueId);
+            await addAmountBufferBlock.SendAsync(task);
+            await Trans(null);
+            await task.TaskSource.Task;
             //var stopWatch = new Stopwatch();
             //stopWatch.Start();
             //for (int i = 0; i < 100; i++)

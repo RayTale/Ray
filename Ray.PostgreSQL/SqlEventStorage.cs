@@ -18,12 +18,12 @@ namespace Ray.PostgreSQL
     public class SqlEventStorage<K> : IEventStorage<K>, IEventFlowStorage
     {
         SqlGrainConfig tableInfo;
-        BufferBlock<EventBytesFlowWrap<K>> EventFlow;
+        BufferBlock<EventBytesTransactionWrap<K>> EventFlow;
         int isProcessing = 0;
         public SqlEventStorage(SqlGrainConfig tableInfo)
         {
             this.tableInfo = tableInfo;
-            EventFlow = new BufferBlock<EventBytesFlowWrap<K>>();
+            EventFlow = new BufferBlock<EventBytesTransactionWrap<K>>();
         }
         public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, Int64 startVersion, Int64 endVersion, DateTime? startTime = null)
         {
@@ -108,7 +108,7 @@ namespace Ray.PostgreSQL
         static ConcurrentDictionary<string, string> saveSqlDict = new ConcurrentDictionary<string, string>();
         public async ValueTask<bool> SaveAsync(IEventBase<K> evt, byte[] bytes, string uniqueId = null)
         {
-            var wrap = EventBytesFlowWrap<K>.Create(evt, bytes, uniqueId);
+            var wrap = EventBytesTransactionWrap<K>.Create(evt, bytes, uniqueId);
             await EventFlow.SendAsync(wrap);
             await TriggerFlowProcess();
             return await wrap.TaskSource.Task;
@@ -135,7 +135,7 @@ namespace Ray.PostgreSQL
                     counts++;
                     if (counts > 5) break;
                 }
-                var wrapList = events.Select(wrap => wrap as EventBytesFlowWrap<K>).ToList();
+                var wrapList = events.Select(wrap => wrap as EventBytesTransactionWrap<K>).ToList();
                 try
                 {
                     var saved = await BatchSaveAsync(wrapList.Select(data => new EventSaveWrap<K>(data.Value, data.Bytes, data.UniqueId)).ToList());
@@ -159,7 +159,7 @@ namespace Ray.PostgreSQL
             }
             return false;
         }
-        public async Task ReTry(List<EventBytesFlowWrap<K>> wrapList)
+        public async Task ReTry(List<EventBytesTransactionWrap<K>> wrapList)
         {
             foreach (var data in wrapList)
             {

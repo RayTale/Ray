@@ -2,11 +2,11 @@
 
 namespace Ray.Core.EventSourcing
 {
-    public class EventFlowWrap<K>
+    public class EventTransactionWrap<K>
     {
-        public static EventFlowWrap<K> Create(IEventBase<K> value, string uniqueId = null)
+        public static EventTransactionWrap<K> Create(IEventBase<K> value, string uniqueId = null)
         {
-            return new EventFlowWrap<K>
+            return new EventTransactionWrap<K>
             {
                 TaskSource = new TaskCompletionSource<bool>(),
                 Value = value,
@@ -17,11 +17,11 @@ namespace Ray.Core.EventSourcing
         public IEventBase<K> Value { get; set; }
         public string UniqueId { get; set; }
     }
-    public class EventBytesFlowWrap<K> : EventFlowWrap<K>
+    public class EventBytesTransactionWrap<K> : EventTransactionWrap<K>
     {
-        public static EventBytesFlowWrap<K> Create(IEventBase<K> value, byte[] bytes, string uniqueId = null)
+        public static EventBytesTransactionWrap<K> Create(IEventBase<K> value, byte[] bytes, string uniqueId = null)
         {
-            return new EventBytesFlowWrap<K>
+            return new EventBytesTransactionWrap<K>
             {
                 TaskSource = new TaskCompletionSource<bool>(),
                 Value = value,
