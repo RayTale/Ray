@@ -5,8 +5,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using Dapper;
 using System.Collections.Concurrent;
-using System.Threading.Tasks.Dataflow;
-using Ray.Core.EventSourcing;
 
 namespace Ray.PostgreSQL
 {

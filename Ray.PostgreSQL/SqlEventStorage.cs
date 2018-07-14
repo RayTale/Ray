@@ -8,22 +8,20 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
-using System.Threading.Tasks.Dataflow;
 
 namespace Ray.PostgreSQL
 {
     public class SqlEventStorage<K> : IEventStorage<K>
     {
         SqlGrainConfig tableInfo;
-        BufferBlock<EventBytesTransactionWrap<K>> EventFlow;
+        Channel<EventBytesTransactionWrap<K>> EventSaveFlowChannel = Channel.CreateUnbounded<EventBytesTransactionWrap<K>>();
         int isProcessing = 0;
         public SqlEventStorage(SqlGrainConfig tableInfo)
         {
             this.tableInfo = tableInfo;
-            EventFlow = new BufferBlock<EventBytesTransactionWrap<K>>();
         }
         public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, Int64 startVersion, Int64 endVersion, DateTime? startTime = null)
         {
@@ -109,29 +107,33 @@ namespace Ray.PostgreSQL
         public async ValueTask<bool> SaveAsync(IEventBase<K> evt, byte[] bytes, string uniqueId = null)
         {
             var wrap = EventBytesTransactionWrap<K>.Create(evt, bytes, uniqueId);
-            await EventFlow.SendAsync(wrap);
-            await TriggerFlowProcess();
+            await EventSaveFlowChannel.Writer.WriteAsync(wrap);
+            if (isProcessing == 0)
+                TriggerFlowProcess().GetAwaiter();
             return await wrap.TaskSource.Task;
         }
-        private async Task TriggerFlowProcess()
+        private async ValueTask TriggerFlowProcess()
         {
             if (Interlocked.CompareExchange(ref isProcessing, 1, 0) == 0)
             {
-                while (await FlowProcess()) { }
+                while (await EventSaveFlowChannel.Reader.WaitToReadAsync())
+                {
+                    while (await FlowProcess()) { }
+                }
                 Interlocked.Exchange(ref isProcessing, 0);
-                if (EventFlow.Count > 0)
-                    await TriggerFlowProcess();
             }
         }
         private async ValueTask<bool> FlowProcess()
         {
             return await Task.Run(async () =>
              {
-                 if (EventFlow.TryReceiveAll(out var firstBlock))
+                 if (EventSaveFlowChannel.Reader.TryRead(out var first))
                  {
                      var start = DateTime.UtcNow;
-                     var wrapList = new List<EventBytesTransactionWrap<K>>();
-                     wrapList.AddRange(firstBlock);
+                     var wrapList = new List<EventBytesTransactionWrap<K>>
+                     {
+                         first
+                     };
                      var table = await tableInfo.GetTable(DateTime.UtcNow);
                      if (!copySaveSqlDict.TryGetValue(table.Name, out var saveSql))
                      {
@@ -145,27 +147,21 @@ namespace Ray.PostgreSQL
                              await conn.OpenAsync();
                              using (var writer = conn.BeginBinaryImport(saveSql))
                              {
-                                 foreach (var evt in firstBlock)
+                                 writer.StartRow();
+                                 writer.Write(first.Value.StateId.ToString(), NpgsqlDbType.Varchar);
+                                 writer.Write(first.UniqueId, NpgsqlDbType.Varchar);
+                                 writer.Write(first.Value.TypeCode, NpgsqlDbType.Varchar);
+                                 writer.Write(first.Bytes, NpgsqlDbType.Bytea);
+                                 writer.Write(first.Value.Version, NpgsqlDbType.Bigint);
+                                 while (EventSaveFlowChannel.Reader.TryRead(out var evt))
                                  {
+                                     wrapList.Add(evt);
                                      writer.StartRow();
                                      writer.Write(evt.Value.StateId.ToString(), NpgsqlDbType.Varchar);
                                      writer.Write(evt.UniqueId, NpgsqlDbType.Varchar);
                                      writer.Write(evt.Value.TypeCode, NpgsqlDbType.Varchar);
                                      writer.Write(evt.Bytes, NpgsqlDbType.Bytea);
                                      writer.Write(evt.Value.Version, NpgsqlDbType.Bigint);
-                                 }
-                                 while (EventFlow.TryReceiveAll(out var block))
-                                 {
-                                     wrapList.AddRange(block);
-                                     foreach (var evt in block)
-                                     {
-                                         writer.StartRow();
-                                         writer.Write(evt.Value.StateId.ToString(), NpgsqlDbType.Varchar);
-                                         writer.Write(evt.UniqueId, NpgsqlDbType.Varchar);
-                                         writer.Write(evt.Value.TypeCode, NpgsqlDbType.Varchar);
-                                         writer.Write(evt.Bytes, NpgsqlDbType.Bytea);
-                                         writer.Write(evt.Value.Version, NpgsqlDbType.Bigint);
-                                     }
                                      if ((DateTime.UtcNow - start).TotalMilliseconds > 50) break;//保证批量延时不超过50ms
                                  }
                                  writer.Complete();
