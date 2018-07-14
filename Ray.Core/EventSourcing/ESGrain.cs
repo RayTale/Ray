@@ -9,8 +9,8 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
-using System.Threading.Tasks.Dataflow;
 
 namespace Ray.Core.EventSourcing
 {
@@ -26,7 +26,7 @@ namespace Ray.Core.EventSourcing
         protected Int64 StateStorageVersion { get; set; }
         protected virtual int SnapshotMinFrequency => 20;
         protected virtual bool SupportAsync => true;
-        protected BufferBlock<EventTransactionWrap<K>> InputEventBufferBlock { get; set; }
+        protected Channel<EventTransactionWrap<K>> InputFlowChannel { get; set; }
         /// <summary>
         /// 是否开启输入批量处理
         /// </summary>
@@ -37,7 +37,7 @@ namespace Ray.Core.EventSourcing
         {
             Logger = ServiceProvider.GetService<ILogger<ESGrain<K, S, W>>>();
             if (OpenInputBuffer)
-                InputEventBufferBlock = new BufferBlock<EventTransactionWrap<K>>();
+                InputFlowChannel = Channel.CreateUnbounded<EventTransactionWrap<K>>();
             await ReadSnapshotAsync();
             while (true)
             {
@@ -51,14 +51,15 @@ namespace Ray.Core.EventSourcing
                 if (eventList.Count < EventNumberPerRead) break;
             };
         }
-        public override Task OnDeactivateAsync()
+        public override async Task OnDeactivateAsync()
         {
-            return State.Version - StateStorageVersion >= SnapshotMinFrequency ? SaveSnapshotAsync(true) : Task.CompletedTask;
+            if (State.Version - StateStorageVersion >= SnapshotMinFrequency)
+                await SaveSnapshotAsync(true);
         }
         #endregion
         #region State storage
         protected bool IsNew { get; set; } = false;
-        protected virtual async Task ReadSnapshotAsync()
+        protected virtual async ValueTask ReadSnapshotAsync()
         {
             State = await (await GetStateStorage()).GetByIdAsync(GrainId);
             if (State == null)
@@ -70,7 +71,7 @@ namespace Ray.Core.EventSourcing
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual async Task SaveSnapshotAsync(bool force = false)
+        protected virtual async ValueTask SaveSnapshotAsync(bool force = false)
         {
             if (SnapshotType == SnapshotType.Master)
             {
@@ -107,7 +108,7 @@ namespace Ray.Core.EventSourcing
             };
             return Task.CompletedTask;
         }
-        protected async Task ClearStateAsync()
+        protected async ValueTask ClearStateAsync()
         {
             await (await GetStateStorage()).DeleteAsync(GrainId);
         }
@@ -159,7 +160,7 @@ namespace Ray.Core.EventSourcing
         protected bool beginTransaction = false;
         private DateTime beginTransactionTime;
         private List<EventSaveWrap<K>> transactionEventList;
-        protected async Task BeginTransaction()
+        protected async ValueTask BeginTransaction()
         {
             if (beginTransaction)
             {
@@ -174,7 +175,7 @@ namespace Ray.Core.EventSourcing
             beginTransaction = true;
             beginTransactionTime = DateTime.UtcNow;
         }
-        protected async Task CommitTransaction()
+        protected async ValueTask CommitTransaction()
         {
             if (transactionEventList.Count == 0) return;
             var serializer = GetSerializer();
@@ -212,11 +213,11 @@ namespace Ray.Core.EventSourcing
                     }
                 }
                 await SaveSnapshotAsync();
-                transactionEventList.Clear();
-                beginTransaction = false;
             }
+            transactionEventList.Clear();
+            beginTransaction = false;
         }
-        protected async Task RollbackTransaction()
+        protected async ValueTask RollbackTransaction()
         {
             if (beginTransaction)
             {
@@ -290,54 +291,54 @@ namespace Ray.Core.EventSourcing
             }
             return false;
         }
-        protected async Task<bool> EnterBuffer(IEventBase<K> evt, string uniqueId = null)
+        protected async ValueTask<bool> EnterBuffer(IEventBase<K> evt, string uniqueId = null)
         {
             var task = EventTransactionWrap<K>.Create(evt, uniqueId);
-            await InputEventBufferBlock.SendAsync(task);
+            await InputFlowChannel.Writer.WriteAsync(task);
             if (flowProcess == 0)
-                await FlowTrigger();
+                TriggerInputFlow().GetAwaiter();
             return await task.TaskSource.Task;
         }
         int flowProcess = 0;
-        protected async Task FlowTrigger()
+        protected async ValueTask TriggerInputFlow()
         {
             if (Interlocked.CompareExchange(ref flowProcess, 1, 0) == 0)
             {
-                while (await InputFlowBatchRaise())
+                while (await FlowTriggerWaiting())
                 {
-                    await OnFlowNext(true);
+                    while (await InputFlowBatchRaise())
+                    {
+                        await OnFlowNext(true);
+                    }
                 }
-                await OnFlowNext(false);
                 Interlocked.Exchange(ref flowProcess, 0);
-                if (FlowNeedReCheck)
-                    await FlowTrigger();
             }
         }
-        protected virtual bool FlowNeedReCheck => InputEventBufferBlock.Count > 0;
+        protected ValueTask<bool> FlowTriggerWaiting()
+        {
+            return InputFlowChannel.Reader.WaitToReadAsync();
+        }
         protected virtual Task OnFlowNext(bool hasInput)
         {
             return Task.CompletedTask;
         }
         public async ValueTask<bool> InputFlowBatchRaise()
         {
-            if (InputEventBufferBlock.TryReceiveAll(out var firstBlock))
+            if (InputFlowChannel.Reader.TryRead(out var first))
             {
                 var start = DateTime.UtcNow;
-                var events = new List<EventTransactionWrap<K>>(firstBlock);
+                var events = new List<EventTransactionWrap<K>>
+                {
+                    first
+                };
                 await BeginTransaction();
                 try
                 {
-                    foreach (var evt in firstBlock)
+                    await RaiseEvent(first.Value, first.UniqueId, isTransaction: true);
+                    while (InputFlowChannel.Reader.TryRead(out var data))
                     {
-                        await RaiseEvent(evt.Value, evt.UniqueId, isTransaction: true);
-                    }
-                    while (InputEventBufferBlock.TryReceiveAll(out var block))
-                    {
-                        events.AddRange(block);
-                        foreach (var evt in block)
-                        {
-                            await RaiseEvent(evt.Value, evt.UniqueId, isTransaction: true);
-                        }
+                        events.Add(data);
+                        await RaiseEvent(data.Value, data.UniqueId, isTransaction: true);
                         if ((DateTime.UtcNow - start).TotalMilliseconds > 50) break;//保证批量延时不超过50ms
                     }
 
@@ -356,7 +357,7 @@ namespace Ray.Core.EventSourcing
             }
             return false;
         }
-        private async Task BatchEventReTry(IList<EventTransactionWrap<K>> events)
+        private async ValueTask BatchEventReTry(IList<EventTransactionWrap<K>> events)
         {
             foreach (var evt in events)
             {
@@ -374,7 +375,7 @@ namespace Ray.Core.EventSourcing
         /// 发送无状态更改的消息到消息队列
         /// </summary>
         /// <returns></returns>
-        public async Task Publish(IMessage msg, string hashKey = null)
+        public async ValueTask Publish(IMessage msg, string hashKey = null)
         {
             if (string.IsNullOrEmpty(hashKey))
                 hashKey = GrainId.ToString();
