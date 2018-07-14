@@ -8,7 +8,9 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
+using System.Threading;
 using System.Threading.Tasks;
+using System.Threading.Tasks.Dataflow;
 
 namespace Ray.Core.EventSourcing
 {
@@ -24,11 +26,18 @@ namespace Ray.Core.EventSourcing
         protected Int64 StateStorageVersion { get; set; }
         protected virtual int SnapshotMinFrequency => 20;
         protected virtual bool SupportAsync => true;
+        protected BufferBlock<EventTransactionWrap<K>> InputEventBufferBlock { get; set; }
+        /// <summary>
+        /// 是否开启输入批量处理
+        /// </summary>
+        protected virtual bool OpenInputBuffer => false;
         protected ILogger<ESGrain<K, S, W>> Logger { get; set; }
         #region LifeTime
         public override async Task OnActivateAsync()
         {
             Logger = ServiceProvider.GetService<ILogger<ESGrain<K, S, W>>>();
+            if (OpenInputBuffer)
+                InputEventBufferBlock = new BufferBlock<EventTransactionWrap<K>>();
             await ReadSnapshotAsync();
             while (true)
             {
@@ -285,6 +294,90 @@ namespace Ray.Core.EventSourcing
                 ExceptionDispatchInfo.Capture(ex).Throw();
             }
             return false;
+        }
+        protected async Task<bool> EnterBuffer(IEventBase<K> evt, string uniqueId = null)
+        {
+            var task = EventTransactionWrap<K>.Create(evt, uniqueId);
+            await InputEventBufferBlock.SendAsync(task);
+            await EventBufferTrigger(null);
+            return await task.TaskSource.Task;
+        }
+        int flowProcess = 0;
+        private async Task EventBufferTrigger(object state)
+        {
+            if (Interlocked.CompareExchange(ref flowProcess, 1, 0) == 0)
+            {
+                while (await InputBufferBatchRaise())
+                {
+                    await OnBatchRaiseCompleteOfInput();
+                }
+                Interlocked.Exchange(ref flowProcess, 0);
+                if (InputEventBufferBlock.Count > 0)
+                    await EventBufferTrigger(state);
+            }
+        }
+        public virtual Task OnBatchRaiseCompleteOfInput()
+        {
+            return Task.CompletedTask;
+        }
+        public async ValueTask<bool> InputBufferBatchRaise()
+        {
+            if (InputEventBufferBlock.TryReceiveAll(out var firstBlock))
+            {
+                var start = DateTime.UtcNow;
+                var events = new List<EventTransactionWrap<K>>(firstBlock);
+                await BeginTransaction();
+                try
+                {
+                    foreach (var evt in firstBlock)
+                    {
+                        await RaiseEvent(evt.Value, evt.UniqueId, isTransaction: true);
+                    }
+                    while (InputEventBufferBlock.TryReceiveAll(out var block))
+                    {
+                        events.AddRange(block);
+                        foreach (var evt in block)
+                        {
+                            await RaiseEvent(evt.Value, evt.UniqueId, isTransaction: true);
+                        }
+                        if ((DateTime.UtcNow - start).TotalMilliseconds > 50) break;//保证批量延时不超过50ms
+                    }
+
+                    var commited = await CommitTransaction();
+                    if (commited)
+                    {
+                        foreach (var evt in events)
+                        {
+                            evt.TaskSource.SetResult(true);
+                        }
+                    }
+                    else
+                    {
+                        await BatchEventReTry(events);
+                    }
+                }
+                catch
+                {
+                    await RollbackTransaction();
+                    await BatchEventReTry(events);
+                }
+                return true;
+            }
+            return false;
+        }
+        private async Task BatchEventReTry(IList<EventTransactionWrap<K>> events)
+        {
+            foreach (var evt in events)
+            {
+                try
+                {
+                    evt.TaskSource.TrySetResult(await RaiseEvent(evt.Value, evt.UniqueId));
+                }
+                catch (Exception e)
+                {
+                    evt.TaskSource.TrySetException(e);
+                }
+            }
         }
         /// <summary>
         /// 发送无状态更改的消息到消息队列

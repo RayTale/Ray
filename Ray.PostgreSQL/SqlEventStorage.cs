@@ -123,37 +123,77 @@ namespace Ray.PostgreSQL
         }
         private async ValueTask<bool> FlowProcess()
         {
-            if (EventFlow.TryReceiveAll(out var firstBlock))
-            {
-                var events = new List<object>(firstBlock);
-                while (EventFlow.TryReceiveAll(out var block))
-                {
-                    events.AddRange(block);
-                    if (events.Count > 1000) break;
-                }
-                var wrapList = events.Select(wrap => wrap as EventBytesTransactionWrap<K>).ToList();
-                try
-                {
-                    var saved = await BatchSaveAsync(wrapList.Select(data => new EventSaveWrap<K>(data.Value, data.Bytes, data.UniqueId)).ToList());
-                    if (saved)
-                    {
-                        foreach (var wrap in wrapList)
-                        {
-                            wrap.TaskSource.SetResult(true);
-                        }
-                    }
-                    else
-                    {
-                        await ReTry(wrapList);
-                    }
-                }
-                catch
-                {
-                    await ReTry(wrapList);
-                }
-                return true;
-            }
-            return false;
+            return await Task.Run<bool>(async () =>
+             {
+                 if (EventFlow.TryReceiveAll(out var firstBlock))
+                 {
+                     var start = DateTime.UtcNow;
+                     var wrapList = new List<EventBytesTransactionWrap<K>>();
+                     wrapList.AddRange(firstBlock);
+                     var table = await tableInfo.GetTable(DateTime.UtcNow);
+                     if (!copySaveSqlDict.TryGetValue(table.Name, out var saveSql))
+                     {
+                         saveSql = $"copy {table.Name}(stateid,uniqueId,typecode,data,version) FROM STDIN (FORMAT BINARY)";
+                         copySaveSqlDict.TryAdd(table.Name, saveSql);
+                     }
+                     try
+                     {
+                         using (var conn = tableInfo.CreateConnection() as NpgsqlConnection)
+                         {
+                             await conn.OpenAsync();
+                             using (var writer = conn.BeginBinaryImport(saveSql))
+                             {
+                                 foreach (var evt in firstBlock)
+                                 {
+                                     writer.StartRow();
+                                     writer.Write(evt.Value.StateId.ToString(), NpgsqlDbType.Varchar);
+                                     writer.Write(evt.UniqueId, NpgsqlDbType.Varchar);
+                                     writer.Write(evt.Value.TypeCode, NpgsqlDbType.Varchar);
+                                     writer.Write(evt.Bytes, NpgsqlDbType.Bytea);
+                                     writer.Write(evt.Value.Version, NpgsqlDbType.Bigint);
+                                 }
+                                 while (EventFlow.TryReceiveAll(out var block))
+                                 {
+                                     wrapList.AddRange(block);
+                                     foreach (var evt in block)
+                                     {
+                                         writer.StartRow();
+                                         writer.Write(evt.Value.StateId.ToString(), NpgsqlDbType.Varchar);
+                                         writer.Write(evt.UniqueId, NpgsqlDbType.Varchar);
+                                         writer.Write(evt.Value.TypeCode, NpgsqlDbType.Varchar);
+                                         writer.Write(evt.Bytes, NpgsqlDbType.Bytea);
+                                         writer.Write(evt.Value.Version, NpgsqlDbType.Bigint);
+                                     }
+                                     if ((DateTime.UtcNow - start).TotalMilliseconds > 50) break;//保证批量延时不超过50ms
+                                 }
+                                 writer.Complete();
+                             }
+                         }
+                         foreach (var wrap in wrapList)
+                         {
+                             wrap.TaskSource.SetResult(true);
+                         }
+                     }
+                     catch (Exception ex)
+                     {
+                         if (ex is PostgresException e && e.SqlState == "23505")
+                         {
+                             await ReTry(wrapList);
+                         }
+                         else
+                         {
+                             foreach (var wrap in wrapList)
+                             {
+                                 wrap.TaskSource.TrySetException(ex);
+                             }
+                         }
+                     }
+                     //返回true代表有接收到数据
+                     return true;
+                 }
+                 //没有接收到数据
+                 return false;
+             }).ConfigureAwait(false);
         }
         public async Task ReTry(List<EventBytesTransactionWrap<K>> wrapList)
         {

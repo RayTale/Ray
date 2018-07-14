@@ -1,5 +1,4 @@
-﻿using System;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Orleans;
 using Ray.Core.EventSourcing;
 using Ray.IGrains.Actors;
@@ -7,13 +6,8 @@ using Ray.IGrains.States;
 using Ray.IGrains.Events;
 using Ray.PostgreSQL;
 using Ray.Grain.EventHandles;
-using Orleans.Concurrency;
 using Ray.RabbitMQ;
 using Microsoft.Extensions.Options;
-using System.Diagnostics;
-using System.Threading.Tasks.Dataflow;
-using System.Threading;
-using System.Collections.Generic;
 
 namespace Ray.Grain
 {
@@ -32,6 +26,7 @@ namespace Ray.Grain
         protected override IEventHandle EventHandle => _eventHandle;
         static SqlGrainConfig _table;
         protected override bool SupportAsync => false;
+        protected override bool OpenInputBuffer => true;
         public override SqlGrainConfig GrainConfig
         {
             get
@@ -43,103 +38,19 @@ namespace Ray.Grain
                 return _table;
             }
         }
-        BufferBlock<EventTransactionWrap<long>> addAmountBufferBlock;
         public override async Task OnActivateAsync()
         {
             await base.OnActivateAsync();
-            addAmountBufferBlock = new BufferBlock<EventTransactionWrap<long>>();
-            RegisterTimer(Trans, null, new TimeSpan(0, 0, 5), new TimeSpan(0, 0, 5));
         }
         public Task Transfer(long toAccountId, decimal amount)
         {
             var evt = new AmountTransferEvent(toAccountId, amount, this.State.Balance - amount);
             return RaiseEvent(evt).AsTask();
         }
-        private async Task Trans(object state)
-        {
-            if (Interlocked.CompareExchange(ref process, 1, 0) == 0)
-            {
-                Console.WriteLine("enter process");
-                while (await BatchProcess()) { }
-                Interlocked.Exchange(ref process, 0);
-            }
-        }
-        public async ValueTask<bool> BatchProcess()
-        {
-            if (addAmountBufferBlock.TryReceiveAll(out var firstBlock))
-            {
-                var events = new List<EventTransactionWrap<long>>(firstBlock);
-                await BeginTransaction();
-                try
-                {
-                    foreach (var evt in firstBlock)
-                    {
-                        await RaiseEvent(evt.Value, evt.UniqueId, isTransaction: true);
-                    }
-                    while (addAmountBufferBlock.TryReceiveAll(out var block))
-                    {
-                        events.AddRange(block);
-                        foreach (var evt in block)
-                        {
-                            await RaiseEvent(evt.Value, evt.UniqueId, isTransaction: true);
-                        }
-                        if (events.Count > 10000) break;
-                    }
-
-                    var commited = await CommitTransaction();
-                    if (commited)
-                    {
-                        foreach (var evt in events)
-                        {
-                            evt.TaskSource.SetResult(true);
-                        }
-                    }
-                    else
-                    {
-                        await ReTry(events);
-                    }
-                }
-                catch
-                {
-                    await RollbackTransaction();
-                    await ReTry(events);
-                }
-                return true;
-            }
-            return false;
-        }
-        public async Task ReTry(IList<EventTransactionWrap<long>> events)
-        {
-            foreach (var evt in events)
-            {
-                try
-                {
-                    evt.TaskSource.TrySetResult(await RaiseEvent(evt.Value, evt.UniqueId));
-                }
-                catch (Exception e)
-                {
-                    evt.TaskSource.TrySetException(e);
-                }
-            }
-        }
-        int process = 0;
         public async Task AddAmount(decimal amount, string uniqueId = null)
         {
             var evt = new AmountAddEvent(amount);
-            //await RaiseEvent(evt, uniqueId: uniqueId);
-            var task = EventTransactionWrap<long>.Create(evt, uniqueId);
-            await addAmountBufferBlock.SendAsync(task);
-            await Trans(null);
-            await task.TaskSource.Task;
-            //var stopWatch = new Stopwatch();
-            //stopWatch.Start();
-            //for (int i = 0; i < 100; i++)
-            //{
-            //    var evt = new AmountAddEvent(amount, this.State.Balance + amount);
-            //    await RaiseEvent(evt, uniqueId: uniqueId).AsTask();
-            //}
-            //stopWatch.Stop();
-            //Console.WriteLine($"100insert:{stopWatch.ElapsedMilliseconds}ms");
+            await EnterBuffer(evt, uniqueId);
         }
         public Task<decimal> GetBalance()
         {
