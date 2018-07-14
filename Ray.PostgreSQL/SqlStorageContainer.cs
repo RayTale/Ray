@@ -10,21 +10,6 @@ namespace Ray.PostgreSQL
 {
     public class SqlStorageContainer : IStorageContainer
     {
-        readonly Timer monitorTimer;
-        public SqlStorageContainer()
-        {
-            monitorTimer = new Timer(state =>
-            {
-                Task.WhenAll(eventStorageDict.Values.Select(storage =>
-                {
-                    if (storage is IEventFlowStorage flow)
-                    {
-                        return flow.TriggerFlowProcess();
-                    }
-                    return Task.CompletedTask;
-                })).Wait();
-            }, null, 10 * 1000, 20 * 1000);
-        }
         private async Task<SqlGrainConfig> GetTableInfo(Type type, Grain grain)
         {
             if (grain is ISqlGrain sqlGrain && sqlGrain.GrainConfig != null)
