@@ -15,7 +15,7 @@ using System.Threading.Tasks.Dataflow;
 
 namespace Ray.PostgreSQL
 {
-    public class SqlEventStorage<K> : IEventStorage<K>, IEventFlowStorage
+    public class SqlEventStorage<K> : IEventStorage<K>
     {
         SqlGrainConfig tableInfo;
         BufferBlock<EventBytesTransactionWrap<K>> EventFlow;
@@ -113,12 +113,14 @@ namespace Ray.PostgreSQL
             await TriggerFlowProcess();
             return await wrap.TaskSource.Task;
         }
-        public async Task TriggerFlowProcess()
+        private async Task TriggerFlowProcess()
         {
             if (Interlocked.CompareExchange(ref isProcessing, 1, 0) == 0)
             {
                 while (await FlowProcess()) { }
                 Interlocked.Exchange(ref isProcessing, 0);
+                if (EventFlow.Count > 0)
+                    await TriggerFlowProcess();
             }
         }
         private async ValueTask<bool> FlowProcess()
