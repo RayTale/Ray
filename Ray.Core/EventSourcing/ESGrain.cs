@@ -174,9 +174,9 @@ namespace Ray.Core.EventSourcing
             beginTransaction = true;
             beginTransactionTime = DateTime.UtcNow;
         }
-        protected async ValueTask<bool> CommitTransaction()
+        protected async Task CommitTransaction()
         {
-            if (transactionEventList.Count == 0) return true;
+            if (transactionEventList.Count == 0) return;
             var serializer = GetSerializer();
             using (var ms = new PooledMemoryStream())
             {
@@ -215,11 +215,6 @@ namespace Ray.Core.EventSourcing
                 transactionEventList.Clear();
                 beginTransaction = false;
             }
-            else
-            {
-                await RollbackTransaction();
-            }
-            return saved;
         }
         protected async Task RollbackTransaction()
         {
@@ -299,28 +294,31 @@ namespace Ray.Core.EventSourcing
         {
             var task = EventTransactionWrap<K>.Create(evt, uniqueId);
             await InputEventBufferBlock.SendAsync(task);
-            await EventBufferTrigger(null);
+            if (flowProcess == 0)
+                await FlowTrigger();
             return await task.TaskSource.Task;
         }
         int flowProcess = 0;
-        private async Task EventBufferTrigger(object state)
+        protected async Task FlowTrigger()
         {
             if (Interlocked.CompareExchange(ref flowProcess, 1, 0) == 0)
             {
-                while (await InputBufferBatchRaise())
+                while (await InputFlowBatchRaise())
                 {
-                    await OnBatchRaiseCompleteOfInput();
+                    await OnFlowNext(true);
                 }
+                await OnFlowNext(false);
                 Interlocked.Exchange(ref flowProcess, 0);
-                if (InputEventBufferBlock.Count > 0)
-                    await EventBufferTrigger(state);
+                if (FlowNeedReCheck)
+                    await FlowTrigger();
             }
         }
-        public virtual Task OnBatchRaiseCompleteOfInput()
+        protected virtual bool FlowNeedReCheck => InputEventBufferBlock.Count > 0;
+        protected virtual Task OnFlowNext(bool hasInput)
         {
             return Task.CompletedTask;
         }
-        public async ValueTask<bool> InputBufferBatchRaise()
+        public async ValueTask<bool> InputFlowBatchRaise()
         {
             if (InputEventBufferBlock.TryReceiveAll(out var firstBlock))
             {
@@ -343,17 +341,10 @@ namespace Ray.Core.EventSourcing
                         if ((DateTime.UtcNow - start).TotalMilliseconds > 50) break;//保证批量延时不超过50ms
                     }
 
-                    var commited = await CommitTransaction();
-                    if (commited)
+                    await CommitTransaction();
+                    foreach (var evt in events)
                     {
-                        foreach (var evt in events)
-                        {
-                            evt.TaskSource.SetResult(true);
-                        }
-                    }
-                    else
-                    {
-                        await BatchEventReTry(events);
+                        evt.TaskSource.SetResult(true);
                     }
                 }
                 catch

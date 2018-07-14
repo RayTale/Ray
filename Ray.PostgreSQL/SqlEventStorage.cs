@@ -125,7 +125,7 @@ namespace Ray.PostgreSQL
         }
         private async ValueTask<bool> FlowProcess()
         {
-            return await Task.Run<bool>(async () =>
+            return await Task.Run(async () =>
              {
                  if (EventFlow.TryReceiveAll(out var firstBlock))
                  {
@@ -176,17 +176,17 @@ namespace Ray.PostgreSQL
                              wrap.TaskSource.SetResult(true);
                          }
                      }
-                     catch (Exception ex)
+                     catch
                      {
-                         if (ex is PostgresException e && e.SqlState == "23505")
+                         foreach (var data in wrapList)
                          {
-                             await ReTry(wrapList);
-                         }
-                         else
-                         {
-                             foreach (var wrap in wrapList)
+                             try
                              {
-                                 wrap.TaskSource.TrySetException(ex);
+                                 data.TaskSource.TrySetResult(await SingleSaveAsync(data.Value, data.Bytes, data.UniqueId));
+                             }
+                             catch (Exception e)
+                             {
+                                 data.TaskSource.TrySetException(e);
                              }
                          }
                      }
@@ -197,21 +197,7 @@ namespace Ray.PostgreSQL
                  return false;
              }).ConfigureAwait(false);
         }
-        public async Task ReTry(List<EventBytesTransactionWrap<K>> wrapList)
-        {
-            foreach (var data in wrapList)
-            {
-                try
-                {
-                    data.TaskSource.TrySetResult(await SingleSaveAsync(data.Value, data.Bytes, data.UniqueId));
-                }
-                catch (Exception e)
-                {
-                    data.TaskSource.TrySetException(e);
-                }
-            }
-        }
-        private async Task<bool> SingleSaveAsync(IEventBase<K> evt, byte[] bytes, string uniqueId = null)
+        private async ValueTask<bool> SingleSaveAsync(IEventBase<K> evt, byte[] bytes, string uniqueId = null)
         {
             var table = await tableInfo.GetTable(evt.Timestamp);
             if (!saveSqlDict.TryGetValue(table.Name, out var saveSql))
@@ -246,61 +232,33 @@ namespace Ray.PostgreSQL
                     saveSql = $"copy {table.Name}(stateid,uniqueId,typecode,data,version) FROM STDIN (FORMAT BINARY)";
                     copySaveSqlDict.TryAdd(table.Name, saveSql);
                 }
-                try
+                await Task.Run(async () =>
                 {
-                    await Task.Run(async () =>
+                    using (var conn = tableInfo.CreateConnection() as NpgsqlConnection)
                     {
-                        using (var conn = tableInfo.CreateConnection() as NpgsqlConnection)
+                        await conn.OpenAsync();
+                        using (var writer = conn.BeginBinaryImport(saveSql))
                         {
-                            await conn.OpenAsync();
-                            using (var writer = conn.BeginBinaryImport(saveSql))
+                            foreach (var evt in list)
                             {
-                                foreach (var evt in list)
-                                {
-                                    writer.StartRow();
-                                    writer.Write(evt.Evt.StateId.ToString(), NpgsqlDbType.Varchar);
-                                    writer.Write(evt.UniqueId, NpgsqlDbType.Varchar);
-                                    writer.Write(evt.Evt.TypeCode, NpgsqlDbType.Varchar);
-                                    writer.Write(evt.Bytes, NpgsqlDbType.Bytea);
-                                    writer.Write(evt.Evt.Version, NpgsqlDbType.Bigint);
-                                }
-                                writer.Complete();
+                                writer.StartRow();
+                                writer.Write(evt.Evt.StateId.ToString(), NpgsqlDbType.Varchar);
+                                writer.Write(evt.UniqueId, NpgsqlDbType.Varchar);
+                                writer.Write(evt.Evt.TypeCode, NpgsqlDbType.Varchar);
+                                writer.Write(evt.Bytes, NpgsqlDbType.Bytea);
+                                writer.Write(evt.Evt.Version, NpgsqlDbType.Bigint);
                             }
+                            writer.Complete();
                         }
-                    }).ConfigureAwait(false);
-                    return true;
-                }
-                catch (Exception ex)
-                {
-                    if (!(ex is PostgresException e && e.SqlState == "23505"))
-                    {
-                        throw ex;
                     }
-                }
+                }).ConfigureAwait(false);
+                return true;
             }
             else
             {
-                if (!saveSqlDict.TryGetValue(table.Name, out var saveSql))
-                {
-                    saveSql = $"INSERT INTO {table.Name}(stateid,uniqueId,typecode,data,version) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version)";
-                    saveSqlDict.TryAdd(table.Name, saveSql);
-                }
-                try
-                {
-                    using (var conn = tableInfo.CreateConnection())
-                    {
-                        return (await conn.ExecuteAsync(saveSql, list.Select(data => new { StateId = data.Evt.StateId.ToString(), data.UniqueId, data.Evt.TypeCode, Data = data.Bytes, data.Evt.Version }).ToList())) > 0;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    if (!(ex is PostgresException e && e.SqlState == "23505"))
-                    {
-                        throw ex;
-                    }
-                }
+                var evt = list[0];
+                return await SingleSaveAsync(evt.Evt, evt.Bytes, evt.UniqueId);
             }
-            return false;
         }
     }
 }
