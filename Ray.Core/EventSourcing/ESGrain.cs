@@ -304,19 +304,27 @@ namespace Ray.Core.EventSourcing
         {
             if (Interlocked.CompareExchange(ref flowProcess, 1, 0) == 0)
             {
-                while (await FlowTriggerWaiting())
+                while (true)
                 {
-                    while (await InputFlowBatchRaise())
+                    var (needTrigger, hasInput) = await FlowTriggerWaiting();
+                    if (needTrigger)
                     {
-                        await OnFlowNext(true);
+                        while (await InputFlowBatchRaise())
+                        {
+                            await OnFlowNext(hasInput);
+                        }
+                    }
+                    else
+                    {
+                        break;
                     }
                 }
                 Interlocked.Exchange(ref flowProcess, 0);
             }
         }
-        protected ValueTask<bool> FlowTriggerWaiting()
+        protected virtual async ValueTask<(bool needTrigger, bool hasInput)> FlowTriggerWaiting()
         {
-            return InputFlowChannel.Reader.WaitToReadAsync();
+            return (await InputFlowChannel.Reader.WaitToReadAsync(), true);
         }
         protected virtual Task OnFlowNext(bool hasInput)
         {
