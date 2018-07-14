@@ -83,11 +83,6 @@ namespace Ray.MongoHost
 
             var host = builder.Build();
             await host.StartAsync();
-            using (var conn = SqlFactory.CreateConnection("Server=127.0.0.1;Port=5432;Database=Ray;User Id=postgres;Password=extop;Pooling=true;MaxPoolSize=50;Timeout=10;"))
-            {
-                const string sql = "update mytable set name=@Name where id=@Id";
-                var account = await conn.ExecuteAsync(sql, new List<Model> { new Model { Id = 1, Name = "name1" }, new Model { Id = 2, Name = "name2" } });
-            }
             return host;
         }
     }
