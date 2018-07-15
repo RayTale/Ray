@@ -26,18 +26,25 @@ namespace Ray.Core.EventSourcing
         protected Int64 StateStorageVersion { get; set; }
         protected virtual int SnapshotMinFrequency => 20;
         protected virtual bool SupportAsync => true;
-        protected Channel<EventTransactionWrap<K>> InputFlowChannel { get; set; }
-        /// <summary>
-        /// 是否开启输入批量处理
-        /// </summary>
-        protected virtual bool OpenInputBuffer => false;
+        private Channel<EventTransactionWrap<K>> _InputFlowChannel = default;
+        protected Channel<EventTransactionWrap<K>> InputFlowChannel
+        {
+            get
+            {
+                if (_InputFlowChannel == default)
+                    _InputFlowChannel = Channel.CreateUnbounded<EventTransactionWrap<K>>();
+                return _InputFlowChannel;
+            }
+        }
         protected ILogger<ESGrain<K, S, W>> Logger { get; set; }
         #region LifeTime
         public override async Task OnActivateAsync()
         {
             Logger = ServiceProvider.GetService<ILogger<ESGrain<K, S, W>>>();
-            if (OpenInputBuffer)
-                InputFlowChannel = Channel.CreateUnbounded<EventTransactionWrap<K>>();
+            await RecoveryState();
+        }
+        protected virtual async Task RecoveryState()
+        {
             await ReadSnapshotAsync();
             while (true)
             {
@@ -55,6 +62,8 @@ namespace Ray.Core.EventSourcing
         {
             if (State.Version - StateStorageVersion >= SnapshotMinFrequency)
                 await SaveSnapshotAsync(true);
+            if (_InputFlowChannel != default)
+                _InputFlowChannel.Writer.Complete();
         }
         #endregion
         #region State storage
@@ -177,21 +186,20 @@ namespace Ray.Core.EventSourcing
         }
         protected async ValueTask CommitTransaction()
         {
-            if (transactionEventList.Count == 0) return;
-            var serializer = GetSerializer();
-            using (var ms = new PooledMemoryStream())
+            if (transactionEventList.Count > 0)
             {
-                foreach (var @event in transactionEventList)
+                var serializer = GetSerializer();
+                using (var ms = new PooledMemoryStream())
                 {
-                    serializer.Serialize(ms, @event.Evt);
-                    @event.Bytes = ms.ToArray();
-                    ms.Position = 0;
-                    ms.SetLength(0);
+                    foreach (var @event in transactionEventList)
+                    {
+                        serializer.Serialize(ms, @event.Evt);
+                        @event.Bytes = ms.ToArray();
+                        ms.Position = 0;
+                        ms.SetLength(0);
+                    }
                 }
-            }
-            var saved = await (await GetEventStorage()).BatchSaveAsync(transactionEventList);
-            if (saved)
-            {
+                await (await GetEventStorage()).BatchSaveAsync(transactionEventList);
                 if (SupportAsync)
                 {
                     var mqService = GetMQService();
@@ -213,15 +221,15 @@ namespace Ray.Core.EventSourcing
                     }
                 }
                 await SaveSnapshotAsync();
+                transactionEventList.Clear();
             }
-            transactionEventList.Clear();
             beginTransaction = false;
         }
         protected async ValueTask RollbackTransaction()
         {
             if (beginTransaction)
             {
-                await OnActivateAsync();
+                await RecoveryState();
                 transactionEventList.Clear();
                 beginTransaction = false;
             }
@@ -309,7 +317,14 @@ namespace Ray.Core.EventSourcing
                     var (needTrigger, hasInput) = await FlowTriggerWaiting();
                     if (needTrigger)
                     {
-                        while (await InputFlowBatchRaise())
+                        if (hasInput)
+                        {
+                            while (await InputFlowBatchRaise())
+                            {
+                                await OnFlowNext(hasInput);
+                            }
+                        }
+                        else
                         {
                             await OnFlowNext(hasInput);
                         }
