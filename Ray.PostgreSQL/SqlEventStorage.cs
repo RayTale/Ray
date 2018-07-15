@@ -126,81 +126,76 @@ namespace Ray.PostgreSQL
         private async ValueTask<bool> FlowProcess()
         {
             return await Task.Run(async () =>
-             {
-                 if (EventSaveFlowChannel.Reader.TryRead(out var first))
-                 {
-                     var start = DateTime.UtcNow;
-                     var wrapList = new List<EventBytesTransactionWrap<K>>
+            {
+                if (EventSaveFlowChannel.Reader.TryRead(out var first))
+                {
+                    var start = DateTime.UtcNow;
+                    var wrapList = new List<EventBytesTransactionWrap<K>>
                      {
                          first
                      };
-                     var table = await tableInfo.GetTable(DateTime.UtcNow);
-                     if (!copySaveSqlDict.TryGetValue(table.Name, out var saveSql))
-                     {
-                         saveSql = $"copy {table.Name}(stateid,uniqueId,typecode,data,version) FROM STDIN (FORMAT BINARY)";
-                         copySaveSqlDict.TryAdd(table.Name, saveSql);
-                     }
-                     try
-                     {
-                         using (var conn = tableInfo.CreateConnection() as NpgsqlConnection)
-                         {
-                             await conn.OpenAsync();
-                             using (var writer = conn.BeginBinaryImport(saveSql))
-                             {
-                                 writer.StartRow();
-                                 writer.Write(first.Value.StateId.ToString(), NpgsqlDbType.Varchar);
-                                 writer.Write(first.UniqueId, NpgsqlDbType.Varchar);
-                                 writer.Write(first.Value.TypeCode, NpgsqlDbType.Varchar);
-                                 writer.Write(first.Bytes, NpgsqlDbType.Bytea);
-                                 writer.Write(first.Value.Version, NpgsqlDbType.Bigint);
-                                 while (EventSaveFlowChannel.Reader.TryRead(out var evt))
-                                 {
-                                     wrapList.Add(evt);
-                                     writer.StartRow();
-                                     writer.Write(evt.Value.StateId.ToString(), NpgsqlDbType.Varchar);
-                                     writer.Write(evt.UniqueId, NpgsqlDbType.Varchar);
-                                     writer.Write(evt.Value.TypeCode, NpgsqlDbType.Varchar);
-                                     writer.Write(evt.Bytes, NpgsqlDbType.Bytea);
-                                     writer.Write(evt.Value.Version, NpgsqlDbType.Bigint);
-                                     if ((DateTime.UtcNow - start).TotalMilliseconds > 50) break;//保证批量延时不超过50ms
-                                 }
-                                 writer.Complete();
-                             }
-                         }
-                         foreach (var wrap in wrapList)
-                         {
-                             wrap.TaskSource.SetResult(true);
-                         }
-                     }
-                     catch
-                     {
-                         foreach (var data in wrapList)
-                         {
-                             try
-                             {
-                                 data.TaskSource.TrySetResult(await SingleSaveAsync(data.Value, data.Bytes, data.UniqueId));
-                             }
-                             catch (Exception e)
-                             {
-                                 data.TaskSource.TrySetException(e);
-                             }
-                         }
-                     }
-                     //返回true代表有接收到数据
-                     return true;
-                 }
-                 //没有接收到数据
-                 return false;
-             }).ConfigureAwait(false);
+                    var table = await tableInfo.GetTable(DateTime.UtcNow);
+                    if (!copySaveSqlDict.TryGetValue(table.Name, out var saveSql))
+                    {
+                        saveSql = $"copy {table.Name}(stateid,uniqueId,typecode,data,version) FROM STDIN (FORMAT BINARY)";
+                        copySaveSqlDict.TryAdd(table.Name, saveSql);
+                    }
+                    try
+                    {
+                        using (var conn = tableInfo.CreateConnection() as NpgsqlConnection)
+                        {
+                            await conn.OpenAsync();
+                            using (var writer = conn.BeginBinaryImport(saveSql))
+                            {
+                                writer.StartRow();
+                                writer.Write(first.Value.StateId.ToString(), NpgsqlDbType.Varchar);
+                                writer.Write(first.UniqueId, NpgsqlDbType.Varchar);
+                                writer.Write(first.Value.TypeCode, NpgsqlDbType.Varchar);
+                                writer.Write(first.Bytes, NpgsqlDbType.Bytea);
+                                writer.Write(first.Value.Version, NpgsqlDbType.Bigint);
+                                while (EventSaveFlowChannel.Reader.TryRead(out var evt))
+                                {
+                                    wrapList.Add(evt);
+                                    writer.StartRow();
+                                    writer.Write(evt.Value.StateId.ToString(), NpgsqlDbType.Varchar);
+                                    writer.Write(evt.UniqueId, NpgsqlDbType.Varchar);
+                                    writer.Write(evt.Value.TypeCode, NpgsqlDbType.Varchar);
+                                    writer.Write(evt.Bytes, NpgsqlDbType.Bytea);
+                                    writer.Write(evt.Value.Version, NpgsqlDbType.Bigint);
+                                    if ((DateTime.UtcNow - start).TotalMilliseconds > 50) break;//保证批量延时不超过50ms
+                                }
+                                writer.Complete();
+                            }
+                        }
+                        foreach (var wrap in wrapList)
+                        {
+                            wrap.TaskSource.SetResult(true);
+                        }
+                    }
+                    catch
+                    {
+                        foreach (var data in wrapList)
+                        {
+                            try
+                            {
+                                data.TaskSource.TrySetResult(await SingleSaveAsync(data.Value, data.Bytes, data.UniqueId));
+                            }
+                            catch (Exception e)
+                            {
+                                data.TaskSource.TrySetException(e);
+                            }
+                        }
+                    }
+                    //返回true代表有接收到数据
+                    return true;
+                }
+                //没有接收到数据
+                return false;
+            }).ConfigureAwait(false);
         }
         private async ValueTask<bool> SingleSaveAsync(IEventBase<K> evt, byte[] bytes, string uniqueId = null)
         {
-            var table = await tableInfo.GetTable(evt.Timestamp);
-            if (!saveSqlDict.TryGetValue(table.Name, out var saveSql))
-            {
-                saveSql = $"INSERT INTO {table.Name}(stateid,uniqueId,typecode,data,version) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version)";
-                saveSqlDict.TryAdd(table.Name, saveSql);
-            }
+            var saveSql = await GetInsertSql();
             try
             {
                 using (var conn = tableInfo.CreateConnection())
@@ -217,12 +212,22 @@ namespace Ray.PostgreSQL
             }
             return false;
         }
-        static ConcurrentDictionary<string, string> copySaveSqlDict = new ConcurrentDictionary<string, string>();
-        public async ValueTask<bool> BatchSaveAsync(List<EventSaveWrap<K>> list)
+        private async ValueTask<string> GetInsertSql()
         {
             var table = await tableInfo.GetTable(DateTime.UtcNow);
+            if (!saveSqlDict.TryGetValue(table.Name, out var saveSql))
+            {
+                saveSql = $"INSERT INTO {table.Name}(stateid,uniqueId,typecode,data,version) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version)";
+                saveSqlDict.TryAdd(table.Name, saveSql);
+            }
+            return saveSql;
+        }
+        static ConcurrentDictionary<string, string> copySaveSqlDict = new ConcurrentDictionary<string, string>();
+        public async ValueTask BatchSaveAsync(List<EventSaveWrap<K>> list)
+        {
             if (list.Count > 1)
             {
+                var table = await tableInfo.GetTable(DateTime.UtcNow);
                 if (!copySaveSqlDict.TryGetValue(table.Name, out var saveSql))
                 {
                     saveSql = $"copy {table.Name}(stateid,uniqueId,typecode,data,version) FROM STDIN (FORMAT BINARY)";
@@ -248,12 +253,15 @@ namespace Ray.PostgreSQL
                         }
                     }
                 }).ConfigureAwait(false);
-                return true;
             }
             else
             {
+                var saveSql = await GetInsertSql();
                 var evt = list[0];
-                return await SingleSaveAsync(evt.Evt, evt.Bytes, evt.UniqueId);
+                using (var conn = tableInfo.CreateConnection())
+                {
+                    await conn.ExecuteAsync(saveSql, new { StateId = evt.Evt.StateId.ToString(), evt.UniqueId, evt.Evt.TypeCode, Data = evt.Bytes, evt.Evt.Version });
+                }
             }
         }
     }

@@ -27,7 +27,6 @@ namespace Ray.Grain
         protected override IEventHandle EventHandle => _eventHandle;
         static SqlGrainConfig _table;
         protected override bool SupportAsync => false;
-        protected override bool OpenInputBuffer => true;
         public override SqlGrainConfig GrainConfig
         {
             get
