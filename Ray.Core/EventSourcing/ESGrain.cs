@@ -198,6 +198,8 @@ namespace Ray.Core.EventSourcing
                     }
                 }
                 await (await GetEventStorage()).BatchSaveAsync(transactionEventList);
+                await SaveSnapshotAsync();
+                transactionEventList.Clear();
                 if (SupportAsync)
                 {
                     var mqService = GetMQService();
@@ -218,8 +220,6 @@ namespace Ray.Core.EventSourcing
                         }
                     }
                 }
-                await SaveSnapshotAsync();
-                transactionEventList.Clear();
             }
             transactionPending = false;
         }
@@ -363,18 +363,12 @@ namespace Ray.Core.EventSourcing
                         if ((DateTime.UtcNow - start).TotalMilliseconds > 100) break;//保证批量延时不超过100ms
                     }
                     await CommitTransaction();
-                    foreach (var evt in events)
-                    {
-                        evt.TaskSource.SetResult(true);
-                    }
+                    events.ForEach(evt => evt.TaskSource.SetResult(true));
                 }
                 catch (Exception e)
                 {
                     await RollbackTransaction();
-                    foreach (var evt in events)
-                    {
-                        evt.TaskSource.TrySetException(e);
-                    }
+                    events.ForEach(evt => evt.TaskSource.TrySetException(e));
                 }
                 return true;
             }
