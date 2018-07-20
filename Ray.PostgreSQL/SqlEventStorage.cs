@@ -131,10 +131,7 @@ namespace Ray.PostgreSQL
                 if (EventSaveFlowChannel.Reader.TryRead(out var first))
                 {
                     var start = DateTime.UtcNow;
-                    var wrapList = new List<EventBytesTransactionWrap<K>>
-                     {
-                         first
-                     };
+                    var wrapList = new List<EventBytesTransactionWrap<K>> { first };
                     var copySql = copySaveSqlDict.GetOrAdd((await tableInfo.GetTable(DateTime.UtcNow)).Name, key => $"copy {key}(stateid,uniqueId,typecode,data,version) FROM STDIN (FORMAT BINARY)");
                     try
                     {
@@ -163,22 +160,32 @@ namespace Ray.PostgreSQL
                                 writer.Complete();
                             }
                         }
+                        wrapList.ForEach(wrap => wrap.TaskSource.SetResult(true));
                     }
                     catch
                     {
-                        try
+                        var saveSql = await GetInsertSql();
+                        using (var conn = tableInfo.CreateConnection())
                         {
-                            using (var conn = tableInfo.CreateConnection())
+                            await conn.OpenAsync();
+                            using (var trans = conn.BeginTransaction())
                             {
-                                return (await conn.ExecuteAsync(await GetInsertSql(), wrapList.Select(w => new { StateId = w.Value.StateId.ToString(), w.UniqueId, w.Value.TypeCode, Data = w.Bytes, w.Value.Version }).ToArray())) > 0;
+                                try
+                                {
+                                    foreach (var w in wrapList)
+                                    {
+                                        w.TaskSource.TrySetResult((await conn.ExecuteAsync(saveSql, new { StateId = w.Value.StateId.ToString(), w.UniqueId, w.Value.TypeCode, Data = w.Bytes, w.Value.Version }) > 0));
+                                    }
+                                    trans.Commit();
+                                }
+                                catch (Exception e)
+                                {
+                                    trans.Rollback();
+                                    wrapList.ForEach(wrap => wrap.TaskSource.TrySetException(e));
+                                }
                             }
                         }
-                        catch (Exception e)
-                        {
-                            wrapList.ForEach(wrap => wrap.TaskSource.TrySetException(e));
-                        }
                     }
-                    wrapList.ForEach(wrap => wrap.TaskSource.SetResult(true));
                     //返回true代表有接收到数据
                     return true;
                 }
@@ -193,38 +200,27 @@ namespace Ray.PostgreSQL
         static ConcurrentDictionary<string, string> copySaveSqlDict = new ConcurrentDictionary<string, string>();
         public async ValueTask BatchSaveAsync(List<EventSaveWrap<K>> list)
         {
-            try
+            var saveSql = copySaveSqlDict.GetOrAdd((await tableInfo.GetTable(DateTime.UtcNow)).Name, key => $"copy {key}(stateid,uniqueId,typecode,data,version) FROM STDIN (FORMAT BINARY)");
+            await Task.Run(async () =>
             {
-                var saveSql = copySaveSqlDict.GetOrAdd((await tableInfo.GetTable(DateTime.UtcNow)).Name, key => $"copy {key}(stateid,uniqueId,typecode,data,version) FROM STDIN (FORMAT BINARY)");
-                await Task.Run(async () =>
+                using (var conn = tableInfo.CreateConnection() as NpgsqlConnection)
                 {
-                    using (var conn = tableInfo.CreateConnection() as NpgsqlConnection)
+                    await conn.OpenAsync();
+                    using (var writer = conn.BeginBinaryImport(saveSql))
                     {
-                        await conn.OpenAsync();
-                        using (var writer = conn.BeginBinaryImport(saveSql))
+                        foreach (var evt in list)
                         {
-                            foreach (var evt in list)
-                            {
-                                writer.StartRow();
-                                writer.Write(evt.Evt.StateId.ToString(), NpgsqlDbType.Varchar);
-                                writer.Write(evt.UniqueId, NpgsqlDbType.Varchar);
-                                writer.Write(evt.Evt.TypeCode, NpgsqlDbType.Varchar);
-                                writer.Write(evt.Bytes, NpgsqlDbType.Bytea);
-                                writer.Write(evt.Evt.Version, NpgsqlDbType.Bigint);
-                            }
-                            writer.Complete();
+                            writer.StartRow();
+                            writer.Write(evt.Evt.StateId.ToString(), NpgsqlDbType.Varchar);
+                            writer.Write(evt.UniqueId, NpgsqlDbType.Varchar);
+                            writer.Write(evt.Evt.TypeCode, NpgsqlDbType.Varchar);
+                            writer.Write(evt.Bytes, NpgsqlDbType.Bytea);
+                            writer.Write(evt.Evt.Version, NpgsqlDbType.Bigint);
                         }
+                        writer.Complete();
                     }
-                }).ConfigureAwait(false);
-            }
-            catch
-            {
-                var saveSql = await GetInsertSql();
-                using (var conn = tableInfo.CreateConnection())
-                {
-                    await conn.ExecuteAsync(saveSql, list.Select(w => new { StateId = w.Evt.StateId.ToString(), w.UniqueId, w.Evt.TypeCode, Data = w.Bytes, w.Evt.Version }).ToArray());
                 }
-            }
+            }).ConfigureAwait(false);
         }
     }
 }
