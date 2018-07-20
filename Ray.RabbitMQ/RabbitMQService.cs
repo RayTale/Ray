@@ -10,7 +10,8 @@ namespace Ray.RabbitMQ
 
         public Task Publish(byte[] bytes, string hashKey)
         {
-            publisher.Publish(bytes, hashKey, false);
+            var (queue, model) = publisher.GetQueue(hashKey);
+            model.Publish(bytes, publisher.Exchange, queue, false);
             return Task.CompletedTask;
         }
     }

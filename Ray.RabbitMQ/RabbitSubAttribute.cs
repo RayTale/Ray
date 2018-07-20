@@ -9,21 +9,25 @@ namespace Ray.RabbitMQ
     {
         readonly List<string> originQueueList;
         readonly string queue;
-        public RabbitSubAttribute(string group, string exchange, string queue, int queueCount = 1, ushort maxQos = 15, bool autoAck = false,bool errorReject=false) : base(group)
+        public RabbitSubAttribute(string group, string exchange, string queue, int queueCount = 1, ushort minQos = 50, ushort incQos = 30, ushort maxQos = 150, bool autoAck = false, bool errorReject = false) : base(group)
         {
             Exchange = exchange;
             QueueCount = queueCount;
             this.queue = queue;
             AutoAck = autoAck;
             MaxQos = maxQos;
+            MinQos = minQos;
+            IncQos = incQos;
             ErrorReject = errorReject;
         }
-        public RabbitSubAttribute(string type, string exchange, List<string> queueList, ushort maxQos = 15, bool autoAck = false) : base(type)
+        public RabbitSubAttribute(string type, string exchange, List<string> queueList, ushort minQos = 50, ushort incQos = 30, ushort maxQos = 150, bool autoAck = false) : base(type)
         {
             Exchange = exchange;
             originQueueList = queueList;
             AutoAck = autoAck;
             MaxQos = maxQos;
+            MinQos = minQos;
+            IncQos = incQos;
         }
         QueueInfo BuildQueueInfo(string queue)
         {
@@ -65,6 +69,8 @@ namespace Ray.RabbitMQ
         public int QueueCount { get; set; }
         public bool AutoAck { get; set; }
         public bool ErrorReject { get; set; }
+        public ushort MinQos { get; set; }
+        public ushort IncQos { get; set; }
         public ushort MaxQos { get; set; }
     }
     public class QueueInfo

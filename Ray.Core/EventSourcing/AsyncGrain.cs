@@ -6,6 +6,10 @@ using System.IO;
 using Microsoft.Extensions.DependencyInjection;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
+using Ray.Core.Utils;
+using System.Threading.Channels;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Ray.Core.EventSourcing
 {
@@ -21,7 +25,11 @@ namespace Ray.Core.EventSourcing
         protected virtual bool FullyActive => false;
         protected Int64 StateStorageVersion { get; set; }
         protected virtual int SnapshotMinFrequency => 1;
+        protected virtual bool Concurrent => false;
+        #region concurrent variable
+        private DataBatchChannel<IEventBase<K>, bool> tellChannel;
         IEventStorage<K> _eventStorage;
+        #endregion
         protected async ValueTask<IEventStorage<K>> GetEventStorage()
         {
             if (_eventStorage == null)
@@ -51,6 +59,144 @@ namespace Ray.Core.EventSourcing
                 return _serializer;
             }
         }
+        public AsyncGrain()
+        {
+            if (Concurrent)
+            {
+                tellChannel = new DataBatchChannel<IEventBase<K>, bool>(ConcurrentTellProcess);
+            }
+        }
+        #region 初始化数据
+        public override async Task OnActivateAsync()
+        {
+            await ReadSnapshotAsync();
+            if (FullyActive)
+            {
+                while (true)
+                {
+                    var eventList = await (await GetEventStorage()).GetListAsync(GrainId, State.Version, State.Version + EventNumberPerRead, State.VersionTime);
+                    if (Concurrent)
+                    {
+                        await Task.WhenAll(eventList.Select(@event => OnEventDelivered(@event)));
+                        var lastEvt = eventList.Last();
+                        State.UpdateVersion(lastEvt.Version, lastEvt.Timestamp);
+                    }
+                    else
+                    {
+                        foreach (var @event in eventList)
+                        {
+                            State.IncrementDoingVersion();//标记将要处理的Version
+                            await OnEventDelivered(@event);
+                            State.UpdateVersion(@event);//更新处理完成的Version
+                        }
+                    }
+                    await SaveSnapshotAsync();
+                    if (eventList.Count < EventNumberPerRead) break;
+                };
+            }
+        }
+        public override Task OnDeactivateAsync()
+        {
+            return State.Version - StateStorageVersion >= SnapshotMinFrequency ? SaveSnapshotAsync(true) : Task.CompletedTask;
+        }
+        protected bool IsNew { get; set; }
+        protected virtual async Task ReadSnapshotAsync()
+        {
+            State = await (await GetStateStore()).GetByIdAsync(GrainId);
+            if (State == null)
+            {
+                IsNew = true;
+                await CreateState();
+            }
+            StateStorageVersion = State.Version;
+        }
+        /// <summary>
+        /// 初始化状态，必须实现
+        /// </summary>
+        /// <returns></returns>
+        protected virtual Task CreateState()
+        {
+            State = new S
+            {
+                StateId = GrainId
+            };
+            return Task.CompletedTask;
+        }
+        #endregion
+        public async Task ConcurrentTell(byte[] bytes)
+        {
+            using (var wms = new MemoryStream(bytes))
+            {
+                var message = Serializer.Deserialize<W>(wms);
+                if (MessageTypeMapper.EventTypeDict.TryGetValue(message.TypeCode, out var type))
+                {
+                    using (var ems = new MemoryStream(message.BinaryBytes))
+                    {
+                        if (Serializer.Deserialize(type, ems) is IEventBase<K> @event)
+                        {
+                            if (@event.Version > State.Version)
+                            {
+                                await tellChannel.WriteAsync(@event);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        List<IEventBase<K>> UnprocessedList = new List<IEventBase<K>>();
+        private async ValueTask ConcurrentTellProcess(DataTaskWrap<IEventBase<K>, bool> first, ChannelReader<DataTaskWrap<IEventBase<K>, bool>> reader)
+        {
+            var start = DateTime.UtcNow;
+            var wrapList = new List<DataTaskWrap<IEventBase<K>, bool>> { first };
+            try
+            {
+                while (reader.TryRead(out var msg))
+                {
+                    wrapList.Add(msg);
+                    if ((DateTime.UtcNow - start).TotalMilliseconds > 200) break;//保证批量延时不超过200ms
+                }
+                var startVersion = State.Version;
+                var startTime = State.VersionTime;
+                if (UnprocessedList.Count > 0)
+                {
+                    var startEvt = UnprocessedList.Last();
+                    startVersion = startEvt.Version;
+                    startTime = startEvt.Timestamp;
+                }
+
+                var orderList = wrapList.Where(w => w.Value.Version > startVersion).OrderBy(w => w.Value.Version).ToList();
+                if (orderList.Count > 0)
+                {
+                    var inputLast = orderList.Last();
+                    if (startVersion + orderList.Count != inputLast.Value.Version)
+                    {
+                        var loadList = await (await GetEventStorage()).GetListAsync(GrainId, startVersion, inputLast.Value.Version, startTime);
+                        UnprocessedList.AddRange(loadList);
+                    }
+                    else
+                    {
+                        UnprocessedList.AddRange(orderList.Select(w => w.Value));
+                    }
+                }
+                await Task.WhenAll(UnprocessedList.Select(@event => OnEventDelivered(@event)));
+                var lastEvt = UnprocessedList.Last();
+                State.UpdateVersion(lastEvt.Version, lastEvt.Timestamp);
+                await SaveSnapshotAsync();
+                UnprocessedList.Clear();
+                foreach (var wrap in wrapList)
+                {
+                    wrap.TaskSource.TrySetResult(true);
+                }
+            }
+            catch (Exception e)
+            {
+                foreach (var wrap in wrapList)
+                {
+                    wrap.TaskSource.TrySetException(e);
+                }
+            }
+        }
+
         public Task Tell(byte[] bytes)
         {
             using (var wms = new MemoryStream(bytes))
@@ -156,53 +302,5 @@ namespace Ray.Core.EventSourcing
                 }
             }
         }
-        #region 初始化数据
-        public override async Task OnActivateAsync()
-        {
-            await ReadSnapshotAsync();
-            if (FullyActive)
-            {
-                while (true)
-                {
-                    var eventList = await (await GetEventStorage()).GetListAsync(GrainId, State.Version, State.Version + EventNumberPerRead, State.VersionTime);
-                    foreach (var @event in eventList)
-                    {
-                        State.IncrementDoingVersion();//标记将要处理的Version
-                        await OnEventDelivered(@event);
-                        State.UpdateVersion(@event);//更新处理完成的Version
-                    }
-                    await SaveSnapshotAsync();
-                    if (eventList.Count < EventNumberPerRead) break;
-                };
-            }
-        }
-        public override Task OnDeactivateAsync()
-        {
-            return State.Version - StateStorageVersion >= SnapshotMinFrequency ? SaveSnapshotAsync(true) : Task.CompletedTask;
-        }
-        protected bool IsNew { get; set; }
-        protected virtual async Task ReadSnapshotAsync()
-        {
-            State = await (await GetStateStore()).GetByIdAsync(GrainId);
-            if (State == null)
-            {
-                IsNew = true;
-                await CreateState();
-            }
-            StateStorageVersion = State.Version;
-        }
-        /// <summary>
-        /// 初始化状态，必须实现
-        /// </summary>
-        /// <returns></returns>
-        protected virtual Task CreateState()
-        {
-            State = new S
-            {
-                StateId = GrainId
-            };
-            return Task.CompletedTask;
-        }
-        #endregion
     }
 }

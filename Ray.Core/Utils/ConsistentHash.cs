@@ -8,11 +8,11 @@ namespace Ray.Core.Utils
     public class ConsistentHash
     {
         SortedDictionary<int, string> circle = new SortedDictionary<int, string>();
-        int _replicate = 100;    //default _replicate count  
-        int[] ayKeys = null;    //cache the ordered keys for better performance  
+        int _replicate = 200;    //default _replicate count
+        int[] ayKeys = null;    //cache the ordered keys for better performance
 
-        //it's better you override the GetHashCode() of T.  
-        //we will use GetHashCode() to identify different node.  
+        //it's better you override the GetHashCode() of T.
+        //we will use GetHashCode() to identify different node.
         public ConsistentHash(IEnumerable<string> nodes)
         {
             Init(nodes, _replicate);
@@ -65,7 +65,7 @@ namespace Ray.Core.Utils
             ayKeys = circle.Keys.ToArray();
         }
 
-        //we keep this function just for performance compare  
+        //we keep this function just for performance compare
         private string GetNode_slow(String key)
         {
             int hash = BetterHash(key);
@@ -83,9 +83,9 @@ namespace Ray.Core.Utils
             return node;
         }
 
-        //return the index of first item that >= val.  
-        //if not exist, return 0;  
-        //ay should be ordered array.  
+        //return the index of first item that >= val.
+        //if not exist, return 0;
+        //ay should be ordered array.
         int First_ge(int[] ay, int val)
         {
             int begin = 0;
@@ -120,18 +120,18 @@ namespace Ray.Core.Utils
 
         public string GetNode(String key)
         {
-            //return GetNode_slow(key);  
+            //return GetNode_slow(key);
 
             int hash = BetterHash(key);
 
             int first = First_ge(ayKeys, hash);
 
-            //int diff = circle.Keys[first] - hash;  
+            //int diff = circle.Keys[first] - hash;
 
             return circle[ayKeys[first]];
         }
 
-        //default String.GetHashCode() can't well spread strings like "1", "2", "3"  
+        //default String.GetHashCode() can't well spread strings like "1", "2", "3"
         public static int BetterHash(String key)
         {
             uint hash = MurmurHash2.Hash(Encoding.UTF8.GetBytes(key));
