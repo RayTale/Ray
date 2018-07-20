@@ -17,8 +17,7 @@ namespace Ray.RabbitMQ
         ILogger<RabbitSubManager> logger = default;
         IServiceProvider provider;
         IRabbitMQClient client;
-        const ushort startQos = 3;
-        Timer monitorTimer;
+        static Timer monitorTimer;
         public RabbitSubManager(ILogger<RabbitSubManager> logger, IRabbitMQClient client, IServiceProvider provider)
         {
             this.client = client;
@@ -47,6 +46,8 @@ namespace Ray.RabbitMQ
                                 Queue = $"{ subAttribute.Group}_{queue.Queue}",
                                 RoutingKey = queue.RoutingKey,
                                 MaxQos = subAttribute.MaxQos,
+                                MinQos = subAttribute.MinQos,
+                                IncQos = subAttribute.IncQos,
                                 ErrorReject = subAttribute.ErrorReject,
                                 AutoAck = subAttribute.AutoAck,
                                 Handler = (ISubHandler)provider.GetService(subAttribute.Handler)
@@ -127,7 +128,7 @@ namespace Ray.RabbitMQ
                 consumer.Channel.Model.QueueDeclare(consumer.Queue, true, false, false, null);
                 consumer.Channel.Model.QueueBind(consumer.Queue, consumer.Exchange, consumer.RoutingKey);
             }
-            consumer.NowQos = expand ? (ushort)(consumer.NowQos + startQos) : startQos;
+            consumer.NowQos = expand ? (ushort)(consumer.NowQos + consumer.IncQos) : consumer.MinQos;
             if (consumer.NowQos > consumer.MaxQos) consumer.NowQos = consumer.MaxQos;
 
             consumer.Channel.Model.BasicQos(0, consumer.NowQos, false);
@@ -194,6 +195,8 @@ namespace Ray.RabbitMQ
         public string Queue { get; set; }
         public string RoutingKey { get; set; }
         public ushort MaxQos { get; set; }
+        public ushort MinQos { get; set; }
+        public ushort IncQos { get; set; }
         public ushort NowQos { get; set; }
         public bool AutoAck { get; set; }
         public bool ErrorReject { get; set; }

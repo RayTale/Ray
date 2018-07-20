@@ -13,7 +13,13 @@ namespace Ray.Core.EventSourcing
             state.Version = @event.Version;
             state.VersionTime = @event.Timestamp;
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void UpdateVersion<K>(this IState<K> state, long version, DateTime time)
+        {
+            state.DoingVersion = version;
+            state.Version = version;
+            state.VersionTime = time;
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void IncrementDoingVersion<K>(this IState<K> state)
         {

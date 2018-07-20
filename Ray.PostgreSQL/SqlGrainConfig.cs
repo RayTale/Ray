@@ -112,16 +112,15 @@ namespace Ray.PostgreSQL
         private async Task CreateEventTable(TableInfo table)
         {
             const string sql = @"
-                    CREATE TABLE public.{0} (
-                                    ""stateid"" varchar({1}) COLLATE ""default"" NOT NULL,
-                                    ""uniqueid"" varchar(250) COLLATE ""default"" NOT NULL,
-                                    ""typecode"" varchar(100) COLLATE ""default"" NOT NULL,
-                                    ""data"" bytea NOT NULL,
-                                    ""version"" int8 NOT NULL
-                                    )
-                            WITH (OIDS=FALSE);
-                            CREATE UNIQUE INDEX ""{0}_Event_State_UniqueId"" ON ""public"".""{0}"" USING btree (""stateid"", ""uniqueid"", ""typecode"");
-                            CREATE UNIQUE INDEX ""{0}_Event_State_Version"" ON ""public"".""{0}"" USING btree(""stateid"", ""version"");";
+                    create table {0} (
+                            StateId varchar({1}) not null,
+                            UniqueId varchar(250)  null,
+                            TypeCode varchar(100)  not null,
+                            Data bytea not null,
+                            Version int8 not null,
+                            constraint {0}_id_unique unique(StateId,TypeCode,UniqueId)
+                            ) WITH (OIDS=FALSE);
+                            CREATE UNIQUE INDEX {0}_Event_State_Version ON {0} USING btree(StateId, Version);";
             const string insertSql = "INSERT into ray_tablelist  VALUES(@Prefix,@Name,@Version,@CreateTime)";
             var key = $"{Connection}-{table.Name}-{stateIdLength}";
             if (createEventTableListDict.TryAdd(key, true))
@@ -180,9 +179,9 @@ namespace Ray.PostgreSQL
         private async Task CreateStateTable()
         {
             const string sql = @"
-                    CREATE TABLE if not exists public.{0}(
-                    ""stateid"" varchar({1}) COLLATE ""default"" NOT NULL PRIMARY KEY,
-                    ""data"" bytea NOT NULL)";
+                    CREATE TABLE if not exists {0}(
+                     StateId varchar({1}) not null PRIMARY KEY,
+                     Data bytea not null)";
             var key = $"{Connection}-{SnapshotTable}-{stateIdLength}";
             if (createStateTableDict.TryAdd(key, false))
             {
@@ -233,14 +232,13 @@ namespace Ray.PostgreSQL
         private async Task CreateTableListTable()
         {
             const string sql = @"
-                    CREATE TABLE IF Not EXISTS public.ray_tablelist(
-                    ""prefix"" varchar(255) COLLATE ""default"",
-                    ""name"" varchar(255) COLLATE ""default"",
-                    ""version"" int4,
-                    ""createtime"" timestamp(6)
-                    )
-                    WITH (OIDS=FALSE);
-                    CREATE UNIQUE INDEX IF NOT EXISTS ""table_version"" ON public.ray_tablelist USING btree(""prefix"", ""version"")";
+                    CREATE TABLE IF Not EXISTS ray_tablelist(
+                        Prefix varchar(255) not null,
+                        Name varchar(255) not null,
+                        Version int4,
+                        Createtime timestamp(6)
+                    )WITH (OIDS=FALSE);
+                    CREATE UNIQUE INDEX IF NOT EXISTS table_version ON ray_tablelist USING btree(Prefix, Version)";
             if (createTableListDict.TryAdd(Connection, true))
             {
                 using (var connection = SqlFactory.CreateConnection(Connection))

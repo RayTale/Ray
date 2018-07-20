@@ -135,7 +135,7 @@ namespace Ray.Core.EventSourcing
 
         #region Event
         protected IEventStorage<K> _eventStorage;
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual async ValueTask<IEventStorage<K>> GetEventStorage()
         {
             if (_eventStorage == null)
@@ -145,7 +145,7 @@ namespace Ray.Core.EventSourcing
             return _eventStorage;
         }
         protected IMQService _mqService;
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual IMQService GetMQService()
         {
             if (_mqService == null)
@@ -155,7 +155,7 @@ namespace Ray.Core.EventSourcing
             return _mqService;
         }
         ISerializer _serializer;
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected ISerializer GetSerializer()
         {
             if (_serializer == null)
@@ -166,12 +166,12 @@ namespace Ray.Core.EventSourcing
         }
         protected abstract IEventHandle EventHandle { get; }
         #region Transaction
-        protected bool beginTransaction = false;
+        protected bool transactionPending = false;
         private DateTime beginTransactionTime;
-        private List<EventSaveWrap<K>> transactionEventList;
+        private List<EventSaveWrap<K>> transactionEventList = new List<EventSaveWrap<K>>();
         protected async ValueTask BeginTransaction()
         {
-            if (beginTransaction)
+            if (transactionPending)
             {
                 if ((DateTime.UtcNow - beginTransactionTime).TotalMinutes > 1)
                 {
@@ -179,9 +179,7 @@ namespace Ray.Core.EventSourcing
                 }
                 throw new Exception("The transaction already exists");
             }
-            if (transactionEventList == null)
-                transactionEventList = new List<EventSaveWrap<K>>();
-            beginTransaction = true;
+            transactionPending = true;
             beginTransactionTime = DateTime.UtcNow;
         }
         protected async ValueTask CommitTransaction()
@@ -223,15 +221,15 @@ namespace Ray.Core.EventSourcing
                 await SaveSnapshotAsync();
                 transactionEventList.Clear();
             }
-            beginTransaction = false;
+            transactionPending = false;
         }
         protected async ValueTask RollbackTransaction()
         {
-            if (beginTransaction)
+            if (transactionPending)
             {
                 await RecoveryState();
                 transactionEventList.Clear();
-                beginTransaction = false;
+                transactionPending = false;
             }
         }
         #endregion
@@ -243,11 +241,11 @@ namespace Ray.Core.EventSourcing
                 @event.StateId = GrainId;
                 @event.Version = State.Version + 1;
                 @event.Timestamp = DateTime.UtcNow;
-                if (beginTransaction)
+                if (transactionPending)
                 {
                     if (!isTransaction)
                         throw new Exception("The transaction is in progress!");
-                    transactionEventList.Add(new EventSaveWrap<K>(@event, null, string.IsNullOrEmpty(uniqueId) ? @event.GetUniqueId() : uniqueId, string.IsNullOrEmpty(hashKey) ? GrainId.ToString() : hashKey));
+                    transactionEventList.Add(new EventSaveWrap<K>(@event, null, uniqueId, string.IsNullOrEmpty(hashKey) ? GrainId.ToString() : hashKey));
                     EventHandle.Apply(State, @event);
                     State.UpdateVersion(@event);//更新处理完成的Version
                     return true;
@@ -259,7 +257,7 @@ namespace Ray.Core.EventSourcing
                     {
                         serializer.Serialize(ms, @event);
                         var bytes = ms.ToArray();
-                        var saved = await (await GetEventStorage()).SaveAsync(@event, bytes, string.IsNullOrEmpty(uniqueId) ? @event.GetUniqueId() : uniqueId);
+                        var saved = await (await GetEventStorage()).SaveAsync(@event, bytes, uniqueId);
                         if (saved)
                         {
                             if (SupportAsync)
@@ -362,37 +360,25 @@ namespace Ray.Core.EventSourcing
                     {
                         events.Add(data);
                         await RaiseEvent(data.Value, data.UniqueId, isTransaction: true);
-                        if ((DateTime.UtcNow - start).TotalMilliseconds > 50) break;//保证批量延时不超过50ms
+                        if ((DateTime.UtcNow - start).TotalMilliseconds > 100) break;//保证批量延时不超过100ms
                     }
-
                     await CommitTransaction();
                     foreach (var evt in events)
                     {
                         evt.TaskSource.SetResult(true);
                     }
                 }
-                catch
+                catch (Exception e)
                 {
                     await RollbackTransaction();
-                    await BatchEventReTry(events);
+                    foreach (var evt in events)
+                    {
+                        evt.TaskSource.TrySetException(e);
+                    }
                 }
                 return true;
             }
             return false;
-        }
-        private async ValueTask BatchEventReTry(IList<EventTransactionWrap<K>> events)
-        {
-            foreach (var evt in events)
-            {
-                try
-                {
-                    evt.TaskSource.TrySetResult(await RaiseEvent(evt.Value, evt.UniqueId));
-                }
-                catch (Exception e)
-                {
-                    evt.TaskSource.TrySetException(e);
-                }
-            }
         }
         /// <summary>
         /// 发送无状态更改的消息到消息队列
