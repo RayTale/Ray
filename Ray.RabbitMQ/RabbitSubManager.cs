@@ -66,7 +66,7 @@ namespace Ray.RabbitMQ
             {
                 for (int i = 0; i < consumerList.Count; i++)
                 {
-                    await StartSub(consumerList[i]);
+                    await StartSub(consumerList[i], true);
                     if (delay != 0)
                         await Task.Delay(delay * 500);
                 }
@@ -81,7 +81,7 @@ namespace Ray.RabbitMQ
             try
             {
                 var nowTime = DateTime.UtcNow;
-                restartStatisticalCount = restartStatisticalCount + ConsumerList.Where(consumer => consumer.NeedRestart).Count();
+                restartStatisticalCount = restartStatisticalCount + ConsumerList.Where(consumer => consumer.Children.Any(c => c.NeedRestart)).Count();
                 if (restartStatisticalCount > ConsumerList.Count / 3)
                 {
                     ClientFactory.ReBuild();
@@ -96,16 +96,23 @@ namespace Ray.RabbitMQ
 
                 foreach (var consumer in ConsumerList)
                 {
-                    if (consumer.NeedRestart ||
-                        consumer.BasicConsumer == null ||
-                        !consumer.BasicConsumer.IsRunning ||
-                        consumer.Channel.Model.IsClosed)
+                    var needRestartChildren = consumer.Children.Where(child => child.NeedRestart || child.BasicConsumer == null || !child.BasicConsumer.IsRunning || child.Channel.Model.IsClosed).ToList();
+                    if (needRestartChildren.Count > 0)
                     {
-                        await StartSub(consumer);
+                        foreach (var child in needRestartChildren)
+                        {
+                            child.Close();
+                            consumer.Children.Remove(child);
+                            consumer.NowQos -= child.Qos;
+                        }
+                        if (consumer.NowQos < consumer.MinQos)
+                        {
+                            await StartSub(consumer, false);
+                        }
                     }
                     else if ((nowTime - consumer.StartTime).TotalMinutes >= 5)
                     {
-                        await StartSub(consumer, true);//扩容操作
+                        await ExpandQos(consumer);//扩容操作
                     }
                 }
             }
@@ -114,35 +121,56 @@ namespace Ray.RabbitMQ
                 logger.LogError(exception.InnerException ?? exception, "消息队列守护线程发生错误");
             }
         }
-        private async Task StartSub(ConsumerInfo consumer, bool expand = false)
+        private async Task StartSub(ConsumerInfo consumer, bool first)
         {
-            if (expand && consumer.NowQos == consumer.MaxQos) return;
-            if (consumer.BasicConsumer != null)
+            var child = new ConsumerChild
             {
-                consumer.Close();
-            }
-            consumer.Channel = await client.PullModel();
-            if (consumer.NowQos == 0)
-            {
-                consumer.Channel.Model.ExchangeDeclare(consumer.Exchange, "direct", true);
-                consumer.Channel.Model.QueueDeclare(consumer.Queue, true, false, false, null);
-                consumer.Channel.Model.QueueBind(consumer.Queue, consumer.Exchange, consumer.RoutingKey);
-            }
-            consumer.NowQos = expand ? (ushort)(consumer.NowQos + consumer.IncQos) : consumer.MinQos;
-            if (consumer.NowQos > consumer.MaxQos) consumer.NowQos = consumer.MaxQos;
-
-            consumer.Channel.Model.BasicQos(0, consumer.NowQos, false);
-
-            consumer.BasicConsumer = new EventingBasicConsumer(consumer.Channel.Model);
-            consumer.BasicConsumer.Received += async (ch, ea) =>
-            {
-                await Process(consumer, ea, 0);
+                Channel = await client.PullModel(),
+                Qos = consumer.MinQos
             };
-            consumer.BasicConsumer.ConsumerTag = consumer.Channel.Model.BasicConsume(consumer.Queue, consumer.AutoAck, consumer.BasicConsumer);
+            if (first)
+            {
+                child.Channel.Model.ExchangeDeclare(consumer.Exchange, "direct", true);
+                child.Channel.Model.QueueDeclare(consumer.Queue, true, false, false, null);
+                child.Channel.Model.QueueBind(consumer.Queue, consumer.Exchange, consumer.RoutingKey);
+            }
+            child.Channel.Model.BasicQos(0, consumer.MinQos, false);
+
+            child.BasicConsumer = new EventingBasicConsumer(child.Channel.Model);
+            child.BasicConsumer.Received += async (ch, ea) =>
+            {
+                await Process(consumer, child, ea, 0);
+            };
+            child.BasicConsumer.ConsumerTag = child.Channel.Model.BasicConsume(consumer.Queue, consumer.AutoAck, child.BasicConsumer);
+            child.NeedRestart = false;
+            consumer.Children.Add(child);
+            consumer.NowQos += child.Qos;
             consumer.StartTime = DateTime.UtcNow;
-            consumer.NeedRestart = false;
         }
-        private async Task Process(ConsumerInfo consumer, BasicDeliverEventArgs ea, int count)
+        private async Task ExpandQos(ConsumerInfo consumer)
+        {
+            if (consumer.NowQos + consumer.IncQos <= consumer.MaxQos)
+            {
+                var child = new ConsumerChild
+                {
+                    Channel = await client.PullModel(),
+                    Qos = consumer.IncQos
+                };
+                child.Channel.Model.BasicQos(0, consumer.IncQos, false);
+
+                child.BasicConsumer = new EventingBasicConsumer(child.Channel.Model);
+                child.BasicConsumer.Received += async (ch, ea) =>
+                {
+                    await Process(consumer, child, ea, 0);
+                };
+                child.BasicConsumer.ConsumerTag = child.Channel.Model.BasicConsume(consumer.Queue, consumer.AutoAck, child.BasicConsumer);
+                child.NeedRestart = false;
+                consumer.Children.Add(child);
+                consumer.NowQos += child.Qos;
+                consumer.StartTime = DateTime.UtcNow;
+            }
+        }
+        private async Task Process(ConsumerInfo consumer, ConsumerChild consumerChild, BasicDeliverEventArgs ea, int count)
         {
             if (count > 0)
                 await Task.Delay(count * 1000);
@@ -153,11 +181,11 @@ namespace Ray.RabbitMQ
                 {
                     try
                     {
-                        consumer.Channel.Model.BasicAck(ea.DeliveryTag, false);
+                        consumerChild.Channel.Model.BasicAck(ea.DeliveryTag, false);
                     }
                     catch
                     {
-                        consumer.NeedRestart = true;
+                        consumerChild.NeedRestart = true;
                     }
                 }
             }
@@ -166,14 +194,14 @@ namespace Ray.RabbitMQ
                 logger.LogError(exception.InnerException ?? exception, $"An error occurred in {consumer.Exchange}-{consumer.Queue}");
                 if (consumer.ErrorReject)
                 {
-                    consumer.Channel.Model.BasicReject(ea.DeliveryTag, true);
+                    consumerChild.Channel.Model.BasicReject(ea.DeliveryTag, true);
                 }
                 else
                 {
                     if (count > 3)
-                        consumer.NeedRestart = true;
+                        consumerChild.NeedRestart = true;
                     else
-                        await Process(consumer, ea, count + 1);
+                        await Process(consumer, consumerChild, ea, count + 1);
                 }
             }
         }
@@ -183,7 +211,10 @@ namespace Ray.RabbitMQ
             {
                 foreach (var consumer in ConsumerList)
                 {
-                    consumer.NeedRestart = false;
+                    foreach (var child in consumer.Children)
+                    {
+                        child.NeedRestart = false;
+                    }
                     consumer.Close();
                 }
             }
@@ -200,11 +231,23 @@ namespace Ray.RabbitMQ
         public ushort NowQos { get; set; }
         public bool AutoAck { get; set; }
         public bool ErrorReject { get; set; }
-        public bool NeedRestart { get; set; }
         public ISubHandler Handler { get; set; }
+        public List<ConsumerChild> Children { get; set; } = new List<ConsumerChild>();
+        public DateTime StartTime { get; set; }
+        public void Close()
+        {
+            foreach (var child in Children)
+            {
+                child.Close();
+            }
+        }
+    }
+    public class ConsumerChild
+    {
         public ModelWrapper Channel { get; set; }
         public EventingBasicConsumer BasicConsumer { get; set; }
-        public DateTime StartTime { get; set; }
+        public ushort Qos { get; set; }
+        public bool NeedRestart { get; set; }
         public void Close()
         {
             if (Channel != default && Channel.Model.IsOpen)
@@ -214,7 +257,6 @@ namespace Ray.RabbitMQ
                 else
                     BasicConsumer.Model.Close();
                 BasicConsumer.Model.Dispose();
-                BasicConsumer = null;
             }
             Channel?.Dispose();
         }

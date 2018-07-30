@@ -5,11 +5,8 @@ using Ray.Core.Message;
 using Ray.Core.MQ;
 using Ray.Core.Utils;
 using System;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
-using System.Threading;
-using System.Threading.Channels;
 using System.Threading.Tasks;
 
 namespace Ray.Core.EventSourcing
@@ -24,18 +21,8 @@ namespace Ray.Core.EventSourcing
         protected virtual int SnapshotFrequency => 500;
         protected virtual int EventNumberPerRead => 2000;
         protected Int64 StateStorageVersion { get; set; }
-        protected virtual int SnapshotMinFrequency => 20;
+        protected virtual int SnapshotMinFrequency => 1;
         protected virtual bool SupportAsync => true;
-        private Channel<EventTransactionWrap<K>> _InputFlowChannel = default;
-        protected Channel<EventTransactionWrap<K>> InputFlowChannel
-        {
-            get
-            {
-                if (_InputFlowChannel == default)
-                    _InputFlowChannel = Channel.CreateUnbounded<EventTransactionWrap<K>>();
-                return _InputFlowChannel;
-            }
-        }
         protected ILogger<ESGrain<K, S, W>> Logger { get; set; }
         #region LifeTime
         public override async Task OnActivateAsync()
@@ -43,7 +30,7 @@ namespace Ray.Core.EventSourcing
             Logger = ServiceProvider.GetService<ILogger<ESGrain<K, S, W>>>();
             await RecoveryState();
         }
-        protected virtual async Task RecoveryState()
+        protected virtual async ValueTask RecoveryState()
         {
             await ReadSnapshotAsync();
             while (true)
@@ -52,7 +39,7 @@ namespace Ray.Core.EventSourcing
                 foreach (var @event in eventList)
                 {
                     State.IncrementDoingVersion();//标记将要处理的Version
-                    EventHandle.Apply(State, @event);
+                    Apply(State, @event);
                     State.UpdateVersion(@event);//更新处理完成的Version
                 }
                 if (eventList.Count < EventNumberPerRead) break;
@@ -62,8 +49,6 @@ namespace Ray.Core.EventSourcing
         {
             if (State.Version - StateStorageVersion >= SnapshotMinFrequency)
                 await SaveSnapshotAsync(true);
-            if (_InputFlowChannel != default)
-                _InputFlowChannel.Writer.Complete();
         }
         #endregion
         #region State storage
@@ -79,7 +64,6 @@ namespace Ray.Core.EventSourcing
             StateStorageVersion = State.Version;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual async ValueTask SaveSnapshotAsync(bool force = false)
         {
             if (SnapshotType == SnapshotType.Master)
@@ -104,18 +88,18 @@ namespace Ray.Core.EventSourcing
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual Task OnSaveSnapshot() => Task.CompletedTask;
+        protected virtual ValueTask OnSaveSnapshot() => new ValueTask(Task.CompletedTask);
         /// <summary>
         /// 初始化状态，必须实现
         /// </summary>
         /// <returns></returns>
-        protected virtual Task CreateState()
+        protected virtual ValueTask CreateState()
         {
             State = new S
             {
                 StateId = GrainId
             };
-            return Task.CompletedTask;
+            return new ValueTask(Task.CompletedTask);
         }
         protected async ValueTask ClearStateAsync()
         {
@@ -135,7 +119,6 @@ namespace Ray.Core.EventSourcing
 
         #region Event
         protected IEventStorage<K> _eventStorage;
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual async ValueTask<IEventStorage<K>> GetEventStorage()
         {
             if (_eventStorage == null)
@@ -145,7 +128,6 @@ namespace Ray.Core.EventSourcing
             return _eventStorage;
         }
         protected IMQService _mqService;
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual IMQService GetMQService()
         {
             if (_mqService == null)
@@ -155,7 +137,6 @@ namespace Ray.Core.EventSourcing
             return _mqService;
         }
         ISerializer _serializer;
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected ISerializer GetSerializer()
         {
             if (_serializer == null)
@@ -164,76 +145,8 @@ namespace Ray.Core.EventSourcing
             }
             return _serializer;
         }
-        protected abstract IEventHandle EventHandle { get; }
-        #region Transaction
-        protected bool transactionPending = false;
-        private DateTime beginTransactionTime;
-        private List<EventSaveWrap<K>> transactionEventList = new List<EventSaveWrap<K>>();
-        protected async ValueTask BeginTransaction()
-        {
-            if (transactionPending)
-            {
-                if ((DateTime.UtcNow - beginTransactionTime).TotalMinutes > 1)
-                {
-                    await RollbackTransaction();//事务阻赛超过一分钟自动回滚
-                }
-                throw new Exception("The transaction already exists");
-            }
-            transactionPending = true;
-            beginTransactionTime = DateTime.UtcNow;
-        }
-        protected async ValueTask CommitTransaction()
-        {
-            if (transactionEventList.Count > 0)
-            {
-                var serializer = GetSerializer();
-                using (var ms = new PooledMemoryStream())
-                {
-                    foreach (var @event in transactionEventList)
-                    {
-                        serializer.Serialize(ms, @event.Evt);
-                        @event.Bytes = ms.ToArray();
-                        ms.Position = 0;
-                        ms.SetLength(0);
-                    }
-                }
-                await (await GetEventStorage()).BatchSaveAsync(transactionEventList);
-                await SaveSnapshotAsync();
-                transactionEventList.Clear();
-                if (SupportAsync)
-                {
-                    var mqService = GetMQService();
-                    using (var ms = new PooledMemoryStream())
-                    {
-                        foreach (var @event in transactionEventList)
-                        {
-                            var data = new W
-                            {
-                                TypeCode = @event.Evt.TypeCode,
-                                BinaryBytes = @event.Bytes
-                            };
-                            serializer.Serialize(ms, data);
-                            //消息写入消息队列，以提供异步服务
-                            await mqService.Publish(ms.ToArray(), @event.HashKey);
-                            ms.Position = 0;
-                            ms.SetLength(0);
-                        }
-                    }
-                }
-            }
-            transactionPending = false;
-        }
-        protected async ValueTask RollbackTransaction()
-        {
-            if (transactionPending)
-            {
-                await RecoveryState();
-                transactionEventList.Clear();
-                transactionPending = false;
-            }
-        }
-        #endregion
-        protected async ValueTask<bool> RaiseEvent(IEventBase<K> @event, string uniqueId = null, string hashKey = null, bool isTransaction = false)
+
+        protected virtual async ValueTask<bool> RaiseEvent(IEventBase<K> @event, string uniqueId = null, string hashKey = null)
         {
             try
             {
@@ -241,144 +154,55 @@ namespace Ray.Core.EventSourcing
                 @event.StateId = GrainId;
                 @event.Version = State.Version + 1;
                 @event.Timestamp = DateTime.UtcNow;
-                if (transactionPending)
+                var serializer = GetSerializer();
+                using (var ms = new PooledMemoryStream())
                 {
-                    if (!isTransaction)
-                        throw new Exception("The transaction is in progress!");
-                    transactionEventList.Add(new EventSaveWrap<K>(@event, null, uniqueId, string.IsNullOrEmpty(hashKey) ? GrainId.ToString() : hashKey));
-                    EventHandle.Apply(State, @event);
-                    State.UpdateVersion(@event);//更新处理完成的Version
-                    return true;
-                }
-                else
-                {
-                    var serializer = GetSerializer();
-                    using (var ms = new PooledMemoryStream())
+                    serializer.Serialize(ms, @event);
+                    var bytes = ms.ToArray();
+                    if (await (await GetEventStorage()).SaveAsync(@event, bytes, uniqueId))
                     {
-                        serializer.Serialize(ms, @event);
-                        var bytes = ms.ToArray();
-                        var saved = await (await GetEventStorage()).SaveAsync(@event, bytes, uniqueId);
-                        if (saved)
+                        if (SupportAsync)
                         {
-                            if (SupportAsync)
+                            var data = new W
                             {
-                                var data = new W
-                                {
-                                    TypeCode = @event.TypeCode,
-                                    BinaryBytes = bytes
-                                };
-                                ms.Position = 0;
-                                ms.SetLength(0);
-                                serializer.Serialize(ms, data);
-                                //消息写入消息队列，以提供异步服务
-                                await Task.WhenAll(Task.Factory.StartNew(() =>
-                                {
-                                    EventHandle.Apply(State, @event);
-                                }), GetMQService().Publish(ms.ToArray(), string.IsNullOrEmpty(hashKey) ? GrainId.ToString() : hashKey));
-                            }
-                            else
-                            {
-                                EventHandle.Apply(State, @event);
-                            }
-                            State.UpdateVersion(@event);//更新处理完成的Version
-                            await SaveSnapshotAsync();
-                            return true;
+                                TypeCode = @event.TypeCode,
+                                BinaryBytes = bytes
+                            };
+                            ms.Position = 0;
+                            ms.SetLength(0);
+                            serializer.Serialize(ms, data);
+                            //消息写入消息队列，以提供异步服务
+                            Apply(State, @event);
+                            GetMQService().Publish(ms.ToArray(), string.IsNullOrEmpty(hashKey) ? GrainId.ToString() : hashKey);
                         }
                         else
-                            State.DecrementDoingVersion();//还原doing Version
+                        {
+                            Apply(State, @event);
+                        }
+                        State.UpdateVersion(@event);//更新处理完成的Version
+                        await SaveSnapshotAsync();
+                        OnRaiseSuccess(@event, bytes);
+                        return true;
                     }
+                    else
+                        State.DecrementDoingVersion();//还原doing Version
                 }
             }
             catch (Exception ex)
             {
                 State.DecrementDoingVersion();//还原doing Version
-                Logger.LogError(LogEventIds.EventRaiseError, ex, "Apply event {0} error, EventId={1}", @event.TypeCode, @event.Version);
                 ExceptionDispatchInfo.Capture(ex).Throw();
             }
             return false;
         }
-        protected async ValueTask<bool> EnterBuffer(IEventBase<K> evt, string uniqueId = null)
-        {
-            var task = EventTransactionWrap<K>.Create(evt, uniqueId);
-            await InputFlowChannel.Writer.WriteAsync(task);
-            if (flowProcess == 0)
-                TriggerInputFlow().GetAwaiter();
-            return await task.TaskSource.Task;
-        }
-        int flowProcess = 0;
-        protected async ValueTask TriggerInputFlow()
-        {
-            if (Interlocked.CompareExchange(ref flowProcess, 1, 0) == 0)
-            {
-                while (true)
-                {
-                    var (needTrigger, hasInput) = await FlowTriggerWaiting();
-                    if (needTrigger)
-                    {
-                        if (hasInput)
-                        {
-                            while (await InputFlowBatchRaise())
-                            {
-                                await OnFlowNext(hasInput);
-                            }
-                        }
-                        else
-                        {
-                            await OnFlowNext(hasInput);
-                        }
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-                Interlocked.Exchange(ref flowProcess, 0);
-            }
-        }
-        protected virtual async ValueTask<(bool needTrigger, bool hasInput)> FlowTriggerWaiting()
-        {
-            return (await InputFlowChannel.Reader.WaitToReadAsync(), true);
-        }
-        protected virtual Task OnFlowNext(bool hasInput)
-        {
-            return Task.CompletedTask;
-        }
-        public async ValueTask<bool> InputFlowBatchRaise()
-        {
-            if (InputFlowChannel.Reader.TryRead(out var first))
-            {
-                var start = DateTime.UtcNow;
-                var events = new List<EventTransactionWrap<K>>
-                {
-                    first
-                };
-                await BeginTransaction();
-                try
-                {
-                    await RaiseEvent(first.Value, first.UniqueId, isTransaction: true);
-                    while (InputFlowChannel.Reader.TryRead(out var data))
-                    {
-                        events.Add(data);
-                        await RaiseEvent(data.Value, data.UniqueId, isTransaction: true);
-                        if ((DateTime.UtcNow - start).TotalMilliseconds > 100) break;//保证批量延时不超过100ms
-                    }
-                    await CommitTransaction();
-                    events.ForEach(evt => evt.TaskSource.SetResult(true));
-                }
-                catch (Exception e)
-                {
-                    await RollbackTransaction();
-                    events.ForEach(evt => evt.TaskSource.TrySetException(e));
-                }
-                return true;
-            }
-            return false;
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected virtual void OnRaiseSuccess(IEventBase<K> @event, byte[] bytes) { }
+        protected abstract void Apply(S state, IEventBase<K> evt);
         /// <summary>
         /// 发送无状态更改的消息到消息队列
         /// </summary>
         /// <returns></returns>
-        public async ValueTask Publish(IMessage msg, string hashKey = null)
+        public void Publish(IMessage msg, string hashKey = null)
         {
             if (string.IsNullOrEmpty(hashKey))
                 hashKey = GrainId.ToString();
@@ -394,7 +218,7 @@ namespace Ray.Core.EventSourcing
                 ms.Position = 0;
                 ms.SetLength(0);
                 serializer.Serialize(ms, data);
-                await GetMQService().Publish(ms.ToArray(), hashKey);
+                GetMQService().Publish(ms.ToArray(), hashKey);
             }
         }
         #endregion

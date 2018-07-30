@@ -9,12 +9,21 @@ namespace Ray.Core.EventSourcing
         public static void UpdateVersion<K>(this IState<K> state, IEventBase<K> @event)
         {
             if (state.Version + 1 != @event.Version)
-                throw new Exception($"Event version and state version don't match!,Event Version={@event.Version},State Version={state.Version}");
+                throw new Exception($"Event version and state version don't match!,StateId={state.StateId},Event Version={@event.Version},State Version={state.Version}");
             state.Version = @event.Version;
             state.VersionTime = @event.Timestamp;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void UpdateVersion<K>(this IState<K> state, long version, DateTime time)
+        public static void FullUpdateVersion<K>(this IState<K> state, IEventBase<K> @event)
+        {
+            if (state.Version + 1 != @event.Version)
+                throw new Exception($"Event version and state version don't match!,StateId={state.StateId},Event Version={@event.Version},State Version={state.Version}");
+            state.DoingVersion = @event.Version;
+            state.Version = @event.Version;
+            state.VersionTime = @event.Timestamp;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void UnsafeUpdateVersion<K>(this IState<K> state, long version, DateTime time)
         {
             state.DoingVersion = version;
             state.Version = version;
@@ -24,7 +33,7 @@ namespace Ray.Core.EventSourcing
         public static void IncrementDoingVersion<K>(this IState<K> state)
         {
             if (state.DoingVersion != state.Version)
-                throw new Exception($"State doing version with state version don't match!,doing Version={state.DoingVersion},State Version={state.Version}");
+                throw new Exception($"State doing version with state version don't match!,StateId={state.StateId},doing Version={state.DoingVersion},State Version={state.Version}");
             state.DoingVersion += 1;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

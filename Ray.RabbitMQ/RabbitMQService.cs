@@ -8,11 +8,10 @@ namespace Ray.RabbitMQ
         RabbitPubAttribute publisher;
         public RabbitMQService(RabbitPubAttribute rabbitMQInfo) => publisher = rabbitMQInfo;
 
-        public Task Publish(byte[] bytes, string hashKey)
+        public void Publish(byte[] bytes, string hashKey)
         {
             var (queue, model) = publisher.GetQueue(hashKey);
             model.Publish(bytes, publisher.Exchange, queue, false);
-            return Task.CompletedTask;
         }
     }
 }

@@ -3,8 +3,6 @@ using Ray.Core.EventSourcing;
 using System;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
-using System.Threading;
-using System.Linq;
 
 namespace Ray.PostgreSQL
 {

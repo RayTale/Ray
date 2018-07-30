@@ -9,4 +9,10 @@ namespace Ray.PostgreSQL
     {
         public abstract SqlGrainConfig GrainConfig { get; }
     }
+    public abstract class SqlTransactionGrain<K, S, W> : TransactionGrain<K, S, W>, ISqlGrain
+        where S : class, IState<K>, ITransactionable<S>, new()
+        where W : IMessageWrapper, new()
+    {
+        public abstract SqlGrainConfig GrainConfig { get; }
+    }
 }

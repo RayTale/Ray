@@ -34,7 +34,8 @@ namespace Ray.RabbitMQ
                 {
                     var queue = $"{ Queue}_{i}";
                     nodeList.Add(queue);
-                    models.Add(queue, client.PullModel().GetAwaiter().GetResult());
+                    if (!models.ContainsKey(queue))
+                        models.Add(queue, client.PullModel().GetAwaiter().GetResult());
                 }
                 _CHash = new ConsistentHash(nodeList, QueueCount * 10);
             }

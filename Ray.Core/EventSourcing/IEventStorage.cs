@@ -8,7 +8,7 @@ namespace Ray.Core.EventSourcing
     {
         Task<IList<IEventBase<K>>> GetListAsync(K stateId, Int64 startVersion, Int64 endVersion, DateTime? startTime = null);
         Task<IList<IEventBase<K>>> GetListAsync(K stateId, string typeCode, Int64 startVersion, Int32 limit, DateTime? startTime = null);
-        ValueTask<bool> SaveAsync(IEventBase<K> data, byte[] bytes, string uniqueId = null);
-        ValueTask BatchSaveAsync(List<EventSaveWrap<K>> list);
+        Task<bool> SaveAsync(IEventBase<K> data, byte[] bytes, string uniqueId = null);
+        ValueTask TransactionSaveAsync(List<EventSaveWrap<K>> list);
     }
 }

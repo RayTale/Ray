@@ -7,11 +7,10 @@ namespace Ray.Core.EventSourcing
         where W : IMessageWrapper
     {
         protected override bool SaveSnapshot => false;
-        protected abstract IEventHandle EventHandle { get; }
         protected override Task OnEventDelivered(IEventBase<K> @event)
         {
-            EventHandle.Apply(State, @event);
-            return Task.CompletedTask;
+            return Apply(State, @event);
         }
+        protected abstract Task Apply(S state, IEventBase<K> evt);
     }
 }

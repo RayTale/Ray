@@ -4,18 +4,15 @@ using Ray.IGrains.States;
 
 namespace Ray.Grain.EventHandles
 {
-    public class AccountEventHandle : IEventHandle
+    public class AccountEventHandle : IEventHandle<AccountState>
     {
-        public void Apply(object state, IEvent evt)
+        public void Apply(AccountState state, IEvent evt)
         {
-            if (state is AccountState actorState)
+            switch (evt)
             {
-                switch (evt)
-                {
-                    case AmountAddEvent value: AmountAddEventHandle(actorState, value); break;
-                    case AmountTransferEvent value: AmountTransferEventHandle(actorState, value); break;
-                    default: break;
-                }
+                case AmountAddEvent value: AmountAddEventHandle(state, value); break;
+                case AmountTransferEvent value: AmountTransferEventHandle(state, value); break;
+                default: break;
             }
         }
         private void AmountTransferEventHandle(AccountState state, AmountTransferEvent evt)
