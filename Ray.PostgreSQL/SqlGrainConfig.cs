@@ -17,7 +17,7 @@ namespace Ray.PostgreSQL
         readonly bool sharding = false;
         readonly int shardingDays;
         readonly int stateIdLength;
-        public SqlGrainConfig(string conn, string eventTable, string snapshotTable, bool sharding = false, int shardingDays = 90, int stateIdLength = 50)
+        public SqlGrainConfig(string conn, string eventTable, string snapshotTable, bool sharding = false, int shardingDays = 40, int stateIdLength = 50)
         {
             Connection = conn;
             EventTable = eventTable;
@@ -33,7 +33,7 @@ namespace Ray.PostgreSQL
             await CreateStateTable();
         }
 
-        static readonly DateTime startTime = new DateTime(2018, 5, 20);
+        static readonly DateTime startTime = new DateTime(2018, 8, 1);
         public async Task<List<TableInfo>> GetTableList(DateTime? startTime = null)
         {
             List<TableInfo> list = null;

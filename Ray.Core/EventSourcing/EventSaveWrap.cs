@@ -2,10 +2,9 @@
 {
     public class EventSaveWrap<K>
     {
-        public EventSaveWrap(IEventBase<K> evt, byte[] bytes, string uniqueId = null, string hashKey = null)
+        public EventSaveWrap(IEventBase<K> evt, string uniqueId = null, string hashKey = null)
         {
             Evt = evt;
-            Bytes = bytes;
             UniqueId = uniqueId;
             HashKey = hashKey;
         }

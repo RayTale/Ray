@@ -1,7 +1,7 @@
 ﻿namespace Ray.Core.EventSourcing
 {
-    public interface IEventHandle
+    public interface IEventHandle<S>
     {
-        void Apply(object state, IEvent evt);
+        void Apply(S state, IEvent evt);
     }
 }

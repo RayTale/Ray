@@ -7,9 +7,9 @@ using Microsoft.Extensions.DependencyInjection;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using Ray.Core.Utils;
-using System.Threading.Channels;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks.Dataflow;
 
 namespace Ray.Core.EventSourcing
 {
@@ -79,7 +79,7 @@ namespace Ray.Core.EventSourcing
                     {
                         await Task.WhenAll(eventList.Select(@event => OnEventDelivered(@event)));
                         var lastEvt = eventList.Last();
-                        State.UpdateVersion(lastEvt.Version, lastEvt.Timestamp);
+                        State.UnsafeUpdateVersion(lastEvt.Version, lastEvt.Timestamp);
                     }
                     else
                     {
@@ -97,6 +97,8 @@ namespace Ray.Core.EventSourcing
         }
         public override Task OnDeactivateAsync()
         {
+            if (Concurrent)
+                tellChannel.Complete();
             return State.Version - StateStorageVersion >= SnapshotMinFrequency ? SaveSnapshotAsync(true) : Task.CompletedTask;
         }
         protected bool IsNew { get; set; }
@@ -144,15 +146,15 @@ namespace Ray.Core.EventSourcing
             }
         }
         List<IEventBase<K>> UnprocessedList = new List<IEventBase<K>>();
-        private async ValueTask ConcurrentTellProcess(DataTaskWrap<IEventBase<K>, bool> first, ChannelReader<DataTaskWrap<IEventBase<K>, bool>> reader)
+        private async ValueTask ConcurrentTellProcess(BufferBlock<DataTaskWrap<IEventBase<K>, bool>> reader)
         {
             var start = DateTime.UtcNow;
-            var wrapList = new List<DataTaskWrap<IEventBase<K>, bool>> { first };
+            var wrapList = new List<DataTaskWrap<IEventBase<K>, bool>>();
             try
             {
-                while (reader.TryRead(out var msg))
+                while (reader.TryReceiveAll(out var msgs))
                 {
-                    wrapList.Add(msg);
+                    wrapList.AddRange(msgs);
                     if ((DateTime.UtcNow - start).TotalMilliseconds > 200) break;//保证批量延时不超过200ms
                 }
                 var startVersion = State.Version;
@@ -178,11 +180,14 @@ namespace Ray.Core.EventSourcing
                         UnprocessedList.AddRange(orderList.Select(w => w.Value));
                     }
                 }
-                await Task.WhenAll(UnprocessedList.Select(@event => OnEventDelivered(@event)));
-                var lastEvt = UnprocessedList.Last();
-                State.UpdateVersion(lastEvt.Version, lastEvt.Timestamp);
-                await SaveSnapshotAsync();
-                UnprocessedList.Clear();
+                if (UnprocessedList.Count > 0)
+                {
+                    await Task.WhenAll(UnprocessedList.Select(@event => OnEventDelivered(@event)));
+                    var lastEvt = UnprocessedList.Last();
+                    State.UnsafeUpdateVersion(lastEvt.Version, lastEvt.Timestamp);
+                    await SaveSnapshotAsync();
+                    UnprocessedList.Clear();
+                }
                 foreach (var wrap in wrapList)
                 {
                     wrap.TaskSource.TrySetResult(true);
@@ -226,7 +231,6 @@ namespace Ray.Core.EventSourcing
                                 State.DoingVersion = State.Version;//标记将要处理的Version
                                 ExceptionDispatchInfo.Capture(e).Throw();
                             }
-                            await OnExecuted(@event);
                             await SaveSnapshotAsync();
                         }
                         else if (@event.Version > State.Version)
@@ -245,7 +249,6 @@ namespace Ray.Core.EventSourcing
                                     State.DoingVersion = State.Version;//标记将要处理的Version
                                     ExceptionDispatchInfo.Capture(e).Throw();
                                 }
-                                await OnExecuted(@event);
                             }
                             await SaveSnapshotAsync();
                         }
@@ -262,7 +265,6 @@ namespace Ray.Core.EventSourcing
                                 State.DoingVersion = State.Version;//标记将要处理的Version
                                 ExceptionDispatchInfo.Capture(e).Throw();
                             }
-                            await OnExecuted(@event);
                             await SaveSnapshotAsync();
                         }
                         if (@event.Version > State.Version)
@@ -275,8 +277,6 @@ namespace Ray.Core.EventSourcing
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual Task OnEventDelivered(IEventBase<K> @event) => Task.CompletedTask;
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual Task OnExecuted(IEventBase<K> @event) => Task.CompletedTask;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual Task OnSaveSnapshot() => Task.CompletedTask;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

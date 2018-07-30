@@ -30,5 +30,6 @@ namespace Ray.Core.EventSourcing
             };
         }
         public byte[] Bytes { get; set; }
+        public bool Result { get; set; }
     }
 }

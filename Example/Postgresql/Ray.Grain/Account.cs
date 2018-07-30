@@ -8,7 +8,6 @@ using Ray.PostgreSQL;
 using Ray.Grain.EventHandles;
 using Ray.RabbitMQ;
 using Microsoft.Extensions.Options;
-using System;
 
 namespace Ray.Grain
 {
@@ -23,8 +22,11 @@ namespace Ray.Grain
 
         protected override long GrainId => this.GetPrimaryKeyLong();
 
-        static IEventHandle _eventHandle = new AccountEventHandle();
-        protected override IEventHandle EventHandle => _eventHandle;
+        public static IEventHandle<AccountState> EventHandle { get; } = new AccountEventHandle();
+        protected override void Apply(AccountState state, IEventBase<long> evt)
+        {
+            EventHandle.Apply(state, evt);
+        }
         static SqlGrainConfig _table;
         protected override bool SupportAsync => false;
         public override SqlGrainConfig GrainConfig
@@ -49,8 +51,8 @@ namespace Ray.Grain
         }
         public Task AddAmount(decimal amount, string uniqueId = null)
         {
-            var evt = new AmountAddEvent(amount);
-            return EnterBuffer(evt, uniqueId).AsTask();
+            var evt = new AmountAddEvent(amount, State.Balance + amount);
+            return RaiseEvent(evt, uniqueId).AsTask();
         }
         public Task<decimal> GetBalance()
         {

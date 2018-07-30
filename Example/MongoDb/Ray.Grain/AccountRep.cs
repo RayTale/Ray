@@ -13,8 +13,11 @@ namespace Ray.Grain
     public sealed class AccountRep : MongoRepGrain<long, AccountState, MessageInfo>, IAccountRep
     {
         protected override long GrainId => this.GetPrimaryKeyLong();
-
-        static IEventHandle _eventHandle = new AccountEventHandle();
+        protected override Task Apply(AccountState state, IEventBase<long> evt)
+        {
+            Account.EventHandle.Apply(state, evt);
+            return Task.CompletedTask;
+        }
         static MongoGrainConfig _ESMongoInfo;
         public override MongoGrainConfig GrainConfig
         {
@@ -25,7 +28,6 @@ namespace Ray.Grain
                 return _ESMongoInfo;
             }
         }
-        protected override IEventHandle EventHandle => _eventHandle;
 
         public Task<decimal> GetBalance()
         {

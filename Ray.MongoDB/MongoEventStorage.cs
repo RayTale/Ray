@@ -112,5 +112,24 @@ namespace Ray.MongoDB
             }
             return false;
         }
+
+        public async ValueTask TransactionSaveAsync(List<EventSaveWrap<K>> list)
+        {
+            var inserts = new List<MongoEvent<K>>();
+            foreach (var data in list)
+            {
+                var mEvent = new MongoEvent<K>
+                {
+                    Id = new ObjectId(),
+                    StateId = data.Evt.StateId,
+                    Version = data.Evt.Version,
+                    TypeCode = data.Evt.TypeCode,
+                    Data = data.Bytes,
+                    UniqueId = data.UniqueId
+                };
+                inserts.Add(mEvent);
+            }
+            await mongoStorage.GetCollection<MongoEvent<K>>(grainConfig.EventDataBase, grainConfig.GetCollection(mongoStorage, mongoStorage.Config.SysStartTime, DateTime.UtcNow).Name).InsertManyAsync(inserts);
+        }
     }
 }

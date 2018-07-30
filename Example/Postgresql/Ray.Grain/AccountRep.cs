@@ -33,8 +33,11 @@ namespace Ray.Grain
             }
         }
 
-        static IEventHandle _eventHandle = new AccountEventHandle();
-        protected override IEventHandle EventHandle => _eventHandle;
+        protected static IEventHandle<AccountState> EventHandle { get; } = new AccountEventHandle();
+        protected override Task Apply(AccountState state, IEventBase<long> evt)
+        {
+            throw new NotImplementedException();
+        }
 
         public Task<decimal> GetBalance()
         {
