@@ -9,6 +9,8 @@ using System.Threading;
 using Ray.Core.EventSourcing;
 using Ray.Core.Message;
 using Microsoft.Extensions.Logging;
+using System.Threading.Tasks.Dataflow;
+using System.Linq;
 
 namespace Ray.MongoDB
 {
@@ -17,6 +19,8 @@ namespace Ray.MongoDB
         MongoGrainConfig grainConfig;
         ILogger<MongoEventStorage<K>> logger;
         IMongoStorage mongoStorage;
+        BufferBlock<EventBytesTransactionWrap<K>> EventSaveFlowChannel = new BufferBlock<EventBytesTransactionWrap<K>>();
+        int isProcessing = 0;
         public MongoEventStorage(IMongoStorage mongoStorage, ILogger<MongoEventStorage<K>> logger, MongoGrainConfig grainConfig)
         {
             this.mongoStorage = mongoStorage;
@@ -27,7 +31,7 @@ namespace Ray.MongoDB
         {
             var collectionList = grainConfig.GetCollectionList(mongoStorage, mongoStorage.Config.SysStartTime, startTime);
             var list = new List<IEventBase<K>>();
-            Int64 readVersion = 0;
+            long readVersion = 0;
             foreach (var collection in collectionList)
             {
                 var filterBuilder = Builders<BsonDocument>.Filter;
@@ -83,34 +87,94 @@ namespace Ray.MongoDB
             }
             return list;
         }
-        public async Task<bool> SaveAsync(IEventBase<K> data, byte[] bytes, string uniqueId = null)
+        public Task<bool> SaveAsync(IEventBase<K> evt, byte[] bytes, string uniqueId = null)
         {
-            var mEvent = new MongoEvent<K>
+            return Task.Run(async () =>
             {
-                Id = new ObjectId(),
-                StateId = data.StateId,
-                Version = data.Version,
-                TypeCode = data.TypeCode,
-                Data = bytes,
-                UniqueId = string.IsNullOrEmpty(uniqueId) ? data.GetUniqueId() : uniqueId
-            };
+                var wrap = EventBytesTransactionWrap<K>.Create(evt, bytes, uniqueId);
+                await EventSaveFlowChannel.SendAsync(wrap);
+                if (isProcessing == 0)
+                    TriggerFlowProcess();
+                return await wrap.TaskSource.Task;
+            });
+        }
+        private async void TriggerFlowProcess()
+        {
+            await Task.Run(async () =>
+            {
+                if (Interlocked.CompareExchange(ref isProcessing, 1, 0) == 0)
+                {
+                    try
+                    {
+                        while (await EventSaveFlowChannel.OutputAvailableAsync())
+                        {
+                            await FlowProcess();
+                        }
+                    }
+                    finally
+                    {
+                        Interlocked.Exchange(ref isProcessing, 0);
+                    }
+                }
+            }).ConfigureAwait(false);
+
+        }
+        private async ValueTask FlowProcess()
+        {
+            var start = DateTime.UtcNow;
+            var wrapList = new List<EventBytesTransactionWrap<K>>();
+            var documents = new List<MongoEvent<K>>();
+            while (EventSaveFlowChannel.TryReceive(out var evt))
+            {
+                wrapList.Add(evt);
+                documents.Add(new MongoEvent<K>
+                {
+                    Id = new ObjectId(),
+                    StateId = evt.Value.StateId,
+                    Version = evt.Value.Version,
+                    TypeCode = evt.Value.TypeCode,
+                    Data = evt.Bytes,
+                    UniqueId = evt.UniqueId
+                });
+                if ((DateTime.UtcNow - start).TotalMilliseconds > 100) break;//保证批量延时不超过100ms
+            }
+            var collection = mongoStorage.GetCollection<MongoEvent<K>>(grainConfig.EventDataBase, grainConfig.GetCollection(mongoStorage, mongoStorage.Config.SysStartTime, DateTime.UtcNow).Name);
+            wrapList.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
             try
             {
-                await mongoStorage.GetCollection<MongoEvent<K>>(grainConfig.EventDataBase, grainConfig.GetCollection(mongoStorage, mongoStorage.Config.SysStartTime, data.Timestamp).Name).InsertOneAsync(mEvent);
-                return true;
+                await collection.InsertManyAsync(documents);
+                wrapList.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
             }
-            catch (MongoWriteException ex)
+            catch
             {
-                if (ex.WriteError.Category != ServerErrorCategory.DuplicateKey)
+                foreach (var w in wrapList)
                 {
-                    throw ex;
-                }
-                else
-                {
-                    logger.LogError(ex, $"Event Duplicate,Event:{Newtonsoft.Json.JsonConvert.SerializeObject(data)}");
+                    try
+                    {
+                        await collection.InsertOneAsync(new MongoEvent<K>
+                        {
+                            Id = new ObjectId(),
+                            StateId = w.Value.StateId,
+                            Version = w.Value.Version,
+                            TypeCode = w.Value.TypeCode,
+                            Data = w.Bytes,
+                            UniqueId = w.UniqueId
+                        });
+                        w.TaskSource.TrySetResult(true);
+                    }
+                    catch (MongoWriteException ex)
+                    {
+                        if (ex.WriteError.Category != ServerErrorCategory.DuplicateKey)
+                        {
+                            w.TaskSource.TrySetException(ex);
+                        }
+                        else
+                        {
+                            w.TaskSource.TrySetResult(false);
+                        }
+                    }
                 }
             }
-            return false;
         }
 
         public async ValueTask TransactionSaveAsync(List<EventSaveWrap<K>> list)
