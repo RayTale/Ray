@@ -31,21 +31,21 @@ namespace Ray.Client
             servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
             servicecollection.AddRabbitMQ<MessageInfo>();//注册RabbitMq为默认消息队列
             servicecollection.AddLogging(logging => logging.AddConsole());
-            //servicecollection.PostConfigure<RabbitConfig>(c =>
-            //{
-            //    c.UserName = "admin";
-            //    c.Password = "admin";
-            //    c.Hosts = new[] { "127.0.0.1:5672" };
-            //    c.MaxPoolSize = 100;
-            //    c.VirtualHost = "/";
-            //});
+            servicecollection.PostConfigure<RabbitConfig>(c =>
+            {
+                c.UserName = "admin";
+                c.Password = "admin";
+                c.Hosts = new[] { "127.0.0.1:5672" };
+                c.MaxPoolSize = 100;
+                c.VirtualHost = "/";
+            });
             var provider = servicecollection.BuildServiceProvider();
             try
             {
                 using (var client = await StartClientWithRetries())
                 {
-                    //var manager = provider.GetService<ISubManager>();
-                    //await manager.Start(new[] { "Core", "Read", "Rep" });
+                    var manager = provider.GetService<ISubManager>();
+                    await manager.Start(new[] { "Core", "Read", "Rep" });
                     while (true)
                     {
                         // var actor = client.GetGrain<IAccount>(0);
