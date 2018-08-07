@@ -1,14 +1,14 @@
-﻿using Ray.Core.Message;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Orleans;
-using System;
-using System.Threading.Tasks;
-using System.IO;
-using Microsoft.Extensions.DependencyInjection;
-using System.Runtime.CompilerServices;
-using System.Runtime.ExceptionServices;
+using Ray.Core.Message;
 using Ray.Core.Utils;
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 
 namespace Ray.Core.EventSourcing
@@ -23,9 +23,10 @@ namespace Ray.Core.EventSourcing
         protected virtual int SnapshotFrequency => 20;
         protected virtual int EventNumberPerRead => 2000;
         protected virtual bool FullyActive => false;
-        protected Int64 StateStorageVersion { get; set; }
+        protected long StateStorageVersion { get; set; }
         protected virtual int SnapshotMinFrequency => 1;
         protected virtual bool Concurrent => false;
+        protected virtual int NumberPerConcurrent => 500;
         #region concurrent variable
         private DataBatchChannel<IEventBase<K>, bool> tellChannel;
         IEventStorage<K> _eventStorage;
@@ -146,58 +147,132 @@ namespace Ray.Core.EventSourcing
             }
         }
         List<IEventBase<K>> UnprocessedList = new List<IEventBase<K>>();
+        readonly Exception timeoutException = new Exception("Message processing timeout");
         private async ValueTask ConcurrentTellProcess(BufferBlock<DataTaskWrap<IEventBase<K>, bool>> reader)
         {
-            var start = DateTime.UtcNow;
-            var wrapList = new List<DataTaskWrap<IEventBase<K>, bool>>();
-            try
+            DataTaskWrap<IEventBase<K>, bool> maxRequest = default;
+            var list = new List<IEventBase<K>>();
+            var startVersion = State.Version;
+            var startTime = State.VersionTime;
+            long maxVersion = 0;
+            if (UnprocessedList.Count > 0)
             {
-                while (reader.TryReceiveAll(out var msgs))
+                var startEvt = UnprocessedList.Last();
+                startVersion = startEvt.Version;
+                startTime = startEvt.Timestamp;
+            }
+            void ProcessRequest(DataTaskWrap<IEventBase<K>, bool> request)
+            {
+                if (request.Value.Version < startVersion)
+                    request.TaskSource.TrySetResult(true);
+                else
                 {
-                    wrapList.AddRange(msgs);
-                    if ((DateTime.UtcNow - start).TotalMilliseconds > 200) break;//保证批量延时不超过200ms
-                }
-                var startVersion = State.Version;
-                var startTime = State.VersionTime;
-                if (UnprocessedList.Count > 0)
-                {
-                    var startEvt = UnprocessedList.Last();
-                    startVersion = startEvt.Version;
-                    startTime = startEvt.Timestamp;
-                }
-
-                var orderList = wrapList.Where(w => w.Value.Version > startVersion).OrderBy(w => w.Value.Version).ToList();
-                if (orderList.Count > 0)
-                {
-                    var inputLast = orderList.Last();
-                    if (startVersion + orderList.Count != inputLast.Value.Version)
+                    list.Add(request.Value);
+                    if (maxVersion <= request.Value.Version)
                     {
-                        var loadList = await (await GetEventStorage()).GetListAsync(GrainId, startVersion, inputLast.Value.Version, startTime);
-                        UnprocessedList.AddRange(loadList);
+                        if (maxRequest != default)
+                            maxRequest.TaskSource.TrySetResult(true);
+                        maxRequest = request;
+                        maxVersion = request.Value.Version;
                     }
                     else
                     {
-                        UnprocessedList.AddRange(orderList.Select(w => w.Value));
+                        request.TaskSource.TrySetResult(true);
                     }
+                }
+            }
+            int counter = 3;
+            while (counter > 0)
+            {
+                if (!reader.TryReceive(out var request))
+                {
+                    await Task.Delay(100);
+                }
+                else
+                {
+                    ProcessRequest(request);
+                }
+                var start = DateTime.UtcNow;
+                while (reader.TryReceive(out request))
+                {
+                    ProcessRequest(request);
+                    if ((DateTime.UtcNow - start).TotalMilliseconds > 100) break;//保证批量延时不超过200ms
+                }
+                if (startVersion + list.Count == maxVersion) break;
+                else
+                    await Task.Delay(100);
+                counter--;
+            }
+            try
+            {
+                if (startVersion + list.Count != maxVersion)
+                {
+                    var loadList = await (await GetEventStorage()).GetListAsync(GrainId, startVersion, maxVersion, startTime);
+                    UnprocessedList.AddRange(loadList);
+                }
+                else
+                {
+                    UnprocessedList.AddRange(list.OrderBy(w => w.Version));
                 }
                 if (UnprocessedList.Count > 0)
                 {
-                    await Task.WhenAll(UnprocessedList.Select(@event => OnEventDelivered(@event)));
-                    var lastEvt = UnprocessedList.Last();
-                    State.UnsafeUpdateVersion(lastEvt.Version, lastEvt.Timestamp);
-                    await SaveSnapshotAsync();
-                    UnprocessedList.Clear();
-                }
-                foreach (var wrap in wrapList)
-                {
-                    wrap.TaskSource.TrySetResult(true);
+                    var needProcessList = UnprocessedList.Where(e => e.Version > State.Version).ToList();
+                    var times = Math.Ceiling(needProcessList.Count * 1.0 / NumberPerConcurrent);
+                    bool result = false;
+                    for (int i = 0; i < times; i++)
+                    {
+                        var pageList = needProcessList.Skip(i * NumberPerConcurrent).Take(NumberPerConcurrent).ToList();
+                        result = await EventListProcess(pageList);
+                        if (!result)
+                        {
+                            var processCounter = 2;
+                            while (processCounter > 0)
+                            {
+                                result = await EventListProcess(pageList);
+                                if (result) break;
+                                else
+                                    await Task.Delay(100);
+                                processCounter--;
+                            }
+                        }
+                        if (!result)
+                            break;
+                    }
+                    if (result)
+                    {
+                        await SaveSnapshotAsync();
+                        UnprocessedList.Clear();
+                        maxRequest.TaskSource.TrySetResult(true);
+                    }
+                    else
+                        maxRequest.TaskSource.TrySetException(timeoutException);
                 }
             }
             catch (Exception e)
             {
-                foreach (var wrap in wrapList)
+                maxRequest.TaskSource.TrySetException(e);
+            }
+        }
+        public async ValueTask<bool> EventListProcess(List<IEventBase<K>> list)
+        {
+            using (var tokenSource = new CancellationTokenSource())
+            {
+                var tasks = list.Select(@event => OnEventDelivered(@event));
+                var taskOne = Task.WhenAll(tasks);
+                using (var taskTwo = Task.Delay(3 * 60 * 1000, tokenSource.Token))
                 {
-                    wrap.TaskSource.TrySetException(e);
+                    await Task.WhenAny(taskOne, taskTwo);
+                    if (taskOne.Status == TaskStatus.RanToCompletion)
+                    {
+                        tokenSource.Cancel();
+                        var lastEvt = UnprocessedList.Last();
+                        State.UnsafeUpdateVersion(lastEvt.Version, lastEvt.Timestamp);
+                        return true;
+                    }
+                    else
+                    {
+                        return false;
+                    }
                 }
             }
         }
@@ -220,57 +295,28 @@ namespace Ray.Core.EventSourcing
                     {
                         if (@event.Version == State.Version + 1)
                         {
-                            State.IncrementDoingVersion();//标记将要处理的Version
-                            try
-                            {
-                                await OnEventDelivered(@event);
-                                State.UpdateVersion(@event);//更新处理完成的Version
-                            }
-                            catch (Exception e)
-                            {
-                                State.DoingVersion = State.Version;//标记将要处理的Version
-                                ExceptionDispatchInfo.Capture(e).Throw();
-                            }
-                            await SaveSnapshotAsync();
+                            await OnEventDelivered(@event);
+                            State.FullUpdateVersion(@event);//更新处理完成的Version
                         }
                         else if (@event.Version > State.Version)
                         {
                             var eventList = await (await GetEventStorage()).GetListAsync(GrainId, State.Version, @event.Version, State.VersionTime);
                             foreach (var item in eventList)
                             {
-                                State.IncrementDoingVersion();//标记将要处理的Version
-                                try
-                                {
-                                    await OnEventDelivered(item);
-                                    State.UpdateVersion(item);//更新处理完成的Version
-                                }
-                                catch (Exception e)
-                                {
-                                    State.DoingVersion = State.Version;//标记将要处理的Version
-                                    ExceptionDispatchInfo.Capture(e).Throw();
-                                }
+                                await OnEventDelivered(item);
+                                State.FullUpdateVersion(item);//更新处理完成的Version
                             }
-                            await SaveSnapshotAsync();
                         }
                         if (@event.Version == State.Version + 1)
                         {
-                            State.IncrementDoingVersion();//标记将要处理的Version
-                            try
-                            {
-                                await OnEventDelivered(@event);
-                                State.UpdateVersion(@event);//更新处理完成的Version
-                            }
-                            catch (Exception e)
-                            {
-                                State.DoingVersion = State.Version;//标记将要处理的Version
-                                ExceptionDispatchInfo.Capture(e).Throw();
-                            }
-                            await SaveSnapshotAsync();
+                            await OnEventDelivered(@event);
+                            State.FullUpdateVersion(@event);//更新处理完成的Version
                         }
                         if (@event.Version > State.Version)
                         {
                             throw new Exception($"Event version of the error,Type={GetType().FullName},StateId={this.GrainId.ToString()},StateVersion={State.Version},EventVersion={@event.Version}");
                         }
+                        await SaveSnapshotAsync();
                     }
                 }
             }

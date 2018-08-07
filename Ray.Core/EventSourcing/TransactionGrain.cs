@@ -128,7 +128,7 @@ namespace Ray.Core.EventSourcing
         protected override async ValueTask<bool> RaiseEvent(IEventBase<K> @event, string uniqueId = null, string hashKey = null)
         {
             if (transactionPending)
-                throw new Exception("The transaction has been opened,Please use RaiseEventByTransaction().");
+                throw new Exception("The transaction has been opened,Please use Transaction().");
             await StateCheck();
             return await base.RaiseEvent(@event, uniqueId, hashKey);
         }

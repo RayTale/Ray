@@ -46,7 +46,7 @@ namespace Ray.PostgreSQL
                         }
                     }
                 }
-            }).ConfigureAwait(false);
+            });
 
             var list = new List<IEventBase<K>>(originList.Count);
             foreach (var origin in originList)
@@ -89,7 +89,7 @@ namespace Ray.PostgreSQL
                                 break;
                         }
                     }
-                }).ConfigureAwait(false);
+                });
             }
             var list = new List<IEventBase<K>>(originList.Count);
             foreach (var origin in originList)
@@ -135,8 +135,7 @@ namespace Ray.PostgreSQL
                         Interlocked.Exchange(ref isProcessing, 0);
                     }
                 }
-            }).ConfigureAwait(false);
-
+            });
         }
         private async ValueTask FlowProcess()
         {
@@ -220,7 +219,7 @@ namespace Ray.PostgreSQL
                         writer.Complete();
                     }
                 }
-            }).ConfigureAwait(false);
+            });
         }
     }
 }
