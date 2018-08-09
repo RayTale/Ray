@@ -11,8 +11,8 @@ using Microsoft.Extensions.Options;
 
 namespace Ray.Grain
 {
-    [RabbitPub("Account", "account")]
-    public sealed class Account : SqlGrain<long, AccountState, IGrains.MessageInfo>, IAccount
+    [RabbitPub("Account", "account", 20)]
+    public sealed class Account : SqlTransactionGrain<long, AccountState, IGrains.MessageInfo>, IAccount
     {
         SqlConfig config;
         public Account(IOptions<SqlConfig> configOptions)
@@ -28,7 +28,7 @@ namespace Ray.Grain
             EventHandle.Apply(state, evt);
         }
         static SqlGrainConfig _table;
-        protected override bool SupportAsync => false;
+        protected override bool SupportAsync => true;
         public override SqlGrainConfig GrainConfig
         {
             get
@@ -49,10 +49,10 @@ namespace Ray.Grain
             var evt = new AmountTransferEvent(toAccountId, amount, this.State.Balance - amount);
             return RaiseEvent(evt).AsTask();
         }
-        public Task AddAmount(decimal amount, string uniqueId = null)
+        public ValueTask<bool> AddAmount(decimal amount, string uniqueId = null)
         {
             var evt = new AmountAddEvent(amount, State.Balance + amount);
-            return RaiseEvent(evt, uniqueId).AsTask();
+            return ConcurrentInput(evt, uniqueId);
         }
         public Task<decimal> GetBalance()
         {

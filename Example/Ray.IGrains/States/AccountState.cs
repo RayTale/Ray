@@ -5,7 +5,7 @@ using System;
 namespace Ray.IGrains.States
 {
     [ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
-    public class AccountState : IState<long>
+    public class AccountState : IState<long>, ITransactionable<AccountState>
     {
         #region base
         public long StateId { get; set; }
@@ -14,5 +14,17 @@ namespace Ray.IGrains.States
         public DateTime VersionTime { get; set; }
         #endregion
         public decimal Balance { get; set; }
+
+        public AccountState DeepCopy()
+        {
+            return new AccountState
+            {
+                StateId = StateId,
+                Version = Version,
+                DoingVersion = DoingVersion,
+                VersionTime = VersionTime,
+                Balance = Balance
+            };
+        }
     }
 }

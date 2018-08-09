@@ -1,9 +1,7 @@
-﻿using System;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
 using Orleans;
 using Ray.Core.EventSourcing;
-using Ray.Grain.EventHandles;
 using Ray.IGrains;
 using Ray.IGrains.Actors;
 using Ray.IGrains.States;
@@ -32,11 +30,10 @@ namespace Ray.Grain
                 return _table;
             }
         }
-
-        protected static IEventHandle<AccountState> EventHandle { get; } = new AccountEventHandle();
         protected override Task Apply(AccountState state, IEventBase<long> evt)
         {
-            throw new NotImplementedException();
+            Account.EventHandle.Apply(state, evt);
+            return Task.CompletedTask;
         }
 
         public Task<decimal> GetBalance()

@@ -31,7 +31,7 @@ namespace Ray.Grain
                 return _table;
             }
         }
-
+        protected override bool Concurrent => true;
         protected override Task Process(IEventBase<long> @event)
         {
             switch (@event)
@@ -44,12 +44,12 @@ namespace Ray.Grain
         public Task AmountTransferEventHandler(AmountTransferEvent evt)
         {
             //Console.WriteLine($"更新数据库->用户转账,当前账户ID:{evt.StateId},目标账户ID:{evt.ToAccountId},转账金额:{evt.Amount},当前余额为:{evt.Balance}");
-            return Task.CompletedTask;
+            return Task.Delay(20);
         }
         public Task AmountAddEventHandler(AmountAddEvent evt)
         {
             //Console.WriteLine($"更新数据库->用户转账到账,用户ID:{evt.StateId},到账金额:{evt.Amount},当前余额为:{evt.Balance}");
-            return Task.CompletedTask;
+            return Task.Delay(20);
         }
     }
 }

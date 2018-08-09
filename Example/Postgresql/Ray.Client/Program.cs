@@ -35,7 +35,7 @@ namespace Ray.Client
             {
                 c.UserName = "admin";
                 c.Password = "admin";
-                c.Hosts = new[] { "127.0.0.1:5672" };
+                c.Hosts = new[] { "192.168.125.230:5672" };
                 c.MaxPoolSize = 100;
                 c.VirtualHost = "/";
             });
@@ -49,11 +49,12 @@ namespace Ray.Client
                     while (true)
                     {
                         // var actor = client.GetGrain<IAccount>(0);
-                        Console.WriteLine("Press Enter for times...");
-                        var length = int.Parse(Console.ReadLine());
+                        // Console.WriteLine("Press Enter for times...");
+                        Console.WriteLine("start");
+                        var length = 1000;// int.Parse(Console.ReadLine());
                         var stopWatch = new Stopwatch();
                         stopWatch.Start();
-                        await Task.WhenAll(Enumerable.Range(0, length).Select(x => client.GetGrain<IAccount>(x).AddAmount(1000)));
+                        await Task.WhenAll(Enumerable.Range(0, length).Select(x => client.GetGrain<IAccount>(0).AddAmount(1000).AsTask()));
                         stopWatch.Stop();
                         Console.WriteLine($"{length }次操作完成，耗时:{stopWatch.ElapsedMilliseconds}ms");
                         await Task.Delay(200);

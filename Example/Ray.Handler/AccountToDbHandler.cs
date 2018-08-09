@@ -22,7 +22,7 @@ namespace Ray.Handler
         public override Task Tell(byte[] wrapBytes, byte[] dataBytes, IMessage data, MessageInfo msg)
         {
             if (data is IEventBase<long> evt)
-                return clientFactory.GetClient().GetGrain<IAccountDb>(evt.StateId).Tell(wrapBytes);
+                return clientFactory.GetClient().GetGrain<IAccountDb>(evt.StateId).ConcurrentTell(wrapBytes);
             return Task.CompletedTask;
         }
     }

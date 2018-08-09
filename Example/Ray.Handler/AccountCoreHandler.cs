@@ -21,7 +21,7 @@ namespace Ray.Handler
         protected override Task SendToAsyncGrain(byte[] bytes, IEventBase<long> evt)
         {
             var client = clientFactory.GetClient();
-            return client.GetGrain<IAccountFlow>(evt.StateId).Tell(bytes);
+            return client.GetGrain<IAccountFlow>(evt.StateId).ConcurrentTell(bytes);
         }
     }
 }

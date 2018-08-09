@@ -32,6 +32,7 @@ namespace Ray.Grain
                 return _table;
             }
         }
+        protected override bool Concurrent => true;
         protected override Task OnEventDelivered(IEventBase<long> @event)
         {
             switch (@event)
