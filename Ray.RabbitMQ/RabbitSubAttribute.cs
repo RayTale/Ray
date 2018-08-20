@@ -9,7 +9,7 @@ namespace Ray.RabbitMQ
     {
         readonly List<string> originQueueList;
         readonly string queue;
-        public RabbitSubAttribute(string group, string exchange, string queue, int queueCount = 1, ushort minQos = 20, ushort incQos = 20, ushort maxQos = 200, bool autoAck = false, bool errorReject = false) : base(group)
+        public RabbitSubAttribute(string group, string exchange, string queue, int queueCount = 1, ushort minQos = 150, ushort incQos = 20, ushort maxQos = 200, bool autoAck = false, bool errorReject = false) : base(group)
         {
             Exchange = exchange;
             QueueCount = queueCount;

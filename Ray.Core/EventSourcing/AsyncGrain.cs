@@ -26,7 +26,6 @@ namespace Ray.Core.EventSourcing
         protected long StateStorageVersion { get; set; }
         protected virtual int SnapshotMinFrequency => 1;
         protected virtual bool Concurrent => false;
-        protected virtual int NumberPerConcurrent => 500;
         #region concurrent variable
         private DataBatchChannel<IEventBase<K>, bool> tellChannel;
         IEventStorage<K> _eventStorage;
@@ -150,130 +149,88 @@ namespace Ray.Core.EventSourcing
         readonly Exception timeoutException = new Exception("Message processing timeout");
         private async ValueTask ConcurrentTellProcess(BufferBlock<DataTaskWrap<IEventBase<K>, bool>> reader)
         {
-            DataTaskWrap<IEventBase<K>, bool> maxRequest = default;
-            var list = new List<IEventBase<K>>();
+            var start = DateTime.UtcNow;
+            var evtList = new List<IEventBase<K>>();
             var startVersion = State.Version;
             var startTime = State.VersionTime;
-            long maxVersion = 0;
             if (UnprocessedList.Count > 0)
             {
                 var startEvt = UnprocessedList.Last();
                 startVersion = startEvt.Version;
                 startTime = startEvt.Timestamp;
             }
-            void ProcessRequest(DataTaskWrap<IEventBase<K>, bool> request)
+            var maxVersion = startVersion;
+            TaskCompletionSource<bool> maxRequest = default;
+            try
             {
-                if (request.Value.Version < startVersion)
-                    request.TaskSource.TrySetResult(true);
-                else
+                while (reader.TryReceiveAll(out var msgs))
                 {
-                    list.Add(request.Value);
-                    if (maxVersion <= request.Value.Version)
+                    foreach (var wrap in msgs)
                     {
-                        if (maxRequest != default)
-                            maxRequest.TaskSource.TrySetResult(true);
-                        maxRequest = request;
-                        maxVersion = request.Value.Version;
+                        if (wrap.Value.Version <= startVersion)
+                        {
+                            wrap.TaskSource.TrySetResult(true);
+                        }
+                        else
+                        {
+                            evtList.Add(wrap.Value);
+                            if (wrap.Value.Version > maxVersion)
+                            {
+                                maxRequest?.TrySetResult(true);
+                                maxVersion = wrap.Value.Version;
+                                maxRequest = wrap.TaskSource;
+                            }
+                            else
+                            {
+                                wrap.TaskSource.TrySetResult(true);
+                            }
+                        }
+                    }
+                    if ((DateTime.UtcNow - start).TotalMilliseconds > 200) break;//保证批量延时不超过200ms
+                }
+                var orderList = evtList.OrderBy(w => w.Version).ToList();
+                if (orderList.Count > 0)
+                {
+                    var inputLast = orderList.Last();
+                    if (startVersion + orderList.Count != inputLast.Version)
+                    {
+                        var loadList = await (await GetEventStorage()).GetListAsync(GrainId, startVersion, inputLast.Version, startTime);
+                        UnprocessedList.AddRange(loadList);
                     }
                     else
                     {
-                        request.TaskSource.TrySetResult(true);
+                        UnprocessedList.AddRange(orderList.Select(w => w));
                     }
-                }
-            }
-            int counter = 3;
-            while (counter > 0)
-            {
-                if (!reader.TryReceive(out var request))
-                {
-                    await Task.Delay(100);
-                }
-                else
-                {
-                    ProcessRequest(request);
-                }
-                var start = DateTime.UtcNow;
-                while (reader.TryReceive(out request))
-                {
-                    ProcessRequest(request);
-                    if ((DateTime.UtcNow - start).TotalMilliseconds > 100) break;//保证批量延时不超过200ms
-                }
-                if (startVersion + list.Count == maxVersion) break;
-                else
-                    await Task.Delay(100);
-                counter--;
-            }
-            try
-            {
-                if (startVersion + list.Count != maxVersion)
-                {
-                    var loadList = await (await GetEventStorage()).GetListAsync(GrainId, startVersion, maxVersion, startTime);
-                    UnprocessedList.AddRange(loadList);
-                }
-                else
-                {
-                    UnprocessedList.AddRange(list.OrderBy(w => w.Version));
                 }
                 if (UnprocessedList.Count > 0)
                 {
-                    var needProcessList = UnprocessedList.Where(e => e.Version > State.Version).ToList();
-                    var times = Math.Ceiling(needProcessList.Count * 1.0 / NumberPerConcurrent);
-                    bool result = false;
-                    for (int i = 0; i < times; i++)
+                    using (var tokenSource = new CancellationTokenSource())
                     {
-                        var pageList = needProcessList.Skip(i * NumberPerConcurrent).Take(NumberPerConcurrent).ToList();
-                        result = await EventListProcess(pageList);
-                        if (!result)
+                        var tasks = UnprocessedList.Select(@event => OnEventDelivered(@event));
+                        var taskOne = Task.WhenAll(tasks);
+                        using (var taskTwo = Task.Delay(3 * 60 * 1000, tokenSource.Token))
                         {
-                            var processCounter = 2;
-                            while (processCounter > 0)
+                            await Task.WhenAny(taskOne, taskTwo);
+                            if (taskOne.Status == TaskStatus.RanToCompletion)
                             {
-                                result = await EventListProcess(pageList);
-                                if (result) break;
-                                else
-                                    await Task.Delay(100);
-                                processCounter--;
+                                tokenSource.Cancel();
+                                var lastEvt = UnprocessedList.Last();
+                                State.UnsafeUpdateVersion(lastEvt.Version, lastEvt.Timestamp);
+                                await SaveSnapshotAsync();
+                                UnprocessedList.Clear();
+                                maxRequest?.TrySetResult(true);
+                            }
+                            else
+                            {
+                                maxRequest?.TrySetException(timeoutException);
                             }
                         }
-                        if (!result)
-                            break;
                     }
-                    if (result)
-                    {
-                        await SaveSnapshotAsync();
-                        UnprocessedList.Clear();
-                        maxRequest.TaskSource.TrySetResult(true);
-                    }
-                    else
-                        maxRequest.TaskSource.TrySetException(timeoutException);
                 }
             }
             catch (Exception e)
             {
-                maxRequest.TaskSource.TrySetException(e);
-            }
-        }
-        public async ValueTask<bool> EventListProcess(List<IEventBase<K>> list)
-        {
-            using (var tokenSource = new CancellationTokenSource())
-            {
-                var tasks = list.Select(@event => OnEventDelivered(@event));
-                var taskOne = Task.WhenAll(tasks);
-                using (var taskTwo = Task.Delay(3 * 60 * 1000, tokenSource.Token))
-                {
-                    await Task.WhenAny(taskOne, taskTwo);
-                    if (taskOne.Status == TaskStatus.RanToCompletion)
-                    {
-                        tokenSource.Cancel();
-                        var lastEvt = UnprocessedList.Last();
-                        State.UnsafeUpdateVersion(lastEvt.Version, lastEvt.Timestamp);
-                        return true;
-                    }
-                    else
-                    {
-                        return false;
-                    }
-                }
+                maxRequest?.TrySetException(e);
             }
         }
 

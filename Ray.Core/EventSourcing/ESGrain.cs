@@ -190,7 +190,7 @@ namespace Ray.Core.EventSourcing
             }
             catch (Exception ex)
             {
-                State.DecrementDoingVersion();//还原doing Version
+                await RecoveryState();//还原状态
                 ExceptionDispatchInfo.Capture(ex).Throw();
             }
             return false;
