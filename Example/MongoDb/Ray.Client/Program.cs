@@ -56,7 +56,7 @@ namespace Ray.Client
                         var tasks = new Task[length * 2];
                         Parallel.For(0, length, i =>
                         {
-                            tasks[i * 2] = aActor.AddAmount(1000);//1用户充值1000
+                            tasks[i * 2] = aActor.AddAmount(1000).AsTask();//1用户充值1000
                             tasks[i * 2 + 1] = aActor.Transfer(2, 500);//转给2用户500
                         });
                         await Task.WhenAll(tasks);
