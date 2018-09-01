@@ -58,7 +58,7 @@ namespace Ray.MongoHost
                 .ConfigureServices((context, servicecollection) =>
                 {
                     servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
-                    servicecollection.AddPostgresql();//注册MongoDB为事件库
+                    servicecollection.AddPostgresql();//注册Postgresql为事件库
                     servicecollection.AddRabbitMQ<MessageInfo>();//注册RabbitMq为默认消息队列
                 })
                 .Configure<SqlConfig>(c =>

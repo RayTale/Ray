@@ -15,7 +15,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="2.1.1" />
     <PackageReference Include="MongoDB.Driver" Version="2.7.0" />
-    <PackageReference Include="protobuf-net" Version="2.3.14-alpha1" />
+    <PackageReference Include="protobuf-net" Version="2.4.0" />
   </ItemGroup>
 
   <ItemGroup>
