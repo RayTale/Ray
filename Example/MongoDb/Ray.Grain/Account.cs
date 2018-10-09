@@ -35,10 +35,10 @@ namespace Ray.Grain
             var evt = new AmountTransferEvent(toAccountId, amount, State.Balance - amount);
             return RaiseEvent(evt).AsTask();
         }
-        public ValueTask<bool> AddAmount(decimal amount, string uniqueId = null)
+        public Task<bool> AddAmount(decimal amount, string uniqueId = null)
         {
             var evt = new AmountAddEvent(amount, State.Balance + amount);
-            return RaiseEvent(evt, uniqueId);
+            return RaiseEvent(evt, uniqueId).AsTask();
         }
         public Task<decimal> GetBalance()
         {
