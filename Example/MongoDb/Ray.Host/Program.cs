@@ -55,17 +55,21 @@ namespace Ray.MongoHost
                 .Configure<MongoConfig>(c =>
                 {
                     c.SysStartTime = new DateTime(2018, 3, 1);
-                    c.Connection = "mongodb://127.0.0.1:28888";
+                    c.Connection = "mongodb://127.0.0.1:27017";
                 })
                 .Configure<RabbitConfig>(c =>
                 {
                     c.UserName = "admin";
-                    c.Password = "luohuazhiyu";
+                    c.Password = "admin";
                     c.Hosts = new[] { "127.0.0.1:5672" };
                     c.MaxPoolSize = 100;
                     c.VirtualHost = "/";
                 })
-               .ConfigureLogging(logging => logging.AddConsole());
+               .ConfigureLogging(logging =>
+                {
+                    logging.SetMinimumLevel(LogLevel.Error);
+                    logging.AddConsole();
+                });
 
             var host = builder.Build();
             await host.StartAsync();

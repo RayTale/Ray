@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Ray.Core.Message;
 using System.Diagnostics;
+using System.Linq;
 using Ray.Core.MQ;
 using Ray.Core;
 
@@ -45,26 +46,19 @@ namespace Ray.Client
                 {
                     var manager = provider.GetService<ISubManager>();
                     await manager.Start(new[] { "Core", "Read", "Rep" });
-                    var aActor = client.GetGrain<IAccount>(1);
-                    var bActor = client.GetGrain<IAccount>(2);
                     while (true)
                     {
+                        // var actor = client.GetGrain<IAccount>(0);
                         Console.WriteLine("Press Enter for times...");
                         var length = int.Parse(Console.ReadLine());
+                        //var length = 1000;
                         var stopWatch = new Stopwatch();
                         stopWatch.Start();
-                        var tasks = new Task[length * 2];
-                        Parallel.For(0, length, i =>
-                        {
-                            tasks[i * 2] = aActor.AddAmount(1000);//1用户充值1000
-                            tasks[i * 2 + 1] = aActor.Transfer(2, 500);//转给2用户500
-                        });
-                        await Task.WhenAll(tasks);
+                        await Task.WhenAll(Enumerable.Range(0, length).Select(x => client.GetGrain<IAccount>(0).AddAmount(1000)));
                         stopWatch.Stop();
-                        Console.WriteLine($"{length * 2}次操作完成，耗时:{stopWatch.ElapsedMilliseconds}ms");
+                        Console.WriteLine($"{length }次操作完成，耗时:{stopWatch.ElapsedMilliseconds}ms");
                         await Task.Delay(200);
-
-                        Console.WriteLine($"End:1的余额为{await aActor.GetBalance()},2的余额为{await bActor.GetBalance()}");
+                        Console.WriteLine($"余额为{await client.GetGrain<IAccount>(0).GetBalance()}");
                     }
                 }
             }
@@ -88,7 +82,11 @@ namespace Ray.Client
                         var builder = new ClientBuilder()
                         .UseLocalhostClustering()
                         .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IAccount).Assembly).WithReferences())
-                        .ConfigureLogging(logging => logging.AddConsole());
+                        .ConfigureLogging(logging =>
+                            {
+                                logging.SetMinimumLevel(LogLevel.Error);
+                                logging.AddConsole();
+                            });
                         return builder;
                     });
                     Console.WriteLine("Client successfully connect to silo host");

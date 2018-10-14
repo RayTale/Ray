@@ -10,8 +10,8 @@ using Ray.RabbitMQ;
 
 namespace Ray.Grain
 {
-    [RabbitPub("Account", "account")]
-    public sealed class Account : MongoGrain<long, AccountState, IGrains.MessageInfo>, IAccount
+    [RabbitPub("Account", "account",20)]
+    public sealed class Account : MongoTransactionGrain<long, AccountState, IGrains.MessageInfo>, IAccount
     {
         protected override long GrainId => this.GetPrimaryKeyLong();
 
@@ -38,7 +38,7 @@ namespace Ray.Grain
         public Task<bool> AddAmount(decimal amount, string uniqueId = null)
         {
             var evt = new AmountAddEvent(amount, State.Balance + amount);
-            return RaiseEvent(evt, uniqueId).AsTask();
+            return ConcurrentInput(evt, uniqueId).AsTask();
         }
         public Task<decimal> GetBalance()
         {
