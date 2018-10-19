@@ -64,3 +64,15 @@ PM>Install-Package Ray.RabbitMQ
 四、启动Ray.Host
 
 五、启动Ray.Client
+
+---
+
+Note:
+
+Docker开发环境:
+使用Docker可以方便搭建测试环境，调整对应参数，运行示例
+```
+docker run -d -p 5672:5672 -p 15672:15672 --hostname rabbit --name rabbit -e RABBITMQ_DEFAULT_USER=admin -e RABBITMQ_DEFAULT_PASS=admin  rabbitmq:3-management
+docker run -d -p 27017:27017 --name mongo -td mongo 
+docker run -d -p 5432:5432 --name postgres -e POSTGRES_PASSWORD=123456  postgres
+```
