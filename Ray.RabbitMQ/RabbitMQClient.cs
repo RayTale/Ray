@@ -31,8 +31,8 @@ namespace Ray.RabbitMQ
     }
     public class ModelWrapper : IDisposable
     {
-        IBasicProperties persistentProperties;
-        IBasicProperties noPersistentProperties;
+        readonly IBasicProperties persistentProperties;
+        readonly IBasicProperties noPersistentProperties;
         public ModelWrapper(ConnectionWrapper connectionWrapper, IModel model)
         {
             Connection = connectionWrapper;
@@ -64,7 +64,7 @@ namespace Ray.RabbitMQ
                 Publish(ms.ToArray(), exchange, queue, persistent);
             }
         }
-        public void PublishByCmd<T>(UInt16 cmd, T data, string exchange, string queue, bool persistent = false)
+        public void PublishByCmd<T>(ushort cmd, T data, string exchange, string queue, bool persistent = false)
         {
             using (var ms = new PooledMemoryStream())
             {
@@ -75,13 +75,13 @@ namespace Ray.RabbitMQ
         }
         public void Publish(byte[] msg, string exchange, string queue, bool persistent = true)
         {
-            this.Model.BasicPublish(exchange, queue, persistent ? persistentProperties : noPersistentProperties, msg);
+            Model.BasicPublish(exchange, queue, persistent ? persistentProperties : noPersistentProperties, msg);
         }
     }
     public class RabbitMQClient : IRabbitMQClient
     {
-        ConnectionFactory _Factory;
-        RabbitConfig rabbitHost;
+        readonly ConnectionFactory _Factory;
+        readonly RabbitConfig rabbitHost;
         public RabbitMQClient(IOptions<RabbitConfig> config)
         {
             rabbitHost = config.Value;
@@ -100,13 +100,14 @@ namespace Ray.RabbitMQ
                 channel.Model.ExchangeDeclare(exchange, "direct", true);
             }
         }
-        ConcurrentQueue<ModelWrapper> modelPool = new ConcurrentQueue<ModelWrapper>();
-        List<ModelWrapper> modelList = new List<ModelWrapper>();
-        ConcurrentQueue<TaskCompletionSource<ModelWrapper>> modelTaskPool = new ConcurrentQueue<TaskCompletionSource<ModelWrapper>>();
-        ConcurrentQueue<ConnectionWrapper> connectionQueue = new ConcurrentQueue<ConnectionWrapper>();
+
+        readonly ConcurrentQueue<ModelWrapper> modelPool = new ConcurrentQueue<ModelWrapper>();
+        readonly List<ModelWrapper> modelList = new List<ModelWrapper>();
+        readonly ConcurrentQueue<TaskCompletionSource<ModelWrapper>> modelTaskPool = new ConcurrentQueue<TaskCompletionSource<ModelWrapper>>();
+        readonly ConcurrentQueue<ConnectionWrapper> connectionQueue = new ConcurrentQueue<ConnectionWrapper>();
         int connectionCount = 0;
-        readonly object modelLock = new object();
-        public async Task<ModelWrapper> PullModel()
+
+        public async ValueTask<ModelWrapper> PullModel()
         {
             ConnectionWrapper GetConnection()
             {

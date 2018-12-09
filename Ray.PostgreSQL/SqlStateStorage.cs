@@ -9,7 +9,7 @@ namespace Ray.PostgreSQL
 {
     public class SqlStateStorage<T, K> : IStateStorage<T, K> where T : class, IState<K>
     {
-        SqlGrainConfig tableInfo;
+        readonly SqlGrainConfig tableInfo;
         private readonly string deleteSql;
         private readonly string getByIdSql;
         private readonly string insertSql;
@@ -20,8 +20,8 @@ namespace Ray.PostgreSQL
             tableInfo = table;
             deleteSql = $"DELETE FROM {tableInfo.SnapshotTable} where stateid=@StateId";
             getByIdSql = $"select data FROM {tableInfo.SnapshotTable} where stateid=@StateId";
-            insertSql = $"INSERT into {tableInfo.SnapshotTable}(stateid,data)VALUES(@StateId,@Data)";
-            updateSql = $"update {tableInfo.SnapshotTable} set data=@Data where stateid=@StateId";
+            insertSql = $"INSERT into {tableInfo.SnapshotTable}(stateid,data,version)VALUES(@StateId,@Data,@Version)";
+            updateSql = $"update {tableInfo.SnapshotTable} set data=@Data,version=@Version where stateid=@StateId";
         }
         public async Task DeleteAsync(K id)
         {
@@ -55,7 +55,7 @@ namespace Ray.PostgreSQL
                 Serializer.Serialize(ms, data);
                 using (var connection = tableInfo.CreateConnection())
                 {
-                    await connection.ExecuteAsync(insertSql, new { StateId = data.StateId.ToString(), Data = ms.ToArray() });
+                    await connection.ExecuteAsync(insertSql, new { StateId = data.StateId.ToString(), Data = ms.ToArray(), data.Version });
                 }
             }
         }
@@ -67,7 +67,7 @@ namespace Ray.PostgreSQL
                 Serializer.Serialize(ms, data);
                 using (var connection = tableInfo.CreateConnection())
                 {
-                    await connection.ExecuteAsync(updateSql, new { StateId = data.StateId.ToString(), Data = ms.ToArray() });
+                    await connection.ExecuteAsync(updateSql, new { StateId = data.StateId.ToString(), Data = ms.ToArray(), data.Version });
                 }
             }
         }

@@ -4,68 +4,95 @@ using System.Linq;
 using System.Threading.Tasks;
 using MongoDB.Driver;
 using MongoDB.Bson;
+using System.Threading;
 
 namespace Ray.MongoDB
 {
     public class MongoGrainConfig
     {
-        public string EventDataBase { get; set; }
+        public string DataBase { get; set; }
         public string EventCollection { get; set; }
         public string SnapshotCollection { get; set; }
-        public bool IndexCreated { get; set; }
-        const string C_CName = "CollectionInfo";
+        public DateTime SplitStartTime { get; }
+        private List<SplitCollectionInfo> AllSplitCollections { get; set; }
+        public IMongoStorage Storage { get; }
+        const string SplitCollectionName = "SplitCollections";
         readonly bool sharding = false;
         readonly int shardingDays;
-        public MongoGrainConfig(
-            string eventDatabase, string eventCollection, string snapshotCollection, bool sharding = false, int shardingDays = 90)
+        public MongoGrainConfig(IMongoStorage storage, string database, string eventCollection, string snapshotCollection, DateTime splitCollectionStartTime, bool sharding = false, int shardingDays = 90)
         {
-            EventDataBase = eventDatabase;
+            DataBase = database;
             EventCollection = eventCollection;
             SnapshotCollection = snapshotCollection;
+            Storage = storage;
             this.sharding = sharding;
             this.shardingDays = shardingDays;
+            SplitStartTime = splitCollectionStartTime;
         }
-        public List<CollectionInfo> GetCollectionList(IMongoStorage storage, DateTime sysStartTime, DateTime? startTime = null)
+        public async ValueTask<List<SplitCollectionInfo>> GetCollectionList(DateTime? startTime = null)
         {
-            List<CollectionInfo> list = null;
+            List<SplitCollectionInfo> list = null;
             if (startTime == null)
-                list = GetAllCollectionList(storage);
+                list = AllSplitCollections;
             else
             {
-                var collection = GetCollection(storage, sysStartTime, startTime.Value);
-                list = GetAllCollectionList(storage).Where(c => c.Version >= collection.Version).ToList();
+                var collectionTask = GetCollection(startTime.Value);
+                if (!collectionTask.IsCompleted)
+                    await collectionTask;
+                list = AllSplitCollections.Where(c => c.Version >= collectionTask.Result.Version).ToList();
             }
             if (list == null || list.Count == 0)
             {
-                list = new List<CollectionInfo>() { GetCollection(storage, sysStartTime, DateTime.UtcNow) };
+                var collectionTask = GetCollection(DateTime.UtcNow);
+                if (!collectionTask.IsCompleted)
+                    await collectionTask;
+                list = new List<SplitCollectionInfo>() { collectionTask.Result };
             }
             return list;
         }
-        public async Task CreateIndex(IMongoStorage storage)
+        int isBuilded = 0;
+        bool buildedResult = false;
+        public async ValueTask Build()
         {
-            if (!IndexCreated)
+            while (!buildedResult)
             {
-                var stateCollection = storage.GetCollection<BsonDocument>(EventDataBase, SnapshotCollection);
-                var stateIndex = await stateCollection.Indexes.ListAsync();
-                var stateIndexList = await stateIndex.ToListAsync();
-                if (!stateIndexList.Exists(p => p["name"] == "State"))
+                if (Interlocked.CompareExchange(ref isBuilded, 1, 0) == 0)
                 {
-                    await stateCollection.Indexes.CreateOneAsync(new CreateIndexModel<BsonDocument>("{'StateId':1}", new CreateIndexOptions { Name = "State", Unique = true }));
+                    try
+                    {
+                        await CreateIndex();
+                        AllSplitCollections = await (await Storage.GetCollection<SplitCollectionInfo>(DataBase, SplitCollectionName).FindAsync(c => c.Type == EventCollection)).ToListAsync();
+                        buildedResult = true;
+                    }
+                    finally
+                    {
+                        Interlocked.Exchange(ref isBuilded, 0);
+                    }
                 }
-                var collection = storage.GetCollection<BsonDocument>(EventDataBase, C_CName);
-                var index = await collection.Indexes.ListAsync();
-                var indexList = await index.ToListAsync();
-                if (!indexList.Exists(p => p["name"] == "Name"))
-                {
-                    await collection.Indexes.CreateOneAsync(new CreateIndexModel<BsonDocument>("{'Name':1}", new CreateIndexOptions { Name = "Name", Unique = true }));
-                }
-                IndexCreated = true;
+                await Task.Delay(50);
             }
         }
-        public async Task CreateEventIndex(IMongoStorage storage, string collectionName)
+        private async Task CreateIndex()
         {
-            var collectionService = storage.GetCollection<BsonDocument>(EventDataBase, collectionName);
-            var indexList = (await collectionService.Indexes.ListAsync()).ToList();
+            var stateCollection = Storage.GetCollection<BsonDocument>(DataBase, SnapshotCollection);
+            var stateIndex = await stateCollection.Indexes.ListAsync();
+            var stateIndexList = await stateIndex.ToListAsync();
+            if (!stateIndexList.Exists(p => p["name"] == "State"))
+            {
+                await stateCollection.Indexes.CreateOneAsync(new CreateIndexModel<BsonDocument>("{'StateId':1}", new CreateIndexOptions { Name = "State", Unique = true }));
+            }
+            var collection = Storage.GetCollection<BsonDocument>(DataBase, SplitCollectionName);
+            var index = await collection.Indexes.ListAsync();
+            var indexList = await index.ToListAsync();
+            if (!indexList.Exists(p => p["name"] == "Name"))
+            {
+                await collection.Indexes.CreateOneAsync(new CreateIndexModel<BsonDocument>("{'Name':1}", new CreateIndexOptions { Name = "Name", Unique = true }));
+            }
+        }
+        private async Task CreateEventIndex(string collectionName)
+        {
+            var collectionService = Storage.GetCollection<BsonDocument>(DataBase, collectionName);
+            var indexList = await (await collectionService.Indexes.ListAsync()).ToListAsync();
             if (!indexList.Exists(p => p["name"] == "State_Version") && !indexList.Exists(p => p["name"] == "State_UniqueId"))
             {
                 await collectionService.Indexes.CreateManyAsync(
@@ -75,59 +102,41 @@ namespace Ray.MongoDB
                       );
             }
         }
-        private List<CollectionInfo> collectionList;
-        public List<CollectionInfo> GetAllCollectionList(IMongoStorage storage)
+
+        readonly object collectionLock = new object();
+        public async ValueTask<SplitCollectionInfo> GetCollection(DateTime eventTime)
         {
-            if (collectionList == null)
-            {
-                lock (collectionLock)
-                {
-                    if (collectionList == null)
-                    {
-                        collectionList = storage.GetCollection<CollectionInfo>(EventDataBase, C_CName).Find<CollectionInfo>(c => c.Type == EventCollection).ToList();
-                    }
-                }
-            }
-            return collectionList;
-        }
-        object collectionLock = new object();
-        public CollectionInfo GetCollection(IMongoStorage storage, DateTime sysStartTime, DateTime eventTime)
-        {
-            CollectionInfo lastCollection = null;
-            var cList = GetAllCollectionList(storage);
-            if (cList.Count > 0) lastCollection = cList.Last();
+            SplitCollectionInfo lastCollection = null;
+            if (AllSplitCollections.Count > 0) lastCollection = AllSplitCollections.Last();
             //如果不需要分表，直接返回
-            if (lastCollection != null && !this.sharding) return lastCollection;
-            var subTime = eventTime.Subtract(sysStartTime);
-            var cVersion = subTime.TotalDays > 0 ? Convert.ToInt32(Math.Floor(subTime.TotalDays / shardingDays)) : 0;
-            if (lastCollection == null || cVersion > lastCollection.Version)
+            if (lastCollection != null && !sharding) return lastCollection;
+            var subTime = eventTime.Subtract(SplitStartTime);
+            var newVersion = subTime.TotalDays > 0 ? Convert.ToInt32(Math.Floor(subTime.TotalDays / shardingDays)) : 0;
+            if (lastCollection == null || newVersion > lastCollection.Version)
             {
-                lock (collectionLock)
+                if (lastCollection == null || newVersion > lastCollection.Version)
                 {
-                    if (lastCollection == null || cVersion > lastCollection.Version)
+                    var collection = new SplitCollectionInfo
                     {
-                        var collection = new CollectionInfo
+                        Id = ObjectId.GenerateNewId().ToString(),
+                        Version = newVersion,
+                        Type = EventCollection,
+                        CreateTime = DateTime.UtcNow,
+                        Name = EventCollection + "_" + newVersion
+                    };
+                    try
+                    {
+                        await Storage.GetCollection<SplitCollectionInfo>(DataBase, SplitCollectionName).InsertOneAsync(collection);
+                        AllSplitCollections.Add(collection);
+                        lastCollection = collection;
+                        await CreateEventIndex(collection.Name);
+                    }
+                    catch (MongoWriteException ex)
+                    {
+                        if (ex.WriteError.Category == ServerErrorCategory.DuplicateKey)
                         {
-                            Id = ObjectId.GenerateNewId().ToString(),
-                            Version = cVersion,
-                            Type = EventCollection,
-                            CreateTime = DateTime.UtcNow,
-                            Name = EventCollection + "_" + cVersion
-                        };
-                        try
-                        {
-                            storage.GetCollection<CollectionInfo>(EventDataBase, C_CName).InsertOne(collection);
-                            collectionList.Add(collection);
-                            lastCollection = collection;
-                            CreateEventIndex(storage, collection.Name).GetAwaiter().GetResult();
-                        }
-                        catch (MongoWriteException ex)
-                        {
-                            if (ex.WriteError.Category == ServerErrorCategory.DuplicateKey)
-                            {
-                                collectionList = null;
-                                return GetCollection(storage, sysStartTime, eventTime);
-                            }
+                            AllSplitCollections = await (await Storage.GetCollection<SplitCollectionInfo>(DataBase, SplitCollectionName).FindAsync(c => c.Type == EventCollection)).ToListAsync();
+                            return await GetCollection(eventTime);
                         }
                     }
                 }

@@ -9,10 +9,9 @@ using System.Threading.Tasks;
 
 namespace Ray.Handler
 {
-    [RabbitSub("Core", "Account", "account", QueueCount = 20)]
     public sealed class AccountCoreHandler : MultHandler<long, MessageInfo>
     {
-        IClientFactory clientFactory;
+        readonly IClientFactory clientFactory;
         public AccountCoreHandler(IServiceProvider svProvider, IClientFactory clientFactory) : base(svProvider)
         {
             this.clientFactory = clientFactory;

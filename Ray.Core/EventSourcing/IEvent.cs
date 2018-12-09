@@ -5,7 +5,7 @@ namespace Ray.Core.EventSourcing
 {
     public interface IEvent : IMessage
     {
-        Int64 Version { get; set; }
+        long Version { get; set; }
         DateTime Timestamp { get; set; }
     }
 

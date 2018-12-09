@@ -5,12 +5,15 @@ namespace Ray.RabbitMQ
 {
     public class RabbitMQService : IMQService
     {
-        RabbitPubAttribute publisher;
-        public RabbitMQService(RabbitPubAttribute rabbitMQInfo) => publisher = rabbitMQInfo;
+        readonly RabbitPublisher publisher;
+        public RabbitMQService(RabbitPublisher publisher) => this.publisher = publisher;
 
-        public void Publish(byte[] bytes, string hashKey)
+        public async ValueTask Publish(byte[] bytes, string hashKey)
         {
-            var (queue, model) = publisher.GetQueue(hashKey);
+            var task = publisher.GetQueue(hashKey);
+            if (!task.IsCompleted)
+                await task;
+            var (queue, model) = task.Result;
             model.Publish(bytes, publisher.Exchange, queue, false);
         }
     }

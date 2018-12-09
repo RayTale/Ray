@@ -4,6 +4,6 @@ namespace Ray.Core.MQ
 {
     public interface IMQService
     {
-        void Publish(byte[] bytes, string hashKey);
+        ValueTask Publish(byte[] bytes, string hashKey);
     }
 }

@@ -9,7 +9,7 @@ namespace Ray.Core.MQ
     public abstract class SubHandler<TMessageWrapper> : ISubHandler
         where TMessageWrapper : IMessageWrapper
     {
-        IServiceProvider serviceProvider;
+        readonly IServiceProvider serviceProvider;
         public SubHandler(IServiceProvider svProvider)
         {
             serviceProvider = svProvider;
@@ -24,7 +24,7 @@ namespace Ray.Core.MQ
             using (var ms = new MemoryStream(bytes))
             {
                 var msg = serializer.Deserialize<TMessageWrapper>(ms);
-                if (!MessageTypeMapper.EventTypeDict.TryGetValue(msg.TypeCode, out var type))
+                if (!MessageTypeMapper.TryGetValue(msg.TypeCode, out var type))
                 {
                     throw new Exception($"{ msg.TypeCode } does not exist");
                 }

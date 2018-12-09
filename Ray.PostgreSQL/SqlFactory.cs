@@ -5,7 +5,7 @@ namespace Ray.PostgreSQL
 {
     public class SqlFactory
     {
-        static DbProviderFactory dbFactory;
+        static readonly DbProviderFactory dbFactory;
         static SqlFactory()
         {
             dbFactory = GetPostgreSqlFactory();

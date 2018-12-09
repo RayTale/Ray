@@ -12,28 +12,27 @@ using Ray.Core.Utils;
 
 namespace Ray.RabbitMQ
 {
-    public class RabbitSubManager : SubManager
+    public class RabbitSubManager : ISubManager
     {
-        ILogger<RabbitSubManager> logger = default;
-        IServiceProvider provider;
-        IRabbitMQClient client;
-        static Timer monitorTimer;
+        readonly ILogger<RabbitSubManager> logger;
+        readonly IServiceProvider provider;
+        readonly IRabbitMQClient client;
         public RabbitSubManager(ILogger<RabbitSubManager> logger, IRabbitMQClient client, IServiceProvider provider)
         {
             this.client = client;
             this.logger = logger;
             this.provider = provider;
         }
-        protected override async Task Start(List<SubAttribute> attributes, string node, List<string> nodeList = null)
+        public async Task Start(List<Subscriber> subscribers, string group, string node, List<string> nodeList = null)
         {
             var hash = nodeList == null ? null : new ConsistentHash(nodeList);
             var consumerList = new SortedList<int, ConsumerInfo>();
             var rd = new Random((int)DateTime.UtcNow.Ticks);
-            foreach (var attribute in attributes)
+            foreach (var subscriber in subscribers)
             {
-                if (attribute is RabbitSubAttribute subAttribute)
+                if (subscriber is RabbitSubscriber subAttribute)
                 {
-                    subAttribute.Init(client);
+                    await subAttribute.Init(client);
                     for (int i = 0; i < subAttribute.QueueList.Count(); i++)
                     {
                         var queue = subAttribute.QueueList[i];
@@ -43,7 +42,7 @@ namespace Ray.RabbitMQ
                             consumerList.Add(rd.Next(), new ConsumerInfo()
                             {
                                 Exchange = subAttribute.Exchange,
-                                Queue = $"{ subAttribute.Group}_{queue.Queue}",
+                                Queue = $"{group}_{queue.Queue}",
                                 RoutingKey = queue.RoutingKey,
                                 MaxQos = subAttribute.MaxQos,
                                 MinQos = subAttribute.MinQos,
@@ -60,6 +59,7 @@ namespace Ray.RabbitMQ
         }
 
         private List<ConsumerInfo> ConsumerList { get; set; }
+        protected Timer MonitorTimer { get; private set; }
         public async Task Start(List<ConsumerInfo> consumerList, int delay = 0)
         {
             if (consumerList != null)
@@ -71,7 +71,7 @@ namespace Ray.RabbitMQ
                         await Task.Delay(delay * 500);
                 }
                 ConsumerList = consumerList;
-                monitorTimer = new Timer(state => { Restart().Wait(); }, null, 5 * 1000, 10 * 1000);
+                MonitorTimer = new Timer(state => { Restart().Wait(); }, null, 5 * 1000, 10 * 1000);
             }
         }
         DateTime restartStatisticalStartTime = DateTime.UtcNow;
@@ -205,7 +205,7 @@ namespace Ray.RabbitMQ
                 }
             }
         }
-        public override void Stop()
+        public void Stop()
         {
             if (ConsumerList != null)
             {

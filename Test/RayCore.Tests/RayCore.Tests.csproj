@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
+
+    <IsPackable>false</IsPackable>
+
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="2.2.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.9.0" />
+    <PackageReference Include="Microsoft.Orleans.TestingHost" Version="2.1.2" />
+    <PackageReference Include="xunit" Version="2.4.1" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Ray.Core\Ray.Core.csproj" />
+    <ProjectReference Include="..\..\Ray.Postgresql\Ray.PostgreSQL.csproj" />
+    <ProjectReference Include="..\..\Ray.RabbitMQ\Ray.RabbitMQ.csproj" />
+    <ProjectReference Include="..\RayTest.Grains\RayTest.Grains.csproj" />
+    <ProjectReference Include="..\RayTest.IGrains\RayTest.IGrains.csproj" />
+  </ItemGroup>
+
+</Project>

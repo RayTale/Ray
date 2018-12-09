@@ -17,14 +17,15 @@ namespace Ray.Core.Message
                 {
                     if (Activator.CreateInstance(type) is IMessage msg)
                     {
-                        if (!string.IsNullOrEmpty(msg.TypeCode))
-                            EventTypeDict.Add(msg.TypeCode, type);
-                        else
-                            EventTypeDict.Add(type.FullName, type);
+                        EventTypeDict.Add(type.FullName, type);
                     }
                 }
             }
         }
-        public static Dictionary<string, Type> EventTypeDict { get; } = new Dictionary<string, Type>();
+        private static Dictionary<string, Type> EventTypeDict { get; } = new Dictionary<string, Type>();
+        public static bool TryGetValue(string key, out Type value)
+        {
+            return EventTypeDict.TryGetValue(key, out value);
+        }
     }
 }

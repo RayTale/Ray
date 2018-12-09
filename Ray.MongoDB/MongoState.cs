@@ -8,5 +8,6 @@ namespace Ray.MongoDB
         public string Id { get; set; }
         public K StateId { get; set; }
         public byte[] Data { get; set; }
+        public long Version { get; set; }
     }
 }

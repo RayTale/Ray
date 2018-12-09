@@ -9,8 +9,8 @@ namespace Ray.Core.Utils
     public class ChannelContainer<K, T, R>
     {
         readonly ConcurrentDictionary<K, DataBatchChannel<T, R>> insertChannelDict = new ConcurrentDictionary<K, DataBatchChannel<T, R>>();
-        readonly Func<BufferBlock<DataTaskWrap<T, R>>, ValueTask> Process;
-        public ChannelContainer(Func<BufferBlock<DataTaskWrap<T, R>>, ValueTask> process)
+        readonly Func<BufferBlock<DataTaskWrap<T, R>>, Task> Process;
+        public ChannelContainer(Func<BufferBlock<DataTaskWrap<T, R>>, Task> process)
         {
             Process = process;
         }
@@ -29,16 +29,17 @@ namespace Ray.Core.Utils
     }
     public class DataBatchChannel<T, R>
     {
-        BufferBlock<DataTaskWrap<T, R>> flowChannel = new BufferBlock<DataTaskWrap<T, R>>();
-        readonly Func<BufferBlock<DataTaskWrap<T, R>>, ValueTask> Process;
-        public DataBatchChannel(Func<BufferBlock<DataTaskWrap<T, R>>, ValueTask> process)
+        readonly BufferBlock<DataTaskWrap<T, R>> flowChannel = new BufferBlock<DataTaskWrap<T, R>>();
+        readonly Func<BufferBlock<DataTaskWrap<T, R>>, Task> Process;
+        public DataBatchChannel(Func<BufferBlock<DataTaskWrap<T, R>>, Task> process)
         {
             Process = process;
         }
-        public async ValueTask<R> WriteAsync(T data)
+        public async Task<R> WriteAsync(T data)
         {
             var wrap = new DataTaskWrap<T, R>(data);
-            await flowChannel.SendAsync(wrap);
+            if (!flowChannel.Post(wrap))
+                await flowChannel.SendAsync(wrap);
             if (isProcessing == 0)
                 TriggerFlowProcess();
             return await wrap.TaskSource.Task;

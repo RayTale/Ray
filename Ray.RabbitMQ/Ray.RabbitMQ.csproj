@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netcoreapp2.2</TargetFramework>
+    <LangVersion>latest</LangVersion>
     <Version>1.1.5</Version>
     <PackageProjectUrl>https://github.com/RayTale/Ray</PackageProjectUrl>
     <RepositoryUrl>https://github.com/RayTale/Ray.git</RepositoryUrl>
@@ -9,14 +10,6 @@
     <PackageIconUrl>https://avatars1.githubusercontent.com/u/34825359?s=200&amp;v=4</PackageIconUrl>
     <PackageTags>orleans,event-sourcing,actor,Ray</PackageTags>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <LangVersion>latest</LangVersion>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>

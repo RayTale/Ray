@@ -1,10 +1,10 @@
 ﻿using Orleans;
-using System;
+using System.Threading.Tasks;
 
 namespace Ray.Core.MQ
 {
     public interface IMQServiceContainer
     {
-        IMQService GetService(Type type, Grain grain);
+        ValueTask<IMQService> GetService(Grain grain);
     }
 }

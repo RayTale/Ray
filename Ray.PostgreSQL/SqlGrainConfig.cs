@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Dapper;
 using System.Collections.Concurrent;
+using System.Threading;
 
 namespace Ray.PostgreSQL
 {
@@ -13,11 +14,12 @@ namespace Ray.PostgreSQL
         public string Connection { get; set; }
         public string EventTable { get; set; }
         public string SnapshotTable { get; set; }
-        public string EventFlowKey { get; }
+        public DateTime SplitTableStartTime { get; }
+        private List<TableInfo> AllSplitTableList { get; set; }
         readonly bool sharding = false;
         readonly int shardingDays;
         readonly int stateIdLength;
-        public SqlGrainConfig(string conn, string eventTable, string snapshotTable, bool sharding = false, int shardingDays = 40, int stateIdLength = 50)
+        public SqlGrainConfig(string conn, string eventTable, string snapshotTable, DateTime splitTableStartTime, bool sharding = false, int shardingDays = 40, int stateIdLength = 50)
         {
             Connection = conn;
             EventTable = eventTable;
@@ -25,24 +27,40 @@ namespace Ray.PostgreSQL
             this.sharding = sharding;
             this.shardingDays = shardingDays;
             this.stateIdLength = stateIdLength;
-            EventFlowKey = $"{ conn}-{eventTable}";
+            SplitTableStartTime = splitTableStartTime;
         }
-        public async Task Build()
+        int isBuilded = 0;
+        bool buildedResult = false;
+        public async ValueTask Build()
         {
-            await CreateTableListTable();
-            await CreateStateTable();
+            while (!buildedResult)
+            {
+                if (Interlocked.CompareExchange(ref isBuilded, 1, 0) == 0)
+                {
+                    try
+                    {
+                        await CreateTableListTable();
+                        await CreateStateTable();
+                        AllSplitTableList = await GetTableList();
+                        buildedResult = true;
+                    }
+                    finally
+                    {
+                        Interlocked.Exchange(ref isBuilded, 0);
+                    }
+                }
+                await Task.Delay(50);
+            }
         }
-
-        static readonly DateTime startTime = new DateTime(2018, 8, 1);
-        public async Task<List<TableInfo>> GetTableList(DateTime? startTime = null)
+        public async ValueTask<List<TableInfo>> GetTableList(DateTime? startTime = null)
         {
             List<TableInfo> list = null;
             if (startTime == null)
-                list = await GetTableList();
+                list = AllSplitTableList;
             else
             {
                 var table = await GetTable(startTime.Value);
-                list = (await GetTableList()).Where(c => c.Version >= table.Version).ToList();
+                list = AllSplitTableList.Where(c => c.Version >= table.Version).ToList();
             }
             if (list == null)
             {
@@ -50,23 +68,23 @@ namespace Ray.PostgreSQL
             }
             return list;
         }
-        public async Task<TableInfo> GetTable(DateTime eventTime)
+        public async ValueTask<TableInfo> GetTable(DateTime eventTime)
         {
             TableInfo lastTable = null;
-            var cList = await GetTableList();
+            var cList = AllSplitTableList;
             if (cList.Count > 0) lastTable = cList[cList.Count - 1];
             //如果不需要分表，直接返回
             if (lastTable != null && !sharding) return lastTable;
-            var subTime = eventTime.Subtract(startTime);
-            var cVersion = subTime.TotalDays > 0 ? Convert.ToInt32(Math.Floor(subTime.TotalDays / shardingDays)) : 0;
-            if (lastTable == null || cVersion > lastTable.Version)
+            var subTime = eventTime.Subtract(SplitTableStartTime);
+            var newVersion = subTime.TotalDays > 0 ? Convert.ToInt32(Math.Floor(subTime.TotalDays / shardingDays)) : 0;
+            if (lastTable == null || newVersion > lastTable.Version)
             {
                 var table = new TableInfo
                 {
-                    Version = cVersion,
+                    Version = newVersion,
                     Prefix = EventTable,
                     CreateTime = DateTime.UtcNow,
-                    Name = EventTable + "_" + cVersion
+                    Name = EventTable + "_" + newVersion
                 };
                 try
                 {
@@ -81,34 +99,27 @@ namespace Ray.PostgreSQL
                     }
                     else
                     {
-                        tableList = null;
-                        lastTable = null;
+                        AllSplitTableList = await GetTableList();
+                        return await GetTable(eventTime);
                     }
                 }
-                if (lastTable == null)
-                    return await GetTable(eventTime);
             }
             return lastTable;
         }
-        private List<TableInfo> tableList;
-        const string sql = "SELECT * FROM ray_tablelist where prefix=@Table order by version asc";
-        public async Task<List<TableInfo>> GetTableList()
+        private async Task<List<TableInfo>> GetTableList()
         {
-            if (tableList == null || tableList.Count == 0)
+            const string sql = "SELECT * FROM ray_tablelist where prefix=@Table order by version asc";
+            using (var connection = SqlFactory.CreateConnection(Connection))
             {
-                using (var connection = SqlFactory.CreateConnection(Connection))
-                {
-                    tableList = (await connection.QueryAsync<TableInfo>(sql, new { Table = EventTable })).AsList();
-                }
+                return (await connection.QueryAsync<TableInfo>(sql, new { Table = EventTable })).AsList();
             }
-            return tableList;
         }
         public DbConnection CreateConnection()
         {
             return SqlFactory.CreateConnection(Connection);
         }
-        static ConcurrentDictionary<string, bool> createEventTableListDict = new ConcurrentDictionary<string, bool>();
-        static ConcurrentQueue<TaskCompletionSource<bool>> createEventTableListTaskList = new ConcurrentQueue<TaskCompletionSource<bool>>();
+        static readonly ConcurrentDictionary<string, bool> createEventTableListDict = new ConcurrentDictionary<string, bool>();
+        static readonly ConcurrentQueue<TaskCompletionSource<bool>> createEventTableListTaskList = new ConcurrentQueue<TaskCompletionSource<bool>>();
         private async Task CreateEventTable(TableInfo table)
         {
             const string sql = @"
@@ -174,14 +185,15 @@ namespace Ray.PostgreSQL
                 }
             }
         }
-        static ConcurrentDictionary<string, bool> createStateTableDict = new ConcurrentDictionary<string, bool>();
-        static ConcurrentQueue<TaskCompletionSource<bool>> createStateTableTaskList = new ConcurrentQueue<TaskCompletionSource<bool>>();
+        static readonly ConcurrentDictionary<string, bool> createStateTableDict = new ConcurrentDictionary<string, bool>();
+        private static readonly ConcurrentQueue<TaskCompletionSource<bool>> createStateTableTaskList = new ConcurrentQueue<TaskCompletionSource<bool>>();
         private async Task CreateStateTable()
         {
             const string sql = @"
                     CREATE TABLE if not exists {0}(
                      StateId varchar({1}) not null PRIMARY KEY,
-                     Data bytea not null)";
+                     Data bytea not null,
+                     Version int8 not null)";
             var key = $"{Connection}-{SnapshotTable}-{stateIdLength}";
             if (createStateTableDict.TryAdd(key, false))
             {
@@ -227,8 +239,8 @@ namespace Ray.PostgreSQL
                 }
             }
         }
-        static ConcurrentDictionary<string, bool> createTableListDict = new ConcurrentDictionary<string, bool>();
-        static ConcurrentQueue<TaskCompletionSource<bool>> createTableListTaskList = new ConcurrentQueue<TaskCompletionSource<bool>>();
+        readonly static ConcurrentDictionary<string, bool> createTableListDict = new ConcurrentDictionary<string, bool>();
+        readonly static ConcurrentQueue<TaskCompletionSource<bool>> createTableListTaskList = new ConcurrentQueue<TaskCompletionSource<bool>>();
         private async Task CreateTableListTable()
         {
             const string sql = @"

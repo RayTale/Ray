@@ -10,7 +10,6 @@ using Ray.Core.EventSourcing;
 
 namespace Ray.Handler
 {
-    [RabbitSub("Read", "Account", "account", QueueCount = 20)]
     public sealed class AccountToDbHandler : SubHandler<MessageInfo>
     {
         IClientFactory clientFactory;

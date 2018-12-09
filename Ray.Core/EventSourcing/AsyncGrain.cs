@@ -18,47 +18,34 @@ namespace Ray.Core.EventSourcing
         where W : IMessageWrapper
     {
         protected S State { get; set; }
-        protected abstract K GrainId { get; }
+        public abstract K GrainId { get; }
         protected virtual bool SaveSnapshot => true;
         protected virtual int SnapshotFrequency => 20;
         protected virtual int EventNumberPerRead => 2000;
+        /// <summary>
+        /// 并发处理消息时，消息收集的最大延时
+        /// </summary>
+        protected virtual int ConcurrentMaxDelayMilliseconds => 200;
+        /// <summary>
+        /// 处理的超时时间
+        /// </summary>
+        protected virtual int ProcessTimeoutMilliseconds => 30 * 1000;
         protected virtual bool FullyActive => false;
         protected long StateStorageVersion { get; set; }
         protected virtual int SnapshotMinFrequency => 1;
         protected virtual bool Concurrent => false;
-        #region concurrent variable
-        private DataBatchChannel<IEventBase<K>, bool> tellChannel;
-        IEventStorage<K> _eventStorage;
-        #endregion
-        protected async ValueTask<IEventStorage<K>> GetEventStorage()
+        private readonly DataBatchChannel<IEventBase<K>, bool> tellChannel;
+        private IStorageContainer storageContainer;
+        protected virtual ValueTask<IEventStorage<K>> GetEventStorage()
         {
-            if (_eventStorage == null)
-            {
-                _eventStorage = await ServiceProvider.GetService<IStorageContainer>().GetEventStorage<K, S>(GetType(), this);
-            }
-            return _eventStorage;
+            return storageContainer.GetEventStorage<K, S>(this);
         }
-        IStateStorage<S, K> _StateStore;
-        private async ValueTask<IStateStorage<S, K>> GetStateStore()
+
+        protected virtual ValueTask<IStateStorage<S, K>> GetStateStorage()
         {
-            if (_StateStore == null)
-            {
-                _StateStore = await ServiceProvider.GetService<IStorageContainer>().GetStateStorage<K, S>(GetType(), this);
-            }
-            return _StateStore;
+            return storageContainer.GetStateStorage<K, S>(this);
         }
-        ISerializer _serializer;
-        protected ISerializer Serializer
-        {
-            get
-            {
-                if (_serializer == null)
-                {
-                    _serializer = ServiceProvider.GetService<ISerializer>();
-                }
-                return _serializer;
-            }
-        }
+        protected ISerializer Serializer { get; private set; }
         public AsyncGrain()
         {
             if (Concurrent)
@@ -69,15 +56,27 @@ namespace Ray.Core.EventSourcing
         #region 初始化数据
         public override async Task OnActivateAsync()
         {
+            storageContainer = ServiceProvider.GetService<IStorageContainer>();
+            Serializer = ServiceProvider.GetService<ISerializer>();
             await ReadSnapshotAsync();
             if (FullyActive)
             {
+                var eventStorageTask = GetEventStorage();
+                if (!eventStorageTask.IsCompleted)
+                    await eventStorageTask;
                 while (true)
                 {
-                    var eventList = await (await GetEventStorage()).GetListAsync(GrainId, State.Version, State.Version + EventNumberPerRead, State.VersionTime);
+                    var eventList = await eventStorageTask.Result.GetListAsync(GrainId, State.Version, State.Version + EventNumberPerRead, State.VersionTime);
                     if (Concurrent)
                     {
-                        await Task.WhenAll(eventList.Select(@event => OnEventDelivered(@event)));
+                        await Task.WhenAll(eventList.Select(@event =>
+                        {
+                            var task = OnEventDelivered(@event);
+                            if (!task.IsCompleted)
+                                return task.AsTask();
+                            else
+                                return Task.CompletedTask;
+                        }));
                         var lastEvt = eventList.Last();
                         State.UnsafeUpdateVersion(lastEvt.Version, lastEvt.Timestamp);
                     }
@@ -86,11 +85,15 @@ namespace Ray.Core.EventSourcing
                         foreach (var @event in eventList)
                         {
                             State.IncrementDoingVersion();//标记将要处理的Version
-                            await OnEventDelivered(@event);
+                            var task = OnEventDelivered(@event);
+                            if (!task.IsCompleted)
+                                await task;
                             State.UpdateVersion(@event);//更新处理完成的Version
                         }
                     }
-                    await SaveSnapshotAsync();
+                    var saveTask = SaveSnapshotAsync();
+                    if (!saveTask.IsCompleted)
+                        await saveTask;
                     if (eventList.Count < EventNumberPerRead) break;
                 };
             }
@@ -99,16 +102,24 @@ namespace Ray.Core.EventSourcing
         {
             if (Concurrent)
                 tellChannel.Complete();
-            return State.Version - StateStorageVersion >= SnapshotMinFrequency ? SaveSnapshotAsync(true) : Task.CompletedTask;
+            if (State.Version - StateStorageVersion >= SnapshotMinFrequency)
+                return SaveSnapshotAsync(true).AsTask();
+            else
+                return Task.CompletedTask;
         }
         protected bool IsNew { get; set; }
         protected virtual async Task ReadSnapshotAsync()
         {
-            State = await (await GetStateStore()).GetByIdAsync(GrainId);
+            var stateStorageTask = GetStateStorage();
+            if (!stateStorageTask.IsCompleted)
+                await stateStorageTask;
+            State = await stateStorageTask.Result.GetByIdAsync(GrainId);
             if (State == null)
             {
                 IsNew = true;
-                await CreateState();
+                var createTask = CreateState();
+                if (!createTask.IsCompleted)
+                    await createTask;
             }
             StateStorageVersion = State.Version;
         }
@@ -116,21 +127,21 @@ namespace Ray.Core.EventSourcing
         /// 初始化状态，必须实现
         /// </summary>
         /// <returns></returns>
-        protected virtual Task CreateState()
+        protected virtual ValueTask CreateState()
         {
             State = new S
             {
                 StateId = GrainId
             };
-            return Task.CompletedTask;
+            return new ValueTask(Task.CompletedTask);
         }
         #endregion
-        public async Task ConcurrentTell(byte[] bytes)
+        public Task ConcurrentTell(byte[] bytes)
         {
             using (var wms = new MemoryStream(bytes))
             {
                 var message = Serializer.Deserialize<W>(wms);
-                if (MessageTypeMapper.EventTypeDict.TryGetValue(message.TypeCode, out var type))
+                if (MessageTypeMapper.TryGetValue(message.TypeCode, out var type))
                 {
                     using (var ems = new MemoryStream(message.BinaryBytes))
                     {
@@ -138,16 +149,18 @@ namespace Ray.Core.EventSourcing
                         {
                             if (@event.Version > State.Version)
                             {
-                                await tellChannel.WriteAsync(@event);
+                                return tellChannel.WriteAsync(@event);
                             }
                         }
                     }
                 }
             }
+            return Task.CompletedTask;
         }
-        List<IEventBase<K>> UnprocessedList = new List<IEventBase<K>>();
+
+        readonly List<IEventBase<K>> UnprocessedList = new List<IEventBase<K>>();
         readonly Exception timeoutException = new Exception("Message processing timeout");
-        private async ValueTask ConcurrentTellProcess(BufferBlock<DataTaskWrap<IEventBase<K>, bool>> reader)
+        private async Task ConcurrentTellProcess(BufferBlock<DataTaskWrap<IEventBase<K>, bool>> reader)
         {
             var start = DateTime.UtcNow;
             var evtList = new List<IEventBase<K>>();
@@ -186,7 +199,7 @@ namespace Ray.Core.EventSourcing
                             }
                         }
                     }
-                    if ((DateTime.UtcNow - start).TotalMilliseconds > 200) break;//保证批量延时不超过200ms
+                    if ((DateTime.UtcNow - start).TotalMilliseconds > ConcurrentMaxDelayMilliseconds) break;//保证批量延时不超过200ms
                 }
                 var orderList = evtList.OrderBy(w => w.Version).ToList();
                 if (orderList.Count > 0)
@@ -194,7 +207,10 @@ namespace Ray.Core.EventSourcing
                     var inputLast = orderList.Last();
                     if (startVersion + orderList.Count != inputLast.Version)
                     {
-                        var loadList = await (await GetEventStorage()).GetListAsync(GrainId, startVersion, inputLast.Version, startTime);
+                        var eventStorageTask = GetEventStorage();
+                        if (!eventStorageTask.IsCompleted)
+                            await eventStorageTask;
+                        var loadList = await eventStorageTask.Result.GetListAsync(GrainId, startVersion, inputLast.Version, startTime);
                         UnprocessedList.AddRange(loadList);
                     }
                     else
@@ -206,9 +222,16 @@ namespace Ray.Core.EventSourcing
                 {
                     using (var tokenSource = new CancellationTokenSource())
                     {
-                        var tasks = UnprocessedList.Select(@event => OnEventDelivered(@event));
+                        var tasks = UnprocessedList.Select(@event =>
+                        {
+                            var task = OnEventDelivered(@event);
+                            if (!task.IsCompleted)
+                                return task.AsTask();
+                            else
+                                return Task.CompletedTask;
+                        });
                         var taskOne = Task.WhenAll(tasks);
-                        using (var taskTwo = Task.Delay(3 * 60 * 1000, tokenSource.Token))
+                        using (var taskTwo = Task.Delay(ProcessTimeoutMilliseconds, tokenSource.Token))
                         {
                             await Task.WhenAny(taskOne, taskTwo);
                             if (taskOne.Status == TaskStatus.RanToCompletion)
@@ -216,7 +239,9 @@ namespace Ray.Core.EventSourcing
                                 tokenSource.Cancel();
                                 var lastEvt = UnprocessedList.Last();
                                 State.UnsafeUpdateVersion(lastEvt.Version, lastEvt.Timestamp);
-                                await SaveSnapshotAsync();
+                                var saveTask = SaveSnapshotAsync();
+                                if (!saveTask.IsCompleted)
+                                    await saveTask;
                                 UnprocessedList.Clear();
                                 maxRequest?.TrySetResult(true);
                             }
@@ -239,12 +264,16 @@ namespace Ray.Core.EventSourcing
             using (var wms = new MemoryStream(bytes))
             {
                 var message = Serializer.Deserialize<W>(wms);
-                return Tell(message);
+                var tellTask = Tell(message);
+                if (!tellTask.IsCompleted)
+                    return tellTask.AsTask();
+                else
+                    return Task.CompletedTask;
             }
         }
-        public async Task Tell(W message)
+        public async ValueTask Tell(W message)
         {
-            if (MessageTypeMapper.EventTypeDict.TryGetValue(message.TypeCode, out var type))
+            if (MessageTypeMapper.TryGetValue(message.TypeCode, out var type))
             {
                 using (var ems = new MemoryStream(message.BinaryBytes))
                 {
@@ -252,21 +281,30 @@ namespace Ray.Core.EventSourcing
                     {
                         if (@event.Version == State.Version + 1)
                         {
-                            await OnEventDelivered(@event);
+                            var onEventDeliveredTask = OnEventDelivered(@event);
+                            if (!onEventDeliveredTask.IsCompleted)
+                                await onEventDeliveredTask;
                             State.FullUpdateVersion(@event);//更新处理完成的Version
                         }
                         else if (@event.Version > State.Version)
                         {
-                            var eventList = await (await GetEventStorage()).GetListAsync(GrainId, State.Version, @event.Version, State.VersionTime);
+                            var eventStorageTask = GetEventStorage();
+                            if (!eventStorageTask.IsCompleted)
+                                await eventStorageTask;
+                            var eventList = await eventStorageTask.Result.GetListAsync(GrainId, State.Version, @event.Version, State.VersionTime);
                             foreach (var item in eventList)
                             {
-                                await OnEventDelivered(item);
+                                var onEventDeliveredTask = OnEventDelivered(item);
+                                if (!onEventDeliveredTask.IsCompleted)
+                                    await onEventDeliveredTask;
                                 State.FullUpdateVersion(item);//更新处理完成的Version
                             }
                         }
                         if (@event.Version == State.Version + 1)
                         {
-                            await OnEventDelivered(@event);
+                            var onEventDeliveredTask = OnEventDelivered(@event);
+                            if (!onEventDeliveredTask.IsCompleted)
+                                await onEventDeliveredTask;
                             State.FullUpdateVersion(@event);//更新处理完成的Version
                         }
                         if (@event.Version > State.Version)
@@ -279,29 +317,36 @@ namespace Ray.Core.EventSourcing
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual Task OnEventDelivered(IEventBase<K> @event) => Task.CompletedTask;
+        protected virtual ValueTask OnEventDelivered(IEventBase<K> @event) => new ValueTask(Task.CompletedTask);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual Task OnSaveSnapshot() => Task.CompletedTask;
+        protected virtual ValueTask OnSaveSnapshot() => new ValueTask(Task.CompletedTask);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual Task OnSavedSnapshot() => Task.CompletedTask;
-        protected virtual async Task SaveSnapshotAsync(bool force = false)
+        protected virtual ValueTask OnSavedSnapshot() => new ValueTask(Task.CompletedTask);
+        protected virtual async ValueTask SaveSnapshotAsync(bool force = false)
         {
             if (SaveSnapshot)
             {
                 if (force || (State.Version - StateStorageVersion >= SnapshotFrequency))
                 {
-                    await OnSaveSnapshot();//自定义保存项
+                    var onSaveSnapshotTask = OnSaveSnapshot();//自定义保存项
+                    if (!onSaveSnapshotTask.IsCompleted)
+                        await onSaveSnapshotTask;
+                    var getStateStorageTask = GetStateStorage();
+                    if (!getStateStorageTask.IsCompleted)
+                        await getStateStorageTask;
                     if (IsNew)
                     {
-                        await (await GetStateStore()).InsertAsync(State);
+                        await getStateStorageTask.Result.InsertAsync(State);
                         IsNew = false;
                     }
                     else
                     {
-                        await (await GetStateStore()).UpdateAsync(State);
+                        await getStateStorageTask.Result.UpdateAsync(State);
                     }
                     StateStorageVersion = State.Version;
-                    await OnSavedSnapshot();
+                    var onSavedSnapshotTask = OnSavedSnapshot();
+                    if (!onSavedSnapshotTask.IsCompleted)
+                        await onSavedSnapshotTask;
                 }
             }
         }

@@ -6,6 +6,6 @@ namespace Ray.RabbitMQ
     {
         Task ExchangeDeclare(string exchange);
         void PushModel(ModelWrapper model);
-        Task<ModelWrapper> PullModel();
+        ValueTask<ModelWrapper> PullModel();
     }
 }

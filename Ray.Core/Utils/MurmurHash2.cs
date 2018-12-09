@@ -1,38 +1,37 @@
-﻿using System;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 
 namespace Ray.Core.Utils
 {
     public class MurmurHash2
     {
-        public static UInt32 Hash(Byte[] data)
+        public static uint Hash(byte[] data)
         {
             return Hash(data, 0xc58f1a7b);
         }
-        const UInt32 m = 0x5bd1e995;
-        const Int32 r = 24;
+        const uint m = 0x5bd1e995;
+        const int r = 24;
 
         [StructLayout(LayoutKind.Explicit)]
-        struct BytetoUInt32Converter
+        struct BytetouintConverter
         {
             [FieldOffset(0)]
-            public Byte[] Bytes;
+            public byte[] Bytes;
 
             [FieldOffset(0)]
-            public UInt32[] UInts;
+            public uint[] UInts;
         }
 
-        public static UInt32 Hash(Byte[] data, UInt32 seed)
+        public static uint Hash(byte[] data, uint seed)
         {
-            Int32 length = data.Length;
+            int length = data.Length;
             if (length == 0)
                 return 0;
-            UInt32 h = seed ^ (UInt32)length;
-            Int32 currentIndex = 0;
-            UInt32[] hackArray = new BytetoUInt32Converter { Bytes = data }.UInts;
+            uint h = seed ^ (uint)length;
+            int currentIndex = 0;
+            uint[] hackArray = new BytetouintConverter { Bytes = data }.UInts;
             while (length >= 4)
             {
-                UInt32 k = hackArray[currentIndex++];
+                uint k = hackArray[currentIndex++];
                 k *= m;
                 k ^= k >> r;
                 k *= m;
@@ -45,12 +44,12 @@ namespace Ray.Core.Utils
             switch (length)
             {
                 case 3:
-                    h ^= (UInt16)(data[currentIndex++] | data[currentIndex++] << 8);
-                    h ^= (UInt32)data[currentIndex] << 16;
+                    h ^= (ushort)(data[currentIndex++] | data[currentIndex++] << 8);
+                    h ^= (uint)data[currentIndex] << 16;
                     h *= m;
                     break;
                 case 2:
-                    h ^= (UInt16)(data[currentIndex++] | data[currentIndex] << 8);
+                    h ^= (ushort)(data[currentIndex++] | data[currentIndex] << 8);
                     h *= m;
                     break;
                 case 1:

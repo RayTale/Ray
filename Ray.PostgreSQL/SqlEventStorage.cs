@@ -18,14 +18,14 @@ namespace Ray.PostgreSQL
 {
     public class SqlEventStorage<K> : IEventStorage<K>
     {
-        SqlGrainConfig tableInfo;
+        readonly SqlGrainConfig tableInfo;
         BufferBlock<EventBytesTransactionWrap<K>> EventSaveFlowChannel = new BufferBlock<EventBytesTransactionWrap<K>>();
         int isProcessing = 0;
         public SqlEventStorage(SqlGrainConfig tableInfo)
         {
             this.tableInfo = tableInfo;
         }
-        public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, Int64 startVersion, Int64 endVersion, DateTime? startTime = null)
+        public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, long startVersion, long endVersion, DateTime? startTime = null)
         {
             var originList = new List<SqlEvent>((int)(endVersion - startVersion));
             await Task.Run(async () =>
@@ -51,7 +51,7 @@ namespace Ray.PostgreSQL
             var list = new List<IEventBase<K>>(originList.Count);
             foreach (var origin in originList)
             {
-                if (MessageTypeMapper.EventTypeDict.TryGetValue(origin.TypeCode, out var type))
+                if (MessageTypeMapper.TryGetValue(origin.TypeCode, out var type))
                 {
                     using (var ms = new MemoryStream(origin.Data))
                     {
@@ -64,10 +64,10 @@ namespace Ray.PostgreSQL
             }
             return list.OrderBy(v => v.Version).ToList();
         }
-        public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, string typeCode, Int64 startVersion, Int32 limit, DateTime? startTime = null)
+        public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, string typeCode, long startVersion, int limit, DateTime? startTime = null)
         {
             var originList = new List<byte[]>(limit);
-            if (MessageTypeMapper.EventTypeDict.TryGetValue(typeCode, out var type))
+            if (MessageTypeMapper.TryGetValue(typeCode, out var type))
             {
                 await Task.Run(async () =>
                 {
@@ -105,13 +105,14 @@ namespace Ray.PostgreSQL
             return list.OrderBy(v => v.Version).ToList();
         }
 
-        static ConcurrentDictionary<string, string> saveSqlDict = new ConcurrentDictionary<string, string>();
+        static readonly ConcurrentDictionary<string, string> saveSqlDict = new ConcurrentDictionary<string, string>();
         public Task<bool> SaveAsync(IEventBase<K> evt, byte[] bytes, string uniqueId = null)
         {
             return Task.Run(async () =>
             {
                 var wrap = EventBytesTransactionWrap<K>.Create(evt, bytes, uniqueId);
-                await EventSaveFlowChannel.SendAsync(wrap);
+                if (!EventSaveFlowChannel.Post(wrap))
+                    await EventSaveFlowChannel.SendAsync(wrap);
                 if (isProcessing == 0)
                     TriggerFlowProcess();
                 return await wrap.TaskSource.Task;
@@ -137,7 +138,7 @@ namespace Ray.PostgreSQL
                 }
             });
         }
-        private async ValueTask FlowProcess()
+        private async Task FlowProcess()
         {
             var start = DateTime.UtcNow;
             var wrapList = new List<EventBytesTransactionWrap<K>>();
@@ -155,7 +156,7 @@ namespace Ray.PostgreSQL
                             writer.StartRow();
                             writer.Write(evt.Value.StateId.ToString(), NpgsqlDbType.Varchar);
                             writer.Write(evt.UniqueId, NpgsqlDbType.Varchar);
-                            writer.Write(evt.Value.TypeCode, NpgsqlDbType.Varchar);
+                            writer.Write(evt.Value.GetType().FullName, NpgsqlDbType.Varchar);
                             writer.Write(evt.Bytes, NpgsqlDbType.Bytea);
                             writer.Write(evt.Value.Version, NpgsqlDbType.Bigint);
                             if ((DateTime.UtcNow - start).TotalMilliseconds > 100) break;//保证批量延时不超过100ms
@@ -177,7 +178,7 @@ namespace Ray.PostgreSQL
                         {
                             foreach (var w in wrapList)
                             {
-                                w.Result = await conn.ExecuteAsync(saveSql, new { StateId = w.Value.StateId.ToString(), w.UniqueId, w.Value.TypeCode, Data = w.Bytes, w.Value.Version }, trans) > 0;
+                                w.Result = await conn.ExecuteAsync(saveSql, new { StateId = w.Value.StateId.ToString(), w.UniqueId, w.Value.GetType().FullName, Data = w.Bytes, w.Value.Version }, trans) > 0;
                             }
                             trans.Commit();
                             wrapList.ForEach(wrap => wrap.TaskSource.TrySetResult(wrap.Result));
@@ -194,12 +195,17 @@ namespace Ray.PostgreSQL
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private async ValueTask<string> GetInsertSql()
         {
-            return saveSqlDict.GetOrAdd((await tableInfo.GetTable(DateTime.UtcNow)).Name, key => $"INSERT INTO {key}(stateid,uniqueId,typecode,data,version) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version) ON CONFLICT ON CONSTRAINT {key}_id_unique DO NOTHING");
+            return saveSqlDict.GetOrAdd((await tableInfo.GetTable(DateTime.UtcNow)).Name,
+                key => $"INSERT INTO {key}(stateid,uniqueId,typecode,data,version) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version) ON CONFLICT ON CONSTRAINT {key}_id_unique DO NOTHING");
         }
-        static ConcurrentDictionary<string, string> copySaveSqlDict = new ConcurrentDictionary<string, string>();
-        public async ValueTask TransactionSaveAsync(List<EventSaveWrap<K>> list)
+        static readonly ConcurrentDictionary<string, string> copySaveSqlDict = new ConcurrentDictionary<string, string>();
+        public async Task TransactionSaveAsync(List<EventSaveWrap<K>> list)
         {
-            var saveSql = copySaveSqlDict.GetOrAdd((await tableInfo.GetTable(DateTime.UtcNow)).Name, key => $"copy {key}(stateid,uniqueId,typecode,data,version) FROM STDIN (FORMAT BINARY)");
+            var getTableTask = tableInfo.GetTable(DateTime.UtcNow);
+            if (!getTableTask.IsCompleted)
+                await getTableTask;
+            var saveSql = copySaveSqlDict.GetOrAdd(getTableTask.Result.Name,
+                key => $"copy {key}(stateid,uniqueId,typecode,data,version) FROM STDIN (FORMAT BINARY)");
             await Task.Run(async () =>
             {
                 using (var conn = tableInfo.CreateConnection() as NpgsqlConnection)
@@ -212,7 +218,7 @@ namespace Ray.PostgreSQL
                             writer.StartRow();
                             writer.Write(evt.Evt.StateId.ToString(), NpgsqlDbType.Varchar);
                             writer.Write(evt.UniqueId, NpgsqlDbType.Varchar);
-                            writer.Write(evt.Evt.TypeCode, NpgsqlDbType.Varchar);
+                            writer.Write(evt.Evt.GetType().FullName, NpgsqlDbType.Varchar);
                             writer.Write(evt.Bytes, NpgsqlDbType.Bytea);
                             writer.Write(evt.Evt.Version, NpgsqlDbType.Bigint);
                         }

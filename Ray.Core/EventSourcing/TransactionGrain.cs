@@ -31,7 +31,7 @@ namespace Ray.Core.EventSourcing
         private long transactionStartVersion;
         private DateTime beginTransactionTime;
         private List<EventSaveWrap<K>> transactionEventList = new List<EventSaveWrap<K>>();
-        protected override async ValueTask RecoveryState()
+        protected override async Task RecoveryState()
         {
             await base.RecoveryState();
             BackupState = State.DeepCopy();
@@ -42,46 +42,56 @@ namespace Ray.Core.EventSourcing
             {
                 if ((DateTime.UtcNow - beginTransactionTime).TotalMinutes > 1)
                 {
-                    await RollbackTransaction();//事务阻赛超过一分钟自动回滚
+                    var rollBackTask = RollbackTransaction();//事务阻赛超过一分钟自动回滚
+                    if (!rollBackTask.IsCompleted)
+                        await rollBackTask;
                 }
                 else
                     throw new Exception("The transaction has been opened");
             }
-            await StateCheck();
+            var checkTask = StateCheck();
+            if (!checkTask.IsCompleted)
+                await checkTask;
             transactionPending = true;
             transactionStartVersion = State.Version;
             beginTransactionTime = DateTime.UtcNow;
         }
-        protected async ValueTask CommitTransaction()
+        protected async Task CommitTransaction()
         {
             if (transactionEventList.Count > 0)
             {
-                var serializer = GetSerializer();
                 using (var ms = new PooledMemoryStream())
                 {
                     foreach (var @event in transactionEventList)
                     {
-                        serializer.Serialize(ms, @event.Evt);
+                        Serializer.Serialize(ms, @event.Evt);
                         @event.Bytes = ms.ToArray();
                         ms.Position = 0;
                         ms.SetLength(0);
                     }
                 }
-                await (await GetEventStorage()).TransactionSaveAsync(transactionEventList);
+                var eventStorageTask = GetEventStorage();
+                if (!eventStorageTask.IsCompleted)
+                    await eventStorageTask;
+                await eventStorageTask.Result.TransactionSaveAsync(transactionEventList);
                 if (SupportAsync)
                 {
                     var mqService = GetMQService();
+                    if (!mqService.IsCompleted)
+                        await mqService;
                     using (var ms = new PooledMemoryStream())
                     {
                         foreach (var @event in transactionEventList)
                         {
                             var data = new W
                             {
-                                TypeCode = @event.Evt.TypeCode,
+                                TypeCode = @event.Evt.GetType().FullName,
                                 BinaryBytes = @event.Bytes
                             };
-                            serializer.Serialize(ms, data);
-                            mqService.Publish(ms.ToArray(), @event.HashKey);
+                            Serializer.Serialize(ms, data);
+                            var publishTask = mqService.Result.Publish(ms.ToArray(), @event.HashKey);
+                            if (!publishTask.IsCompleted)
+                                await publishTask;
                             OnRaiseSuccess(@event.Evt, @event.Bytes);
                             ms.Position = 0;
                             ms.SetLength(0);
@@ -96,7 +106,9 @@ namespace Ray.Core.EventSourcing
                     }
                 }
                 transactionEventList.Clear();
-                await SaveSnapshotAsync();
+                var saveSnapshotTask = SaveSnapshotAsync();
+                if (!saveSnapshotTask.IsCompleted)
+                    await saveSnapshotTask;
             }
             transactionPending = false;
         }
@@ -125,21 +137,23 @@ namespace Ray.Core.EventSourcing
                 transactionEventList.Clear();
             }
         }
-        protected override async ValueTask<bool> RaiseEvent(IEventBase<K> @event, string uniqueId = null, string hashKey = null)
+        protected override async Task<bool> RaiseEvent(IEventBase<K> @event, string uniqueId = null, string hashKey = null)
         {
             if (transactionPending)
                 throw new Exception("The transaction has been opened,Please use Transaction().");
-            await StateCheck();
+            var checkTask = StateCheck();
+            if (!checkTask.IsCompleted)
+                await checkTask;
             return await base.RaiseEvent(@event, uniqueId, hashKey);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected override void OnRaiseSuccess(IEventBase<K> @event, byte[] bytes)
         {
-            if (MessageTypeMapper.EventTypeDict.TryGetValue(@event.TypeCode, out var type))
+            if (MessageTypeMapper.TryGetValue(@event.GetType().FullName, out var type))
             {
                 using (var dms = new MemoryStream(bytes))
                 {
-                    Apply(BackupState, (IEventBase<K>)GetSerializer().Deserialize(type, dms));
+                    Apply(BackupState, (IEventBase<K>)Serializer.Deserialize(type, dms));
                 }
                 BackupState.FullUpdateVersion(@event);//更新处理完成的Version
             }
@@ -164,14 +178,15 @@ namespace Ray.Core.EventSourcing
                 ExceptionDispatchInfo.Capture(ex).Throw();
             }
         }
-        protected async ValueTask<bool> ConcurrentInput(IEventBase<K> evt, string uniqueId = null)
+        protected async Task<bool> ConcurrentInput(IEventBase<K> evt, string uniqueId = null)
         {
             var task = EventTransactionWrap<K>.Create(evt, uniqueId);
             if (flowProcess == 0)
             {
                 TriggerChannel();
             }
-            await ConcurrentInputChannel.SendAsync(task);
+            if (!ConcurrentInputChannel.Post(task))
+                await ConcurrentInputChannel.SendAsync(task);
 
             return await task.TaskSource.Task;
         }
@@ -190,11 +205,15 @@ namespace Ray.Core.EventSourcing
                             if (hasInput)
                             {
                                 await InputFlowBatchRaise();
-                                await OnChannelNext(hasInput);
+                                var nextTask = OnChannelNext(hasInput);
+                                if (!nextTask.IsCompleted)
+                                    await nextTask;
                             }
                             else
                             {
-                                await OnChannelNext(hasInput);
+                                var nextTask = OnChannelNext(hasInput);
+                                if (!nextTask.IsCompleted)
+                                    await nextTask;
                             }
                         }
                         else
@@ -209,7 +228,7 @@ namespace Ray.Core.EventSourcing
                 }
             }
         }
-        protected virtual async ValueTask<(bool needTrigger, bool hasInput)> WaitToReadAsync()
+        protected virtual async Task<(bool needTrigger, bool hasInput)> WaitToReadAsync()
         {
             return (await ConcurrentInputChannel.OutputAvailableAsync(), true);
         }
@@ -217,11 +236,13 @@ namespace Ray.Core.EventSourcing
         {
             return new ValueTask(Task.CompletedTask);
         }
-        public async ValueTask InputFlowBatchRaise()
+        public async Task InputFlowBatchRaise()
         {
             var start = DateTime.UtcNow;
             var events = new List<EventTransactionWrap<K>>();
-            await BeginTransaction();
+            var beginTask = BeginTransaction();
+            if (!beginTask.IsCompleted)
+                await beginTask;
             try
             {
                 while (ConcurrentInputChannel.TryReceive(out var value))
@@ -237,7 +258,9 @@ namespace Ray.Core.EventSourcing
             {
                 try
                 {
-                    await RollbackTransaction();
+                    var rollBackTask = RollbackTransaction();
+                    if (!rollBackTask.IsCompleted)
+                        await rollBackTask;
                     await EventsReTry(events);
                 }
                 catch (Exception e)
@@ -249,7 +272,7 @@ namespace Ray.Core.EventSourcing
                 }
             }
         }
-        private async ValueTask EventsReTry(IList<EventTransactionWrap<K>> events)
+        private async Task EventsReTry(IList<EventTransactionWrap<K>> events)
         {
             foreach (var evt in events)
             {
