@@ -1,6 +1,6 @@
 ﻿using System.Threading.Tasks;
 using Orleans;
-using Ray.Core.EventSourcing;
+using Ray.Core.Internal;
 using Ray.IGrains;
 using Ray.IGrains.Actors;
 using Ray.IGrains.Events;
@@ -8,7 +8,7 @@ using Ray.IGrains.States;
 
 namespace Ray.Grain
 {
-    public sealed class AccountFlow : AsyncGrain<long, AsyncState<long>, MessageInfo>, IAccountFlow
+    public sealed class AccountFlow : FollowGrain<long, AsyncState<long>, MessageInfo>, IAccountFlow
     {
         public override long GrainId => this.GetPrimaryKeyLong();
         protected override bool Concurrent => true;

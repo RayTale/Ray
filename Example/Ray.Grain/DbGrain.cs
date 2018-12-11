@@ -1,10 +1,10 @@
 ﻿using System.Threading.Tasks;
-using Ray.Core.EventSourcing;
+using Ray.Core.Internal;
 using Ray.IGrains;
 
 namespace Ray.Grain
 {
-    public abstract class DbGrain<K, S> : AsyncGrain<K, S, MessageInfo>
+    public abstract class DbGrain<K, S> : FollowGrain<K, S, MessageInfo>
           where S : class, IState<K>, new()
     {
         protected override async ValueTask OnEventDelivered(IEventBase<K> @event)

@@ -1,13 +1,13 @@
 ﻿using System.Threading.Tasks;
 using Orleans;
-using Ray.Core.EventSourcing;
+using Ray.Core.Internal;
 using Ray.IGrains;
 using Ray.IGrains.Actors;
 using Ray.IGrains.States;
 
 namespace Ray.Grain
 {
-    public sealed class AccountRep : RepGrain<long, AccountState, MessageInfo>, IAccountRep
+    public sealed class AccountRep : ReplicaGrain<long, AccountState, MessageInfo>, IAccountRep
     {
         public override long GrainId => this.GetPrimaryKeyLong();
 

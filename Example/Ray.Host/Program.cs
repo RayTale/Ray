@@ -7,7 +7,7 @@ using Ray.Grain;
 using Ray.PostgreSQL;
 using Ray.RabbitMQ;
 using Ray.IGrains;
-using Ray.Core.Message;
+using Ray.Core.Messaging;
 using Orleans;
 using System.Net;
 using Orleans.Configuration;
@@ -33,11 +33,11 @@ namespace Ray.MongoHost
                 using (var host = await StartSilo())
                 using (var client = await StartClientWithRetries())
                 {
-                    var handlerStartup = client.ServiceProvider.GetService<HandlerStartup>();
-                    await Task.WhenAll(
-                     handlerStartup.Start(SubscriberGroup.Core),
-                     handlerStartup.Start(SubscriberGroup.Db),
-                     handlerStartup.Start(SubscriberGroup.Rep));
+                    //var handlerStartup = client.ServiceProvider.GetService<HandlerStartup>();
+                    //await Task.WhenAll(
+                    // handlerStartup.Start(SubscriberGroup.Core),
+                    // handlerStartup.Start(SubscriberGroup.Db),
+                    // handlerStartup.Start(SubscriberGroup.Rep));
                     while (true)
                     {
                         Console.WriteLine("Input any key to stop");
@@ -68,9 +68,9 @@ namespace Ray.MongoHost
                 {
                     servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
                     //注册postgresql为事件存储库
-                    //servicecollection.AddPSqlSiloGrain();
+                    servicecollection.AddPSqlSiloGrain();
                     //注册mongodb为事件存储库
-                    servicecollection.AddMongoDbSiloGrain();
+                    //servicecollection.AddMongoDbSiloGrain();
                 })
                 .Configure<SqlConfig>(c =>
                 {

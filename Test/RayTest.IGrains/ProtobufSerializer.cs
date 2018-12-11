@@ -1,4 +1,4 @@
-﻿using Ray.Core.Message;
+﻿using Ray.Core.Messaging;
 using System;
 using System.IO;
 using ProtoBuf;

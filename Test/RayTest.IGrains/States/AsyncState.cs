@@ -1,5 +1,5 @@
 ﻿using ProtoBuf;
-using Ray.Core.EventSourcing;
+using Ray.Core.Internal;
 using System;
 
 namespace RayTest.IGrains.States

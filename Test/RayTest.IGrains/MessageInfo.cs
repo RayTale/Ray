@@ -8,7 +8,7 @@ namespace RayTest.IGrains
     [Immutable]
     public class MessageInfo: IMessageWrapper
     {
-        public string TypeCode { get; set; }
-        public byte[] BinaryBytes { get; set; }
+        public string TypeName { get; set; }
+        public byte[] Bytes { get; set; }
     }
 }

@@ -1,9 +1,9 @@
 ﻿using System.Threading.Tasks;
-using Ray.Core.MQ;
+using Ray.Core.EventBus;
 
 namespace Ray.RabbitMQ
 {
-    public class RabbitMQService : IMQService
+    public class RabbitMQService : IProducer
     {
         readonly RabbitPublisher publisher;
         public RabbitMQService(RabbitPublisher publisher) => this.publisher = publisher;

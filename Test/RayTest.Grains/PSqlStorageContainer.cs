@@ -1,5 +1,5 @@
 ﻿using Microsoft.Extensions.Options;
-using Ray.Core.EventSourcing;
+using Ray.Core.Internal;
 using Ray.PostgreSQL;
 using System;
 using System.Collections.Concurrent;

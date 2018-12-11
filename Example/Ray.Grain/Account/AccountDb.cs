@@ -1,6 +1,6 @@
 ﻿using System.Threading.Tasks;
 using Orleans;
-using Ray.Core.EventSourcing;
+using Ray.Core.Internal;
 using Ray.IGrains.Actors;
 using Ray.IGrains.Events;
 using Ray.IGrains.States;

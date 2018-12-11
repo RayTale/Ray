@@ -1,4 +1,4 @@
-﻿using Ray.Core.MQ;
+﻿using Ray.Core.EventBus;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;

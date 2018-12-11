@@ -2,8 +2,8 @@
 using Npgsql;
 using NpgsqlTypes;
 using ProtoBuf;
-using Ray.Core.EventSourcing;
-using Ray.Core.Message;
+using Ray.Core.Internal;
+using Ray.Core.Messaging;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -19,7 +19,7 @@ namespace Ray.PostgreSQL
     public class SqlEventStorage<K> : IEventStorage<K>
     {
         readonly SqlGrainConfig tableInfo;
-        BufferBlock<EventBytesTransactionWrap<K>> EventSaveFlowChannel = new BufferBlock<EventBytesTransactionWrap<K>>();
+        readonly BufferBlock<EventBytesTransactionWrap<K>> EventSaveFlowChannel = new BufferBlock<EventBytesTransactionWrap<K>>();
         int isProcessing = 0;
         public SqlEventStorage(SqlGrainConfig tableInfo)
         {
@@ -51,7 +51,7 @@ namespace Ray.PostgreSQL
             var list = new List<IEventBase<K>>(originList.Count);
             foreach (var origin in originList)
             {
-                if (MessageTypeMapper.TryGetValue(origin.TypeCode, out var type))
+                if (TypeContainer.TryGetValue(origin.TypeCode, out var type))
                 {
                     using (var ms = new MemoryStream(origin.Data))
                     {
@@ -67,7 +67,7 @@ namespace Ray.PostgreSQL
         public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, string typeCode, long startVersion, int limit, DateTime? startTime = null)
         {
             var originList = new List<byte[]>(limit);
-            if (MessageTypeMapper.TryGetValue(typeCode, out var type))
+            if (TypeContainer.TryGetValue(typeCode, out var type))
             {
                 await Task.Run(async () =>
                 {

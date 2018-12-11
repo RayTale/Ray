@@ -1,4 +1,4 @@
-﻿using Ray.Core.EventSourcing;
+﻿using Ray.Core.Internal;
 using Ray.Grain;
 using Ray.MongoDB;
 using System;

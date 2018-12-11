@@ -1,6 +1,6 @@
 ﻿using System.Threading.Tasks;
 using Orleans;
-using Ray.Core.EventSourcing;
+using Ray.Core.Internal;
 using Ray.RabbitMQ;
 using Microsoft.Extensions.Options;
 using Ray.PostgreSQL;

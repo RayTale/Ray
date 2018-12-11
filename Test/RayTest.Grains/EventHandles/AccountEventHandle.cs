@@ -1,4 +1,4 @@
-﻿using Ray.Core.EventSourcing;
+﻿using Ray.Core.Internal;
 using RayTest.IGrains.Events;
 using RayTest.IGrains.States;
 

@@ -7,10 +7,11 @@ using Ray.RabbitMQ;
 using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
-using Ray.Core.Message;
+using Ray.Core.Messaging;
 using System.Diagnostics;
 using Ray.Core;
 using System.Linq;
+using Ray.Handler;
 
 namespace Ray.Client
 {
@@ -27,20 +28,25 @@ namespace Ray.Client
             {
                 using (var client = await StartClientWithRetries())
                 {
+                    var handlerStartup = client.ServiceProvider.GetService<HandlerStartup>();
+                    await Task.WhenAll(
+                     handlerStartup.Start(SubscriberGroup.Core),
+                     handlerStartup.Start(SubscriberGroup.Db),
+                     handlerStartup.Start(SubscriberGroup.Rep));
                     while (true)
                     {
                         // var actor = client.GetGrain<IAccount>(0);
                         // Console.WriteLine("Press Enter for times...");
                         Console.WriteLine("start");
                         Console.ReadLine();
-                        var length = 100;// int.Parse(Console.ReadLine());
+                        var length = 10000;// int.Parse(Console.ReadLine());
                         var stopWatch = new Stopwatch();
                         stopWatch.Start();
                         await Task.WhenAll(Enumerable.Range(0, length).Select(x => client.GetGrain<IAccount>(1).AddAmount(1000)));
                         stopWatch.Stop();
-                        Console.WriteLine($"{length * 5 }次操作完成，耗时:{stopWatch.ElapsedMilliseconds}ms");
+                        Console.WriteLine($"{length }次操作完成，耗时:{stopWatch.ElapsedMilliseconds}ms");
                         await Task.Delay(200);
-                        Console.WriteLine($"余额为{await client.GetGrain<IAccount>(0).GetBalance()}");
+                        Console.WriteLine($"余额为{await client.GetGrain<IAccount>(1).GetBalance()}");
                     }
                 }
             }

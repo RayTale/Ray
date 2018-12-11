@@ -1,5 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
-using Ray.Core.MQ;
+using Ray.Core.EventBus;
 
 namespace Ray.RabbitMQ
 {

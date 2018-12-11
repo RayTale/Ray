@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
-using Ray.Core.EventSourcing;
-using Ray.Core.MQ;
+using Ray.Core.Internal;
+using Ray.Core.EventBus;
 using Ray.MongoDB;
 using Ray.RabbitMQ;
 
@@ -23,7 +23,7 @@ namespace Ray.Grain
         private static void AddMQService(this IServiceCollection serviceCollection)
         {
             serviceCollection.AddRabbitMQ();
-            serviceCollection.AddSingleton<IMQServiceContainer, MQServiceContainer>();
+            serviceCollection.AddSingleton<IProducerContainer, ProducerContainer>();
         }
     }
 }

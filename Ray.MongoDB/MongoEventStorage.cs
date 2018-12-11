@@ -6,8 +6,8 @@ using MongoDB.Driver;
 using MongoDB.Bson;
 using System;
 using System.Threading;
-using Ray.Core.EventSourcing;
-using Ray.Core.Message;
+using Ray.Core.Internal;
+using Ray.Core.Messaging;
 using System.Threading.Tasks.Dataflow;
 
 namespace Ray.MongoDB
@@ -36,7 +36,7 @@ namespace Ray.MongoDB
                 foreach (var document in cursor.ToEnumerable())
                 {
                     var typeCode = document["TypeCode"].AsString;
-                    if (MessageTypeMapper.TryGetValue(typeCode, out var type))
+                    if (TypeContainer.TryGetValue(typeCode, out var type))
                     {
                         var data = document["Data"].AsByteArray;
                         using (var ms = new MemoryStream(data))
@@ -68,7 +68,7 @@ namespace Ray.MongoDB
                 var cursor = await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, collection.Name).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(10000).Token);
                 foreach (var document in cursor.ToEnumerable())
                 {
-                    if (MessageTypeMapper.TryGetValue(typeCode, out var type))
+                    if (TypeContainer.TryGetValue(typeCode, out var type))
                     {
                         var data = document["Data"].AsByteArray;
                         using (var ms = new MemoryStream(data))

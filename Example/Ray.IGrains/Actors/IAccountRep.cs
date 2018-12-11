@@ -1,10 +1,10 @@
 ﻿using Orleans;
 using System.Threading.Tasks;
-using Ray.Core.EventSourcing;
+using Ray.Core.Internal;
 
 namespace Ray.IGrains.Actors
 {
-    public interface IAccountRep : IAsyncGrain, IGrainWithIntegerKey
+    public interface IAccountRep : IFollowGrain, IGrainWithIntegerKey
     {
         /// <summary>
         /// 获取账户余额

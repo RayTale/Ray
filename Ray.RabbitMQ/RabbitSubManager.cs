@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Ray.Core;
-using Ray.Core.MQ;
+using Ray.Core.EventBus;
 using Ray.Core.Utils;
 
 namespace Ray.RabbitMQ

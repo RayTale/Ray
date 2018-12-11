@@ -1,12 +1,12 @@
-﻿using Ray.Core.Message;
+﻿using Ray.Core.Messaging;
 using Ray.RabbitMQ;
 using System.Threading.Tasks;
 using Ray.IGrains;
 using System;
-using Ray.Core.MQ;
+using Ray.Core.EventBus;
 using Ray.Core;
 using Ray.IGrains.Actors;
-using Ray.Core.EventSourcing;
+using Ray.Core.Internal;
 
 namespace Ray.Handler
 {
@@ -18,7 +18,7 @@ namespace Ray.Handler
             this.clientFactory = clientFactory;
         }
 
-        public override Task Tell(byte[] wrapBytes, byte[] dataBytes, IMessage data, MessageInfo msg)
+        public override Task Tell(byte[] wrapBytes, byte[] dataBytes, object data, MessageInfo msg)
         {
             if (data is IEventBase<long> evt)
                 return clientFactory.GetClient().GetGrain<IAccountDb>(evt.StateId).ConcurrentTell(wrapBytes);

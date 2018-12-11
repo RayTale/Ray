@@ -1,9 +1,9 @@
 ﻿using Orleans;
-using Ray.Core.EventSourcing;
+using Ray.Core.Internal;
 
 namespace Ray.IGrains.Actors
 {
-    public interface IAccountFlow : IAsyncConcurrentGrain, IGrainWithIntegerKey
+    public interface IAccountFlow : IInterleaveFollowGrain, IGrainWithIntegerKey
     {
     }
 }

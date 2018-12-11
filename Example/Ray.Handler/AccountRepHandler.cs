@@ -1,6 +1,6 @@
 ﻿using Ray.Core;
-using Ray.Core.EventSourcing;
-using Ray.Core.MQ;
+using Ray.Core.Internal;
+using Ray.Core.EventBus;
 using Ray.IGrains;
 using Ray.IGrains.Actors;
 using System;
@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Ray.Handler
 {
-    public sealed class AccountRepHandler : MultHandler<long, MessageInfo>
+    public sealed class AccountRepHandler : MulSubtHandler<long, MessageInfo>
     {
         readonly IClientFactory clientFactory;
         public AccountRepHandler(IServiceProvider svProvider, IClientFactory clientFactory) : base(svProvider)

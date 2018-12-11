@@ -3,7 +3,7 @@ using Xunit;
 using Orleans.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Ray.Core.Message;
+using Ray.Core.Messaging;
 using RayTest.IGrains;
 using Ray.PostgreSQL;
 using Ray.RabbitMQ;
