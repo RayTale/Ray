@@ -66,6 +66,7 @@ namespace Ray.MongoHost
                 .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(Account).Assembly).WithReferences())
                 .ConfigureServices((context, servicecollection) =>
                 {
+                    servicecollection.AddRay();
                     servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
                     //注册postgresql为事件存储库
                     servicecollection.AddPSqlSiloGrain();

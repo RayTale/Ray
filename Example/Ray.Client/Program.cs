@@ -71,6 +71,7 @@ namespace Ray.Client
                         .UseLocalhostClustering()
                         .ConfigureServices((context, servicecollection) =>
                         {
+                            servicecollection.AddMQHandler();//注册所有handler
                             servicecollection.AddSingleton<IClientFactory, ClientFactory>();//注册Client获取方法
                             servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
                             servicecollection.AddRabbitMQ();//注册RabbitMq为默认消息队列
