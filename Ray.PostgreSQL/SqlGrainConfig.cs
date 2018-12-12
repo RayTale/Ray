@@ -1,11 +1,11 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Dapper;
-using System.Collections.Concurrent;
-using System.Threading;
 
 namespace Ray.PostgreSQL
 {
@@ -19,7 +19,7 @@ namespace Ray.PostgreSQL
         readonly bool sharding = false;
         readonly int shardingDays;
         readonly int stateIdLength;
-        public SqlGrainConfig(string conn, string eventTable, string snapshotTable, DateTime splitTableStartTime, bool sharding = false, int shardingDays = 40, int stateIdLength = 50)
+        public SqlGrainConfig(string conn, string eventTable, string snapshotTable, DateTime splitTableStartTime, bool sharding = false, int shardingDays = 40, int stateIdLength = 200)
         {
             Connection = conn;
             EventTable = eventTable;

@@ -1,5 +1,5 @@
-﻿using Orleans.Concurrency;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
+using Orleans.Concurrency;
 
 namespace Ray.Core.Internal
 {

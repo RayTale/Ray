@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using RabbitMQ.Client;
-using ProtoBuf;
 using Microsoft.Extensions.Options;
+using ProtoBuf;
+using RabbitMQ.Client;
 using Ray.Core.Utils;
-using System.Collections.Generic;
 
 namespace Ray.RabbitMQ
 {

@@ -24,7 +24,7 @@ namespace RayTest.Grains
         {
             EventHandle.Apply(state, evt);
         }
-        protected override bool SupportAsync => true;
+        protected override bool SupportAsyncFollow => true;
         public override async Task OnActivateAsync()
         {
             await base.OnActivateAsync();

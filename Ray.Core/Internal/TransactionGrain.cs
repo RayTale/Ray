@@ -9,8 +9,6 @@ using System.Threading.Tasks.Dataflow;
 using System.Runtime.ExceptionServices;
 using Microsoft.Extensions.Logging;
 using Ray.Core.Exceptions;
-using Microsoft.Extensions.Options;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Ray.Core.Internal
 {
@@ -21,12 +19,10 @@ namespace Ray.Core.Internal
         public TransactionGrain(ILogger logger) : base(logger)
         {
         }
-        protected IOptions<RayConfigOptions> Options { get; private set; }
         protected S BackupState { get; set; }
         protected BufferBlock<EventTransactionWrap<K>> ConcurrentInputChannel { get; } = new BufferBlock<EventTransactionWrap<K>>();
         public override Task OnActivateAsync()
         {
-            Options = ServiceProvider.GetService<IOptions<RayConfigOptions>>();
             TriggerChannel();
             return base.OnActivateAsync();
         }
@@ -48,7 +44,7 @@ namespace Ray.Core.Internal
         {
             if (transactionPending)
             {
-                if ((DateTime.UtcNow - beginTransactionTime).TotalSeconds > Options.Value.TransactionTimeoutSeconds)
+                if ((DateTime.UtcNow - beginTransactionTime).TotalSeconds > ConfigOptions.TransactionTimeoutSeconds)
                 {
                     var rollBackTask = RollbackTransaction();//事务阻赛超过一分钟自动回滚
                     if (!rollBackTask.IsCompleted)
@@ -82,7 +78,7 @@ namespace Ray.Core.Internal
                 if (!eventStorageTask.IsCompleted)
                     await eventStorageTask;
                 await eventStorageTask.Result.TransactionSaveAsync(transactionEventList);
-                if (SupportAsync)
+                if (SupportAsyncFollow)
                 {
                     var mqService = GetMQService();
                     if (!mqService.IsCompleted)
@@ -166,7 +162,7 @@ namespace Ray.Core.Internal
             {
                 Apply(BackupState, (IEventBase<K>)Serializer.Deserialize(@event.GetType(), dms));
             }
-            BackupState.FullUpdateVersion(@event);//更新处理完成的Version
+            BackupState.FullUpdateVersion(@event, GrainType);//更新处理完成的Version
         }
         protected void Transaction(IEventBase<K> @event, string uniqueId = null, string hashKey = null)
         {
@@ -174,13 +170,13 @@ namespace Ray.Core.Internal
                 throw new Exception("Unopened transaction,Please open the transaction first.");
             try
             {
-                State.IncrementDoingVersion();//标记将要处理的Version
+                State.IncrementDoingVersion(GrainType);//标记将要处理的Version
                 @event.StateId = GrainId;
                 @event.Version = State.Version + 1;
                 @event.Timestamp = DateTime.UtcNow;
                 transactionEventList.Add(new EventSaveWrap<K>(@event, uniqueId, string.IsNullOrEmpty(hashKey) ? GrainId.ToString() : hashKey));
                 Apply(State, @event);
-                State.UpdateVersion(@event);//更新处理完成的Version
+                State.UpdateVersion(@event, GrainType);//更新处理完成的Version
             }
             catch (Exception ex)
             {
@@ -259,7 +255,7 @@ namespace Ray.Core.Internal
                 {
                     events.Add(value);
                     Transaction(value.Value, value.UniqueId);
-                    if ((DateTime.UtcNow - start).TotalMilliseconds > Options.Value.MaxDelayOfBatchMilliseconds) break;//保证批量延时不超过100ms
+                    if ((DateTime.UtcNow - start).TotalMilliseconds > ConfigOptions.MaxDelayOfBatchMilliseconds) break;//保证批量延时不超过100ms
                 }
                 await CommitTransaction();
                 events.ForEach(evt => evt.TaskSource.SetResult(true));

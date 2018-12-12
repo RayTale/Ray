@@ -1,9 +1,9 @@
-﻿using Dapper;
+﻿using System.IO;
+using System.Threading.Tasks;
+using Dapper;
 using ProtoBuf;
 using Ray.Core.Internal;
 using Ray.Core.Utils;
-using System.IO;
-using System.Threading.Tasks;
 
 namespace Ray.PostgreSQL
 {

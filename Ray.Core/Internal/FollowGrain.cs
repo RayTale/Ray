@@ -1,9 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Orleans;
-using Ray.Core.Messaging;
-using Ray.Core.Utils;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -11,6 +6,13 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Orleans;
+using Ray.Core.Exceptions;
+using Ray.Core.Messaging;
+using Ray.Core.Utils;
 
 namespace Ray.Core.Internal
 {
@@ -20,12 +22,9 @@ namespace Ray.Core.Internal
     {
         public FollowGrain(ILogger logger)
         {
-            this.Logger = logger;
-            if (Concurrent)
-            {
-                tellChannel = new DataBatchChannel<IEventBase<K>, bool>(ConcurrentTellProcess);
-            }
+            Logger = logger;
         }
+        protected RayConfigOptions ConfigOptions { get; private set; }
         protected ILogger Logger { get; private set; }
         protected IJsonSerializer JsonSerializer { get; private set; }
         protected ISerializer Serializer { get; private set; }
@@ -35,22 +34,44 @@ namespace Ray.Core.Internal
         /// </summary>
         protected S State { get; set; }
         public abstract K GrainId { get; }
+        /// <summary>
+        /// 是否需要保存快照
+        /// </summary>
         protected virtual bool SaveSnapshot => true;
-        protected virtual int SnapshotFrequency => 20;
-        protected virtual int EventNumberPerRead => 2000;
         /// <summary>
-        /// 并发处理消息时，消息收集的最大延时
+        /// Grain保存快照的事件Version间隔
         /// </summary>
-        protected virtual int ConcurrentMaxDelayMilliseconds => 200;
+        protected virtual int SnapshotVersionInterval => ConfigOptions.FollowSnapshotVersionInterval;
         /// <summary>
-        /// 处理的超时时间
+        /// Grain失活的时候保存快照的最小事件Version间隔
         /// </summary>
-        protected virtual int ProcessTimeoutMilliseconds => 30 * 1000;
+        protected virtual int SnapshotMinVersionInterval => ConfigOptions.FollowSnapshotMinVersionInterval;
+        /// <summary>
+        /// 分批次批量读取事件的时候每次读取的数据量
+        /// </summary>
+        protected virtual int NumberOfEventsPerRead => ConfigOptions.NumberOfEventsPerRead;
+        /// <summary>
+        /// 并发处理消息时，收集消息等待处理的最大延时
+        /// </summary>
+        protected virtual int MaxDelayOfBatchMilliseconds => ConfigOptions.MaxDelayOfBatchMilliseconds;
+        /// <summary>
+        /// 事件处理的超时时间
+        /// </summary>
+        protected virtual int EventAsyncProcessTimeoutSeconds => ConfigOptions.EventAsyncProcessTimeoutSeconds;
+        /// <summary>
+        /// 是否全量激活，true代表启动时会执行大于快照版本的所有事件,false代表更快的启动，后续有事件进入的时候再处理大于快照版本的事件
+        /// </summary>
         protected virtual bool FullyActive => false;
-        protected long StateStorageVersion { get; set; }
-        protected virtual int SnapshotMinFrequency => 1;
+        /// <summary>
+        /// 快照的事件版本号
+        /// </summary>
+        protected long SnapshotEventVersion { get; set; }
+        /// <summary>
+        /// 是否开启事件并发处理
+        /// </summary>
         protected virtual bool Concurrent => false;
-        private readonly DataBatchChannel<IEventBase<K>, bool> tellChannel;
+        protected Type GrainType { get; private set; }
+        private DataBatchChannel<IEventBase<K>, bool> tellChannel;
         protected virtual ValueTask<IEventStorage<K>> GetEventStorage()
         {
             return StorageContainer.GetEventStorage<K, S>(this);
@@ -63,10 +84,15 @@ namespace Ray.Core.Internal
         #region 初始化数据
         public override async Task OnActivateAsync()
         {
+            GrainType = GetType();
+            ConfigOptions = ServiceProvider.GetService<IOptions<RayConfigOptions>>().Value;
             StorageContainer = ServiceProvider.GetService<IStorageContainer>();
             Serializer = ServiceProvider.GetService<ISerializer>();
             JsonSerializer = ServiceProvider.GetService<IJsonSerializer>();
-
+            if (Concurrent)
+            {
+                tellChannel = new DataBatchChannel<IEventBase<K>, bool>(ConcurrentTellProcess);
+            }
             await ReadSnapshotAsync();
             if (FullyActive)
             {
@@ -75,7 +101,7 @@ namespace Ray.Core.Internal
                     await eventStorageTask;
                 while (true)
                 {
-                    var eventList = await eventStorageTask.Result.GetListAsync(GrainId, State.Version, State.Version + EventNumberPerRead, State.VersionTime);
+                    var eventList = await eventStorageTask.Result.GetListAsync(GrainId, State.Version, State.Version + NumberOfEventsPerRead, State.VersionTime);
                     if (Concurrent)
                     {
                         await Task.WhenAll(eventList.Select(@event =>
@@ -93,17 +119,17 @@ namespace Ray.Core.Internal
                     {
                         foreach (var @event in eventList)
                         {
-                            State.IncrementDoingVersion();//标记将要处理的Version
+                            State.IncrementDoingVersion(GrainType);//标记将要处理的Version
                             var task = OnEventDelivered(@event);
                             if (!task.IsCompleted)
                                 await task;
-                            State.UpdateVersion(@event);//更新处理完成的Version
+                            State.UpdateVersion(@event, GrainType);//更新处理完成的Version
                         }
                     }
                     var saveTask = SaveSnapshotAsync();
                     if (!saveTask.IsCompleted)
                         await saveTask;
-                    if (eventList.Count < EventNumberPerRead) break;
+                    if (eventList.Count < NumberOfEventsPerRead) break;
                 };
             }
             if (Logger.IsEnabled(LogLevel.Trace))
@@ -115,7 +141,7 @@ namespace Ray.Core.Internal
         {
             if (Concurrent)
                 tellChannel.Complete();
-            if (State.Version - StateStorageVersion >= SnapshotMinFrequency)
+            if (State.Version - SnapshotEventVersion >= SnapshotMinVersionInterval)
                 return SaveSnapshotAsync(true).AsTask();
             else
                 return Task.CompletedTask;
@@ -134,7 +160,7 @@ namespace Ray.Core.Internal
                 if (!createTask.IsCompleted)
                     await createTask;
             }
-            StateStorageVersion = State.Version;
+            SnapshotEventVersion = State.Version;
         }
         /// <summary>
         /// 初始化状态，必须实现
@@ -209,7 +235,7 @@ namespace Ray.Core.Internal
                             }
                         }
                     }
-                    if ((DateTime.UtcNow - start).TotalMilliseconds > ConcurrentMaxDelayMilliseconds) break;//保证批量延时不超过200ms
+                    if ((DateTime.UtcNow - start).TotalMilliseconds > MaxDelayOfBatchMilliseconds) break;//保证批量延时不超过200ms
                 }
                 var orderList = evtList.OrderBy(w => w.Version).ToList();
                 if (orderList.Count > 0)
@@ -241,7 +267,7 @@ namespace Ray.Core.Internal
                                 return Task.CompletedTask;
                         });
                         var taskOne = Task.WhenAll(tasks);
-                        using (var taskTwo = Task.Delay(ProcessTimeoutMilliseconds, tokenSource.Token))
+                        using (var taskTwo = Task.Delay(EventAsyncProcessTimeoutSeconds, tokenSource.Token))
                         {
                             await Task.WhenAny(taskOne, taskTwo);
                             if (taskOne.Status == TaskStatus.RanToCompletion)
@@ -292,7 +318,7 @@ namespace Ray.Core.Internal
                         var onEventDeliveredTask = OnEventDelivered(@event);
                         if (!onEventDeliveredTask.IsCompleted)
                             await onEventDeliveredTask;
-                        State.FullUpdateVersion(@event);//更新处理完成的Version
+                        State.FullUpdateVersion(@event, GrainType);//更新处理完成的Version
                     }
                     else if (@event.Version > State.Version)
                     {
@@ -305,7 +331,7 @@ namespace Ray.Core.Internal
                             var onEventDeliveredTask = OnEventDelivered(item);
                             if (!onEventDeliveredTask.IsCompleted)
                                 await onEventDeliveredTask;
-                            State.FullUpdateVersion(item);//更新处理完成的Version
+                            State.FullUpdateVersion(item, GrainType);//更新处理完成的Version
                         }
                     }
                     if (@event.Version == State.Version + 1)
@@ -313,11 +339,11 @@ namespace Ray.Core.Internal
                         var onEventDeliveredTask = OnEventDelivered(@event);
                         if (!onEventDeliveredTask.IsCompleted)
                             await onEventDeliveredTask;
-                        State.FullUpdateVersion(@event);//更新处理完成的Version
+                        State.FullUpdateVersion(@event, GrainType);//更新处理完成的Version
                     }
                     if (@event.Version > State.Version)
                     {
-                        throw new Exception($"Event version of the error,Type={GetType().FullName},StateId={this.GrainId.ToString()},StateVersion={State.Version},EventVersion={@event.Version}");
+                        throw new EventVersionNotMatchStateException(GrainId.ToString(), GetType(), @event.Version, State.Version);
                     }
                     await SaveSnapshotAsync();
                 }
@@ -333,7 +359,7 @@ namespace Ray.Core.Internal
         {
             if (SaveSnapshot)
             {
-                if (force || (State.Version - StateStorageVersion >= SnapshotFrequency))
+                if (force || (State.Version - SnapshotEventVersion >= SnapshotVersionInterval))
                 {
                     var onSaveSnapshotTask = OnSaveSnapshot();//自定义保存项
                     if (!onSaveSnapshotTask.IsCompleted)
@@ -350,7 +376,7 @@ namespace Ray.Core.Internal
                     {
                         await getStateStorageTask.Result.UpdateAsync(State);
                     }
-                    StateStorageVersion = State.Version;
+                    SnapshotEventVersion = State.Version;
                     var onSavedSnapshotTask = OnSavedSnapshot();
                     if (!onSavedSnapshotTask.IsCompleted)
                         await onSavedSnapshotTask;

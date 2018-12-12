@@ -1,13 +1,14 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Orleans;
-using Ray.Core.Messaging;
-using Ray.Core.EventBus;
-using Ray.Core.Utils;
-using System;
+﻿using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Orleans;
+using Ray.Core.EventBus;
+using Ray.Core.Messaging;
+using Ray.Core.Utils;
 
 namespace Ray.Core.Internal
 {
@@ -19,6 +20,7 @@ namespace Ray.Core.Internal
         {
             Logger = logger;
         }
+        protected RayConfigOptions ConfigOptions { get; private set; }
         protected ILogger Logger { get; private set; }
         protected IProducerContainer ProducerContainer { get; private set; }
         protected IStorageContainer StorageContainer { get; private set; }
@@ -27,14 +29,32 @@ namespace Ray.Core.Internal
         protected S State { get; set; }
         public abstract K GrainId { get; }
         protected virtual StateSnapSaveType SnapshotType => StateSnapSaveType.Master;
-        protected virtual int SnapshotFrequency => 500;
-        protected virtual int EventNumberPerRead => 2000;
-        protected long StateStorageVersion { get; set; }
-        protected virtual int SnapshotMinFrequency => 1;
-        protected virtual bool SupportAsync => true;
+        /// <summary>
+        /// 保存快照的事件Version间隔
+        /// </summary>
+        protected virtual int SnapshotVersionInterval => ConfigOptions.SnapshotVersionInterval;
+        /// <summary>
+        /// 分批次批量读取事件的时候每次读取的数据量
+        /// </summary>
+        protected virtual int NumberOfEventsPerRead => ConfigOptions.NumberOfEventsPerRead;
+        /// <summary>
+        /// 快照的事件版本号
+        /// </summary>
+        protected long SnapshotEventVersion { get; set; }
+        /// <summary>
+        /// 失活的时候保存快照的最小事件Version间隔
+        /// </summary>
+        protected virtual int SnapshotMinVersionInterval => ConfigOptions.SnapshotMinVersionInterval;
+        /// <summary>
+        /// 是否支持异步follow，true代表事件会广播，false事件不会进行广播
+        /// </summary>
+        protected virtual bool SupportAsyncFollow => true;
+        protected Type GrainType { get; private set; }
         #region LifeTime
         public override Task OnActivateAsync()
         {
+            GrainType = GetType();
+            ConfigOptions = ServiceProvider.GetService<IOptions<RayConfigOptions>>().Value;
             StorageContainer = ServiceProvider.GetService<IStorageContainer>();
             ProducerContainer = ServiceProvider.GetService<IProducerContainer>();
             Serializer = ServiceProvider.GetService<ISerializer>();
@@ -52,19 +72,19 @@ namespace Ray.Core.Internal
                 await eventStorageTask;
             while (true)
             {
-                var eventList = await eventStorageTask.Result.GetListAsync(GrainId, State.Version, State.Version + EventNumberPerRead, State.VersionTime);
+                var eventList = await eventStorageTask.Result.GetListAsync(GrainId, State.Version, State.Version + NumberOfEventsPerRead, State.VersionTime);
                 foreach (var @event in eventList)
                 {
-                    State.IncrementDoingVersion();//标记将要处理的Version
+                    State.IncrementDoingVersion(GrainType);//标记将要处理的Version
                     Apply(State, @event);
-                    State.UpdateVersion(@event);//更新处理完成的Version
+                    State.UpdateVersion(@event, GrainType);//更新处理完成的Version
                 }
-                if (eventList.Count < EventNumberPerRead) break;
+                if (eventList.Count < NumberOfEventsPerRead) break;
             };
         }
         public override Task OnDeactivateAsync()
         {
-            if (State.Version - StateStorageVersion >= SnapshotMinFrequency)
+            if (State.Version - SnapshotEventVersion >= SnapshotMinVersionInterval)
                 return SaveSnapshotAsync(true).AsTask();
             else
                 return Task.CompletedTask;
@@ -78,14 +98,14 @@ namespace Ray.Core.Internal
             if (!stateStorageTask.IsCompleted)
                 await stateStorageTask;
             State = await stateStorageTask.Result.GetByIdAsync(GrainId);
-            if (State == null)
+            if (State == default)
             {
                 IsNew = true;
                 var createTask = CreateState();
                 if (!createTask.IsCompleted)
                     await createTask;
             }
-            StateStorageVersion = State.Version;
+            SnapshotEventVersion = State.Version;
         }
 
         protected virtual async ValueTask SaveSnapshotAsync(bool force = false)
@@ -93,7 +113,7 @@ namespace Ray.Core.Internal
             if (SnapshotType == StateSnapSaveType.Master)
             {
                 //如果版本号差超过设置则更新快照
-                if (force || (State.Version - StateStorageVersion >= SnapshotFrequency))
+                if (force || (State.Version - SnapshotEventVersion >= SnapshotVersionInterval))
                 {
                     var onSaveSnapshotTask = OnSaveSnapshot();
                     if (!onSaveSnapshotTask.IsCompleted)
@@ -105,13 +125,13 @@ namespace Ray.Core.Internal
                     {
                         await getStateStorageTask.Result.InsertAsync(State);
 
-                        StateStorageVersion = State.Version;
+                        SnapshotEventVersion = State.Version;
                         IsNew = false;
                     }
                     else
                     {
                         await getStateStorageTask.Result.UpdateAsync(State);
-                        StateStorageVersion = State.Version;
+                        SnapshotEventVersion = State.Version;
                     }
                 }
             }
@@ -157,7 +177,7 @@ namespace Ray.Core.Internal
         {
             try
             {
-                State.IncrementDoingVersion();//标记将要处理的Version
+                State.IncrementDoingVersion(GrainType);//标记将要处理的Version
                 @event.StateId = GrainId;
                 @event.Version = State.Version + 1;
                 @event.Timestamp = DateTime.UtcNow;
@@ -170,7 +190,7 @@ namespace Ray.Core.Internal
                         await getEventStorageTask;
                     if (await getEventStorageTask.Result.SaveAsync(@event, bytes, uniqueId))
                     {
-                        if (SupportAsync)
+                        if (SupportAsyncFollow)
                         {
                             var data = new W
                             {
@@ -193,7 +213,7 @@ namespace Ray.Core.Internal
                         {
                             Apply(State, @event);
                         }
-                        State.UpdateVersion(@event);//更新处理完成的Version
+                        State.UpdateVersion(@event, GrainType);//更新处理完成的Version
                         var saveSnapshotTask = SaveSnapshotAsync();
                         if (!saveSnapshotTask.IsCompleted)
                             await saveSnapshotTask;

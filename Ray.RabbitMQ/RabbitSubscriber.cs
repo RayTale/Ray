@@ -1,7 +1,7 @@
-﻿using Ray.Core.EventBus;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Ray.Core.EventBus;
 
 namespace Ray.RabbitMQ
 {

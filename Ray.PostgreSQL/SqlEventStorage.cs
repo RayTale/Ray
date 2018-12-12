@@ -1,18 +1,18 @@
-﻿using Dapper;
+﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Threading.Tasks.Dataflow;
+using Dapper;
 using Npgsql;
 using NpgsqlTypes;
 using ProtoBuf;
 using Ray.Core.Internal;
 using Ray.Core.Messaging;
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.IO;
-using System.Runtime.CompilerServices;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Threading.Tasks.Dataflow;
-using System.Linq;
 
 namespace Ray.PostgreSQL
 {

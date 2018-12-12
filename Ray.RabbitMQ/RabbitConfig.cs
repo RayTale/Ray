@@ -1,5 +1,5 @@
-﻿using RabbitMQ.Client;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using RabbitMQ.Client;
 
 namespace Ray.RabbitMQ
 {

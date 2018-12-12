@@ -1,7 +1,7 @@
-﻿using Ray.Core.Exceptions;
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Linq;
+using Ray.Core.Exceptions;
 
 namespace Ray.Core.Messaging
 {

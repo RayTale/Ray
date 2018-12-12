@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
 using Ray.Core.Internal;
-using Ray.Core.Messaging;
 
 namespace Ray.Core.EventBus
 {

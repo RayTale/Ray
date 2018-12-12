@@ -1,8 +1,8 @@
 ﻿using System;
-using System.Threading.Tasks;
 using System.IO;
-using Ray.Core.Messaging;
+using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using Ray.Core.Messaging;
 
 namespace Ray.Core.EventBus
 {
