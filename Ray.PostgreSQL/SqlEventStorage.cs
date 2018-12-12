@@ -51,14 +51,11 @@ namespace Ray.PostgreSQL
             var list = new List<IEventBase<K>>(originList.Count);
             foreach (var origin in originList)
             {
-                if (TypeContainer.TryGetValue(origin.TypeCode, out var type))
+                using (var ms = new MemoryStream(origin.Data))
                 {
-                    using (var ms = new MemoryStream(origin.Data))
+                    if (Serializer.Deserialize(TypeContainer.GetType(origin.TypeCode), ms) is IEventBase<K> evt)
                     {
-                        if (Serializer.Deserialize(type, ms) is IEventBase<K> evt)
-                        {
-                            list.Add(evt);
-                        }
+                        list.Add(evt);
                     }
                 }
             }
@@ -67,30 +64,28 @@ namespace Ray.PostgreSQL
         public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, string typeCode, long startVersion, int limit, DateTime? startTime = null)
         {
             var originList = new List<byte[]>(limit);
-            if (TypeContainer.TryGetValue(typeCode, out var type))
+            var type = TypeContainer.GetType(typeCode);
+            await Task.Run(async () =>
             {
-                await Task.Run(async () =>
+                var tableList = await tableInfo.GetTableList(startTime);
+                using (var conn = tableInfo.CreateConnection() as NpgsqlConnection)
                 {
-                    var tableList = await tableInfo.GetTableList(startTime);
-                    using (var conn = tableInfo.CreateConnection() as NpgsqlConnection)
+                    await conn.OpenAsync();
+                    foreach (var table in tableList)
                     {
-                        await conn.OpenAsync();
-                        foreach (var table in tableList)
+                        var sql = $"COPY (SELECT data from {table.Name} WHERE stateid='{stateId.ToString()}' and typecode='{typeCode}' and version>{startVersion} order by version asc limit {limit}) TO STDOUT (FORMAT BINARY)";
+                        using (var reader = conn.BeginBinaryExport(sql))
                         {
-                            var sql = $"COPY (SELECT data from {table.Name} WHERE stateid='{stateId.ToString()}' and typecode='{typeCode}' and version>{startVersion} order by version asc limit {limit}) TO STDOUT (FORMAT BINARY)";
-                            using (var reader = conn.BeginBinaryExport(sql))
+                            while (reader.StartRow() != -1)
                             {
-                                while (reader.StartRow() != -1)
-                                {
-                                    originList.Add(reader.Read<byte[]>(NpgsqlDbType.Bytea));
-                                }
+                                originList.Add(reader.Read<byte[]>(NpgsqlDbType.Bytea));
                             }
-                            if (originList.Count >= limit)
-                                break;
                         }
+                        if (originList.Count >= limit)
+                            break;
                     }
-                });
-            }
+                }
+            });
             var list = new List<IEventBase<K>>(originList.Count);
             foreach (var origin in originList)
             {

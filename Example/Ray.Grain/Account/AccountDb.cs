@@ -1,4 +1,5 @@
 ﻿using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Orleans;
 using Ray.Core.Internal;
 using Ray.IGrains.Actors;
@@ -9,6 +10,9 @@ namespace Ray.Grain
 {
     public sealed class AccountDb : DbGrain<long, AsyncState<long>>, IAccountDb
     {
+        public AccountDb(ILogger<AccountDb> logger) : base(logger)
+        {
+        }
         public override long GrainId => this.GetPrimaryKeyLong();
 
         protected override bool Concurrent => true;

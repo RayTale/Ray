@@ -5,9 +5,12 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.IO;
-using Ray.Core.Messaging;
 using System.Threading.Tasks.Dataflow;
 using System.Runtime.ExceptionServices;
+using Microsoft.Extensions.Logging;
+using Ray.Core.Exceptions;
+using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Ray.Core.Internal
 {
@@ -15,10 +18,15 @@ namespace Ray.Core.Internal
         where S : class, IState<K>, ITransactionable<S>, new()
         where W : IMessageWrapper, new()
     {
+        public TransactionGrain(ILogger logger) : base(logger)
+        {
+        }
+        protected IOptions<RayConfigOptions> Options { get; private set; }
         protected S BackupState { get; set; }
         protected BufferBlock<EventTransactionWrap<K>> ConcurrentInputChannel { get; } = new BufferBlock<EventTransactionWrap<K>>();
         public override Task OnActivateAsync()
         {
+            Options = ServiceProvider.GetService<IOptions<RayConfigOptions>>();
             TriggerChannel();
             return base.OnActivateAsync();
         }
@@ -30,7 +38,7 @@ namespace Ray.Core.Internal
         protected bool transactionPending = false;
         private long transactionStartVersion;
         private DateTime beginTransactionTime;
-        private List<EventSaveWrap<K>> transactionEventList = new List<EventSaveWrap<K>>();
+        private readonly List<EventSaveWrap<K>> transactionEventList = new List<EventSaveWrap<K>>();
         protected override async Task RecoveryState()
         {
             await base.RecoveryState();
@@ -40,14 +48,14 @@ namespace Ray.Core.Internal
         {
             if (transactionPending)
             {
-                if ((DateTime.UtcNow - beginTransactionTime).TotalMinutes > 1)
+                if ((DateTime.UtcNow - beginTransactionTime).TotalSeconds > Options.Value.TransactionTimeoutSeconds)
                 {
                     var rollBackTask = RollbackTransaction();//事务阻赛超过一分钟自动回滚
                     if (!rollBackTask.IsCompleted)
                         await rollBackTask;
                 }
                 else
-                    throw new Exception("The transaction has been opened");
+                    throw new RepeatedTransactionException(GrainId.ToString(), GetType());
             }
             var checkTask = StateCheck();
             if (!checkTask.IsCompleted)
@@ -251,7 +259,7 @@ namespace Ray.Core.Internal
                 {
                     events.Add(value);
                     Transaction(value.Value, value.UniqueId);
-                    if ((DateTime.UtcNow - start).TotalMilliseconds > 100) break;//保证批量延时不超过100ms
+                    if ((DateTime.UtcNow - start).TotalMilliseconds > Options.Value.MaxDelayOfBatchMilliseconds) break;//保证批量延时不超过100ms
                 }
                 await CommitTransaction();
                 events.ForEach(evt => evt.TaskSource.SetResult(true));
@@ -288,6 +296,5 @@ namespace Ray.Core.Internal
                 }
             }
         }
-
     }
 }

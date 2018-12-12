@@ -8,11 +8,15 @@ using RayTest.IGrains.States;
 using RayTest.IGrains.Actors;
 using RayTest.Grains.EventHandles;
 using RayTest.IGrains.Events;
+using Microsoft.Extensions.Logging;
 
 namespace RayTest.Grains
 {
     public sealed class Account : TransactionGrain<long, AccountState, IGrains.MessageInfo>, IAccount
     {
+        public Account(ILogger<Account> logger) : base(logger)
+        {
+        }
         public override long GrainId => this.GetPrimaryKeyLong();
 
         public static IEventHandle<AccountState> EventHandle { get; } = new AccountEventHandle();

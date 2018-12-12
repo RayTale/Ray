@@ -24,13 +24,9 @@ namespace Ray.Core.EventBus
             using (var ms = new MemoryStream(bytes))
             {
                 var msg = serializer.Deserialize<TMessageWrapper>(ms);
-                if (!TypeContainer.TryGetValue(msg.TypeName, out var type))
-                {
-                    throw new Exception($"{ msg.TypeName } does not exist");
-                }
                 using (var ems = new MemoryStream(msg.Bytes))
                 {
-                    return Notice(bytes, msg.Bytes, msg, serializer.Deserialize(type, ems));
+                    return Notice(bytes, msg.Bytes, msg, serializer.Deserialize(TypeContainer.GetType(msg.TypeName), ems));
                 }
             }
         }

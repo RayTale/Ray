@@ -18,22 +18,18 @@ namespace Ray.Core.Internal
         where S : class, IState<K>, new()
         where W : IMessageWrapper
     {
-        readonly ILogger logger;
-        readonly IJsonSerializer jsonSerializer;
-        protected ISerializer serializer;
-        protected IStorageContainer storageContainer;
-        public FollowGrain(
-            ILogger logger,
-            ISerializer serializer,
-            IStorageContainer storageContainer,
-            IJsonSerializer jsonSerializer
-            )
+        public FollowGrain(ILogger logger)
         {
-            this.logger = logger;
-            this.serializer = serializer;
-            this.storageContainer = storageContainer;
-            this.jsonSerializer = jsonSerializer;
+            this.Logger = logger;
+            if (Concurrent)
+            {
+                tellChannel = new DataBatchChannel<IEventBase<K>, bool>(ConcurrentTellProcess);
+            }
         }
+        protected ILogger Logger { get; private set; }
+        protected IJsonSerializer JsonSerializer { get; private set; }
+        protected ISerializer Serializer { get; private set; }
+        protected IStorageContainer StorageContainer { get; private set; }
         /// <summary>
         /// Memory state, restored by snapshot + Event play or replay
         /// </summary>
@@ -57,23 +53,20 @@ namespace Ray.Core.Internal
         private readonly DataBatchChannel<IEventBase<K>, bool> tellChannel;
         protected virtual ValueTask<IEventStorage<K>> GetEventStorage()
         {
-            return storageContainer.GetEventStorage<K, S>(this);
+            return StorageContainer.GetEventStorage<K, S>(this);
         }
 
         protected virtual ValueTask<IStateStorage<S, K>> GetStateStorage()
         {
-            return storageContainer.GetStateStorage<K, S>(this);
-        }
-        public FollowGrain()
-        {
-            if (Concurrent)
-            {
-                tellChannel = new DataBatchChannel<IEventBase<K>, bool>(ConcurrentTellProcess);
-            }
+            return StorageContainer.GetStateStorage<K, S>(this);
         }
         #region 初始化数据
         public override async Task OnActivateAsync()
         {
+            StorageContainer = ServiceProvider.GetService<IStorageContainer>();
+            Serializer = ServiceProvider.GetService<ISerializer>();
+            JsonSerializer = ServiceProvider.GetService<IJsonSerializer>();
+
             await ReadSnapshotAsync();
             if (FullyActive)
             {
@@ -113,9 +106,9 @@ namespace Ray.Core.Internal
                     if (eventList.Count < EventNumberPerRead) break;
                 };
             }
-            if (logger.IsEnabled(LogLevel.Trace))
+            if (Logger.IsEnabled(LogLevel.Trace))
             {
-                logger.LogTrace("Activated of {0} for {1}:{2}", this.GetType().FullName, GrainId.ToString(), jsonSerializer.Serialize(State));
+                Logger.LogTrace("Activated of {0} for {1}:{2}", this.GetType().FullName, GrainId.ToString(), JsonSerializer.Serialize(State));
             }
         }
         public override Task OnDeactivateAsync()
@@ -160,17 +153,14 @@ namespace Ray.Core.Internal
         {
             using (var wms = new MemoryStream(bytes))
             {
-                var message = serializer.Deserialize<W>(wms);
-                if (TypeContainer.TryGetValue(message.TypeName, out var type))
+                var message = Serializer.Deserialize<W>(wms);
+                using (var ems = new MemoryStream(message.Bytes))
                 {
-                    using (var ems = new MemoryStream(message.Bytes))
+                    if (Serializer.Deserialize(TypeContainer.GetType(message.TypeName), ems) is IEventBase<K> @event)
                     {
-                        if (serializer.Deserialize(type, ems) is IEventBase<K> @event)
+                        if (@event.Version > State.Version)
                         {
-                            if (@event.Version > State.Version)
-                            {
-                                return tellChannel.WriteAsync(@event);
-                            }
+                            return tellChannel.WriteAsync(@event);
                         }
                     }
                 }
@@ -283,7 +273,7 @@ namespace Ray.Core.Internal
         {
             using (var wms = new MemoryStream(bytes))
             {
-                var message = serializer.Deserialize<W>(wms);
+                var message = Serializer.Deserialize<W>(wms);
                 var tellTask = Tell(message);
                 if (!tellTask.IsCompleted)
                     return tellTask.AsTask();
@@ -293,46 +283,43 @@ namespace Ray.Core.Internal
         }
         public async ValueTask Tell(W message)
         {
-            if (TypeContainer.TryGetValue(message.TypeName, out var type))
+            using (var ems = new MemoryStream(message.Bytes))
             {
-                using (var ems = new MemoryStream(message.Bytes))
+                if (Serializer.Deserialize(TypeContainer.GetType(message.TypeName), ems) is IEventBase<K> @event)
                 {
-                    if (serializer.Deserialize(type, ems) is IEventBase<K> @event)
+                    if (@event.Version == State.Version + 1)
                     {
-                        if (@event.Version == State.Version + 1)
-                        {
-                            var onEventDeliveredTask = OnEventDelivered(@event);
-                            if (!onEventDeliveredTask.IsCompleted)
-                                await onEventDeliveredTask;
-                            State.FullUpdateVersion(@event);//更新处理完成的Version
-                        }
-                        else if (@event.Version > State.Version)
-                        {
-                            var eventStorageTask = GetEventStorage();
-                            if (!eventStorageTask.IsCompleted)
-                                await eventStorageTask;
-                            var eventList = await eventStorageTask.Result.GetListAsync(GrainId, State.Version, @event.Version, State.VersionTime);
-                            foreach (var item in eventList)
-                            {
-                                var onEventDeliveredTask = OnEventDelivered(item);
-                                if (!onEventDeliveredTask.IsCompleted)
-                                    await onEventDeliveredTask;
-                                State.FullUpdateVersion(item);//更新处理完成的Version
-                            }
-                        }
-                        if (@event.Version == State.Version + 1)
-                        {
-                            var onEventDeliveredTask = OnEventDelivered(@event);
-                            if (!onEventDeliveredTask.IsCompleted)
-                                await onEventDeliveredTask;
-                            State.FullUpdateVersion(@event);//更新处理完成的Version
-                        }
-                        if (@event.Version > State.Version)
-                        {
-                            throw new Exception($"Event version of the error,Type={GetType().FullName},StateId={this.GrainId.ToString()},StateVersion={State.Version},EventVersion={@event.Version}");
-                        }
-                        await SaveSnapshotAsync();
+                        var onEventDeliveredTask = OnEventDelivered(@event);
+                        if (!onEventDeliveredTask.IsCompleted)
+                            await onEventDeliveredTask;
+                        State.FullUpdateVersion(@event);//更新处理完成的Version
                     }
+                    else if (@event.Version > State.Version)
+                    {
+                        var eventStorageTask = GetEventStorage();
+                        if (!eventStorageTask.IsCompleted)
+                            await eventStorageTask;
+                        var eventList = await eventStorageTask.Result.GetListAsync(GrainId, State.Version, @event.Version, State.VersionTime);
+                        foreach (var item in eventList)
+                        {
+                            var onEventDeliveredTask = OnEventDelivered(item);
+                            if (!onEventDeliveredTask.IsCompleted)
+                                await onEventDeliveredTask;
+                            State.FullUpdateVersion(item);//更新处理完成的Version
+                        }
+                    }
+                    if (@event.Version == State.Version + 1)
+                    {
+                        var onEventDeliveredTask = OnEventDelivered(@event);
+                        if (!onEventDeliveredTask.IsCompleted)
+                            await onEventDeliveredTask;
+                        State.FullUpdateVersion(@event);//更新处理完成的Version
+                    }
+                    if (@event.Version > State.Version)
+                    {
+                        throw new Exception($"Event version of the error,Type={GetType().FullName},StateId={this.GrainId.ToString()},StateVersion={State.Version},EventVersion={@event.Version}");
+                    }
+                    await SaveSnapshotAsync();
                 }
             }
         }

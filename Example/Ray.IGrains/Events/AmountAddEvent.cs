@@ -1,6 +1,5 @@
 ﻿using ProtoBuf;
 using Ray.Core.Internal;
-using Ray.Core.Utils;
 using System;
 
 namespace Ray.IGrains.Events

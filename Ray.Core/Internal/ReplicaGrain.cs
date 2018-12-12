@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using Microsoft.Extensions.Logging;
+using System.Threading.Tasks;
 
 namespace Ray.Core.Internal
 {
@@ -6,6 +7,9 @@ namespace Ray.Core.Internal
         where S : class, IState<K>, new()
         where W : IMessageWrapper
     {
+        public ReplicaGrain(ILogger logger) : base(logger)
+        {
+        }
         protected override bool SaveSnapshot => false;
         protected override ValueTask OnEventDelivered(IEventBase<K> @event)
         {

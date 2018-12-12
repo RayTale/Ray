@@ -5,12 +5,15 @@ using Ray.IGrains.Actors;
 using Ray.IGrains.States;
 using Ray.IGrains.Events;
 using Ray.Grain.EventHandles;
-using Ray.RabbitMQ;
+using Microsoft.Extensions.Logging;
 
 namespace Ray.Grain
 {
     public sealed class Account : TransactionGrain<long, AccountState, IGrains.MessageInfo>, IAccount
     {
+        public Account(ILogger<Account> logger) : base(logger)
+        {
+        }
         public override long GrainId => this.GetPrimaryKeyLong();
 
         public static IEventHandle<AccountState> EventHandle { get; } = new AccountEventHandle();

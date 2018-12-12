@@ -36,17 +36,14 @@ namespace Ray.MongoDB
                 foreach (var document in cursor.ToEnumerable())
                 {
                     var typeCode = document["TypeCode"].AsString;
-                    if (TypeContainer.TryGetValue(typeCode, out var type))
+                    var data = document["Data"].AsByteArray;
+                    using (var ms = new MemoryStream(data))
                     {
-                        var data = document["Data"].AsByteArray;
-                        using (var ms = new MemoryStream(data))
+                        if (Serializer.Deserialize(TypeContainer.GetType(typeCode), ms) is IEventBase<K> evt)
                         {
-                            if (Serializer.Deserialize(type, ms) is IEventBase<K> evt)
-                            {
-                                readVersion = evt.Version;
-                                if (readVersion <= endVersion)
-                                    list.Add(evt);
-                            }
+                            readVersion = evt.Version;
+                            if (readVersion <= endVersion)
+                                list.Add(evt);
                         }
                     }
                 }
@@ -68,15 +65,12 @@ namespace Ray.MongoDB
                 var cursor = await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, collection.Name).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(10000).Token);
                 foreach (var document in cursor.ToEnumerable())
                 {
-                    if (TypeContainer.TryGetValue(typeCode, out var type))
+                    var data = document["Data"].AsByteArray;
+                    using (var ms = new MemoryStream(data))
                     {
-                        var data = document["Data"].AsByteArray;
-                        using (var ms = new MemoryStream(data))
+                        if (Serializer.Deserialize(TypeContainer.GetType(typeCode), ms) is IEventBase<K> evt)
                         {
-                            if (Serializer.Deserialize(type, ms) is IEventBase<K> evt)
-                            {
-                                list.Add(evt);
-                            }
+                            list.Add(evt);
                         }
                     }
                 }

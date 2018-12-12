@@ -15,6 +15,15 @@ namespace Ray.Core.Internal
         where S : class, IState<K>, new()
         where W : IMessageWrapper, new()
     {
+        public RayGrain(ILogger logger)
+        {
+            Logger = logger;
+        }
+        protected ILogger Logger { get; private set; }
+        protected IProducerContainer ProducerContainer { get; private set; }
+        protected IStorageContainer StorageContainer { get; private set; }
+        protected IJsonSerializer JsonSerializer { get; private set; }
+        protected ISerializer Serializer { get; private set; }
         protected S State { get; set; }
         public abstract K GrainId { get; }
         protected virtual StateSnapSaveType SnapshotType => StateSnapSaveType.Master;
@@ -23,16 +32,14 @@ namespace Ray.Core.Internal
         protected long StateStorageVersion { get; set; }
         protected virtual int SnapshotMinFrequency => 1;
         protected virtual bool SupportAsync => true;
-        protected ILogger<RayGrain<K, S, W>> Logger { get; set; }
-        private IStorageContainer storageContainer;
-        private IProducerContainer mQServiceContainer;
         #region LifeTime
         public override Task OnActivateAsync()
         {
-            Logger = ServiceProvider.GetService<ILogger<RayGrain<K, S, W>>>();
-            storageContainer = ServiceProvider.GetService<IStorageContainer>();
-            mQServiceContainer = ServiceProvider.GetService<IProducerContainer>();
+            StorageContainer = ServiceProvider.GetService<IStorageContainer>();
+            ProducerContainer = ServiceProvider.GetService<IProducerContainer>();
             Serializer = ServiceProvider.GetService<ISerializer>();
+            JsonSerializer = ServiceProvider.GetService<IJsonSerializer>();
+
             return RecoveryState();
         }
         protected virtual async Task RecoveryState()
@@ -133,21 +140,19 @@ namespace Ray.Core.Internal
 
         protected virtual ValueTask<IStateStorage<S, K>> GetStateStorage()
         {
-            return storageContainer.GetStateStorage<K, S>(this);
+            return StorageContainer.GetStateStorage<K, S>(this);
         }
         #endregion
 
         #region Event
         protected virtual ValueTask<IEventStorage<K>> GetEventStorage()
         {
-            return storageContainer.GetEventStorage<K, S>(this);
+            return StorageContainer.GetEventStorage<K, S>(this);
         }
         protected virtual ValueTask<IProducer> GetMQService()
         {
-            return mQServiceContainer.GetProducer(this);
+            return ProducerContainer.GetProducer(this);
         }
-        protected ISerializer Serializer { get; private set; }
-
         protected virtual async Task<bool> RaiseEvent(IEventBase<K> @event, string uniqueId = null, string hashKey = null)
         {
             try

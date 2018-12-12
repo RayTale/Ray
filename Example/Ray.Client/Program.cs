@@ -39,7 +39,7 @@ namespace Ray.Client
                         // Console.WriteLine("Press Enter for times...");
                         Console.WriteLine("start");
                         Console.ReadLine();
-                        var length = 10000;// int.Parse(Console.ReadLine());
+                        var length = 10;// int.Parse(Console.ReadLine());
                         var stopWatch = new Stopwatch();
                         stopWatch.Start();
                         await Task.WhenAll(Enumerable.Range(0, length).Select(x => client.GetGrain<IAccount>(1).AddAmount(1000)));
@@ -80,9 +80,9 @@ namespace Ray.Client
                             {
                                 c.UserName = "admin";
                                 c.Password = "admin";
-                                c.Hosts = new[] { "127.0.0.1:5672" };
+                                c.Hosts = new[] { "192.168.125.230:5672" };
                                 c.MaxPoolSize = 100;
-                                c.VirtualHost = "/";
+                                c.VirtualHost = "ray";
                             });
                         })
                         .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IAccount).Assembly).WithReferences())
