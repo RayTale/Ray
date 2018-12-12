@@ -15,7 +15,7 @@ namespace Ray.MongoDB
     public class MongoEventStorage<K> : IEventStorage<K>
     {
         readonly MongoGrainConfig grainConfig;
-        readonly BufferBlock<EventBytesTransactionWrap<K>> EventSaveFlowChannel = new BufferBlock<EventBytesTransactionWrap<K>>();
+        readonly BufferBlock<EventBytesTaskWrapper<K>> EventSaveFlowChannel = new BufferBlock<EventBytesTaskWrapper<K>>();
         int isProcessing = 0;
         public MongoEventStorage(MongoGrainConfig grainConfig)
         {
@@ -83,7 +83,7 @@ namespace Ray.MongoDB
         {
             return Task.Run(async () =>
             {
-                var wrap = EventBytesTransactionWrap<K>.Create(evt, bytes, uniqueId);
+                var wrap = EventBytesTaskWrapper<K>.Create(evt, bytes, uniqueId);
                 if (!EventSaveFlowChannel.Post(wrap))
                     await EventSaveFlowChannel.SendAsync(wrap);
                 if (isProcessing == 0)
@@ -115,7 +115,7 @@ namespace Ray.MongoDB
         private async ValueTask FlowProcess()
         {
             var start = DateTime.UtcNow;
-            var wrapList = new List<EventBytesTransactionWrap<K>>();
+            var wrapList = new List<EventBytesTaskWrapper<K>>();
             var documents = new List<MongoEvent<K>>();
             while (EventSaveFlowChannel.TryReceive(out var evt))
             {
@@ -173,7 +173,7 @@ namespace Ray.MongoDB
             }
         }
 
-        public async Task TransactionSaveAsync(List<EventSaveWrap<K>> list)
+        public async Task TransactionSaveAsync(List<EventStorageWrapper<K>> list)
         {
             var inserts = new List<MongoEvent<K>>();
             foreach (var data in list)

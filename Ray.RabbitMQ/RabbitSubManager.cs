@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
-using Ray.Core;
+using Ray.Core.Client;
 using Ray.Core.EventBus;
 using Ray.Core.Utils;
 

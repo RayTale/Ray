@@ -1,8 +1,8 @@
 ﻿namespace Ray.Core.Internal
 {
-    public class EventSaveWrap<K>
+    public class EventStorageWrapper<K>
     {
-        public EventSaveWrap(IEventBase<K> evt, string uniqueId = null, string hashKey = null)
+        public EventStorageWrapper(IEventBase<K> evt, string uniqueId = null, string hashKey = null)
         {
             Evt = evt;
             UniqueId = uniqueId;

@@ -20,7 +20,7 @@ namespace Ray.Core.Internal
         {
         }
         protected S BackupState { get; set; }
-        protected BufferBlock<EventTransactionWrap<K>> ConcurrentInputChannel { get; } = new BufferBlock<EventTransactionWrap<K>>();
+        protected BufferBlock<EventTaskWrapper<K>> ConcurrentInputChannel { get; } = new BufferBlock<EventTaskWrapper<K>>();
         public override Task OnActivateAsync()
         {
             TriggerChannel();
@@ -34,7 +34,7 @@ namespace Ray.Core.Internal
         protected bool transactionPending = false;
         private long transactionStartVersion;
         private DateTime beginTransactionTime;
-        private readonly List<EventSaveWrap<K>> transactionEventList = new List<EventSaveWrap<K>>();
+        private readonly List<EventStorageWrapper<K>> transactionEventList = new List<EventStorageWrapper<K>>();
         protected override async Task RecoveryState()
         {
             await base.RecoveryState();
@@ -174,7 +174,7 @@ namespace Ray.Core.Internal
                 @event.StateId = GrainId;
                 @event.Version = State.Version + 1;
                 @event.Timestamp = DateTime.UtcNow;
-                transactionEventList.Add(new EventSaveWrap<K>(@event, uniqueId, string.IsNullOrEmpty(hashKey) ? GrainId.ToString() : hashKey));
+                transactionEventList.Add(new EventStorageWrapper<K>(@event, uniqueId, string.IsNullOrEmpty(hashKey) ? GrainId.ToString() : hashKey));
                 Apply(State, @event);
                 State.UpdateVersion(@event, GrainType);//更新处理完成的Version
             }
@@ -186,7 +186,7 @@ namespace Ray.Core.Internal
         }
         protected async Task<bool> ConcurrentInput(IEventBase<K> evt, string uniqueId = null)
         {
-            var task = EventTransactionWrap<K>.Create(evt, uniqueId);
+            var task = EventTaskWrapper<K>.Create(evt, uniqueId);
             if (flowProcess == 0)
             {
                 TriggerChannel();
@@ -245,7 +245,7 @@ namespace Ray.Core.Internal
         public async Task InputFlowBatchRaise()
         {
             var start = DateTime.UtcNow;
-            var events = new List<EventTransactionWrap<K>>();
+            var events = new List<EventTaskWrapper<K>>();
             var beginTask = BeginTransaction();
             if (!beginTask.IsCompleted)
                 await beginTask;
@@ -278,7 +278,7 @@ namespace Ray.Core.Internal
                 }
             }
         }
-        private async Task EventsReTry(IList<EventTransactionWrap<K>> events)
+        private async Task EventsReTry(IList<EventTaskWrapper<K>> events)
         {
             foreach (var evt in events)
             {

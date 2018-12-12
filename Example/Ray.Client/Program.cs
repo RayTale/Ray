@@ -1,17 +1,18 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using System;
+using System.Diagnostics;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Orleans;
 using Orleans.Runtime;
+using Ray.Core;
+using Ray.Core.Client;
+using Ray.Core.Messaging;
+using Ray.Handler;
 using Ray.IGrains;
 using Ray.IGrains.Actors;
 using Ray.RabbitMQ;
-using System;
-using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
-using Ray.Core.Messaging;
-using System.Diagnostics;
-using Ray.Core;
-using System.Linq;
-using Ray.Handler;
 
 namespace Ray.Client
 {
@@ -72,7 +73,7 @@ namespace Ray.Client
                         .ConfigureServices((context, servicecollection) =>
                         {
                             servicecollection.AddMQHandler();//注册所有handler
-                            servicecollection.AddSingleton<IClientFactory, ClientFactory>();//注册Client获取方法
+                            servicecollection.AddRay();//注册Client获取方法
                             servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
                             servicecollection.AddRabbitMQ();//注册RabbitMq为默认消息队列
                             servicecollection.AddLogging(logging => logging.AddConsole());

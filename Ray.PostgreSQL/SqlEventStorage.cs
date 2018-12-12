@@ -19,7 +19,7 @@ namespace Ray.PostgreSQL
     public class SqlEventStorage<K> : IEventStorage<K>
     {
         readonly SqlGrainConfig tableInfo;
-        readonly BufferBlock<EventBytesTransactionWrap<K>> EventSaveFlowChannel = new BufferBlock<EventBytesTransactionWrap<K>>();
+        readonly BufferBlock<EventBytesTaskWrapper<K>> EventSaveFlowChannel = new BufferBlock<EventBytesTaskWrapper<K>>();
         int isProcessing = 0;
         public SqlEventStorage(SqlGrainConfig tableInfo)
         {
@@ -105,7 +105,7 @@ namespace Ray.PostgreSQL
         {
             return Task.Run(async () =>
             {
-                var wrap = EventBytesTransactionWrap<K>.Create(evt, bytes, uniqueId);
+                var wrap = EventBytesTaskWrapper<K>.Create(evt, bytes, uniqueId);
                 if (!EventSaveFlowChannel.Post(wrap))
                     await EventSaveFlowChannel.SendAsync(wrap);
                 if (isProcessing == 0)
@@ -136,7 +136,7 @@ namespace Ray.PostgreSQL
         private async Task FlowProcess()
         {
             var start = DateTime.UtcNow;
-            var wrapList = new List<EventBytesTransactionWrap<K>>();
+            var wrapList = new List<EventBytesTaskWrapper<K>>();
             var copySql = copySaveSqlDict.GetOrAdd((await tableInfo.GetTable(DateTime.UtcNow)).Name, key => $"copy {key}(stateid,uniqueId,typecode,data,version) FROM STDIN (FORMAT BINARY)");
             try
             {
@@ -194,7 +194,7 @@ namespace Ray.PostgreSQL
                 key => $"INSERT INTO {key}(stateid,uniqueId,typecode,data,version) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version) ON CONFLICT ON CONSTRAINT {key}_id_unique DO NOTHING");
         }
         static readonly ConcurrentDictionary<string, string> copySaveSqlDict = new ConcurrentDictionary<string, string>();
-        public async Task TransactionSaveAsync(List<EventSaveWrap<K>> list)
+        public async Task TransactionSaveAsync(List<EventStorageWrapper<K>> list)
         {
             var getTableTask = tableInfo.GetTable(DateTime.UtcNow);
             if (!getTableTask.IsCompleted)

@@ -2,7 +2,7 @@
 using System.Threading.Tasks;
 using Orleans;
 
-namespace Ray.Core
+namespace Ray.Core.Client
 {
     public class ClientFactory : IClientFactory
     {
@@ -24,7 +24,7 @@ namespace Ray.Core
             }
         }
         readonly object connectLock = new object();
-        public IClusterClient GetClient()
+        public IClusterClient Create()
         {
             if (!_client.IsInitialized || needReBuild)
             {

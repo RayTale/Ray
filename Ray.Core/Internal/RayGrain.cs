@@ -28,7 +28,7 @@ namespace Ray.Core.Internal
         protected ISerializer Serializer { get; private set; }
         protected S State { get; set; }
         public abstract K GrainId { get; }
-        protected virtual StateSnapSaveType SnapshotType => StateSnapSaveType.Master;
+        protected virtual StateSnapStorageType SnapshotStorageType => StateSnapStorageType.Master;
         /// <summary>
         /// 保存快照的事件Version间隔
         /// </summary>
@@ -110,7 +110,7 @@ namespace Ray.Core.Internal
 
         protected virtual async ValueTask SaveSnapshotAsync(bool force = false)
         {
-            if (SnapshotType == StateSnapSaveType.Master)
+            if (SnapshotStorageType == StateSnapStorageType.Master)
             {
                 //如果版本号差超过设置则更新快照
                 if (force || (State.Version - SnapshotEventVersion >= SnapshotVersionInterval))

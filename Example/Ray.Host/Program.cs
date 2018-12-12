@@ -1,22 +1,23 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Net;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
-using Orleans.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Orleans;
+using Orleans.Configuration;
+using Orleans.Hosting;
+using Orleans.Runtime;
+using Ray.Core;
+using Ray.Core.Client;
+using Ray.Core.Messaging;
 using Ray.Grain;
+using Ray.Handler;
+using Ray.IGrains;
+using Ray.IGrains.Actors;
+using Ray.MongoDB;
 using Ray.PostgreSQL;
 using Ray.RabbitMQ;
-using Ray.IGrains;
-using Ray.Core.Messaging;
-using Orleans;
-using System.Net;
-using Orleans.Configuration;
-using System.Collections.Generic;
-using Ray.Core;
-using Orleans.Runtime;
-using Ray.IGrains.Actors;
-using Ray.Handler;
-using Ray.MongoDB;
 
 namespace Ray.MongoHost
 {
@@ -115,7 +116,7 @@ namespace Ray.MongoHost
                         .UseLocalhostClustering()
                         .ConfigureServices((context, servicecollection) =>
                         {
-                            servicecollection.AddSingleton<IClientFactory, ClientFactory>();//注册Client获取方法
+                            servicecollection.AddRay();
                             servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
                             servicecollection.AddRabbitMQ();//注册RabbitMq为默认消息队列
                             servicecollection.AddLogging(logging => logging.AddConsole());

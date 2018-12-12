@@ -4,10 +4,10 @@ using Ray.Core.Internal;
 
 namespace Ray.Core.EventBus
 {
-    public abstract class MulSubtHandler<K, TMessageWrapper> : SubHandler<TMessageWrapper>
+    public abstract class MultiSubtHandler<K, TMessageWrapper> : SubHandler<TMessageWrapper>
         where TMessageWrapper : IMessageWrapper
     {
-        public MulSubtHandler(IServiceProvider svProvider) : base(svProvider)
+        public MultiSubtHandler(IServiceProvider svProvider) : base(svProvider)
         {
         }
         public override Task Tell(byte[] wrapBytes, byte[] dataBytes, object data, TMessageWrapper msg)

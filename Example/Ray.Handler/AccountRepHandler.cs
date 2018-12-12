@@ -1,14 +1,14 @@
-﻿using Ray.Core;
-using Ray.Core.Internal;
+﻿using System;
+using System.Threading.Tasks;
+using Ray.Core.Client;
 using Ray.Core.EventBus;
+using Ray.Core.Internal;
 using Ray.IGrains;
 using Ray.IGrains.Actors;
-using System;
-using System.Threading.Tasks;
 
 namespace Ray.Handler
 {
-    public sealed class AccountRepHandler : MulSubtHandler<long, MessageInfo>
+    public sealed class AccountRepHandler : MultiSubtHandler<long, MessageInfo>
     {
         readonly IClientFactory clientFactory;
         public AccountRepHandler(IServiceProvider svProvider, IClientFactory clientFactory) : base(svProvider)
@@ -18,7 +18,7 @@ namespace Ray.Handler
 
         protected override Task SendToAsyncGrain(byte[] bytes, IEventBase<long> evt)
         {
-            var client = clientFactory.GetClient();
+            var client = clientFactory.Create();
             return client.GetGrain<IAccountRep>(evt.StateId).Tell(bytes);
         }
     }

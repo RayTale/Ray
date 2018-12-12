@@ -1,9 +1,9 @@
 ﻿using Orleans;
 
-namespace Ray.Core
+namespace Ray.Core.Client
 {
     public interface IClientFactory
     {
-        IClusterClient GetClient();
+        IClusterClient Create();
     }
 }
