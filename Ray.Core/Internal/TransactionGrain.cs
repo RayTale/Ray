@@ -271,10 +271,7 @@ namespace Ray.Core.Internal
                 }
                 catch (Exception e)
                 {
-                    foreach (var evt in events)
-                    {
-                        evt.TaskSource.TrySetException(e);
-                    }
+                    events.ForEach(evt => evt.TaskSource.TrySetException(e));
                 }
             }
         }
