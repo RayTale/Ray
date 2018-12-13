@@ -30,26 +30,26 @@ namespace Ray.RabbitMQ
             var rd = new Random((int)DateTime.UtcNow.Ticks);
             foreach (var subscriber in subscribers)
             {
-                if (subscriber is RabbitSubscriber subAttribute)
+                if (subscriber is RabbitSubscriber sub)
                 {
-                    await subAttribute.Init(client);
-                    for (int i = 0; i < subAttribute.QueueList.Count(); i++)
+                    await sub.Init(client);
+                    for (int i = 0; i < sub.QueueList.Count(); i++)
                     {
-                        var queue = subAttribute.QueueList[i];
+                        var queue = sub.QueueList[i];
                         var hashNode = hash != null ? hash.GetNode(queue.Queue) : node;
                         if (node == hashNode)
                         {
                             consumerList.Add(rd.Next(), new ConsumerInfo()
                             {
-                                Exchange = subAttribute.Exchange,
+                                Exchange = sub.Exchange,
                                 Queue = $"{group}_{queue.Queue}",
                                 RoutingKey = queue.RoutingKey,
-                                MaxQos = subAttribute.MaxQos,
-                                MinQos = subAttribute.MinQos,
-                                IncQos = subAttribute.IncQos,
-                                ErrorReject = subAttribute.ErrorReject,
-                                AutoAck = subAttribute.AutoAck,
-                                Handler = (ISubHandler)provider.GetService(subAttribute.Handler)
+                                MaxQos = sub.MaxQos,
+                                MinQos = sub.MinQos,
+                                IncQos = sub.IncQos,
+                                ErrorReject = sub.ErrorReject,
+                                AutoAck = sub.AutoAck,
+                                Handler = (ISubHandler)provider.GetService(sub.Handler)
                             });
                         }
                     }
