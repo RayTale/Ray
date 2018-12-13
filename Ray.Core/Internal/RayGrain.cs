@@ -60,10 +60,18 @@ namespace Ray.Core.Internal
             Serializer = ServiceProvider.GetService<ISerializer>();
             JsonSerializer = ServiceProvider.GetService<IJsonSerializer>();
 
+            if (Logger.IsEnabled(LogLevel.Information))
+            {
+                Logger.LogInformation("{0} with id {1} starts to activate", GrainType.FullName, GrainId.ToString());
+            }
             return RecoveryState();
         }
         protected virtual async Task RecoveryState()
         {
+            if (Logger.IsEnabled(LogLevel.Information))
+            {
+                Logger.LogInformation("Start repair state of {0} with ID {1}", GrainType.FullName, GrainId.ToString());
+            }
             var readSnapshotTask = ReadSnapshotAsync();
             if (!readSnapshotTask.IsCompleted)
                 await readSnapshotTask;
@@ -81,6 +89,10 @@ namespace Ray.Core.Internal
                 }
                 if (eventList.Count < NumberOfEventsPerRead) break;
             };
+            if (Logger.IsEnabled(LogLevel.Information))
+            {
+                Logger.LogInformation("Repair state of {0} with ID {1} completed,state version is {2}", GrainType.FullName, GrainId.ToString(), State.Version);
+            }
         }
         public override Task OnDeactivateAsync()
         {

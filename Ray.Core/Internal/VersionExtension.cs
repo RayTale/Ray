@@ -4,7 +4,7 @@ using Ray.Core.Exceptions;
 
 namespace Ray.Core.Internal
 {
-    public static class ESExtension
+    public static class VersionExtension
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void UpdateVersion<K>(this IState<K> state, IEventBase<K> @event, Type grainType)

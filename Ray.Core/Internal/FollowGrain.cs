@@ -132,9 +132,9 @@ namespace Ray.Core.Internal
                     if (eventList.Count < NumberOfEventsPerRead) break;
                 };
             }
-            if (Logger.IsEnabled(LogLevel.Trace))
+            if (Logger.IsEnabled(LogLevel.Information))
             {
-                Logger.LogTrace("Activated of {0} for {1}:{2}", this.GetType().FullName, GrainId.ToString(), JsonSerializer.Serialize(State));
+                Logger.LogInformation("Activated of {0} for {1}:{2}", this.GetType().FullName, GrainId.ToString(), JsonSerializer.Serialize(State));
             }
         }
         public override Task OnDeactivateAsync()
