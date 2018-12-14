@@ -197,7 +197,7 @@ namespace Ray.Core.Internal
 
         readonly List<IEventBase<K>> UnprocessedList = new List<IEventBase<K>>();
         readonly TimeoutException timeoutException = new TimeoutException($"{nameof(OnEventDelivered)} with timeouts in {nameof(ConcurrentTellProcess)}");
-        private async Task ConcurrentTellProcess(BufferBlock<DataTaskWrap<IEventBase<K>, bool>> reader)
+        private async Task ConcurrentTellProcess(BufferBlock<DataTaskWrapper<IEventBase<K>, bool>> reader)
         {
             var start = DateTime.UtcNow;
             var evtList = new List<IEventBase<K>>();
