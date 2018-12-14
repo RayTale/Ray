@@ -23,7 +23,6 @@ namespace Ray.Core.Internal
         protected BufferBlock<EventTaskWrapper<K>> ConcurrentInputChannel { get; } = new BufferBlock<EventTaskWrapper<K>>();
         public override Task OnActivateAsync()
         {
-            TriggerChannel();
             return base.OnActivateAsync();
         }
         public override async Task OnDeactivateAsync()
@@ -187,19 +186,19 @@ namespace Ray.Core.Internal
         protected async Task<bool> ConcurrentInput(IEventBase<K> evt, string uniqueId = null)
         {
             var task = EventTaskWrapper<K>.Create(evt, uniqueId);
-            if (flowProcess == 0)
+            if (consuming == 0)
             {
-                TriggerChannel();
+                ThreadPool.QueueUserWorkItem(TriggerChannel);
             }
             if (!ConcurrentInputChannel.Post(task))
                 await ConcurrentInputChannel.SendAsync(task);
 
             return await task.TaskSource.Task;
         }
-        int flowProcess = 0;
-        protected async void TriggerChannel()
+        int consuming = 0;
+        protected async void TriggerChannel(object state)
         {
-            if (Interlocked.CompareExchange(ref flowProcess, 1, 0) == 0)
+            if (Interlocked.CompareExchange(ref consuming, 1, 0) == 0)
             {
                 try
                 {
@@ -230,7 +229,7 @@ namespace Ray.Core.Internal
                 }
                 finally
                 {
-                    Interlocked.Exchange(ref flowProcess, 0);
+                    Interlocked.Exchange(ref consuming, 0);
                 }
             }
         }

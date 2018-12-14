@@ -71,12 +71,13 @@ namespace Ray.Core.Internal
         /// </summary>
         protected virtual bool Concurrent => false;
         protected Type GrainType { get; private set; }
-        private DataBatchChannel<IEventBase<K>, bool> tellChannel;
+        private MpscChannel<IEventBase<K>, bool> tellChannel;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask<IEventStorage<K>> GetEventStorage()
         {
             return StorageContainer.GetEventStorage<K, S>(this);
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask<IStateStorage<S, K>> GetStateStorage()
         {
             return StorageContainer.GetStateStorage<K, S>(this);
@@ -91,7 +92,7 @@ namespace Ray.Core.Internal
             JsonSerializer = ServiceProvider.GetService<IJsonSerializer>();
             if (Concurrent)
             {
-                tellChannel = new DataBatchChannel<IEventBase<K>, bool>(ConcurrentTellProcess);
+                tellChannel = new MpscChannel<IEventBase<K>, bool>(ConcurrentTellProcess);
             }
             await ReadSnapshotAsync();
             if (FullyActive)
@@ -195,7 +196,7 @@ namespace Ray.Core.Internal
         }
 
         readonly List<IEventBase<K>> UnprocessedList = new List<IEventBase<K>>();
-        readonly TimeoutException timeoutException = new TimeoutException(nameof(OnEventDelivered));
+        readonly TimeoutException timeoutException = new TimeoutException($"{nameof(OnEventDelivered)} with timeouts in {nameof(ConcurrentTellProcess)}");
         private async Task ConcurrentTellProcess(BufferBlock<DataTaskWrap<IEventBase<K>, bool>> reader)
         {
             var start = DateTime.UtcNow;
