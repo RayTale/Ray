@@ -70,9 +70,9 @@ namespace Ray.MongoHost
                     servicecollection.AddRay();
                     servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
                     //注册postgresql为事件存储库
-                    //servicecollection.AddPSqlSiloGrain();
+                    servicecollection.AddPSqlSiloGrain();
                     //注册mongodb为事件存储库
-                    servicecollection.AddMongoDbSiloGrain();
+                    //servicecollection.AddMongoDbSiloGrain();
                 })
                 .Configure<SqlConfig>(c =>
                 {
@@ -130,6 +130,10 @@ namespace Ray.MongoHost
                                 c.VirtualHost = "/";
                             });
                         })
+                         .Configure<GrainCollectionOptions>(options =>
+                         {
+                             options.CollectionAge = TimeSpan.FromMinutes(5);
+                         })
                         .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IAccount).Assembly).WithReferences())
                         .ConfigureLogging(logging => logging.AddConsole());
                         return builder;

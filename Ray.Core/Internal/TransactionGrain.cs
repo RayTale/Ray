@@ -4,10 +4,12 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Ray.Core.Exceptions;
+using Ray.Core.Messaging;
+using Ray.Core.Messaging.Channels;
 using Ray.Core.Utils;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Ray.Core.Internal
 {
@@ -23,7 +25,7 @@ namespace Ray.Core.Internal
         public override async Task OnActivateAsync()
         {
             await base.OnActivateAsync();
-            mpscChannel = ServiceProvider.GetService<IChannelFactory<K, EventWrapper<K>, bool>>().Create(Logger, GrainId, BatchInputProcessing, ConfigOptions.MaxSizeOfPerBatch);
+            mpscChannel = ServiceProvider.GetService<IMpscChannelFactory<K, EventWrapper<K>, bool>>().Create(Logger, GrainId, BatchInputProcessing, ConfigOptions.MaxSizeOfPerBatch);
         }
         public override async Task OnDeactivateAsync()
         {
@@ -188,7 +190,7 @@ namespace Ray.Core.Internal
         {
             return new ValueTask(Task.CompletedTask);
         }
-        private async Task BatchInputProcessing(List<DataTaskWrapper<EventWrapper<K>, bool>> events)
+        private async Task BatchInputProcessing(List<MessageTaskWrapper<EventWrapper<K>, bool>> events)
         {
             var beginTask = BeginTransaction();
             if (!beginTask.IsCompleted)

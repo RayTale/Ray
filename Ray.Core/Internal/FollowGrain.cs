@@ -11,7 +11,7 @@ using Microsoft.Extensions.Options;
 using Orleans;
 using Ray.Core.Exceptions;
 using Ray.Core.Messaging;
-using Ray.Core.Utils;
+using Ray.Core.Messaging.Channels;
 
 namespace Ray.Core.Internal
 {
@@ -91,7 +91,7 @@ namespace Ray.Core.Internal
             JsonSerializer = ServiceProvider.GetService<IJsonSerializer>();
             if (Concurrent)
             {
-                tellChannel = ServiceProvider.GetService<IChannelFactory<K, IEventBase<K>, bool>>().Create(Logger, GrainId, BatchInputProcessing, ConfigOptions.MaxSizeOfPerBatch);
+                tellChannel = ServiceProvider.GetService<IMpscChannelFactory<K, IEventBase<K>, bool>>().Create(Logger, GrainId, BatchInputProcessing, ConfigOptions.MaxSizeOfPerBatch);
             }
             await ReadSnapshotAsync();
             if (FullyActive)
@@ -196,7 +196,7 @@ namespace Ray.Core.Internal
 
         readonly List<IEventBase<K>> UnprocessedList = new List<IEventBase<K>>();
         readonly TimeoutException timeoutException = new TimeoutException($"{nameof(OnEventDelivered)} with timeouts in {nameof(BatchInputProcessing)}");
-        private async Task BatchInputProcessing(List<DataTaskWrapper<IEventBase<K>, bool>> events)
+        private async Task BatchInputProcessing(List<MessageTaskWrapper<IEventBase<K>, bool>> events)
         {
             var start = DateTime.UtcNow;
             var evtList = new List<IEventBase<K>>();
