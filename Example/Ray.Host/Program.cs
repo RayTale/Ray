@@ -70,14 +70,14 @@ namespace Ray.MongoHost
                     servicecollection.AddRay();
                     servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
                     //注册postgresql为事件存储库
-                    servicecollection.AddPSqlSiloGrain();
+                    //servicecollection.AddPSqlSiloGrain();
                     //注册mongodb为事件存储库
-                    //servicecollection.AddMongoDbSiloGrain();
+                    servicecollection.AddMongoDbSiloGrain();
                 })
                 .Configure<SqlConfig>(c =>
                 {
                     c.ConnectionDict = new Dictionary<string, string> {
-                        { "core_event","Server=127.0.0.1;Port=5432;Database=Ray;User Id=postgres;Password=luohuazhiyu;Pooling=true;MaxPoolSize=20;"}
+                        { "core_event","Server=127.0.0.1;Port=5432;Database=Ray;User Id=postgres;Password=extop;Pooling=true;MaxPoolSize=20;"}
                     };
                 })
                 .Configure<MongoConfig>(c =>
@@ -88,13 +88,13 @@ namespace Ray.MongoHost
                 {
                     c.UserName = "admin";
                     c.Password = "admin";
-                    c.Hosts = new[] { "192.168.125.230:5672" };
+                    c.Hosts = new[] { "127.0.0.1:5672" };
                     c.MaxPoolSize = 100;
-                    c.VirtualHost = "ray";
+                    c.VirtualHost = "/";
                 })
                 .ConfigureLogging(logging =>
                 {
-                    logging.SetMinimumLevel(LogLevel.Error);
+                    logging.SetMinimumLevel(LogLevel.Information);
                     logging.AddConsole();
                 });
 

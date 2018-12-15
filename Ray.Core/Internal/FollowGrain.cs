@@ -5,7 +5,6 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Threading.Tasks.Dataflow;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -71,7 +70,7 @@ namespace Ray.Core.Internal
         /// </summary>
         protected virtual bool Concurrent => false;
         protected Type GrainType { get; private set; }
-        private MpscChannel<IEventBase<K>, bool> tellChannel;
+        private IMpscChannel<IEventBase<K>, bool> tellChannel;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask<IEventStorage<K>> GetEventStorage()
         {
@@ -92,7 +91,7 @@ namespace Ray.Core.Internal
             JsonSerializer = ServiceProvider.GetService<IJsonSerializer>();
             if (Concurrent)
             {
-                tellChannel = new MpscChannel<IEventBase<K>, bool>(ConcurrentTellProcess);
+                tellChannel = ServiceProvider.GetService<IChannelFactory<K, IEventBase<K>, bool>>().Create(Logger, GrainId, BatchInputProcessing, ConfigOptions.MaxSizeOfPerBatch);
             }
             await ReadSnapshotAsync();
             if (FullyActive)
@@ -196,8 +195,8 @@ namespace Ray.Core.Internal
         }
 
         readonly List<IEventBase<K>> UnprocessedList = new List<IEventBase<K>>();
-        readonly TimeoutException timeoutException = new TimeoutException($"{nameof(OnEventDelivered)} with timeouts in {nameof(ConcurrentTellProcess)}");
-        private async Task ConcurrentTellProcess(BufferBlock<DataTaskWrapper<IEventBase<K>, bool>> reader)
+        readonly TimeoutException timeoutException = new TimeoutException($"{nameof(OnEventDelivered)} with timeouts in {nameof(BatchInputProcessing)}");
+        private async Task BatchInputProcessing(List<DataTaskWrapper<IEventBase<K>, bool>> events)
         {
             var start = DateTime.UtcNow;
             var evtList = new List<IEventBase<K>>();
@@ -213,30 +212,26 @@ namespace Ray.Core.Internal
             TaskCompletionSource<bool> maxRequest = default;
             try
             {
-                while (reader.TryReceiveAll(out var msgs))
+                foreach (var wrap in events)
                 {
-                    foreach (var wrap in msgs)
+                    if (wrap.Value.Version <= startVersion)
                     {
-                        if (wrap.Value.Version <= startVersion)
+                        wrap.TaskSource.TrySetResult(true);
+                    }
+                    else
+                    {
+                        evtList.Add(wrap.Value);
+                        if (wrap.Value.Version > maxVersion)
                         {
-                            wrap.TaskSource.TrySetResult(true);
+                            maxRequest?.TrySetResult(true);
+                            maxVersion = wrap.Value.Version;
+                            maxRequest = wrap.TaskSource;
                         }
                         else
                         {
-                            evtList.Add(wrap.Value);
-                            if (wrap.Value.Version > maxVersion)
-                            {
-                                maxRequest?.TrySetResult(true);
-                                maxVersion = wrap.Value.Version;
-                                maxRequest = wrap.TaskSource;
-                            }
-                            else
-                            {
-                                wrap.TaskSource.TrySetResult(true);
-                            }
+                            wrap.TaskSource.TrySetResult(true);
                         }
                     }
-                    if ((DateTime.UtcNow - start).TotalMilliseconds > MaxDelayOfBatchMilliseconds) break;//保证批量延时不超过200ms
                 }
                 var orderList = evtList.OrderBy(w => w.Version).ToList();
                 if (orderList.Count > 0)

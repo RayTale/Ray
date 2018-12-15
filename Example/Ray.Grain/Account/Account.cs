@@ -34,7 +34,7 @@ namespace Ray.Grain
         public Task<bool> AddAmount(decimal amount, string uniqueId = null)
         {
             var evt = new AmountAddEvent(amount, State.Balance + amount);
-            return ConcurrentInput(evt, uniqueId);
+            return ConcurrentRaiseEvent(evt, uniqueId);
         }
         public Task<decimal> GetBalance()
         {

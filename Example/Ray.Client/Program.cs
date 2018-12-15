@@ -39,13 +39,12 @@ namespace Ray.Client
                         // var actor = client.GetGrain<IAccount>(0);
                         // Console.WriteLine("Press Enter for times...");
                         Console.WriteLine("start");
-                        Console.ReadLine();
-                        var length = 10;// int.Parse(Console.ReadLine());
+                        var times = int.Parse(Console.ReadLine());
                         var stopWatch = new Stopwatch();
                         stopWatch.Start();
-                        await Task.WhenAll(Enumerable.Range(0, length).Select(x => client.GetGrain<IAccount>(1).AddAmount(1000)));
+                        await Task.WhenAll(Enumerable.Range(0, times).Select(x => client.GetGrain<IAccount>(1).AddAmount(1000)));
                         stopWatch.Stop();
-                        Console.WriteLine($"{length }次操作完成，耗时:{stopWatch.ElapsedMilliseconds}ms");
+                        Console.WriteLine($"{times }次操作完成，耗时:{stopWatch.ElapsedMilliseconds}ms");
                         await Task.Delay(200);
                         Console.WriteLine($"余额为{await client.GetGrain<IAccount>(1).GetBalance()}");
                     }
@@ -81,9 +80,9 @@ namespace Ray.Client
                             {
                                 c.UserName = "admin";
                                 c.Password = "admin";
-                                c.Hosts = new[] { "192.168.125.230:5672" };
+                                c.Hosts = new[] { "127.0.0.1:5672" };
                                 c.MaxPoolSize = 100;
-                                c.VirtualHost = "ray";
+                                c.VirtualHost = "/";
                             });
                         })
                         .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IAccount).Assembly).WithReferences())
