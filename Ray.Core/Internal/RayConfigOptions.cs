@@ -11,6 +11,10 @@
         /// </summary>
         public int MaxDelayOfBatchMilliseconds { get; set; } = 100;
         /// <summary>
+        /// 批量数据处理每次处理的最大数据量
+        /// </summary>
+        public int MaxSizeOfPerBatch { get; set; } = 5000;
+        /// <summary>
         /// RayGrain保存快照的事件Version间隔
         /// </summary>
         public int SnapshotVersionInterval { get; set; } = 500;
@@ -25,7 +29,7 @@
         /// <summary>
         /// FollowGrain失活的时候保存快照的最小事件Version间隔
         /// </summary>
-        public int FollowSnapshotMinVersionInterval { get; set; } = 1; 
+        public int FollowSnapshotMinVersionInterval { get; set; } = 1;
         /// <summary>
         /// 分批次批量读取事件的时候每次读取的数据量
         /// </summary>

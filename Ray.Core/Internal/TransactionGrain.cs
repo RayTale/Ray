@@ -1,14 +1,13 @@
-﻿using Ray.Core.Utils;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using System.Threading;
-using System.Threading.Tasks;
 using System.IO;
-using System.Threading.Tasks.Dataflow;
+using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Ray.Core.Exceptions;
+using Ray.Core.Utils;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Ray.Core.Internal
 {
@@ -20,15 +19,16 @@ namespace Ray.Core.Internal
         {
         }
         protected S BackupState { get; set; }
-        protected BufferBlock<EventTaskWrapper<K>> ConcurrentInputChannel { get; } = new BufferBlock<EventTaskWrapper<K>>();
-        public override Task OnActivateAsync()
+        private IMpscChannel<EventWrapper<K>, bool> mpscChannel;
+        public override async Task OnActivateAsync()
         {
-            return base.OnActivateAsync();
+            await base.OnActivateAsync();
+            mpscChannel = ServiceProvider.GetService<IChannelFactory<K, EventWrapper<K>, bool>>().Create(Logger, GrainId, BatchInputProcessing, ConfigOptions.MaxSizeOfPerBatch);
         }
         public override async Task OnDeactivateAsync()
         {
             await base.OnDeactivateAsync();
-            ConcurrentInputChannel.Complete();
+            mpscChannel.Complete();
         }
         protected bool transactionPending = false;
         private long transactionStartVersion;
@@ -103,10 +103,7 @@ namespace Ray.Core.Internal
                 }
                 else
                 {
-                    foreach (var evt in transactionEventList)
-                    {
-                        OnRaiseSuccess(evt.Evt, evt.Bytes);
-                    }
+                    transactionEventList.ForEach(evt => OnRaiseSuccess(evt.Evt, evt.Bytes));
                 }
                 transactionEventList.Clear();
                 var saveSnapshotTask = SaveSnapshotAsync();
@@ -183,78 +180,24 @@ namespace Ray.Core.Internal
                 ExceptionDispatchInfo.Capture(ex).Throw();
             }
         }
-        protected async Task<bool> ConcurrentInput(IEventBase<K> evt, string uniqueId = null)
+        protected Task<bool> ConcurrentRaiseEvent(IEventBase<K> evt, string uniqueId = null)
         {
-            var task = EventTaskWrapper<K>.Create(evt, uniqueId);
-            if (consuming == 0)
-            {
-                ThreadPool.QueueUserWorkItem(TriggerChannel);
-            }
-            if (!ConcurrentInputChannel.Post(task))
-                await ConcurrentInputChannel.SendAsync(task);
-
-            return await task.TaskSource.Task;
+            return mpscChannel.WriteAsync(new EventWrapper<K>(evt, uniqueId));
         }
-        int consuming = 0;
-        protected async void TriggerChannel(object state)
-        {
-            if (Interlocked.CompareExchange(ref consuming, 1, 0) == 0)
-            {
-                try
-                {
-                    while (true)
-                    {
-                        var (needTrigger, hasInput) = await WaitToReadAsync();
-                        if (needTrigger)
-                        {
-                            if (hasInput)
-                            {
-                                await InputFlowBatchRaise();
-                                var nextTask = OnChannelNext(hasInput);
-                                if (!nextTask.IsCompleted)
-                                    await nextTask;
-                            }
-                            else
-                            {
-                                var nextTask = OnChannelNext(hasInput);
-                                if (!nextTask.IsCompleted)
-                                    await nextTask;
-                            }
-                        }
-                        else
-                        {
-                            break;
-                        }
-                    }
-                }
-                finally
-                {
-                    Interlocked.Exchange(ref consuming, 0);
-                }
-            }
-        }
-        protected virtual async Task<(bool needTrigger, bool hasInput)> WaitToReadAsync()
-        {
-            return (await ConcurrentInputChannel.OutputAvailableAsync(), true);
-        }
-        protected virtual ValueTask OnChannelNext(bool hasInput)
+        protected virtual ValueTask OnBatchInputCompleted()
         {
             return new ValueTask(Task.CompletedTask);
         }
-        public async Task InputFlowBatchRaise()
+        private async Task BatchInputProcessing(List<DataTaskWrapper<EventWrapper<K>, bool>> events)
         {
-            var start = DateTime.UtcNow;
-            var events = new List<EventTaskWrapper<K>>();
             var beginTask = BeginTransaction();
             if (!beginTask.IsCompleted)
                 await beginTask;
             try
             {
-                while (ConcurrentInputChannel.TryReceive(out var value))
+                foreach (var value in events)
                 {
-                    events.Add(value);
-                    Transaction(value.Value, value.UniqueId);
-                    if ((DateTime.UtcNow - start).TotalMilliseconds > ConfigOptions.MaxDelayOfBatchMilliseconds) break;//保证批量延时不超过100ms
+                    Transaction(value.Value.Value, value.Value.UniqueId);
                 }
                 await CommitTransaction();
                 events.ForEach(evt => evt.TaskSource.SetResult(true));
@@ -266,25 +209,29 @@ namespace Ray.Core.Internal
                     var rollBackTask = RollbackTransaction();
                     if (!rollBackTask.IsCompleted)
                         await rollBackTask;
-                    await EventsReTry(events);
+                    await ReTry();
                 }
                 catch (Exception e)
                 {
                     events.ForEach(evt => evt.TaskSource.TrySetException(e));
                 }
             }
-        }
-        private async Task EventsReTry(IList<EventTaskWrapper<K>> events)
-        {
-            foreach (var evt in events)
+            var onCompletedTask = OnBatchInputCompleted();
+            if (!onCompletedTask.IsCompleted)
+                await onCompletedTask;
+
+            async Task ReTry()
             {
-                try
+                foreach (var evt in events)
                 {
-                    evt.TaskSource.TrySetResult(await RaiseEvent(evt.Value, evt.UniqueId));
-                }
-                catch (Exception e)
-                {
-                    evt.TaskSource.TrySetException(e);
+                    try
+                    {
+                        evt.TaskSource.TrySetResult(await RaiseEvent(evt.Value.Value, evt.Value.UniqueId));
+                    }
+                    catch (Exception e)
+                    {
+                        evt.TaskSource.TrySetException(e);
+                    }
                 }
             }
         }
