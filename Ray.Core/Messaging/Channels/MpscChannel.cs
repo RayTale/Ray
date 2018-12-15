@@ -7,50 +7,8 @@ using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using Microsoft.Extensions.Logging;
 
-namespace Ray.Core.Utils
+namespace Ray.Core.Messaging.Channels
 {
-    public interface IChannelFactory<K, T, R> : IDisposable
-    {
-        IMpscChannel<T, R> Create(ILogger logger, K key, Func<List<DataTaskWrapper<T, R>>, Task> consumer, int maxPerBatch = 5000);
-    }
-    public class ChannelFactory<K, T, R> : IChannelFactory<K, T, R>
-    {
-        readonly ConcurrentDictionary<K, MpscChannel<T, R>> channelDict = new ConcurrentDictionary<K, MpscChannel<T, R>>();
-        readonly Timer monitorTimer;
-        public ChannelFactory()
-        {
-            monitorTimer = new Timer(Monitor, null, 10 * 1000, 10 * 1000);
-        }
-
-        public IMpscChannel<T, R> Create(ILogger logger, K key, Func<List<DataTaskWrapper<T, R>>, Task> consumer, int maxPerBatch = 5000)
-        {
-            return channelDict.GetOrAdd(key, k =>
-            {
-                return new MpscChannel<T, R>(logger, consumer, maxPerBatch);
-            });
-        }
-        private void Monitor(object state)
-        {
-            var releasedList = new List<K>();
-            foreach (var channel in channelDict)
-            {
-                if (channel.Value.IsComplete)
-                    releasedList.Add(channel.Key);
-                else if (!channel.Value.InConsuming)
-                {
-                    channel.Value.ActiveConsumer();
-                }
-            }
-            foreach (var key in releasedList)
-            {
-                channelDict.TryRemove(key, out var _);
-            }
-        }
-        public void Dispose()
-        {
-            monitorTimer.Dispose();
-        }
-    }
     /// <summary>
     /// multi producter single consumer channel
     /// </summary>
@@ -58,13 +16,13 @@ namespace Ray.Core.Utils
     /// <typeparam name="R">data type returned after processing</typeparam>
     public class MpscChannel<T, R> : IMpscChannel<T, R>
     {
-        readonly BufferBlock<DataTaskWrapper<T, R>> buffer = new BufferBlock<DataTaskWrapper<T, R>>();
-        readonly Func<List<DataTaskWrapper<T, R>>, Task> consumer;
+        readonly BufferBlock<MessageTaskWrapper<T, R>> buffer = new BufferBlock<MessageTaskWrapper<T, R>>();
+        readonly Func<List<MessageTaskWrapper<T, R>>, Task> consumer;
         readonly List<IMpscChannelBase> consumerSequence = new List<IMpscChannelBase>();
         private Task<bool> waitToReadTask;
         readonly ILogger logger;
         readonly int maxPerBatch;
-        public MpscChannel(ILogger logger, Func<List<DataTaskWrapper<T, R>>, Task> consumer, int maxPerBatch = 5000)
+        public MpscChannel(ILogger logger, Func<List<MessageTaskWrapper<T, R>>, Task> consumer, int maxPerBatch = 5000)
         {
             this.logger = logger;
             this.consumer = consumer;
@@ -73,7 +31,7 @@ namespace Ray.Core.Utils
 
         public async Task<R> WriteAsync(T data)
         {
-            var wrap = new DataTaskWrapper<T, R>(data);
+            var wrap = new MessageTaskWrapper<T, R>(data);
             if (!buffer.Post(wrap))
                 await buffer.SendAsync(wrap);
             return await wrap.TaskSource.Task;
@@ -87,7 +45,7 @@ namespace Ray.Core.Utils
         {
             if (waitToReadTask.IsCompletedSuccessfully && waitToReadTask.Result)
             {
-                var dataList = new List<DataTaskWrapper<T, R>>();
+                var dataList = new List<MessageTaskWrapper<T, R>>();
                 while (buffer.TryReceive(out var value))
                 {
                     dataList.Add(value);
@@ -114,7 +72,7 @@ namespace Ray.Core.Utils
                 return await await Task.WhenAny(taskList);
             }
         }
-        public int consuming = 0;
+        private int consuming = 0;
         public bool InConsuming => consuming != 0;
         private async void ActiveConsumer(object state)
         {
@@ -147,28 +105,5 @@ namespace Ray.Core.Utils
             IsComplete = true;
             buffer.Complete();
         }
-    }
-    public interface IMpscChannel<T, R> : IMpscChannelBase
-    {
-        Task<R> WriteAsync(T data);
-    }
-    public interface IMpscChannelBase
-    {
-        void JoinConsumerSequence(IMpscChannelBase channel);
-        Task<bool> WaitToReadAsync();
-        bool ActiveConsumer();
-        Task Consume();
-        bool IsComplete { get; }
-        void Complete();
-    }
-
-    public class DataTaskWrapper<T, R>
-    {
-        public DataTaskWrapper(T data)
-        {
-            Value = data;
-        }
-        public TaskCompletionSource<R> TaskSource { get; set; } = new TaskCompletionSource<R>();
-        public T Value { get; set; }
     }
 }
