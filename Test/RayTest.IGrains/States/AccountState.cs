@@ -5,7 +5,7 @@ using System;
 namespace RayTest.IGrains.States
 {
     [ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
-    public class AccountState : IState<long>, ITransactionable<AccountState>
+    public class AccountState : IState<long>, ICloneable<AccountState>
     {
         #region base
         public long StateId { get; set; }

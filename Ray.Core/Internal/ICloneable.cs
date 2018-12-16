@@ -1,6 +1,6 @@
 ﻿namespace Ray.Core.Internal
 {
-    public interface ITransactionable<T>
+    public interface ICloneable<T>
     {
         T DeepCopy();
     }

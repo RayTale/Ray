@@ -14,25 +14,25 @@ using Ray.Core.Utils;
 namespace Ray.Core.Internal
 {
     public abstract class TransactionGrain<K, S, W> : RayGrain<K, S, W>
-        where S : class, IState<K>, ITransactionable<S>, new()
+        where S : class, IState<K>, ICloneable<S>, new()
         where W : IMessageWrapper, new()
     {
         public TransactionGrain(ILogger logger) : base(logger)
         {
         }
         protected S BackupState { get; set; }
-        private IMpscChannel<EventWrapper<K>, bool> mpscChannel;
+        protected IMpscChannel<EventWrapper<K>, bool> MpscChannel { get; private set; }
         public override async Task OnActivateAsync()
         {
             await base.OnActivateAsync();
-            mpscChannel = ServiceProvider.GetService<IMpscChannelFactory<K, EventWrapper<K>, bool>>().Create(Logger, GrainId, BatchInputProcessing, ConfigOptions.MaxSizeOfPerBatch);
+            MpscChannel = ServiceProvider.GetService<IMpscChannelFactory<K, EventWrapper<K>, bool>>().Create(Logger, GrainId, BatchInputProcessing, ConfigOptions.MaxSizeOfPerBatch);
         }
         public override async Task OnDeactivateAsync()
         {
             await base.OnDeactivateAsync();
-            mpscChannel.Complete();
+            MpscChannel.Complete();
         }
-        protected bool transactionPending = false;
+        private bool transactionPending = false;
         private long transactionStartVersion;
         private DateTime beginTransactionTime;
         private readonly List<EventStorageWrapper<K>> transactionEventList = new List<EventStorageWrapper<K>>();
@@ -43,74 +43,102 @@ namespace Ray.Core.Internal
         }
         protected async ValueTask BeginTransaction()
         {
-            if (transactionPending)
+            try
             {
-                if ((DateTime.UtcNow - beginTransactionTime).TotalSeconds > ConfigOptions.TransactionTimeoutSeconds)
+                if (transactionPending)
                 {
-                    var rollBackTask = RollbackTransaction();//事务阻赛超过一分钟自动回滚
-                    if (!rollBackTask.IsCompleted)
-                        await rollBackTask;
+                    if ((DateTime.UtcNow - beginTransactionTime).TotalSeconds > ConfigOptions.TransactionTimeoutSeconds)
+                    {
+                        var rollBackTask = RollbackTransaction();//事务阻赛超过一分钟自动回滚
+                        if (!rollBackTask.IsCompleted)
+                            await rollBackTask;
+                        if (Logger.IsEnabled(LogLevel.Information))
+                        {
+                            Logger.LogInformation(LogEventIds.TransactionGrainTransactionFlow, "Transaction timeout, automatic rollback,type {0} with id {1}", GrainType.FullName, GrainId.ToString());
+                        }
+                    }
+                    else
+                        throw new RepeatedTransactionException(GrainId.ToString(), GetType());
                 }
-                else
-                    throw new RepeatedTransactionException(GrainId.ToString(), GetType());
+                var checkTask = StateCheck();
+                if (!checkTask.IsCompleted)
+                    await checkTask;
+                transactionPending = true;
+                transactionStartVersion = State.Version;
+                beginTransactionTime = DateTime.UtcNow;
+                if (Logger.IsEnabled(LogLevel.Information))
+                    Logger.LogInformation(LogEventIds.TransactionGrainTransactionFlow, "Begin transaction successfully,type {0} with id {1},transaction start version {2}", GrainType.FullName, GrainId.ToString(), transactionStartVersion.ToString());
             }
-            var checkTask = StateCheck();
-            if (!checkTask.IsCompleted)
-                await checkTask;
-            transactionPending = true;
-            transactionStartVersion = State.Version;
-            beginTransactionTime = DateTime.UtcNow;
+            catch (Exception ex)
+            {
+                if (Logger.IsEnabled(LogLevel.Error))
+                {
+                    Logger.LogError(LogEventIds.TransactionGrainTransactionFlow, ex, "Begin transaction failed, type {0} with Id {1}", GrainType.FullName, GrainId.ToString());
+                }
+                ExceptionDispatchInfo.Capture(ex).Throw();
+            }
         }
         protected async Task CommitTransaction()
         {
             if (transactionEventList.Count > 0)
             {
-                using (var ms = new PooledMemoryStream())
+                try
                 {
-                    foreach (var @event in transactionEventList)
-                    {
-                        Serializer.Serialize(ms, @event.Evt);
-                        @event.Bytes = ms.ToArray();
-                        ms.Position = 0;
-                        ms.SetLength(0);
-                    }
-                }
-                var eventStorageTask = GetEventStorage();
-                if (!eventStorageTask.IsCompleted)
-                    await eventStorageTask;
-                await eventStorageTask.Result.TransactionSaveAsync(transactionEventList);
-                if (SupportAsyncFollow)
-                {
-                    var mqService = GetMQService();
-                    if (!mqService.IsCompleted)
-                        await mqService;
                     using (var ms = new PooledMemoryStream())
                     {
                         foreach (var @event in transactionEventList)
                         {
-                            var data = new W
-                            {
-                                TypeName = @event.Evt.GetType().FullName,
-                                Bytes = @event.Bytes
-                            };
-                            Serializer.Serialize(ms, data);
-                            var publishTask = mqService.Result.Publish(ms.ToArray(), @event.HashKey);
-                            if (!publishTask.IsCompleted)
-                                await publishTask;
-                            OnRaiseSuccess(@event.Evt, @event.Bytes);
+                            Serializer.Serialize(ms, @event.Evt);
+                            @event.Bytes = ms.ToArray();
                             ms.Position = 0;
                             ms.SetLength(0);
                         }
                     }
+                    var eventStorageTask = GetEventStorage();
+                    if (!eventStorageTask.IsCompleted)
+                        await eventStorageTask;
+                    await eventStorageTask.Result.TransactionSaveAsync(transactionEventList);
+                    if (SupportAsyncFollow)
+                    {
+                        var mqService = GetEventProducer();
+                        if (!mqService.IsCompleted)
+                            await mqService;
+                        using (var ms = new PooledMemoryStream())
+                        {
+                            foreach (var @event in transactionEventList)
+                            {
+                                var data = new W
+                                {
+                                    TypeName = @event.Evt.GetType().FullName,
+                                    Bytes = @event.Bytes
+                                };
+                                Serializer.Serialize(ms, data);
+                                var publishTask = mqService.Result.Publish(ms.ToArray(), @event.HashKey);
+                                if (!publishTask.IsCompleted)
+                                    await publishTask;
+                                OnRaiseSuccess(@event.Evt, @event.Bytes);
+                                ms.Position = 0;
+                                ms.SetLength(0);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        transactionEventList.ForEach(evt => OnRaiseSuccess(evt.Evt, evt.Bytes));
+                    }
+                    transactionEventList.Clear();
+                    var saveSnapshotTask = SaveSnapshotAsync();
+                    if (!saveSnapshotTask.IsCompleted)
+                        await saveSnapshotTask;
+                    if (Logger.IsEnabled(LogLevel.Information))
+                        Logger.LogInformation(LogEventIds.TransactionGrainTransactionFlow, "Commit transaction successfully,type {0} with id {1},transaction start version {2},end version {3}", GrainType.FullName, GrainId.ToString(), transactionStartVersion.ToString(), State.Version.ToString());
                 }
-                else
+                catch (Exception ex)
                 {
-                    transactionEventList.ForEach(evt => OnRaiseSuccess(evt.Evt, evt.Bytes));
+                    if (Logger.IsEnabled(LogLevel.Error))
+                        Logger.LogError(LogEventIds.TransactionGrainTransactionFlow, ex, "Commit transaction failed, type {0} with Id {1}", GrainType.FullName, GrainId.ToString());
+                    ExceptionDispatchInfo.Capture(ex).Throw();
                 }
-                transactionEventList.Clear();
-                var saveSnapshotTask = SaveSnapshotAsync();
-                if (!saveSnapshotTask.IsCompleted)
-                    await saveSnapshotTask;
             }
             transactionPending = false;
         }
@@ -118,16 +146,27 @@ namespace Ray.Core.Internal
         {
             if (transactionPending)
             {
-                if (BackupState.Version == transactionStartVersion)
+                try
                 {
-                    State = BackupState.DeepCopy();
+                    if (BackupState.Version == transactionStartVersion)
+                    {
+                        State = BackupState.DeepCopy();
+                    }
+                    else
+                    {
+                        await RecoveryState();
+                    }
+                    transactionEventList.Clear();
+                    transactionPending = false;
+                    if (Logger.IsEnabled(LogLevel.Information))
+                        Logger.LogInformation(LogEventIds.TransactionGrainTransactionFlow, "Rollback transaction successfully,type {0} with id {1},transaction from version {2} to version {3}", GrainType.FullName, GrainId.ToString(), transactionStartVersion.ToString(), State.Version.ToString());
                 }
-                else
+                catch (Exception ex)
                 {
-                    await RecoveryState();
+                    if (Logger.IsEnabled(LogLevel.Error))
+                        Logger.LogError(LogEventIds.TransactionGrainTransactionFlow, ex, "Rollback transaction failed, type {0} with Id {1}", GrainType.FullName, GrainId.ToString());
+                    ExceptionDispatchInfo.Capture(ex).Throw();
                 }
-                transactionEventList.Clear();
-                transactionPending = false;
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -142,7 +181,12 @@ namespace Ray.Core.Internal
         protected override async Task<bool> RaiseEvent(IEventBase<K> @event, string uniqueId = null, string hashKey = null)
         {
             if (transactionPending)
-                throw new Exception("The transaction has been opened,Please use Transaction().");
+            {
+                var ex = new TransactionProcessingSubmitEventException(GrainId.ToString(), GrainType);
+                if (Logger.IsEnabled(LogLevel.Error))
+                    Logger.LogError(LogEventIds.TransactionGrainTransactionFlow, ex, ex.Message);
+                throw ex;
+            }
             var checkTask = StateCheck();
             if (!checkTask.IsCompleted)
                 await checkTask;
@@ -165,7 +209,12 @@ namespace Ray.Core.Internal
         protected void Transaction(IEventBase<K> @event, string uniqueId = null, string hashKey = null)
         {
             if (!transactionPending)
-                throw new Exception("Unopened transaction,Please open the transaction first.");
+            {
+                var ex = new UnopenTransactionException(GrainId.ToString(), GrainType, nameof(Transaction));
+                if (Logger.IsEnabled(LogLevel.Error))
+                    Logger.LogError(LogEventIds.TransactionGrainTransactionFlow, ex, ex.Message);
+                throw ex;
+            }
             try
             {
                 State.IncrementDoingVersion(GrainType);//标记将要处理的Version
@@ -178,13 +227,15 @@ namespace Ray.Core.Internal
             }
             catch (Exception ex)
             {
+                if (Logger.IsEnabled(LogLevel.Error))
+                    Logger.LogError(LogEventIds.TransactionGrainTransactionFlow, ex, "type {0} with Id {1},event:{2}", GrainType.FullName, GrainId.ToString(), JsonSerializer.Serialize(@event));
                 State.DecrementDoingVersion();//还原doing Version
                 ExceptionDispatchInfo.Capture(ex).Throw();
             }
         }
         protected Task<bool> ConcurrentRaiseEvent(IEventBase<K> evt, string uniqueId = null)
         {
-            return mpscChannel.WriteAsync(new EventWrapper<K>(evt, uniqueId));
+            return MpscChannel.WriteAsync(new EventWrapper<K>(evt, uniqueId));
         }
         protected virtual ValueTask OnBatchInputCompleted()
         {
@@ -192,6 +243,8 @@ namespace Ray.Core.Internal
         }
         private async Task BatchInputProcessing(List<MessageTaskWrapper<EventWrapper<K>, bool>> events)
         {
+            if (Logger.IsEnabled(LogLevel.Information))
+                Logger.LogInformation(LogEventIds.TransactionGrainCurrentInput, "Start batch event processing,type {0} with id {1},state version {2},the number of events is {3}", GrainType.FullName, GrainId.ToString(), transactionStartVersion, events.Count.ToString());
             var beginTask = BeginTransaction();
             if (!beginTask.IsCompleted)
                 await beginTask;
@@ -221,7 +274,8 @@ namespace Ray.Core.Internal
             var onCompletedTask = OnBatchInputCompleted();
             if (!onCompletedTask.IsCompleted)
                 await onCompletedTask;
-
+            if (Logger.IsEnabled(LogLevel.Information))
+                Logger.LogInformation(LogEventIds.TransactionGrainCurrentInput, "Batch events have been processed,type {0} with id {1},state version {2},the number of events is {3}", GrainType.FullName, GrainId.ToString(), transactionStartVersion, events.Count.ToString());
             async Task ReTry()
             {
                 foreach (var evt in events)
