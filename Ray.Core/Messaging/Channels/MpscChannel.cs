@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Linq;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,28 +12,26 @@ namespace Ray.Core.Messaging.Channels
     /// multi producter single consumer channel
     /// </summary>
     /// <typeparam name="T">data type produced by producer</typeparam>
-    /// <typeparam name="R">data type returned after processing</typeparam>
-    public class MpscChannel<T, R> : IMpscChannel<T, R>
+    public class MpscChannel<T> : IMpscChannel<T>
     {
-        readonly BufferBlock<MessageTaskWrapper<T, R>> buffer = new BufferBlock<MessageTaskWrapper<T, R>>();
-        readonly Func<List<MessageTaskWrapper<T, R>>, Task> consumer;
+        readonly BufferBlock<T> buffer = new BufferBlock<T>();
+        readonly Func<List<T>, Task> consumer;
         readonly List<IMpscChannelBase> consumerSequence = new List<IMpscChannelBase>();
         private Task<bool> waitToReadTask;
         readonly ILogger logger;
-        readonly int maxPerBatch;
-        public MpscChannel(ILogger logger, Func<List<MessageTaskWrapper<T, R>>, Task> consumer, int maxPerBatch = 5000)
+        readonly int maxDataCountPerBatch;
+        public MpscChannel(ILogger logger, Func<List<T>, Task> consumer, int maxDataCountPerBatch = 5000)
         {
             this.logger = logger;
             this.consumer = consumer;
-            this.maxPerBatch = maxPerBatch;
+            this.maxDataCountPerBatch = maxDataCountPerBatch;
         }
 
-        public async Task<R> WriteAsync(T data)
+        public async ValueTask<bool> WriteAsync(T data)
         {
-            var wrap = new MessageTaskWrapper<T, R>(data);
-            if (!buffer.Post(wrap))
-                await buffer.SendAsync(wrap);
-            return await wrap.TaskSource.Task;
+            if (!buffer.Post(data))
+                return await buffer.SendAsync(data);
+            return true;
         }
         public void JoinConsumerSequence(IMpscChannelBase channel)
         {
@@ -45,11 +42,11 @@ namespace Ray.Core.Messaging.Channels
         {
             if (waitToReadTask.IsCompletedSuccessfully && waitToReadTask.Result)
             {
-                var dataList = new List<MessageTaskWrapper<T, R>>();
+                var dataList = new List<T>();
                 while (buffer.TryReceive(out var value))
                 {
                     dataList.Add(value);
-                    if (dataList.Count > maxPerBatch) break;
+                    if (dataList.Count > maxDataCountPerBatch) break;
                 }
                 await consumer(dataList);
             }

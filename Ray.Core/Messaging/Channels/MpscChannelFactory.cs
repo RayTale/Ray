@@ -7,20 +7,20 @@ using Microsoft.Extensions.Logging;
 
 namespace Ray.Core.Messaging.Channels
 {
-    public class MpscChannelFactory<K, T, R> : IMpscChannelFactory<K, T, R>
+    public class MpscChannelFactory<K, T> : IMpscChannelFactory<K, T>
     {
-        readonly ConcurrentDictionary<K, MpscChannel<T, R>> channelDict = new ConcurrentDictionary<K, MpscChannel<T, R>>();
+        readonly ConcurrentDictionary<K, MpscChannel<T>> channelDict = new ConcurrentDictionary<K, MpscChannel<T>>();
         readonly Timer monitorTimer;
         public MpscChannelFactory()
         {
             monitorTimer = new Timer(Monitor, null, 10 * 1000, 10 * 1000);
         }
 
-        public IMpscChannel<T, R> Create(ILogger logger, K key, Func<List<MessageTaskWrapper<T, R>>, Task> consumer, int maxPerBatch = 5000)
+        public IMpscChannel<T> Create(ILogger logger, K key, Func<List<T>, Task> consumer, int maxDataCountPerBatch = 5000)
         {
             return channelDict.GetOrAdd(key, k =>
             {
-                return new MpscChannel<T, R>(logger, consumer, maxPerBatch);
+                return new MpscChannel<T>(logger, consumer, maxDataCountPerBatch);
             });
         }
         private void Monitor(object state)

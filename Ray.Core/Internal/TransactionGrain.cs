@@ -21,11 +21,11 @@ namespace Ray.Core.Internal
         {
         }
         protected S BackupState { get; set; }
-        protected IMpscChannel<EventWrapper<K>, bool> MpscChannel { get; private set; }
+        protected IMpscChannel<ConcurrentWrapper<K, S>> MpscChannel { get; private set; }
         public override async Task OnActivateAsync()
         {
             await base.OnActivateAsync();
-            MpscChannel = ServiceProvider.GetService<IMpscChannelFactory<K, EventWrapper<K>, bool>>().Create(Logger, GrainId, BatchInputProcessing, ConfigOptions.MaxSizeOfPerBatch);
+            MpscChannel = ServiceProvider.GetService<IMpscChannelFactory<K, ConcurrentWrapper<K, S>>>().Create(Logger, GrainId, BatchInputProcessing, ConfigOptions.MaxSizeOfPerBatch);
         }
         public override async Task OnDeactivateAsync()
         {
@@ -206,11 +206,11 @@ namespace Ray.Core.Internal
             }
             BackupState.FullUpdateVersion(@event, GrainType);//更新处理完成的Version
         }
-        protected void Transaction(IEventBase<K> @event, string uniqueId = null, string hashKey = null)
+        protected void TransactionRaiseEvent(IEventBase<K> @event, string uniqueId = null, string hashKey = null)
         {
             if (!transactionPending)
             {
-                var ex = new UnopenTransactionException(GrainId.ToString(), GrainType, nameof(Transaction));
+                var ex = new UnopenTransactionException(GrainId.ToString(), GrainType, nameof(TransactionRaiseEvent));
                 if (Logger.IsEnabled(LogLevel.Error))
                     Logger.LogError(LogEventIds.TransactionGrainTransactionFlow, ex, ex.Message);
                 throw ex;
@@ -233,29 +233,51 @@ namespace Ray.Core.Internal
                 ExceptionDispatchInfo.Capture(ex).Throw();
             }
         }
-        protected Task<bool> ConcurrentRaiseEvent(IEventBase<K> evt, string uniqueId = null)
+        protected async ValueTask ConcurrentRaiseEvent(Func<S, Func<IEventBase<K>, string, string, Task>, Task> handler, Func<bool, ValueTask> completedHandler, Action<Exception> exceptionHandler)
         {
-            return MpscChannel.WriteAsync(new EventWrapper<K>(evt, uniqueId));
+            var writeTask = MpscChannel.WriteAsync(new ConcurrentWrapper<K, S>(handler, completedHandler, exceptionHandler));
+            if (!writeTask.IsCompleted)
+                await writeTask;
+            if (!writeTask.Result)
+            {
+                var ex = new ChannelUnavailabilityException(GrainId.ToString(), GrainType);
+                if (Logger.IsEnabled(LogLevel.Error))
+                    Logger.LogError(LogEventIds.TransactionGrainCurrentInput, ex, ex.Message);
+                throw ex;
+            }
         }
         protected virtual ValueTask OnBatchInputCompleted()
         {
             return new ValueTask(Task.CompletedTask);
         }
-        private async Task BatchInputProcessing(List<MessageTaskWrapper<EventWrapper<K>, bool>> events)
+        private async Task BatchInputProcessing(List<ConcurrentWrapper<K, S>> inputs)
         {
             if (Logger.IsEnabled(LogLevel.Information))
-                Logger.LogInformation(LogEventIds.TransactionGrainCurrentInput, "Start batch event processing,type {0} with id {1},state version {2},the number of events is {3}", GrainType.FullName, GrainId.ToString(), transactionStartVersion, events.Count.ToString());
+                Logger.LogInformation(LogEventIds.TransactionGrainCurrentInput, "Start batch event processing,type {0} with id {1},state version {2},the number of events is {3}", GrainType.FullName, GrainId.ToString(), transactionStartVersion, inputs.Count.ToString());
             var beginTask = BeginTransaction();
             if (!beginTask.IsCompleted)
                 await beginTask;
             try
             {
-                foreach (var value in events)
+                foreach (var input in inputs)
                 {
-                    Transaction(value.Value.Value, value.Value.UniqueId);
+                    await input.Handler(State, (evt, uniqueId, hashKey) =>
+                    {
+                        TransactionRaiseEvent(evt, uniqueId, hashKey);
+                        input.Executed = true;
+                        return Task.CompletedTask;
+                    });
                 }
                 await CommitTransaction();
-                events.ForEach(evt => evt.TaskSource.SetResult(true));
+                foreach (var input in inputs)
+                {
+                    if (input.Executed)
+                    {
+                        var completeTask = input.CompletedHandler(true);
+                        if (!completeTask.IsCompleted)
+                            await completeTask;
+                    }
+                }
             }
             catch
             {
@@ -266,27 +288,33 @@ namespace Ray.Core.Internal
                         await rollBackTask;
                     await ReTry();
                 }
-                catch (Exception e)
+                catch (Exception ex)
                 {
-                    events.ForEach(evt => evt.TaskSource.TrySetException(e));
+                    inputs.ForEach(input => input.ExceptionHandler(ex));
                 }
             }
             var onCompletedTask = OnBatchInputCompleted();
             if (!onCompletedTask.IsCompleted)
                 await onCompletedTask;
             if (Logger.IsEnabled(LogLevel.Information))
-                Logger.LogInformation(LogEventIds.TransactionGrainCurrentInput, "Batch events have been processed,type {0} with id {1},state version {2},the number of events is {3}", GrainType.FullName, GrainId.ToString(), transactionStartVersion, events.Count.ToString());
+                Logger.LogInformation(LogEventIds.TransactionGrainCurrentInput, "Batch events have been processed,type {0} with id {1},state version {2},the number of events is {3}", GrainType.FullName, GrainId.ToString(), transactionStartVersion, inputs.Count.ToString());
             async Task ReTry()
             {
-                foreach (var evt in events)
+                foreach (var input in inputs)
                 {
                     try
                     {
-                        evt.TaskSource.TrySetResult(await RaiseEvent(evt.Value.Value, evt.Value.UniqueId));
+                        await input.Handler(State, async (evt, uniqueId, hashKey) =>
+                         {
+                             var result = await RaiseEvent(evt, uniqueId, hashKey);
+                             var completeTask = input.CompletedHandler(result);
+                             if (!completeTask.IsCompleted)
+                                 await completeTask;
+                         });
                     }
-                    catch (Exception e)
+                    catch (Exception ex)
                     {
-                        evt.TaskSource.TrySetException(e);
+                        input.ExceptionHandler(ex);
                     }
                 }
             }
