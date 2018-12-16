@@ -40,7 +40,7 @@ namespace Ray.Core.Internal
         /// <summary>
         /// 快照的事件版本号
         /// </summary>
-        protected long SnapshotEventVersion { get; set; }
+        protected long SnapshotEventVersion { get; private set; }
         /// <summary>
         /// 失活的时候保存快照的最小事件Version间隔
         /// </summary>
@@ -51,99 +51,177 @@ namespace Ray.Core.Internal
         protected virtual bool SupportAsyncFollow => true;
         protected Type GrainType { get; private set; }
         #region LifeTime
-        public override Task OnActivateAsync()
+        /// <summary>
+        /// Grain激活时调用用来初始化的方法(禁止在子类重写,请使用)
+        /// </summary>
+        /// <returns></returns>
+        public override async Task OnActivateAsync()
         {
-            GrainType = GetType();
-            ConfigOptions = ServiceProvider.GetService<IOptions<RayConfigOptions>>().Value;
-            StorageContainer = ServiceProvider.GetService<IStorageContainer>();
-            ProducerContainer = ServiceProvider.GetService<IProducerContainer>();
-            Serializer = ServiceProvider.GetService<ISerializer>();
-            JsonSerializer = ServiceProvider.GetService<IJsonSerializer>();
-
-            if (Logger.IsEnabled(LogLevel.Information))
+            try
             {
-                Logger.LogInformation("{0} with id {1} starts to activate", GrainType.FullName, GrainId.ToString());
+                GrainType = GetType();
+                ConfigOptions = ServiceProvider.GetService<IOptions<RayConfigOptions>>().Value;
+                StorageContainer = ServiceProvider.GetService<IStorageContainer>();
+                ProducerContainer = ServiceProvider.GetService<IProducerContainer>();
+                Serializer = ServiceProvider.GetService<ISerializer>();
+                JsonSerializer = ServiceProvider.GetService<IJsonSerializer>();
+                await RecoveryState();
+                await OnBaseActivated();
+                if (Logger.IsEnabled(LogLevel.Information))
+                {
+                    Logger.LogInformation(LogEventIds.GrainActivateId, "Grain activated,type {0} with id {1}", GrainType.FullName, GrainId.ToString());
+                }
             }
-            return RecoveryState();
+            catch (Exception ex)
+            {
+                if (Logger.IsEnabled(LogLevel.Error))
+                {
+                    Logger.LogError(LogEventIds.GrainActivateId, ex, "Grain activation failed, type {0} with Id {1}", GrainType.FullName, GrainId.ToString());
+                }
+                ExceptionDispatchInfo.Capture(ex).Throw();
+            }
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected virtual Task OnBaseActivated() => Task.CompletedTask;
         protected virtual async Task RecoveryState()
         {
-            if (Logger.IsEnabled(LogLevel.Information))
+            try
             {
-                Logger.LogInformation("Start repair state of {0} with ID {1}", GrainType.FullName, GrainId.ToString());
-            }
-            var readSnapshotTask = ReadSnapshotAsync();
-            if (!readSnapshotTask.IsCompleted)
-                await readSnapshotTask;
-            var eventStorageTask = GetEventStorage();
-            if (!eventStorageTask.IsCompleted)
-                await eventStorageTask;
-            while (true)
-            {
-                var eventList = await eventStorageTask.Result.GetListAsync(GrainId, State.Version, State.Version + NumberOfEventsPerRead, State.VersionTime);
-                foreach (var @event in eventList)
+                var readSnapshotTask = ReadSnapshotAsync();
+                if (!readSnapshotTask.IsCompleted)
+                    await readSnapshotTask;
+                var eventStorageTask = GetEventStorage();
+                if (!eventStorageTask.IsCompleted)
+                    await eventStorageTask;
+                while (true)
                 {
-                    State.IncrementDoingVersion(GrainType);//标记将要处理的Version
-                    Apply(State, @event);
-                    State.UpdateVersion(@event, GrainType);//更新处理完成的Version
+                    var eventList = await eventStorageTask.Result.GetListAsync(GrainId, State.Version, State.Version + NumberOfEventsPerRead, State.VersionTime);
+                    foreach (var @event in eventList)
+                    {
+                        State.IncrementDoingVersion(GrainType);//标记将要处理的Version
+                        Apply(State, @event);
+                        State.UpdateVersion(@event, GrainType);//更新处理完成的Version
+                    }
+                    if (eventList.Count < NumberOfEventsPerRead) break;
+                };
+                if (Logger.IsEnabled(LogLevel.Information))
+                {
+                    Logger.LogInformation(LogEventIds.GrainStateRecoveryId, "State repair successfully,type {0} with Id {1} ,state version is {2}", GrainType.FullName, GrainId.ToString(), State.Version);
                 }
-                if (eventList.Count < NumberOfEventsPerRead) break;
-            };
-            if (Logger.IsEnabled(LogLevel.Information))
+            }
+            catch (Exception ex)
             {
-                Logger.LogInformation("Repair state of {0} with ID {1} completed,state version is {2}", GrainType.FullName, GrainId.ToString(), State.Version);
+                if (Logger.IsEnabled(LogLevel.Error))
+                {
+                    Logger.LogError(LogEventIds.GrainActivateId, ex, "Grain repair state failed, type {0} with Id {1}", GrainType.FullName, GrainId.ToString());
+                }
+                ExceptionDispatchInfo.Capture(ex).Throw();
             }
         }
-        public override Task OnDeactivateAsync()
+        public override async Task OnDeactivateAsync()
         {
-            if (State.Version - SnapshotEventVersion >= SnapshotMinVersionInterval)
-                return SaveSnapshotAsync(true).AsTask();
-            else
-                return Task.CompletedTask;
+            var needSaveSnap = State.Version - SnapshotEventVersion >= SnapshotMinVersionInterval;
+            try
+            {
+                if (needSaveSnap)
+                {
+                    var saveTask = SaveSnapshotAsync(true);
+                    if (!saveTask.IsCompleted)
+                        await saveTask;
+                    await OnBaseDeactivated();
+                }
+                if (Logger.IsEnabled(LogLevel.Information))
+                {
+                    Logger.LogInformation(LogEventIds.GrainDeactivateId, "Grain has been deactivated,type {0} with id {1} ,{}", GrainType.FullName, GrainId.ToString(), needSaveSnap ? "updated snapshot" : "no update snapshot");
+                }
+            }
+            catch (Exception ex)
+            {
+                if (Logger.IsEnabled(LogLevel.Error))
+                {
+                    Logger.LogError(LogEventIds.GrainActivateId, ex, "Grain Deactivate failed, type {0} with Id {1}", GrainType.FullName, GrainId.ToString());
+                }
+                ExceptionDispatchInfo.Capture(ex).Throw();
+            }
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected virtual Task OnBaseDeactivated() => Task.CompletedTask;
         #endregion
         #region State storage
-        protected bool IsNew { get; set; } = false;
+        /// <summary>
+        ///  true:当前状态无快照,false:当前状态已经存在快照
+        /// </summary>
+        protected bool NoSnapshot { get; private set; }
         protected virtual async Task ReadSnapshotAsync()
         {
-            var stateStorageTask = GetStateStorage();
-            if (!stateStorageTask.IsCompleted)
-                await stateStorageTask;
-            State = await stateStorageTask.Result.GetByIdAsync(GrainId);
-            if (State == default)
+            try
             {
-                IsNew = true;
-                var createTask = CreateState();
-                if (!createTask.IsCompleted)
-                    await createTask;
+                var stateStorageTask = GetStateStorage();
+                if (!stateStorageTask.IsCompleted)
+                    await stateStorageTask;
+                State = await stateStorageTask.Result.GetByIdAsync(GrainId);
+                if (State == default)
+                {
+                    NoSnapshot = true;
+                    var createTask = CreateState();
+                    if (!createTask.IsCompleted)
+                        await createTask;
+                }
+                SnapshotEventVersion = State.Version;
+                if (Logger.IsEnabled(LogLevel.Information))
+                {
+                    Logger.LogInformation(LogEventIds.GrainStateRecoveryId, "State snapshot read successfully, type {0} with Id {1}, state version is {2}", GrainType.FullName, GrainId.ToString(), State.Version);
+                }
             }
-            SnapshotEventVersion = State.Version;
+            catch (Exception ex)
+            {
+                if (Logger.IsEnabled(LogLevel.Error))
+                {
+                    Logger.LogError(LogEventIds.GrainStateRecoveryId, ex, "State snapshot read failed, type {0} with Id {1}", GrainType.FullName, GrainId.ToString());
+                }
+                ExceptionDispatchInfo.Capture(ex).Throw();
+            }
         }
 
-        protected virtual async ValueTask SaveSnapshotAsync(bool force = false)
+        protected async ValueTask SaveSnapshotAsync(bool force = false)
         {
             if (SnapshotStorageType == StateSnapStorageType.Master)
             {
                 //如果版本号差超过设置则更新快照
                 if (force || (State.Version - SnapshotEventVersion >= SnapshotVersionInterval))
                 {
-                    var onSaveSnapshotTask = OnSaveSnapshot();
-                    if (!onSaveSnapshotTask.IsCompleted)
-                        await onSaveSnapshotTask;
-                    var getStateStorageTask = GetStateStorage();
-                    if (!getStateStorageTask.IsCompleted)
-                        await getStateStorageTask;
-                    if (IsNew)
+                    try
                     {
-                        await getStateStorageTask.Result.InsertAsync(State);
+                        var onSaveSnapshotTask = OnSaveSnapshot();
+                        if (!onSaveSnapshotTask.IsCompleted)
+                            await onSaveSnapshotTask;
+                        var getStateStorageTask = GetStateStorage();
+                        if (!getStateStorageTask.IsCompleted)
+                            await getStateStorageTask;
+                        if (NoSnapshot)
+                        {
+                            await getStateStorageTask.Result.InsertAsync(State);
 
-                        SnapshotEventVersion = State.Version;
-                        IsNew = false;
+                            SnapshotEventVersion = State.Version;
+                            NoSnapshot = false;
+                        }
+                        else
+                        {
+                            await getStateStorageTask.Result.UpdateAsync(State);
+                            SnapshotEventVersion = State.Version;
+                        }
+                        if (Logger.IsEnabled(LogLevel.Information))
+                        {
+                            Logger.LogInformation(LogEventIds.GrainSaveSnapshot, "State snapshot saved successfully, type {0} with Id {1} ,state version is {2}", GrainType.FullName, GrainId.ToString(), State.Version);
+                        }
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        await getStateStorageTask.Result.UpdateAsync(State);
-                        SnapshotEventVersion = State.Version;
+                        if (Logger.IsEnabled(LogLevel.Error))
+                        {
+                            Logger.LogError(LogEventIds.GrainSaveSnapshot, ex, "State snapshot save failed, type {0} with Id {1}", GrainType.FullName, GrainId.ToString());
+                        }
+                        ExceptionDispatchInfo.Capture(ex).Throw();
                     }
                 }
             }
@@ -181,7 +259,7 @@ namespace Ray.Core.Internal
         {
             return StorageContainer.GetEventStorage<K, S>(this);
         }
-        protected virtual ValueTask<IProducer> GetMQService()
+        protected virtual ValueTask<IProducer> GetEventProducer()
         {
             return ProducerContainer.GetProducer(this);
         }
@@ -214,7 +292,7 @@ namespace Ray.Core.Internal
                             Serializer.Serialize(ms, data);
                             //消息写入消息队列，以提供异步服务
                             Apply(State, @event);
-                            var mqServiceTask = GetMQService();
+                            var mqServiceTask = GetEventProducer();
                             if (!mqServiceTask.IsCompleted)
                                 await mqServiceTask;
                             var publishTask = mqServiceTask.Result.Publish(ms.ToArray(), string.IsNullOrEmpty(hashKey) ? GrainId.ToString() : hashKey);
@@ -230,14 +308,28 @@ namespace Ray.Core.Internal
                         if (!saveSnapshotTask.IsCompleted)
                             await saveSnapshotTask;
                         OnRaiseSuccess(@event, bytes);
+                        if (Logger.IsEnabled(LogLevel.Information))
+                        {
+                            Logger.LogInformation(LogEventIds.GrainRaiseEvent, "Event raise successfully, type {0} with Id {1},state version is {2},event type {3} with version {4}", GrainType.FullName, GrainId.ToString(), State.Version, @event.GetType().FullName, @event.Version);
+                        }
                         return true;
                     }
                     else
+                    {
+                        if (Logger.IsEnabled(LogLevel.Information))
+                        {
+                            Logger.LogInformation(LogEventIds.GrainRaiseEvent, "Event raise failure because of idempotency limitation, type {0} with Id {1},state version is {2},event type {3} with version {4}", GrainType.FullName, GrainId.ToString(), State.Version, @event.GetType().FullName, @event.Version);
+                        }
                         State.DecrementDoingVersion();//还原doing Version
+                    }
                 }
             }
             catch (Exception ex)
             {
+                if (Logger.IsEnabled(LogLevel.Error))
+                {
+                    Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "Event raise produces errors, type {0} with Id {1},state version is {2},event:{3}", GrainType.FullName, GrainId.ToString(), State.Version, JsonSerializer.Serialize(@event));
+                }
                 await RecoveryState();//还原状态
                 ExceptionDispatchInfo.Capture(ex).Throw();
             }
@@ -265,7 +357,7 @@ namespace Ray.Core.Internal
                 ms.Position = 0;
                 ms.SetLength(0);
                 Serializer.Serialize(ms, data);
-                var mqServiceTask = GetMQService();
+                var mqServiceTask = GetEventProducer();
                 if (!mqServiceTask.IsCompleted)
                     await mqServiceTask;
                 var pubLishTask = mqServiceTask.Result.Publish(ms.ToArray(), hashKey);
