@@ -2,9 +2,9 @@
 
 namespace Ray.Core.Messaging.Channels
 {
-    public interface IMpscChannel<T, R> : IMpscChannelBase
+    public interface IMpscChannel<T> : IMpscChannelBase
     {
-        Task<R> WriteAsync(T data);
+        ValueTask<bool> WriteAsync(T data);
     }
     public interface IMpscChannelBase
     {

@@ -31,10 +31,24 @@ namespace Ray.Grain
             var evt = new AmountTransferEvent(toAccountId, amount, this.State.Balance - amount);
             return RaiseEvent(evt);
         }
-        public Task<bool> AddAmount(decimal amount, string uniqueId = null)
+        public async Task<bool> AddAmount(decimal amount, string uniqueId = null)
         {
-            var evt = new AmountAddEvent(amount, State.Balance + amount);
-            return ConcurrentRaiseEvent(evt, uniqueId);
+            var taskSource = new TaskCompletionSource<bool>();
+            var task = ConcurrentRaiseEvent(async (state, eventFunc) =>
+            {
+                var evt = new AmountAddEvent(amount, State.Balance + amount);
+                await eventFunc(evt, uniqueId, null);
+            }, result =>
+            {
+                taskSource.TrySetResult(result);
+                return new ValueTask(Task.CompletedTask);
+            }, ex =>
+            {
+                taskSource.TrySetException(ex);
+            });
+            if (!task.IsCompleted)
+                await task;
+            return await taskSource.Task;
         }
         public Task<decimal> GetBalance()
         {

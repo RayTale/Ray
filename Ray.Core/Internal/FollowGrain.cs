@@ -74,7 +74,7 @@ namespace Ray.Core.Internal
         /// <summary>
         /// 多生产者单消费者消息信道
         /// </summary>
-        protected IMpscChannel<IEventBase<K>, bool> MpscChannel { get; private set; }
+        protected IMpscChannel<MessageTaskWrapper<IEventBase<K>, bool>> MpscChannel { get; private set; }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask<IEventStorage<K>> GetEventStorage()
         {
@@ -97,7 +97,7 @@ namespace Ray.Core.Internal
                 JsonSerializer = ServiceProvider.GetService<IJsonSerializer>();
                 if (Concurrent)
                 {
-                    MpscChannel = ServiceProvider.GetService<IMpscChannelFactory<K, IEventBase<K>, bool>>().Create(Logger, GrainId, BatchInputProcessing, ConfigOptions.MaxSizeOfPerBatch);
+                    MpscChannel = ServiceProvider.GetService<IMpscChannelFactory<K, MessageTaskWrapper<IEventBase<K>, bool>>>().Create(Logger, GrainId, BatchInputProcessing, ConfigOptions.MaxSizeOfPerBatch);
                 }
                 await ReadSnapshotAsync();
                 if (FullyActive)
@@ -209,7 +209,7 @@ namespace Ray.Core.Internal
             return new ValueTask(Task.CompletedTask);
         }
         #endregion
-        public Task ConcurrentTell(byte[] bytes)
+        public async Task ConcurrentTell(byte[] bytes)
         {
             using (var wms = new MemoryStream(bytes))
             {
@@ -220,12 +220,20 @@ namespace Ray.Core.Internal
                     {
                         if (@event.Version > State.Version)
                         {
-                            return MpscChannel.WriteAsync(@event);
+                            var writeTask = MpscChannel.WriteAsync(new MessageTaskWrapper<IEventBase<K>, bool>(@event));
+                            if (!writeTask.IsCompleted)
+                                await writeTask;
+                            if (!writeTask.Result)
+                            {
+                                var ex = new ChannelUnavailabilityException(GrainId.ToString(), GrainType);
+                                if (Logger.IsEnabled(LogLevel.Error))
+                                    Logger.LogError(LogEventIds.TransactionGrainCurrentInput, ex, ex.Message);
+                                throw ex;
+                            }
                         }
                     }
                 }
             }
-            return Task.CompletedTask;
         }
 
         readonly List<IEventBase<K>> UnprocessedEventList = new List<IEventBase<K>>();
