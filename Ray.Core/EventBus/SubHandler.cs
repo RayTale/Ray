@@ -7,7 +7,7 @@ using Ray.Core.Messaging;
 namespace Ray.Core.EventBus
 {
     public abstract class SubHandler<TMessageWrapper> : ISubHandler
-        where TMessageWrapper : IMessageWrapper
+        where TMessageWrapper : IBytesMessage
     {
         readonly IServiceProvider serviceProvider;
         public SubHandler(IServiceProvider svProvider)

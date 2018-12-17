@@ -1,12 +1,12 @@
 ﻿using Orleans.Concurrency;
 using ProtoBuf;
-using Ray.Core;
+using Ray.Core.Messaging;
 
 namespace Ray.IGrains
 {
     [ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
     [Immutable]
-    public class MessageInfo: IMessageWrapper
+    public class MessageInfo: IBytesMessage
     {
         public string TypeName { get; set; }
         public byte[] Bytes { get; set; }

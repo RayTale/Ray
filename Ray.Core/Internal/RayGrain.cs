@@ -14,7 +14,7 @@ namespace Ray.Core.Internal
 {
     public abstract class RayGrain<K, S, W> : Grain
         where S : class, IState<K>, new()
-        where W : IMessageWrapper, new()
+        where W : IBytesMessage, new()
     {
         public RayGrain(ILogger logger)
         {

@@ -3,9 +3,9 @@ using System.Threading.Tasks;
 
 namespace Ray.Core.Internal
 {
-    public class ConcurrentWrapper<K, S>
+    public class ReentryEventWrapper<K, S>
     {
-        public ConcurrentWrapper(Func<S, Func<IEventBase<K>, string, string, Task>, Task> handler, Func<bool, ValueTask> completedHandler, Action<Exception> exceptionHandler)
+        public ReentryEventWrapper(Func<S, Func<IEventBase<K>, string, string, Task>, Task> handler, Func<bool, ValueTask> completedHandler, Action<Exception> exceptionHandler)
         {
             Handler = handler;
             ExceptionHandler = exceptionHandler;

@@ -4,22 +4,24 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Ray.Core.Exceptions;
+using Ray.Core.Messaging;
 using Ray.Core.Messaging.Channels;
 
 namespace Ray.Core.Internal
 {
-    public abstract  class ConcurrentGrain<K, S, W> : TransactionGrain<K, S, W>
+    public abstract class ConcurrentGrain<K, S, W> : TransactionGrain<K, S, W>
         where S : class, IState<K>, ICloneable<S>, new()
-        where W : IMessageWrapper, new()
+        where W : IBytesMessage, new()
     {
         public ConcurrentGrain(ILogger logger) : base(logger)
         {
         }
-        protected IMpscChannel<ConcurrentWrapper<K, S>> MpscChannel { get; private set; }
+        protected IMpscChannel<ReentryEventWrapper<K, S>> MpscChannel { get; private set; }
+
         public override async Task OnActivateAsync()
         {
             await base.OnActivateAsync();
-            MpscChannel = ServiceProvider.GetService<IMpscChannelFactory<K, ConcurrentWrapper<K, S>>>().Create(Logger, GrainId, BatchInputProcessing, ConfigOptions.MaxSizeOfPerBatch);
+            MpscChannel = ServiceProvider.GetService<IMpscChannelFactory<K, ReentryEventWrapper<K, S>>>().Create(Logger, GrainId, BatchInputProcessing, ConfigOptions.MaxSizeOfPerBatch);
         }
         public override async Task OnDeactivateAsync()
         {
@@ -28,7 +30,7 @@ namespace Ray.Core.Internal
         }
         protected async ValueTask ConcurrentRaiseEvent(Func<S, Func<IEventBase<K>, string, string, Task>, Task> handler, Func<bool, ValueTask> completedHandler, Action<Exception> exceptionHandler)
         {
-            var writeTask = MpscChannel.WriteAsync(new ConcurrentWrapper<K, S>(handler, completedHandler, exceptionHandler));
+            var writeTask = MpscChannel.WriteAsync(new ReentryEventWrapper<K, S>(handler, completedHandler, exceptionHandler));
             if (!writeTask.IsCompleted)
                 await writeTask;
             if (!writeTask.Result)
@@ -39,11 +41,37 @@ namespace Ray.Core.Internal
                 throw ex;
             }
         }
-        protected virtual ValueTask OnBatchInputCompleted()
+        /// <summary>
+        /// 不依赖当前状态的的事件的并发处理
+        /// 如果事件的产生依赖当前状态，请使用<see cref="ConcurrentRaiseEvent(Func{S, Func{IEventBase{K}, string, string, Task}, Task}, Func{bool, ValueTask}, Action{Exception})"/>
+        /// </summary>
+        /// <param name="event">不依赖当前状态的事件</param>
+        /// <param name="uniqueId">幂等性判定值</param>
+        /// <param name="hashKey">消息异步分发的唯一hash的key</param>
+        /// <returns></returns>
+        protected async Task<bool> ConcurrentRaiseEvent(IEventBase<K> @event, string uniqueId = null, string hashKey = null)
+        {
+            var taskSource = new TaskCompletionSource<bool>();
+            var task = ConcurrentRaiseEvent(async (state, eventFunc) =>
+            {
+                await eventFunc(@event, uniqueId, hashKey);
+            }, isOk =>
+            {
+                taskSource.TrySetResult(isOk);
+                return new ValueTask(Task.CompletedTask);
+            }, ex =>
+            {
+                taskSource.TrySetException(ex);
+            });
+            if (!task.IsCompleted)
+                await task;
+            return await taskSource.Task;
+        }
+        protected virtual ValueTask OnBatchInputProcessed()
         {
             return new ValueTask(Task.CompletedTask);
         }
-        private async Task BatchInputProcessing(List<ConcurrentWrapper<K, S>> inputs)
+        private async Task BatchInputProcessing(List<ReentryEventWrapper<K, S>> inputs)
         {
             if (Logger.IsEnabled(LogLevel.Information))
                 Logger.LogInformation(LogEventIds.TransactionGrainCurrentInput, "Start batch event processing,type {0} with id {1},state version {2},the number of events is {3}", GrainType.FullName, GrainId.ToString(), TransactionStartVersion, inputs.Count.ToString());
@@ -86,7 +114,7 @@ namespace Ray.Core.Internal
                     inputs.ForEach(input => input.ExceptionHandler(ex));
                 }
             }
-            var onCompletedTask = OnBatchInputCompleted();
+            var onCompletedTask = OnBatchInputProcessed();
             if (!onCompletedTask.IsCompleted)
                 await onCompletedTask;
             if (Logger.IsEnabled(LogLevel.Information))

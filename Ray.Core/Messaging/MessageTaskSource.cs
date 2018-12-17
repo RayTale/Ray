@@ -2,9 +2,9 @@
 
 namespace Ray.Core.Messaging
 {
-    public class MessageTaskWrapper<T, R>
+    public class MessageTaskSource<T, R>
     {
-        public MessageTaskWrapper(T message)
+        public MessageTaskSource(T message)
         {
             Value = message;
             TaskSource = new TaskCompletionSource<R>();
