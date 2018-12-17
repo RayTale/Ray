@@ -1,11 +1,12 @@
-﻿using Microsoft.Extensions.Logging;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Ray.Core.Messaging;
 
 namespace Ray.Core.Internal
 {
     public abstract class ReplicaGrain<K, S, W> : FollowGrain<K, S, W>
         where S : class, IState<K>, new()
-        where W : IMessageWrapper
+        where W : IBytesMessage
     {
         public ReplicaGrain(ILogger logger) : base(logger)
         {

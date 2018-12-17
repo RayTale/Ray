@@ -1,11 +1,11 @@
 ﻿using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Orleans;
 using Ray.Core.Internal;
-using Ray.IGrains.Actors;
-using Ray.IGrains.States;
-using Ray.IGrains.Events;
 using Ray.Grain.EventHandles;
-using Microsoft.Extensions.Logging;
+using Ray.IGrains.Actors;
+using Ray.IGrains.Events;
+using Ray.IGrains.States;
 
 namespace Ray.Grain
 {
@@ -38,9 +38,9 @@ namespace Ray.Grain
             {
                 var evt = new AmountAddEvent(amount, State.Balance + amount);
                 await eventFunc(evt, uniqueId, null);
-            }, result =>
+            }, isOk =>
             {
-                taskSource.TrySetResult(result);
+                taskSource.TrySetResult(isOk);
                 return new ValueTask(Task.CompletedTask);
             }, ex =>
             {

@@ -18,7 +18,7 @@ namespace Ray.Core.Internal
 {
     public abstract class FollowGrain<K, S, W> : Grain
         where S : class, IState<K>, new()
-        where W : IMessageWrapper
+        where W : IBytesMessage
     {
         public FollowGrain(ILogger logger)
         {
@@ -74,7 +74,7 @@ namespace Ray.Core.Internal
         /// <summary>
         /// 多生产者单消费者消息信道
         /// </summary>
-        protected IMpscChannel<MessageTaskWrapper<IEventBase<K>, bool>> MpscChannel { get; private set; }
+        protected IMpscChannel<MessageTaskSource<IEventBase<K>, bool>> MpscChannel { get; private set; }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask<IEventStorage<K>> GetEventStorage()
         {
@@ -97,7 +97,7 @@ namespace Ray.Core.Internal
                 JsonSerializer = ServiceProvider.GetService<IJsonSerializer>();
                 if (Concurrent)
                 {
-                    MpscChannel = ServiceProvider.GetService<IMpscChannelFactory<K, MessageTaskWrapper<IEventBase<K>, bool>>>().Create(Logger, GrainId, BatchInputProcessing, ConfigOptions.MaxSizeOfPerBatch);
+                    MpscChannel = ServiceProvider.GetService<IMpscChannelFactory<K, MessageTaskSource<IEventBase<K>, bool>>>().Create(Logger, GrainId, BatchInputProcessing, ConfigOptions.MaxSizeOfPerBatch);
                 }
                 await ReadSnapshotAsync();
                 if (FullyActive)
@@ -212,7 +212,7 @@ namespace Ray.Core.Internal
                     {
                         if (@event.Version > State.Version)
                         {
-                            var writeTask = MpscChannel.WriteAsync(new MessageTaskWrapper<IEventBase<K>, bool>(@event));
+                            var writeTask = MpscChannel.WriteAsync(new MessageTaskSource<IEventBase<K>, bool>(@event));
                             if (!writeTask.IsCompleted)
                                 await writeTask;
                             if (!writeTask.Result)
@@ -230,7 +230,7 @@ namespace Ray.Core.Internal
 
         readonly List<IEventBase<K>> UnprocessedEventList = new List<IEventBase<K>>();
         readonly TimeoutException timeoutException = new TimeoutException($"{nameof(OnEventDelivered)} with timeouts in {nameof(BatchInputProcessing)}");
-        private async Task BatchInputProcessing(List<MessageTaskWrapper<IEventBase<K>, bool>> events)
+        private async Task BatchInputProcessing(List<MessageTaskSource<IEventBase<K>, bool>> events)
         {
             var start = DateTime.UtcNow;
             var evtList = new List<IEventBase<K>>();

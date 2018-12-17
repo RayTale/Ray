@@ -6,13 +6,14 @@ using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Ray.Core.Exceptions;
+using Ray.Core.Messaging;
 using Ray.Core.Utils;
 
 namespace Ray.Core.Internal
 {
     public abstract class TransactionGrain<K, S, W> : RayGrain<K, S, W>
         where S : class, IState<K>, ICloneable<S>, new()
-        where W : IMessageWrapper, new()
+        where W : IBytesMessage, new()
     {
         public TransactionGrain(ILogger logger) : base(logger)
         {
@@ -21,7 +22,7 @@ namespace Ray.Core.Internal
         protected bool TransactionPending { get; private set; }
         protected long TransactionStartVersion { get; private set; }
         protected DateTime BeginTransactionTime { get; private set; }
-        private readonly List<EventStorageWrapper<K>> transactionEventList = new List<EventStorageWrapper<K>>();
+        private readonly List<TransactionEventWrapper<K>> transactionEventList = new List<TransactionEventWrapper<K>>();
         protected override async Task RecoveryState()
         {
             await base.RecoveryState();
@@ -203,7 +204,7 @@ namespace Ray.Core.Internal
                 @event.StateId = GrainId;
                 @event.Version = State.Version + 1;
                 @event.Timestamp = DateTime.UtcNow;
-                transactionEventList.Add(new EventStorageWrapper<K>(@event, uniqueId, string.IsNullOrEmpty(hashKey) ? GrainId.ToString() : hashKey));
+                transactionEventList.Add(new TransactionEventWrapper<K>(@event, uniqueId, string.IsNullOrEmpty(hashKey) ? GrainId.ToString() : hashKey));
                 Apply(State, @event);
                 State.UpdateVersion(@event, GrainType);//更新处理完成的Version
             }
