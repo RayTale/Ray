@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Ray.Core.Exceptions;
-using Ray.Core.Messaging;
 using Ray.Core.Messaging.Channels;
 using Ray.Core.Utils;
 
@@ -53,9 +52,7 @@ namespace Ray.Core.Internal
                         if (!rollBackTask.IsCompleted)
                             await rollBackTask;
                         if (Logger.IsEnabled(LogLevel.Information))
-                        {
                             Logger.LogInformation(LogEventIds.TransactionGrainTransactionFlow, "Transaction timeout, automatic rollback,type {0} with id {1}", GrainType.FullName, GrainId.ToString());
-                        }
                     }
                     else
                         throw new RepeatedTransactionException(GrainId.ToString(), GetType());
@@ -72,9 +69,7 @@ namespace Ray.Core.Internal
             catch (Exception ex)
             {
                 if (Logger.IsEnabled(LogLevel.Error))
-                {
                     Logger.LogError(LogEventIds.TransactionGrainTransactionFlow, ex, "Begin transaction failed, type {0} with Id {1}", GrainType.FullName, GrainId.ToString());
-                }
                 ExceptionDispatchInfo.Capture(ex).Throw();
             }
         }

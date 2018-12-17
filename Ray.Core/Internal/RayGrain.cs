@@ -68,16 +68,12 @@ namespace Ray.Core.Internal
                 await RecoveryState();
                 await OnBaseActivated();
                 if (Logger.IsEnabled(LogLevel.Information))
-                {
                     Logger.LogInformation(LogEventIds.GrainActivateId, "Grain activated,type {0} with id {1}", GrainType.FullName, GrainId.ToString());
-                }
             }
             catch (Exception ex)
             {
                 if (Logger.IsEnabled(LogLevel.Error))
-                {
                     Logger.LogError(LogEventIds.GrainActivateId, ex, "Grain activation failed, type {0} with Id {1}", GrainType.FullName, GrainId.ToString());
-                }
                 ExceptionDispatchInfo.Capture(ex).Throw();
             }
         }
@@ -105,16 +101,12 @@ namespace Ray.Core.Internal
                     if (eventList.Count < NumberOfEventsPerRead) break;
                 };
                 if (Logger.IsEnabled(LogLevel.Information))
-                {
                     Logger.LogInformation(LogEventIds.GrainStateRecoveryId, "State repair successfully,type {0} with Id {1} ,state version is {2}", GrainType.FullName, GrainId.ToString(), State.Version);
-                }
             }
             catch (Exception ex)
             {
                 if (Logger.IsEnabled(LogLevel.Error))
-                {
                     Logger.LogError(LogEventIds.GrainActivateId, ex, "Grain repair state failed, type {0} with Id {1}", GrainType.FullName, GrainId.ToString());
-                }
                 ExceptionDispatchInfo.Capture(ex).Throw();
             }
         }
@@ -131,16 +123,12 @@ namespace Ray.Core.Internal
                     await OnBaseDeactivated();
                 }
                 if (Logger.IsEnabled(LogLevel.Information))
-                {
                     Logger.LogInformation(LogEventIds.GrainDeactivateId, "Grain has been deactivated,type {0} with id {1} ,{}", GrainType.FullName, GrainId.ToString(), needSaveSnap ? "updated snapshot" : "no update snapshot");
-                }
             }
             catch (Exception ex)
             {
                 if (Logger.IsEnabled(LogLevel.Error))
-                {
                     Logger.LogError(LogEventIds.GrainActivateId, ex, "Grain Deactivate failed, type {0} with Id {1}", GrainType.FullName, GrainId.ToString());
-                }
                 ExceptionDispatchInfo.Capture(ex).Throw();
             }
         }
@@ -169,16 +157,12 @@ namespace Ray.Core.Internal
                 }
                 SnapshotEventVersion = State.Version;
                 if (Logger.IsEnabled(LogLevel.Information))
-                {
                     Logger.LogInformation(LogEventIds.GrainStateRecoveryId, "State snapshot read successfully, type {0} with Id {1}, state version is {2}", GrainType.FullName, GrainId.ToString(), State.Version);
-                }
             }
             catch (Exception ex)
             {
                 if (Logger.IsEnabled(LogLevel.Error))
-                {
                     Logger.LogError(LogEventIds.GrainStateRecoveryId, ex, "State snapshot read failed, type {0} with Id {1}", GrainType.FullName, GrainId.ToString());
-                }
                 ExceptionDispatchInfo.Capture(ex).Throw();
             }
         }
@@ -211,16 +195,12 @@ namespace Ray.Core.Internal
                             SnapshotEventVersion = State.Version;
                         }
                         if (Logger.IsEnabled(LogLevel.Information))
-                        {
                             Logger.LogInformation(LogEventIds.GrainSaveSnapshot, "State snapshot saved successfully, type {0} with Id {1} ,state version is {2}", GrainType.FullName, GrainId.ToString(), State.Version);
-                        }
                     }
                     catch (Exception ex)
                     {
                         if (Logger.IsEnabled(LogLevel.Error))
-                        {
                             Logger.LogError(LogEventIds.GrainSaveSnapshot, ex, "State snapshot save failed, type {0} with Id {1}", GrainType.FullName, GrainId.ToString());
-                        }
                         ExceptionDispatchInfo.Capture(ex).Throw();
                     }
                 }
@@ -309,17 +289,13 @@ namespace Ray.Core.Internal
                             await saveSnapshotTask;
                         OnRaiseSuccess(@event, bytes);
                         if (Logger.IsEnabled(LogLevel.Information))
-                        {
                             Logger.LogInformation(LogEventIds.GrainRaiseEvent, "Event raise successfully, type {0} with Id {1},state version is {2},event type {3} with version {4}", GrainType.FullName, GrainId.ToString(), State.Version, @event.GetType().FullName, @event.Version);
-                        }
                         return true;
                     }
                     else
                     {
                         if (Logger.IsEnabled(LogLevel.Information))
-                        {
                             Logger.LogInformation(LogEventIds.GrainRaiseEvent, "Event raise failure because of idempotency limitation, type {0} with Id {1},state version is {2},event type {3} with version {4}", GrainType.FullName, GrainId.ToString(), State.Version, @event.GetType().FullName, @event.Version);
-                        }
                         State.DecrementDoingVersion();//还原doing Version
                     }
                 }
@@ -327,9 +303,7 @@ namespace Ray.Core.Internal
             catch (Exception ex)
             {
                 if (Logger.IsEnabled(LogLevel.Error))
-                {
                     Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "Event raise produces errors, type {0} with Id {1},state version is {2},event:{3}", GrainType.FullName, GrainId.ToString(), State.Version, JsonSerializer.Serialize(@event));
-                }
                 await RecoveryState();//还原状态
                 ExceptionDispatchInfo.Capture(ex).Throw();
             }
