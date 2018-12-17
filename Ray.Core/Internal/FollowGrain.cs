@@ -322,7 +322,7 @@ namespace Ray.Core.Internal
             catch (Exception ex)
             {
                 if (Logger.IsEnabled(LogLevel.Error))
-                    Logger.LogError(LogEventIds.FollowGrainEventHandling, ex, "FollowGrain Event handling failed, type {0} with Id {1}", GrainType.FullName, GrainId.ToString());
+                    Logger.LogError(LogEventIds.FollowGrainEventHandling, ex, "FollowGrain event handling failed, type {0} with Id {1}", GrainType.FullName, GrainId.ToString());
                 maxRequest?.TrySetException(ex);
             }
         }
