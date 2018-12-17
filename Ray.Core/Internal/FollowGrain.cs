@@ -139,16 +139,12 @@ namespace Ray.Core.Internal
                     };
                 }
                 if (Logger.IsEnabled(LogLevel.Information))
-                {
                     Logger.LogInformation(LogEventIds.FollowGrainActivateId, "FollowGrain activated,type {0} with id {1} ", GrainType.FullName, GrainId.ToString());
-                }
             }
             catch (Exception ex)
             {
                 if (Logger.IsEnabled(LogLevel.Error))
-                {
                     Logger.LogError(LogEventIds.FollowGrainActivateId, ex, "FollowGrain activation failed, type {0} with Id {1}", GrainType.FullName, GrainId.ToString());
-                }
                 ExceptionDispatchInfo.Capture(ex).Throw();
             }
         }
@@ -156,9 +152,7 @@ namespace Ray.Core.Internal
         {
             var needSaveSnap = State.Version - SnapshotEventVersion >= SnapshotMinVersionInterval;
             if (Logger.IsEnabled(LogLevel.Information))
-            {
                 Logger.LogInformation(LogEventIds.FollowGrainDeactivateId, "FollowGrain has been deactivated,type {0} with id {1} ,{}", GrainType.FullName, GrainId.ToString(), needSaveSnap ? "updated snapshot" : "no update snapshot");
-            }
             if (Concurrent)
                 MpscChannel.Complete();
             if (needSaveSnap)
@@ -190,9 +184,7 @@ namespace Ray.Core.Internal
             catch (Exception ex)
             {
                 if (Logger.IsEnabled(LogLevel.Error))
-                {
                     Logger.LogError(LogEventIds.FollowGrainStateRecoveryId, ex, "State snapshot read failed, type {0} with Id {1}", GrainType.FullName, GrainId.ToString());
-                }
                 ExceptionDispatchInfo.Capture(ex).Throw();
             }
         }
@@ -330,9 +322,7 @@ namespace Ray.Core.Internal
             catch (Exception ex)
             {
                 if (Logger.IsEnabled(LogLevel.Error))
-                {
                     Logger.LogError(LogEventIds.FollowGrainEventHandling, ex, "FollowGrain Event handling failed, type {0} with Id {1}", GrainType.FullName, GrainId.ToString());
-                }
                 maxRequest?.TrySetException(ex);
             }
         }
@@ -396,9 +386,7 @@ namespace Ray.Core.Internal
             catch (Exception ex)
             {
                 if (Logger.IsEnabled(LogLevel.Error))
-                {
                     Logger.LogError(LogEventIds.FollowGrainEventHandling, ex, "FollowGrain Event handling failed, type {0} with Id {1},event:{2}", GrainType.FullName, GrainId.ToString(), JsonSerializer.Serialize(message));
-                }
                 ExceptionDispatchInfo.Capture(ex).Throw();
             }
         }
@@ -436,16 +424,12 @@ namespace Ray.Core.Internal
                         if (!onSavedSnapshotTask.IsCompleted)
                             await onSavedSnapshotTask;
                         if (Logger.IsEnabled(LogLevel.Information))
-                        {
                             Logger.LogInformation(LogEventIds.FollowGrainSaveSnapshot, "State snapshot saved successfully, type {0} with Id {1} ,state version is {2}", GrainType.FullName, GrainId.ToString(), State.Version);
-                        }
                     }
                     catch (Exception ex)
                     {
                         if (Logger.IsEnabled(LogLevel.Error))
-                        {
                             Logger.LogError(LogEventIds.FollowGrainSaveSnapshot, ex, "State snapshot save failed, type {0} with Id {1}", GrainType.FullName, GrainId.ToString());
-                        }
                         ExceptionDispatchInfo.Capture(ex).Throw();
                     }
                 }
