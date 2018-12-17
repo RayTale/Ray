@@ -5,7 +5,7 @@ using Ray.IGrains;
 
 namespace Ray.Grain
 {
-    public abstract class DbGrain<K, S> : FollowGrain<K, S, MessageInfo>
+    public abstract class DbGrain<K, S> : ConcurrentFollowGrain<K, S, MessageInfo>
           where S : class, IState<K>, new()
     {
         public DbGrain(ILogger logger) : base(logger)
