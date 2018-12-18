@@ -24,16 +24,17 @@ namespace Ray.Core.Internal
         /// <summary>
         /// 多生产者单消费者消息信道
         /// </summary>
-        protected IMpscChannel<MessageTaskSource<IEventBase<K>, bool>> MpscChannel { get; private set; }
+        protected IMpscChannel<MessageTaskSource<IEventBase<K>, bool>> ConcurrentChannel { get; private set; }
         protected override bool EventConcurrentProcessing => true;
         public override Task OnActivateAsync()
         {
-            MpscChannel = ServiceProvider.GetService<IMpscChannelFactory<K, MessageTaskSource<IEventBase<K>, bool>>>().Create(Logger, GrainId, BatchInputProcessing, ConfigOptions.MaxSizeOfPerBatch);
+            ConcurrentChannel = ServiceProvider.GetService<IMpscChannel<MessageTaskSource<IEventBase<K>, bool>>>().BindConsumer(BatchInputProcessing);
+            ConcurrentChannel.ActiveConsumer();
             return base.OnActivateAsync();
         }
         public override Task OnDeactivateAsync()
         {
-            MpscChannel.Complete();
+            ConcurrentChannel.Complete();
             return base.OnDeactivateAsync();
         }
         public async Task ConcurrentTell(byte[] bytes)
@@ -47,7 +48,7 @@ namespace Ray.Core.Internal
                     {
                         if (@event.Version > State.Version)
                         {
-                            var writeTask = MpscChannel.WriteAsync(new MessageTaskSource<IEventBase<K>, bool>(@event));
+                            var writeTask = ConcurrentChannel.WriteAsync(new MessageTaskSource<IEventBase<K>, bool>(@event));
                             if (!writeTask.IsCompleted)
                                 await writeTask;
                             if (!writeTask.Result)

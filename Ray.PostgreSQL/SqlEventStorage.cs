@@ -4,25 +4,29 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Threading;
 using System.Threading.Tasks;
-using System.Threading.Tasks.Dataflow;
 using Dapper;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 using NpgsqlTypes;
 using ProtoBuf;
 using Ray.Core.Internal;
 using Ray.Core.Messaging;
+using Ray.Core.Messaging.Channels;
 
 namespace Ray.PostgreSQL
 {
     public class SqlEventStorage<K> : IEventStorage<K>
     {
         readonly SqlGrainConfig tableInfo;
-        readonly BufferBlock<BytesEventTaskSource<K>> EventSaveFlowChannel = new BufferBlock<BytesEventTaskSource<K>>();
-        int isProcessing = 0;
-        public SqlEventStorage(SqlGrainConfig tableInfo)
+        readonly IMpscChannel<BytesEventTaskSource<K>> mpscChannel;
+        readonly ILogger<SqlEventStorage<K>> logger;
+        public SqlEventStorage(IServiceProvider serviceProvider, SqlGrainConfig tableInfo)
         {
+            logger = serviceProvider.GetService<ILogger<SqlEventStorage<K>>>();
+            mpscChannel = serviceProvider.GetService<IMpscChannel<BytesEventTaskSource<K>>>().BindConsumer(BatchProcessing);
+            mpscChannel.ActiveConsumer();
             this.tableInfo = tableInfo;
         }
         public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, long startVersion, long endVersion, DateTime? startTime = null)
@@ -106,37 +110,14 @@ namespace Ray.PostgreSQL
             return Task.Run(async () =>
             {
                 var wrap = new BytesEventTaskSource<K>(evt, bytes, uniqueId);
-                if (!EventSaveFlowChannel.Post(wrap))
-                    await EventSaveFlowChannel.SendAsync(wrap);
-                if (isProcessing == 0)
-                    TriggerFlowProcess();
+                var writeTask = mpscChannel.WriteAsync(wrap);
+                if (!writeTask.IsCompleted)
+                    await writeTask;
                 return await wrap.TaskSource.Task;
             });
         }
-        private async void TriggerFlowProcess()
+        private async Task BatchProcessing(List<BytesEventTaskSource<K>> wrapList)
         {
-            await Task.Run(async () =>
-            {
-                if (Interlocked.CompareExchange(ref isProcessing, 1, 0) == 0)
-                {
-                    try
-                    {
-                        while (await EventSaveFlowChannel.OutputAvailableAsync())
-                        {
-                            await FlowProcess();
-                        }
-                    }
-                    finally
-                    {
-                        Interlocked.Exchange(ref isProcessing, 0);
-                    }
-                }
-            });
-        }
-        private async Task FlowProcess()
-        {
-            var start = DateTime.UtcNow;
-            var wrapList = new List<BytesEventTaskSource<K>>();
             var copySql = copySaveSqlDict.GetOrAdd((await tableInfo.GetTable(DateTime.UtcNow)).Name, key => $"copy {key}(stateid,uniqueId,typecode,data,version) FROM STDIN (FORMAT BINARY)");
             try
             {
@@ -145,16 +126,14 @@ namespace Ray.PostgreSQL
                     await conn.OpenAsync();
                     using (var writer = conn.BeginBinaryImport(copySql))
                     {
-                        while (EventSaveFlowChannel.TryReceive(out var evt))
+                        foreach (var evt in wrapList)
                         {
-                            wrapList.Add(evt);
                             writer.StartRow();
                             writer.Write(evt.Value.StateId.ToString(), NpgsqlDbType.Varchar);
                             writer.Write(evt.UniqueId, NpgsqlDbType.Varchar);
                             writer.Write(evt.Value.GetType().FullName, NpgsqlDbType.Varchar);
                             writer.Write(evt.Bytes, NpgsqlDbType.Bytea);
                             writer.Write(evt.Value.Version, NpgsqlDbType.Bigint);
-                            if ((DateTime.UtcNow - start).TotalMilliseconds > 100) break;//保证批量延时不超过100ms
                         }
                         writer.Complete();
                     }

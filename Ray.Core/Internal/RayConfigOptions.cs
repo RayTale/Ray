@@ -7,14 +7,6 @@
         /// </summary>
         public int TransactionTimeoutSeconds { get; set; } = 60;
         /// <summary>
-        /// 批量处理消息时的最大延时(ms)
-        /// </summary>
-        public int MaxDelayOfBatchMilliseconds { get; set; } = 100;
-        /// <summary>
-        /// 批量数据处理每次处理的最大数据量
-        /// </summary>
-        public int MaxSizeOfPerBatch { get; set; } = 5000;
-        /// <summary>
         /// RayGrain保存快照的事件Version间隔
         /// </summary>
         public int SnapshotVersionInterval { get; set; } = 500;

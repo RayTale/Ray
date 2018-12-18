@@ -16,21 +16,22 @@ namespace Ray.Core.Internal
         public ConcurrentGrain(ILogger logger) : base(logger)
         {
         }
-        protected IMpscChannel<ReentryEventWrapper<K, S>> MpscChannel { get; private set; }
+        protected IMpscChannel<ReentryEventWrapper<K, S>> ConcurrentChannel { get; private set; }
 
         public override async Task OnActivateAsync()
         {
             await base.OnActivateAsync();
-            MpscChannel = ServiceProvider.GetService<IMpscChannelFactory<K, ReentryEventWrapper<K, S>>>().Create(Logger, GrainId, BatchInputProcessing, ConfigOptions.MaxSizeOfPerBatch);
+            ConcurrentChannel = ServiceProvider.GetService<IMpscChannel<ReentryEventWrapper<K, S>>>();
+            ConcurrentChannel.BindConsumer(BatchInputProcessing).ActiveConsumer();
         }
         public override async Task OnDeactivateAsync()
         {
             await base.OnDeactivateAsync();
-            MpscChannel.Complete();
+            ConcurrentChannel.Complete();
         }
         protected async ValueTask ConcurrentRaiseEvent(Func<S, Func<IEventBase<K>, string, string, Task>, Task> handler, Func<bool, ValueTask> completedHandler, Action<Exception> exceptionHandler)
         {
-            var writeTask = MpscChannel.WriteAsync(new ReentryEventWrapper<K, S>(handler, completedHandler, exceptionHandler));
+            var writeTask = ConcurrentChannel.WriteAsync(new ReentryEventWrapper<K, S>(handler, completedHandler, exceptionHandler));
             if (!writeTask.IsCompleted)
                 await writeTask;
             if (!writeTask.Result)

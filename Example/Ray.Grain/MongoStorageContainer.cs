@@ -10,9 +10,11 @@ namespace Ray.Grain
     public class MongoStorageContainer : IStorageContainer
     {
         readonly IMongoStorage mongoStorage;
-        public MongoStorageContainer(IMongoStorage mongoStorage)
+        readonly IServiceProvider serviceProvider;
+        public MongoStorageContainer(IServiceProvider serviceProvider, IMongoStorage mongoStorage)
         {
             this.mongoStorage = mongoStorage;
+            this.serviceProvider = serviceProvider;
         }
         readonly ConcurrentDictionary<string, MongoGrainConfig> sqlGrainConfigDict = new ConcurrentDictionary<string, MongoGrainConfig>();
         private async ValueTask<MongoGrainConfig> GetConfig(Orleans.Grain grain)
@@ -53,7 +55,7 @@ namespace Ray.Grain
                         await grainConfigTask;
                     storage = eventStorageDict.GetOrAdd(type.FullName, key =>
                     {
-                        return new MongoEventStorage<K>(grainConfigTask.Result);
+                        return new MongoEventStorage<K>(serviceProvider, grainConfigTask.Result);
                     });
                 }
                 return storage as MongoEventStorage<K>;

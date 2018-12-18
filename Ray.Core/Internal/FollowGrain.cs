@@ -48,10 +48,6 @@ namespace Ray.Core.Internal
         /// </summary>
         protected virtual int NumberOfEventsPerRead => ConfigOptions.NumberOfEventsPerRead;
         /// <summary>
-        /// 并发处理消息时，收集消息等待处理的最大延时
-        /// </summary>
-        protected virtual int MaxDelayOfBatchMilliseconds => ConfigOptions.MaxDelayOfBatchMilliseconds;
-        /// <summary>
         /// 事件处理的超时时间
         /// </summary>
         protected virtual int EventAsyncProcessTimeoutSeconds => ConfigOptions.EventAsyncProcessTimeoutSeconds;
