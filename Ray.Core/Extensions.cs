@@ -10,7 +10,7 @@ namespace Ray.Core
         public static void AddRay(this IServiceCollection serviceCollection)
         {
             serviceCollection.AddSingleton<IClientFactory, ClientFactory>();
-            serviceCollection.AddSingleton(typeof(IMpscChannelFactory<,>), typeof(MpscChannelFactory<,>));
+            serviceCollection.AddTransient(typeof(IMpscChannel<>), typeof(MpscChannel<>));
             serviceCollection.AddSingleton<IJsonSerializer, DefaultJsonSerializer>();
         }
     }

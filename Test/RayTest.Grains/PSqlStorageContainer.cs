@@ -10,9 +10,11 @@ namespace RayTest.Grains
     public class PSQLStorageContainer : IStorageContainer
     {
         readonly SqlConfig config;
-        public PSQLStorageContainer(IOptions<SqlConfig> configOptions)
+        readonly IServiceProvider serviceProvider;
+        public PSQLStorageContainer(IServiceProvider serviceProvider, IOptions<SqlConfig> configOptions)
         {
             config = configOptions.Value;
+            this.serviceProvider = serviceProvider;
         }
         readonly ConcurrentDictionary<string, SqlGrainConfig> sqlGrainConfigDict = new ConcurrentDictionary<string, SqlGrainConfig>();
         private async ValueTask<SqlGrainConfig> GetConfig(Orleans.Grain grain)
@@ -47,7 +49,7 @@ namespace RayTest.Grains
                         await grainConfigTask;
                     storage = eventStorageDict.GetOrAdd(type.FullName, key =>
                     {
-                        return new SqlEventStorage<K>(grainConfigTask.Result);
+                        return new SqlEventStorage<K>(serviceProvider, grainConfigTask.Result);
                     });
                 }
                 return storage as SqlEventStorage<K>;

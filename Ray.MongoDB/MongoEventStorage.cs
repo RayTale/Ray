@@ -3,22 +3,27 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Threading.Tasks.Dataflow;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using ProtoBuf;
 using Ray.Core.Internal;
 using Ray.Core.Messaging;
+using Ray.Core.Messaging.Channels;
 
 namespace Ray.MongoDB
 {
     public class MongoEventStorage<K> : IEventStorage<K>
     {
         readonly MongoGrainConfig grainConfig;
-        readonly BufferBlock<BytesEventTaskSource<K>> EventSaveFlowChannel = new BufferBlock<BytesEventTaskSource<K>>();
-        int isProcessing = 0;
-        public MongoEventStorage(MongoGrainConfig grainConfig)
+        readonly IMpscChannel<BytesEventTaskSource<K>> mpscChannel;
+        readonly ILogger<MongoEventStorage<K>> logger;
+        public MongoEventStorage(IServiceProvider serviceProvider, MongoGrainConfig grainConfig)
         {
+            logger = serviceProvider.GetService<ILogger<MongoEventStorage<K>>>();
+            mpscChannel = serviceProvider.GetService<IMpscChannel<BytesEventTaskSource<K>>>();
+            mpscChannel.BindConsumer(BatchProcessing).ActiveConsumer();
             this.grainConfig = grainConfig;
         }
         public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, Int64 startVersion, Int64 endVersion, DateTime? startTime = null)
@@ -84,52 +89,26 @@ namespace Ray.MongoDB
             return Task.Run(async () =>
             {
                 var wrap = new BytesEventTaskSource<K>(evt, bytes, uniqueId);
-                if (!EventSaveFlowChannel.Post(wrap))
-                    await EventSaveFlowChannel.SendAsync(wrap);
-                if (isProcessing == 0)
-                    TriggerFlowProcess();
+                var writeTask = mpscChannel.WriteAsync(wrap);
+                if (!writeTask.IsCompleted)
+                    await writeTask;
                 return await wrap.TaskSource.Task;
             });
         }
-        private async void TriggerFlowProcess()
+        private async Task BatchProcessing(List<BytesEventTaskSource<K>> wrapList)
         {
-            await Task.Run(async () =>
-            {
-                if (Interlocked.CompareExchange(ref isProcessing, 1, 0) == 0)
-                {
-                    try
-                    {
-                        while (await EventSaveFlowChannel.OutputAvailableAsync())
-                        {
-                            await FlowProcess();
-                        }
-                    }
-                    finally
-                    {
-                        Interlocked.Exchange(ref isProcessing, 0);
-                    }
-                }
-            }).ConfigureAwait(false);
-
-        }
-        private async ValueTask FlowProcess()
-        {
-            var start = DateTime.UtcNow;
-            var wrapList = new List<BytesEventTaskSource<K>>();
             var documents = new List<MongoEvent<K>>();
-            while (EventSaveFlowChannel.TryReceive(out var evt))
+            foreach (var wrap in wrapList)
             {
-                wrapList.Add(evt);
                 documents.Add(new MongoEvent<K>
                 {
                     Id = new ObjectId(),
-                    StateId = evt.Value.StateId,
-                    Version = evt.Value.Version,
-                    TypeCode = evt.Value.GetType().FullName,
-                    Data = evt.Bytes,
-                    UniqueId = string.IsNullOrEmpty(evt.UniqueId) ? evt.Value.Version.ToString() : evt.UniqueId
+                    StateId = wrap.Value.StateId,
+                    Version = wrap.Value.Version,
+                    TypeCode = wrap.Value.GetType().FullName,
+                    Data = wrap.Bytes,
+                    UniqueId = string.IsNullOrEmpty(wrap.UniqueId) ? wrap.Value.Version.ToString() : wrap.UniqueId
                 });
-                if ((DateTime.UtcNow - start).TotalMilliseconds > 100) break;//保证批量延时不超过100ms
             }
             var collectionTask = grainConfig.GetCollection(DateTime.UtcNow);
             if (!collectionTask.IsCompleted)
@@ -143,30 +122,30 @@ namespace Ray.MongoDB
             }
             catch
             {
-                foreach (var w in wrapList)
+                foreach (var wrap in wrapList)
                 {
                     try
                     {
                         await collection.InsertOneAsync(new MongoEvent<K>
                         {
                             Id = new ObjectId(),
-                            StateId = w.Value.StateId,
-                            Version = w.Value.Version,
-                            TypeCode = w.Value.GetType().FullName,
-                            Data = w.Bytes,
-                            UniqueId = string.IsNullOrEmpty(w.UniqueId) ? w.Value.Version.ToString() : w.UniqueId
+                            StateId = wrap.Value.StateId,
+                            Version = wrap.Value.Version,
+                            TypeCode = wrap.Value.GetType().FullName,
+                            Data = wrap.Bytes,
+                            UniqueId = string.IsNullOrEmpty(wrap.UniqueId) ? wrap.Value.Version.ToString() : wrap.UniqueId
                         });
-                        w.TaskSource.TrySetResult(true);
+                        wrap.TaskSource.TrySetResult(true);
                     }
                     catch (MongoWriteException ex)
                     {
                         if (ex.WriteError.Category != ServerErrorCategory.DuplicateKey)
                         {
-                            w.TaskSource.TrySetException(ex);
+                            wrap.TaskSource.TrySetException(ex);
                         }
                         else
                         {
-                            w.TaskSource.TrySetResult(false);
+                            wrap.TaskSource.TrySetResult(false);
                         }
                     }
                 }

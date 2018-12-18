@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Ray.Core.Messaging.Channels
 {
@@ -15,20 +16,29 @@ namespace Ray.Core.Messaging.Channels
     public class MpscChannel<T> : IMpscChannel<T>
     {
         readonly BufferBlock<T> buffer = new BufferBlock<T>();
-        readonly Func<List<T>, Task> consumer;
+        private Func<List<T>, Task> consumer;
         readonly List<IMpscChannelBase> consumerSequence = new List<IMpscChannelBase>();
         private Task<bool> waitToReadTask;
         readonly ILogger logger;
-        readonly int maxDataCountPerBatch;
-        public MpscChannel(ILogger logger, Func<List<T>, Task> consumer, int maxDataCountPerBatch = 5000)
+        readonly IOptions<ChannelOptions> options;
+        public MpscChannel(ILogger<MpscChannel<T>> logger, IOptions<ChannelOptions> options)
         {
             this.logger = logger;
-            this.consumer = consumer;
-            this.maxDataCountPerBatch = maxDataCountPerBatch;
+            this.options = options;
+        }
+        public MpscChannel<T> BindConsumer(Func<List<T>, Task> consumer)
+        {
+            if (consumer == default)
+                this.consumer = consumer;
+            else
+                throw new RebindConsumerException(this.GetType().FullName);
+            return this;
         }
 
         public async ValueTask<bool> WriteAsync(T data)
         {
+            if (!InConsuming)
+                return false;
             if (!buffer.Post(data))
                 return await buffer.SendAsync(data);
             return true;
@@ -46,9 +56,10 @@ namespace Ray.Core.Messaging.Channels
                 while (buffer.TryReceive(out var value))
                 {
                     dataList.Add(value);
-                    if (dataList.Count > maxDataCountPerBatch) break;
+                    if (dataList.Count > options.Value.MaxSizeOfBatch) break;
                 }
-                await consumer(dataList);
+                if (dataList.Count > 0)
+                    await consumer(dataList);
             }
             foreach (var joinConsumer in consumerSequence)
             {
@@ -70,7 +81,7 @@ namespace Ray.Core.Messaging.Channels
             }
         }
         private int consuming = 0;
-        public bool InConsuming => consuming != 0;
+        private bool InConsuming => consuming != 0;
         private async void ActiveConsumer(object state)
         {
             if (Interlocked.CompareExchange(ref consuming, 1, 0) == 0)
@@ -92,14 +103,19 @@ namespace Ray.Core.Messaging.Channels
                 }
             }
         }
-        public bool ActiveConsumer()
+        public void ActiveConsumer()
         {
-            return ThreadPool.QueueUserWorkItem(ActiveConsumer);
+            if (!InConsuming)
+                ThreadPool.QueueUserWorkItem(ActiveConsumer);
         }
         public bool IsComplete { get; private set; }
         public void Complete()
         {
             IsComplete = true;
+            foreach (var joinConsumer in consumerSequence)
+            {
+                joinConsumer.Complete();
+            }
             buffer.Complete();
         }
     }
