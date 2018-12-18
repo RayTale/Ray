@@ -2,7 +2,6 @@
 using Microsoft.Extensions.Logging;
 using Orleans;
 using Ray.Core.Internal;
-using Ray.Grain.EventHandles;
 using Ray.IGrains.Actors;
 using Ray.IGrains.Events;
 using Ray.IGrains.States;
@@ -15,12 +14,6 @@ namespace Ray.Grain
         {
         }
         public override long GrainId => this.GetPrimaryKeyLong();
-
-        public static IEventHandle<AccountState> EventHandle { get; } = new AccountEventHandle();
-        protected override void Apply(AccountState state, IEventBase<long> evt)
-        {
-            EventHandle.Apply(state, evt);
-        }
         protected override bool SupportAsyncFollow => true;
         public override async Task OnActivateAsync()
         {
@@ -41,7 +34,7 @@ namespace Ray.Grain
             }, isOk =>
             {
                 taskSource.TrySetResult(isOk);
-                return new ValueTask(Task.CompletedTask);
+                return new ValueTask();
             }, ex =>
             {
                 taskSource.TrySetException(ex);

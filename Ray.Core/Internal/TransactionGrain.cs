@@ -185,7 +185,7 @@ namespace Ray.Core.Internal
         {
             using (var dms = new MemoryStream(bytes))
             {
-                Apply(BackupState, (IEventBase<K>)Serializer.Deserialize(@event.GetType(), dms));
+                EventApply(BackupState, (IEventBase<K>)Serializer.Deserialize(@event.GetType(), dms));
             }
             BackupState.FullUpdateVersion(@event, GrainType);//更新处理完成的Version
         }
@@ -205,7 +205,7 @@ namespace Ray.Core.Internal
                 @event.Version = State.Version + 1;
                 @event.Timestamp = DateTime.UtcNow;
                 transactionEventList.Add(new TransactionEventWrapper<K>(@event, uniqueId, string.IsNullOrEmpty(hashKey) ? GrainId.ToString() : hashKey));
-                Apply(State, @event);
+                EventApply(State, @event);
                 State.UpdateVersion(@event, GrainType);//更新处理完成的Version
             }
             catch (Exception ex)

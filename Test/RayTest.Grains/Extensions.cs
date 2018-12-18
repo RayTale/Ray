@@ -1,7 +1,9 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
-using Ray.Core.Internal;
 using Ray.Core.EventBus;
+using Ray.Core.Internal;
 using Ray.RabbitMQ;
+using RayTest.Grains.EventHandles;
+using RayTest.IGrains.States;
 
 namespace RayTest.Grains
 {
@@ -17,6 +19,10 @@ namespace RayTest.Grains
         {
             serviceCollection.AddRabbitMQ();
             serviceCollection.AddSingleton<IProducerContainer, ProducerContainer>();
+        }
+        public static void AddGrainHandler(this IServiceCollection serviceCollection)
+        {
+            serviceCollection.AddSingleton<IEventHandler<AccountState>, AccountEventHandle>();
         }
     }
 }

@@ -1,6 +1,6 @@
 ﻿namespace Ray.Core.Internal
 {
-    public interface IEventHandle<S>
+    public interface IEventHandler<S>
     {
         void Apply(S state, IEvent evt);
     }

@@ -1,14 +1,10 @@
 ﻿using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Orleans;
 using Ray.Core.Internal;
-using Ray.RabbitMQ;
-using Microsoft.Extensions.Options;
-using Ray.PostgreSQL;
-using RayTest.IGrains.States;
 using RayTest.IGrains.Actors;
-using RayTest.Grains.EventHandles;
 using RayTest.IGrains.Events;
-using Microsoft.Extensions.Logging;
+using RayTest.IGrains.States;
 
 namespace RayTest.Grains
 {
@@ -18,12 +14,6 @@ namespace RayTest.Grains
         {
         }
         public override long GrainId => this.GetPrimaryKeyLong();
-
-        public static IEventHandle<AccountState> EventHandle { get; } = new AccountEventHandle();
-        protected override void Apply(AccountState state, IEventBase<long> evt)
-        {
-            EventHandle.Apply(state, evt);
-        }
         protected override bool SupportAsyncFollow => true;
         public override async Task OnActivateAsync()
         {

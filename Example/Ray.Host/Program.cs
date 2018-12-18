@@ -32,8 +32,8 @@ namespace Ray.MongoHost
             try
             {
                 using (var host = await StartSilo())
-                using (var client = await StartClientWithRetries())
-                {
+                //using (var client = await StartClientWithRetries())
+                //{
                     //var handlerStartup = client.ServiceProvider.GetService<HandlerStartup>();
                     //await Task.WhenAll(
                     // handlerStartup.Start(SubscriberGroup.Core),
@@ -43,13 +43,13 @@ namespace Ray.MongoHost
                     {
                         Console.WriteLine("Input any key to stop");
                         Console.ReadLine();
-                        client.Dispose();
+                        //client.Dispose();
                         await host.StopAsync();
                         Console.WriteLine("Input any key to Start");
                         Console.ReadLine();
                         await host.StartAsync();
                     }
-                }
+                //}
                 return 0;
             }
             catch (Exception ex)
@@ -94,7 +94,7 @@ namespace Ray.MongoHost
                 })
                 .ConfigureLogging(logging =>
                 {
-                    logging.SetMinimumLevel(LogLevel.Information);
+                    logging.SetMinimumLevel(LogLevel.Debug);
                     logging.AddConsole();
                 });
 
