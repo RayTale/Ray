@@ -28,10 +28,10 @@ namespace Ray.Core.Messaging.Channels
         }
         public MpscChannel<T> BindConsumer(Func<List<T>, Task> consumer)
         {
-            if (consumer == default)
+            if (this.consumer == default)
                 this.consumer = consumer;
             else
-                throw new RebindConsumerException(this.GetType().FullName);
+                throw new RebindConsumerException(GetType().FullName);
             return this;
         }
 
