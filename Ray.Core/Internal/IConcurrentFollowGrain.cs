@@ -3,7 +3,7 @@ using Orleans.Concurrency;
 
 namespace Ray.Core.Internal
 {
-    public interface IInterleaveFollowGrain
+    public interface IConcurrentFollowGrain
     {
         [AlwaysInterleave]
         Task ConcurrentTell(byte[] bytes);
