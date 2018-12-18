@@ -27,6 +27,7 @@ namespace Ray.Core.Internal
         protected IJsonSerializer JsonSerializer { get; private set; }
         protected ISerializer Serializer { get; private set; }
         protected S State { get; set; }
+        protected IEventHandler<S> EventHandler { get; private set; }
         public abstract K GrainId { get; }
         protected virtual StateSnapStorageType SnapshotStorageType => StateSnapStorageType.Master;
         /// <summary>
@@ -57,6 +58,8 @@ namespace Ray.Core.Internal
         /// <returns></returns>
         public override async Task OnActivateAsync()
         {
+            if (Logger.IsEnabled(LogLevel.Debug))
+                Logger.LogDebug(LogEventIds.GrainActivateId, "Start activation,type {0} with id {1}", GrainType.FullName, GrainId.ToString());
             try
             {
                 GrainType = GetType();
@@ -65,22 +68,27 @@ namespace Ray.Core.Internal
                 ProducerContainer = ServiceProvider.GetService<IProducerContainer>();
                 Serializer = ServiceProvider.GetService<ISerializer>();
                 JsonSerializer = ServiceProvider.GetService<IJsonSerializer>();
+                EventHandler = ServiceProvider.GetService<IEventHandler<S>>();
                 await RecoveryState();
-                await OnBaseActivated();
-                if (Logger.IsEnabled(LogLevel.Information))
-                    Logger.LogInformation(LogEventIds.GrainActivateId, "Grain activated,type {0} with id {1}", GrainType.FullName, GrainId.ToString());
+                var onActivatedTask = OnBaseActivated();
+                if (!onActivatedTask.IsCompleted)
+                    await onActivatedTask;
+                if (Logger.IsEnabled(LogLevel.Debug))
+                    Logger.LogDebug(LogEventIds.GrainActivateId, "Activation completed,type {0} with id {1}", GrainType.FullName, GrainId.ToString());
             }
             catch (Exception ex)
             {
-                if (Logger.IsEnabled(LogLevel.Error))
-                    Logger.LogError(LogEventIds.GrainActivateId, ex, "Grain activation failed, type {0} with Id {1}", GrainType.FullName, GrainId.ToString());
+                if (Logger.IsEnabled(LogLevel.Critical))
+                    Logger.LogCritical(LogEventIds.GrainActivateId, ex, "Grain activation failed, type {0} with Id {1}", GrainType.FullName, GrainId.ToString());
                 ExceptionDispatchInfo.Capture(ex).Throw();
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual Task OnBaseActivated() => Task.CompletedTask;
+        protected virtual ValueTask OnBaseActivated() => new ValueTask();
         protected virtual async Task RecoveryState()
         {
+            if (Logger.IsEnabled(LogLevel.Debug))
+                Logger.LogDebug(LogEventIds.GrainActivateId, "Begin to recover state,type {0} with id {1}", GrainType.FullName, GrainId.ToString());
             try
             {
                 var readSnapshotTask = ReadSnapshotAsync();
@@ -95,18 +103,18 @@ namespace Ray.Core.Internal
                     foreach (var @event in eventList)
                     {
                         State.IncrementDoingVersion(GrainType);//标记将要处理的Version
-                        Apply(State, @event);
+                        EventApply(State, @event);
                         State.UpdateVersion(@event, GrainType);//更新处理完成的Version
                     }
                     if (eventList.Count < NumberOfEventsPerRead) break;
                 };
                 if (Logger.IsEnabled(LogLevel.Information))
-                    Logger.LogInformation(LogEventIds.GrainStateRecoveryId, "State repair successfully,type {0} with Id {1} ,state version is {2}", GrainType.FullName, GrainId.ToString(), State.Version);
+                    Logger.LogDebug(LogEventIds.GrainStateRecoveryId, "Recovery state complete,type {0} with Id {1} ,state version is {2}", GrainType.FullName, GrainId.ToString(), State.Version);
             }
             catch (Exception ex)
             {
-                if (Logger.IsEnabled(LogLevel.Error))
-                    Logger.LogError(LogEventIds.GrainActivateId, ex, "Grain repair state failed, type {0} with Id {1}", GrainType.FullName, GrainId.ToString());
+                if (Logger.IsEnabled(LogLevel.Critical))
+                    Logger.LogCritical(LogEventIds.GrainActivateId, ex, "Grain repair state failed, type {0} with Id {1}", GrainType.FullName, GrainId.ToString());
                 ExceptionDispatchInfo.Capture(ex).Throw();
             }
         }
@@ -207,7 +215,7 @@ namespace Ray.Core.Internal
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual ValueTask OnSaveSnapshot() => new ValueTask(Task.CompletedTask);
+        protected virtual ValueTask OnSaveSnapshot() => new ValueTask();
         /// <summary>
         /// 初始化状态，必须实现
         /// </summary>
@@ -218,7 +226,7 @@ namespace Ray.Core.Internal
             {
                 StateId = GrainId
             };
-            return new ValueTask(Task.CompletedTask);
+            return new ValueTask();
         }
         protected async Task ClearStateAsync()
         {
@@ -271,7 +279,7 @@ namespace Ray.Core.Internal
                             ms.SetLength(0);
                             Serializer.Serialize(ms, data);
                             //消息写入消息队列，以提供异步服务
-                            Apply(State, @event);
+                            EventApply(State, @event);
                             var mqServiceTask = GetEventProducer();
                             if (!mqServiceTask.IsCompleted)
                                 await mqServiceTask;
@@ -281,7 +289,7 @@ namespace Ray.Core.Internal
                         }
                         else
                         {
-                            Apply(State, @event);
+                            EventApply(State, @event);
                         }
                         State.UpdateVersion(@event, GrainType);//更新处理完成的Version
                         var saveSnapshotTask = SaveSnapshotAsync();
@@ -310,8 +318,14 @@ namespace Ray.Core.Internal
             return false;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual void OnRaiseSuccess(IEventBase<K> @event, byte[] bytes) { }
-        protected abstract void Apply(S state, IEventBase<K> evt);
+        protected virtual void OnRaiseSuccess(IEventBase<K> @event, byte[] bytes)
+        {
+
+        }
+        protected virtual void EventApply(S state, IEventBase<K> evt)
+        {
+            EventHandler.Apply(state, evt);
+        }
         /// <summary>
         /// 发送无状态更改的消息到消息队列
         /// </summary>

@@ -4,7 +4,7 @@ using Ray.IGrains.States;
 
 namespace Ray.Grain.EventHandles
 {
-    public class AccountEventHandle : IEventHandle<AccountState>
+    public class AccountEventHandle : IEventHandler<AccountState>
     {
         public void Apply(AccountState state, IEvent evt)
         {

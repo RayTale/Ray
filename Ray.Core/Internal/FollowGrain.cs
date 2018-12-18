@@ -181,7 +181,7 @@ namespace Ray.Core.Internal
             {
                 StateId = GrainId
             };
-            return new ValueTask(Task.CompletedTask);
+            return new ValueTask();
         }
         #endregion
         public Task Tell(byte[] bytes)
@@ -248,11 +248,11 @@ namespace Ray.Core.Internal
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual ValueTask OnEventDelivered(IEventBase<K> @event) => new ValueTask(Task.CompletedTask);
+        protected virtual ValueTask OnEventDelivered(IEventBase<K> @event) => new ValueTask();
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual ValueTask OnSaveSnapshot() => new ValueTask(Task.CompletedTask);
+        protected virtual ValueTask OnSaveSnapshot() => new ValueTask();
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual ValueTask OnSavedSnapshot() => new ValueTask(Task.CompletedTask);
+        protected virtual ValueTask OnSavedSnapshot() => new ValueTask();
         protected virtual async ValueTask SaveSnapshotAsync(bool force = false)
         {
             if (SaveSnapshot)

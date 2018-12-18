@@ -59,7 +59,7 @@ namespace Ray.Core.Internal
             }, isOk =>
             {
                 taskSource.TrySetResult(isOk);
-                return new ValueTask(Task.CompletedTask);
+                return new ValueTask();
             }, ex =>
             {
                 taskSource.TrySetException(ex);
@@ -70,7 +70,7 @@ namespace Ray.Core.Internal
         }
         protected virtual ValueTask OnBatchInputProcessed()
         {
-            return new ValueTask(Task.CompletedTask);
+            return new ValueTask();
         }
         private async Task BatchInputProcessing(List<ReentryEventWrapper<K, S>> inputs)
         {
