@@ -7,7 +7,8 @@
         public const int GrainDeactivateId = StartId + 102;
         public const int GrainStateRecoveryId = StartId + 103;
         public const int GrainRaiseEvent = StartId + 104;
-        public const int GrainSaveSnapshot = StartId + 105;
+        public const int GrainSnapshot = StartId + 105;
+        public const int MessagePublish = StartId + 106;
 
         public const int FollowGrainActivateId = StartId + 201;
         public const int FollowGrainDeactivateId = StartId + 202;

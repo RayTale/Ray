@@ -1,6 +1,6 @@
 ﻿namespace Ray.Core.Internal
 {
-    public class RayConfigOptions
+    public class RayOptions
     {
         /// <summary>
         /// Grain事务超时的时间(s)
