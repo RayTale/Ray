@@ -21,7 +21,7 @@ namespace Ray.Core.Internal
         {
             Logger = logger;
         }
-        protected RayConfigOptions ConfigOptions { get; private set; }
+        protected RayOptions ConfigOptions { get; private set; }
         protected ILogger Logger { get; private set; }
         protected IJsonSerializer JsonSerializer { get; private set; }
         protected ISerializer Serializer { get; private set; }
@@ -80,7 +80,7 @@ namespace Ray.Core.Internal
             try
             {
                 GrainType = GetType();
-                ConfigOptions = ServiceProvider.GetService<IOptions<RayConfigOptions>>().Value;
+                ConfigOptions = ServiceProvider.GetService<IOptions<RayOptions>>().Value;
                 StorageContainer = ServiceProvider.GetService<IStorageContainer>();
                 Serializer = ServiceProvider.GetService<ISerializer>();
                 JsonSerializer = ServiceProvider.GetService<IJsonSerializer>();
