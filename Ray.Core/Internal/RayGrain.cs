@@ -299,13 +299,13 @@ namespace Ray.Core.Internal
                             await saveSnapshotTask;
                         OnRaiseSuccess(@event, bytes);
                         if (Logger.IsEnabled(LogLevel.Trace))
-                            Logger.LogTrace(LogEventIds.GrainRaiseEvent, "Raise event successfully, grain Id= {0} and state version is {1}}", GrainId.ToString(), State.Version);
+                            Logger.LogTrace(LogEventIds.GrainRaiseEvent, "Raise event successfully, grain Id= {0} and state version = {1}}", GrainId.ToString(), State.Version);
                         return true;
                     }
                     else
                     {
                         if (Logger.IsEnabled(LogLevel.Information))
-                            Logger.LogInformation(LogEventIds.GrainRaiseEvent, "Raise event failure because of idempotency limitation, grain Id ={0},state version is {1},event type ={2} with version ={3}", GrainId.ToString(), State.Version, @event.GetType().FullName, @event.Version);
+                            Logger.LogInformation(LogEventIds.GrainRaiseEvent, "Raise event failure because of idempotency limitation, grain Id = {0},state version = {1},event type = {2} with version = {3}", GrainId.ToString(), State.Version, @event.GetType().FullName, @event.Version);
                         State.DecrementDoingVersion();//还原doing Version
                     }
                 }
@@ -326,7 +326,7 @@ namespace Ray.Core.Internal
         protected virtual void EventApply(S state, IEventBase<K> evt)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.GrainRaiseEvent, "Start raise event, grain Id= {0} and state version is {1}},event type = {2},event = {3}", GrainId.ToString(), State.Version, evt.GetType().FullName, JsonSerializer.Serialize(evt));
+                Logger.LogTrace(LogEventIds.GrainRaiseEvent, "Start apply event, grain Id= {0} and state version is {1}},event type = {2},event = {3}", GrainId.ToString(), State.Version, evt.GetType().FullName, JsonSerializer.Serialize(evt));
             EventHandler.Apply(state, evt);
         }
         /// <summary>
@@ -336,7 +336,7 @@ namespace Ray.Core.Internal
         protected async ValueTask Publish<T>(T msg, string hashKey = null)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.MessagePublish, "Start Publishing, grain Id= {0}, message type = {1},message = {2},hashkey={3}", GrainId.ToString(), msg.GetType().FullName, JsonSerializer.Serialize(msg), hashKey);
+                Logger.LogTrace(LogEventIds.MessagePublish, "Start publishing, grain Id= {0}, message type = {1},message = {2},hashkey={3}", GrainId.ToString(), msg.GetType().FullName, JsonSerializer.Serialize(msg), hashKey);
             if (string.IsNullOrEmpty(hashKey))
                 hashKey = GrainId.ToString();
             try
