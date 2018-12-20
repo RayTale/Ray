@@ -298,8 +298,8 @@ namespace Ray.Core.Internal
                         var onSavedSnapshotTask = OnSavedSnapshot();
                         if (!onSavedSnapshotTask.IsCompleted)
                             await onSavedSnapshotTask;
-                        if (Logger.IsEnabled(LogLevel.Information))
-                            Logger.LogInformation(LogEventIds.FollowGrainSaveSnapshot, "State snapshot saved successfully with Id {0} ,state version = {1}", GrainId.ToString(), State.Version);
+                        if (Logger.IsEnabled(LogLevel.Trace))
+                            Logger.LogTrace(LogEventIds.FollowGrainSaveSnapshot, "State snapshot saved successfully with Id {0} ,state version = {1}", GrainId.ToString(), State.Version);
                     }
                     catch (Exception ex)
                     {
