@@ -74,8 +74,8 @@ namespace Ray.Core.Internal
         }
         private async Task BatchInputProcessing(List<ReentryEventWrapper<K, S>> inputs)
         {
-            if (Logger.IsEnabled(LogLevel.Information))
-                Logger.LogInformation(LogEventIds.TransactionGrainCurrentInput, "Start batch event processing,type {0} with id {1},state version {2},the number of events is {3}", GrainType.FullName, GrainId.ToString(), TransactionStartVersion, inputs.Count.ToString());
+            if (Logger.IsEnabled(LogLevel.Trace))
+                Logger.LogTrace(LogEventIds.TransactionGrainCurrentProcessing, "Start batch event processing with id = {0},state version = {1},the number of events = {2}", GrainId.ToString(), TransactionStartVersion, inputs.Count.ToString());
             var beginTask = BeginTransaction();
             if (!beginTask.IsCompleted)
                 await beginTask;
@@ -101,8 +101,10 @@ namespace Ray.Core.Internal
                     }
                 }
             }
-            catch
+            catch (Exception batchEx)
             {
+                if (Logger.IsEnabled(LogLevel.Information))
+                    Logger.LogInformation(LogEventIds.TransactionGrainCurrentProcessing, batchEx, batchEx.Message);
                 try
                 {
                     var rollBackTask = RollbackTransaction();
@@ -112,14 +114,16 @@ namespace Ray.Core.Internal
                 }
                 catch (Exception ex)
                 {
+                    if (Logger.IsEnabled(LogLevel.Error))
+                        Logger.LogError(LogEventIds.TransactionGrainCurrentProcessing, ex, ex.Message);
                     inputs.ForEach(input => input.ExceptionHandler(ex));
                 }
             }
             var onCompletedTask = OnBatchInputProcessed();
             if (!onCompletedTask.IsCompleted)
                 await onCompletedTask;
-            if (Logger.IsEnabled(LogLevel.Information))
-                Logger.LogInformation(LogEventIds.TransactionGrainCurrentInput, "Batch events have been processed,type {0} with id {1},state version {2},the number of events is {3}", GrainType.FullName, GrainId.ToString(), TransactionStartVersion, inputs.Count.ToString());
+            if (Logger.IsEnabled(LogLevel.Trace))
+                Logger.LogTrace(LogEventIds.TransactionGrainCurrentProcessing, "Batch events have been processed with id = {0},state version = {1},the number of events = {2}", GrainId.ToString(), TransactionStartVersion, inputs.Count.ToString());
             async Task ReTry()
             {
                 foreach (var input in inputs)
@@ -136,6 +140,8 @@ namespace Ray.Core.Internal
                     }
                     catch (Exception ex)
                     {
+                        if (Logger.IsEnabled(LogLevel.Error))
+                            Logger.LogError(LogEventIds.TransactionGrainCurrentProcessing, ex, ex.Message);
                         input.ExceptionHandler(ex);
                     }
                 }

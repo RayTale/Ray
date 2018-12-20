@@ -22,7 +22,7 @@ namespace Ray.Core.Internal
         protected bool TransactionPending { get; private set; }
         protected long TransactionStartVersion { get; private set; }
         protected DateTime BeginTransactionTime { get; private set; }
-        private readonly List<TransactionEventWrapper<K>> transactionEventList = new List<TransactionEventWrapper<K>>();
+        private readonly List<TransactionEventWrapper<K>> EventsInTransactionProcessing = new List<TransactionEventWrapper<K>>();
         protected override async Task RecoveryState()
         {
             await base.RecoveryState();
@@ -66,14 +66,14 @@ namespace Ray.Core.Internal
         protected async Task CommitTransaction()
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Commit transaction with id = {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), transactionEventList.Count.ToString(), TransactionStartVersion.ToString(), State.Version.ToString());
-            if (transactionEventList.Count > 0)
+                Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Commit transaction with id = {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), EventsInTransactionProcessing.Count.ToString(), TransactionStartVersion.ToString(), State.Version.ToString());
+            if (EventsInTransactionProcessing.Count > 0)
             {
                 try
                 {
                     using (var ms = new PooledMemoryStream())
                     {
-                        foreach (var @event in transactionEventList)
+                        foreach (var @event in EventsInTransactionProcessing)
                         {
                             Serializer.Serialize(ms, @event.Evt);
                             @event.Bytes = ms.ToArray();
@@ -84,7 +84,7 @@ namespace Ray.Core.Internal
                     var eventStorageTask = GetEventStorage();
                     if (!eventStorageTask.IsCompleted)
                         await eventStorageTask;
-                    await eventStorageTask.Result.TransactionSaveAsync(transactionEventList);
+                    await eventStorageTask.Result.TransactionSaveAsync(EventsInTransactionProcessing);
                     if (SupportAsyncFollow)
                     {
                         var mqService = GetEventProducer();
@@ -92,7 +92,7 @@ namespace Ray.Core.Internal
                             await mqService;
                         using (var ms = new PooledMemoryStream())
                         {
-                            foreach (var @event in transactionEventList)
+                            foreach (var @event in EventsInTransactionProcessing)
                             {
                                 var data = new W
                                 {
@@ -111,14 +111,14 @@ namespace Ray.Core.Internal
                     }
                     else
                     {
-                        transactionEventList.ForEach(evt => OnRaiseSuccess(evt.Evt, evt.Bytes));
+                        EventsInTransactionProcessing.ForEach(evt => OnRaiseSuccess(evt.Evt, evt.Bytes));
                     }
-                    transactionEventList.Clear();
+                    EventsInTransactionProcessing.Clear();
                     var saveSnapshotTask = SaveSnapshotAsync();
                     if (!saveSnapshotTask.IsCompleted)
                         await saveSnapshotTask;
                     if (Logger.IsEnabled(LogLevel.Trace))
-                        Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Commit transaction with id {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), transactionEventList.Count.ToString(), TransactionStartVersion.ToString(), State.Version.ToString());
+                        Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Commit transaction with id {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), EventsInTransactionProcessing.Count.ToString(), TransactionStartVersion.ToString(), State.Version.ToString());
                 }
                 catch (Exception ex)
                 {
@@ -134,7 +134,7 @@ namespace Ray.Core.Internal
             if (TransactionPending)
             {
                 if (Logger.IsEnabled(LogLevel.Trace))
-                    Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Rollback transaction successfully with id = {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), transactionEventList.Count.ToString(), TransactionStartVersion.ToString(), State.Version.ToString());
+                    Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Rollback transaction successfully with id = {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), EventsInTransactionProcessing.Count.ToString(), TransactionStartVersion.ToString(), State.Version.ToString());
                 try
                 {
                     if (BackupState.Version == TransactionStartVersion)
@@ -145,7 +145,7 @@ namespace Ray.Core.Internal
                     {
                         await RecoveryState();
                     }
-                    transactionEventList.Clear();
+                    EventsInTransactionProcessing.Clear();
                     TransactionPending = false;
                     if (Logger.IsEnabled(LogLevel.Trace))
                         Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Rollback transaction successfully with id = {0},state version = {1}", GrainId.ToString(), State.Version.ToString());
@@ -166,7 +166,7 @@ namespace Ray.Core.Internal
             if (BackupState.Version != State.Version)
             {
                 await RecoveryState();
-                transactionEventList.Clear();
+                EventsInTransactionProcessing.Clear();
             }
         }
         protected override async Task<bool> RaiseEvent(IEventBase<K> @event, string uniqueId = null, string hashKey = null)
@@ -214,7 +214,7 @@ namespace Ray.Core.Internal
                 @event.StateId = GrainId;
                 @event.Version = State.Version + 1;
                 @event.Timestamp = DateTime.UtcNow;
-                transactionEventList.Add(new TransactionEventWrapper<K>(@event, uniqueId, string.IsNullOrEmpty(hashKey) ? GrainId.ToString() : hashKey));
+                EventsInTransactionProcessing.Add(new TransactionEventWrapper<K>(@event, uniqueId, string.IsNullOrEmpty(hashKey) ? GrainId.ToString() : hashKey));
                 EventApply(State, @event);
                 State.UpdateVersion(@event, GrainType);//更新处理完成的Version
                 if (Logger.IsEnabled(LogLevel.Trace))
