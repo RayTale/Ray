@@ -59,15 +59,15 @@ namespace Ray.Core.Internal
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace(LogEventIds.GrainActivateId, "Start activation grain with id = {0}", GrainId.ToString());
+            GrainType = GetType();
+            ConfigOptions = ServiceProvider.GetService<IOptions<RayOptions>>().Value;
+            StorageContainer = ServiceProvider.GetService<IStorageContainer>();
+            ProducerContainer = ServiceProvider.GetService<IProducerContainer>();
+            Serializer = ServiceProvider.GetService<ISerializer>();
+            JsonSerializer = ServiceProvider.GetService<IJsonSerializer>();
+            EventHandler = ServiceProvider.GetService<IEventHandler<S>>();
             try
             {
-                GrainType = GetType();
-                ConfigOptions = ServiceProvider.GetService<IOptions<RayOptions>>().Value;
-                StorageContainer = ServiceProvider.GetService<IStorageContainer>();
-                ProducerContainer = ServiceProvider.GetService<IProducerContainer>();
-                Serializer = ServiceProvider.GetService<ISerializer>();
-                JsonSerializer = ServiceProvider.GetService<IJsonSerializer>();
-                EventHandler = ServiceProvider.GetService<IEventHandler<S>>();
                 await RecoveryState();
                 var onActivatedTask = OnBaseActivated();
                 if (!onActivatedTask.IsCompleted)
@@ -237,16 +237,17 @@ namespace Ray.Core.Internal
                 await getStateStorageTask;
             await getStateStorageTask.Result.DeleteAsync(GrainId);
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask<IStateStorage<S, K>> GetStateStorage()
         {
             return StorageContainer.GetStateStorage<K, S>(this);
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask<IEventStorage<K>> GetEventStorage()
         {
             return StorageContainer.GetEventStorage<K, S>(this);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask<IProducer> GetEventProducer()
         {
             return ProducerContainer.GetProducer(this);
