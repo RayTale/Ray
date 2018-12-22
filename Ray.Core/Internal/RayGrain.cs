@@ -252,7 +252,7 @@ namespace Ray.Core.Internal
         {
             return ProducerContainer.GetProducer(this);
         }
-        protected virtual async Task<bool> RaiseEvent(IEventBase<K> @event, string uniqueId = null, string hashKey = null)
+        protected virtual async Task<bool> RaiseEvent(IEventBase<K> @event, EventUID uniqueId = null, string hashKey = null)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace(LogEventIds.GrainSnapshot, "Start raise event, grain Id ={0} and state version = {1},event type = {2} ,event ={3},uniqueueId= {4},hashkey= {5}", GrainId.ToString(), State.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event), uniqueId, hashKey);
@@ -261,7 +261,11 @@ namespace Ray.Core.Internal
                 State.IncrementDoingVersion(GrainType);//标记将要处理的Version
                 @event.StateId = GrainId;
                 @event.Version = State.Version + 1;
-                @event.Timestamp = DateTime.UtcNow;
+                if (uniqueId == default) uniqueId = EventUID.Empty;
+                if (string.IsNullOrEmpty(uniqueId.UID))
+                    @event.Timestamp = DateTime.UtcNow;
+                else
+                    @event.Timestamp = uniqueId.Timestamp;
                 using (var ms = new PooledMemoryStream())
                 {
                     Serializer.Serialize(ms, @event);
@@ -269,7 +273,7 @@ namespace Ray.Core.Internal
                     var getEventStorageTask = GetEventStorage();
                     if (!getEventStorageTask.IsCompleted)
                         await getEventStorageTask;
-                    if (await getEventStorageTask.Result.SaveAsync(@event, bytes, uniqueId))
+                    if (await getEventStorageTask.Result.SaveAsync(@event, bytes, uniqueId.UID))
                     {
                         if (SupportAsyncFollow)
                         {

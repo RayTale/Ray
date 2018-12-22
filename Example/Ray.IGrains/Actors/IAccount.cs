@@ -1,5 +1,6 @@
 ﻿using Orleans;
 using Orleans.Concurrency;
+using Ray.Core.Internal;
 using System.Threading.Tasks;
 
 namespace Ray.IGrains.Actors
@@ -19,7 +20,7 @@ namespace Ray.IGrains.Actors
         /// <param name="uniqueId">操作辨识ID(防止多次执行)</param>
         /// <returns></returns>
         [AlwaysInterleave]
-        Task<bool> AddAmount(decimal amount, string uniqueId = null);
+        Task<bool> AddAmount(decimal amount, EventUID uniqueId = null);
         /// <summary>
         /// 转账
         /// </summary>

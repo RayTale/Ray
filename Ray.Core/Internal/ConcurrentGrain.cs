@@ -29,7 +29,7 @@ namespace Ray.Core.Internal
             await base.OnDeactivateAsync();
             ConcurrentChannel.Complete();
         }
-        protected async ValueTask ConcurrentRaiseEvent(Func<S, Func<IEventBase<K>, string, string, Task>, Task> handler, Func<bool, ValueTask> completedHandler, Action<Exception> exceptionHandler)
+        protected async ValueTask ConcurrentRaiseEvent(Func<S, Func<IEventBase<K>, EventUID, string, Task>, Task> handler, Func<bool, ValueTask> completedHandler, Action<Exception> exceptionHandler)
         {
             var writeTask = ConcurrentChannel.WriteAsync(new ReentryEventWrapper<K, S>(handler, completedHandler, exceptionHandler));
             if (!writeTask.IsCompleted)
@@ -50,7 +50,7 @@ namespace Ray.Core.Internal
         /// <param name="uniqueId">幂等性判定值</param>
         /// <param name="hashKey">消息异步分发的唯一hash的key</param>
         /// <returns></returns>
-        protected async Task<bool> ConcurrentRaiseEvent(IEventBase<K> @event, string uniqueId = null, string hashKey = null)
+        protected async Task<bool> ConcurrentRaiseEvent(IEventBase<K> @event, EventUID uniqueId = null, string hashKey = null)
         {
             var taskSource = new TaskCompletionSource<bool>();
             var task = ConcurrentRaiseEvent(async (state, eventFunc) =>

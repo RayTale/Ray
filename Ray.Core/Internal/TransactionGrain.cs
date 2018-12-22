@@ -169,7 +169,7 @@ namespace Ray.Core.Internal
                 EventsInTransactionProcessing.Clear();
             }
         }
-        protected override async Task<bool> RaiseEvent(IEventBase<K> @event, string uniqueId = null, string hashKey = null)
+        protected override async Task<bool> RaiseEvent(IEventBase<K> @event, EventUID uniqueId = null, string hashKey = null)
         {
             if (TransactionPending)
             {
@@ -197,7 +197,7 @@ namespace Ray.Core.Internal
             }
             BackupState.FullUpdateVersion(@event, GrainType);//更新处理完成的Version
         }
-        protected void TransactionRaiseEvent(IEventBase<K> @event, string uniqueId = null, string hashKey = null)
+        protected void TransactionRaiseEvent(IEventBase<K> @event, EventUID uniqueId = null, string hashKey = null)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace(LogEventIds.GrainSnapshot, "Start raise event by transaction, grain Id ={0} and state version = {1},event type = {2} ,event = {3},uniqueueId = {4},hashkey = {5}", GrainId.ToString(), State.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event), uniqueId, hashKey);
@@ -213,8 +213,12 @@ namespace Ray.Core.Internal
                 State.IncrementDoingVersion(GrainType);//标记将要处理的Version
                 @event.StateId = GrainId;
                 @event.Version = State.Version + 1;
-                @event.Timestamp = DateTime.UtcNow;
-                EventsInTransactionProcessing.Add(new TransactionEventWrapper<K>(@event, uniqueId, string.IsNullOrEmpty(hashKey) ? GrainId.ToString() : hashKey));
+                if (uniqueId == default) uniqueId = EventUID.Empty;
+                if (string.IsNullOrEmpty(uniqueId.UID))
+                    @event.Timestamp = DateTime.UtcNow;
+                else
+                    @event.Timestamp = uniqueId.Timestamp;
+                EventsInTransactionProcessing.Add(new TransactionEventWrapper<K>(@event, uniqueId.UID, string.IsNullOrEmpty(hashKey) ? GrainId.ToString() : hashKey));
                 EventApply(State, @event);
                 State.UpdateVersion(@event, GrainType);//更新处理完成的Version
                 if (Logger.IsEnabled(LogLevel.Trace))
