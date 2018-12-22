@@ -24,7 +24,7 @@ namespace Ray.Grain
             var evt = new AmountTransferEvent(toAccountId, amount, this.State.Balance - amount);
             return RaiseEvent(evt);
         }
-        public async Task<bool> AddAmount(decimal amount, string uniqueId = null)
+        public async Task<bool> AddAmount(decimal amount, EventUID uniqueId = null)
         {
             var taskSource = new TaskCompletionSource<bool>();
             var task = ConcurrentRaiseEvent(async (state, eventFunc) =>

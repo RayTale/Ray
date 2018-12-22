@@ -32,8 +32,8 @@ namespace Ray.MongoHost
             try
             {
                 using (var host = await StartSilo())
-                //using (var client = await StartClientWithRetries())
-                //{
+                    //using (var client = await StartClientWithRetries())
+                    //{
                     //var handlerStartup = client.ServiceProvider.GetService<HandlerStartup>();
                     //await Task.WhenAll(
                     // handlerStartup.Start(SubscriberGroup.Core),
@@ -70,9 +70,9 @@ namespace Ray.MongoHost
                     servicecollection.AddRay();
                     servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
                     //注册postgresql为事件存储库
-                    servicecollection.AddPSqlSiloGrain();
+                   // servicecollection.AddPSqlSiloGrain();
                     //注册mongodb为事件存储库
-                    //servicecollection.AddMongoDbSiloGrain();
+                    servicecollection.AddMongoDbSiloGrain();
                 })
                 .Configure<SqlConfig>(c =>
                 {
@@ -94,8 +94,8 @@ namespace Ray.MongoHost
                 })
                 .ConfigureLogging(logging =>
                 {
-                    logging.SetMinimumLevel(LogLevel.Debug);
-                    logging.AddConsole();
+                    logging.SetMinimumLevel(LogLevel.Information);
+                    logging.AddConsole(options => options.IncludeScopes = true);
                 });
 
             var host = builder.Build();

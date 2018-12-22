@@ -26,7 +26,7 @@ namespace Ray.Grain
         public Task AmountAddEventHandler(AmountTransferEvent value)
         {
             var toActor = GrainFactory.GetGrain<IAccount>(value.ToAccountId);
-            return toActor.AddAmount(value.Amount, value.GetUniqueId());
+            return toActor.AddAmount(value.Amount);
         }
     }
 }

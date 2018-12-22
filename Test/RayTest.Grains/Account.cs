@@ -24,7 +24,7 @@ namespace RayTest.Grains
             var evt = new AmountTransferEvent(toAccountId, amount, this.State.Balance - amount);
             return RaiseEvent(evt);
         }
-        public Task<bool> AddAmount(decimal amount, string uniqueId = null)
+        public Task<bool> AddAmount(decimal amount, EventUID uniqueId = null)
         {
             var evt = new AmountAddEvent(amount, State.Balance + amount);
             return RaiseEvent(evt, uniqueId);
