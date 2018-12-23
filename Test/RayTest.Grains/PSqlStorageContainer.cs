@@ -19,11 +19,10 @@ namespace RayTest.Grains
         readonly ConcurrentDictionary<string, SqlGrainConfig> sqlGrainConfigDict = new ConcurrentDictionary<string, SqlGrainConfig>();
         private async ValueTask<SqlGrainConfig> GetConfig(Orleans.Grain grain)
         {
-            var spilitTableStartTime = DateTime.UtcNow;
             SqlGrainConfig result;
             switch (grain)
             {
-                case Account value: result = sqlGrainConfigDict.GetOrAdd(value.GetType().FullName, key => new SqlGrainConfig(config.ConnectionDict["core_event"], "account_event", "account_state", spilitTableStartTime)); break;
+                case Account value: result = sqlGrainConfigDict.GetOrAdd(value.GetType().FullName, key => new SqlGrainConfig(config.ConnectionDict["core_event"], "account_event", "account_state")); break;
                 default: throw new NotImplementedException(nameof(GetEventStorage));
             }
             var buildTask = result.Build();
