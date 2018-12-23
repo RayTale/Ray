@@ -69,12 +69,10 @@ namespace Ray.Core.Internal
             var start = DateTime.UtcNow;
             var evtList = new List<IEventBase<K>>();
             var startVersion = State.Version;
-            var startTime = State.VersionTime;
             if (UnprocessedEventList.Count > 0)
             {
                 var startEvt = UnprocessedEventList.Last();
                 startVersion = startEvt.Version;
-                startTime = startEvt.Timestamp;
             }
             var maxVersion = startVersion;
             TaskCompletionSource<bool> maxRequest = default;
@@ -110,7 +108,7 @@ namespace Ray.Core.Internal
                         var eventStorageTask = GetEventStorage();
                         if (!eventStorageTask.IsCompleted)
                             await eventStorageTask;
-                        var loadList = await eventStorageTask.Result.GetListAsync(GrainId, startVersion, inputLast.Version, startTime);
+                        var loadList = await eventStorageTask.Result.GetListAsync(GrainId, startVersion, inputLast.Version);
                         UnprocessedEventList.AddRange(loadList);
                     }
                     else

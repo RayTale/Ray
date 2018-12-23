@@ -27,26 +27,16 @@ namespace Ray.MongoDB
             this.sharding = sharding;
             this.shardingDays = shardingDays;
         }
-        public async ValueTask<List<SplitCollectionInfo>> GetCollectionList(DateTime? startTime = null)
+        public async ValueTask<List<SplitCollectionInfo>> GetCollectionList()
         {
-            List<SplitCollectionInfo> list = null;
-            if (startTime == null)
-                list = AllSplitCollections;
-            else
-            {
-                var collectionTask = GetCollection(startTime.Value);
-                if (!collectionTask.IsCompleted)
-                    await collectionTask;
-                list = AllSplitCollections.Where(c => c.Version >= collectionTask.Result.Version).ToList();
-            }
-            if (list == null || list.Count == 0)
+            if (AllSplitCollections == null || AllSplitCollections.Count == 0)
             {
                 var collectionTask = GetCollection(DateTime.UtcNow);
                 if (!collectionTask.IsCompleted)
                     await collectionTask;
-                list = new List<SplitCollectionInfo>() { collectionTask.Result };
+                return new List<SplitCollectionInfo>() { collectionTask.Result };
             }
-            return list;
+            return AllSplitCollections;
         }
         int isBuilded = 0;
         bool buildedResult = false;
@@ -101,7 +91,6 @@ namespace Ray.MongoDB
             }
         }
 
-        readonly object collectionLock = new object();
         public async ValueTask<SplitCollectionInfo> GetCollection(DateTime eventTime)
         {
             var lastCollection = AllSplitCollections.LastOrDefault();

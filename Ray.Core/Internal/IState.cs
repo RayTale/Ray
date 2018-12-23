@@ -13,9 +13,5 @@ namespace Ray.Core.Internal
         /// 正在处理中的Version
         /// </summary>
         long DoingVersion { get; set; }
-        /// <summary>
-        /// 状态版本号对应的Event时间
-        /// </summary>
-        DateTime VersionTime { get; set; }
     }
 }

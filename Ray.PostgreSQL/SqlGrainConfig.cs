@@ -39,7 +39,7 @@ namespace Ray.PostgreSQL
                     {
                         await CreateTableListTable();
                         await CreateStateTable();
-                        AllSplitTableList = await GetTableList();
+                        AllSplitTableList = await GetTableListFromDb();
                         buildedResult = true;
                     }
                     finally
@@ -50,21 +50,16 @@ namespace Ray.PostgreSQL
                 await Task.Delay(50);
             }
         }
-        public async ValueTask<List<TableInfo>> GetTableList(DateTime? startTime = null)
+        public async ValueTask<List<TableInfo>> GetTableList()
         {
-            List<TableInfo> list = null;
-            if (startTime == null)
-                list = AllSplitTableList;
-            else
+            if (AllSplitTableList == null || AllSplitTableList.Count == 0)
             {
-                var table = await GetTable(startTime.Value);
-                list = AllSplitTableList.Where(c => c.Version >= table.Version).ToList();
+                var task = GetTable(DateTime.UtcNow);
+                if (!task.IsCompleted)
+                    await task;
+                return new List<TableInfo>() { task.Result };
             }
-            if (list == null)
-            {
-                list = new List<TableInfo>() { await GetTable(DateTime.UtcNow) };
-            }
-            return list;
+            return AllSplitTableList;
         }
         public async ValueTask<TableInfo> GetTable(DateTime eventTime)
         {
@@ -99,14 +94,14 @@ namespace Ray.PostgreSQL
                     }
                     else
                     {
-                        AllSplitTableList = await GetTableList();
+                        AllSplitTableList = await GetTableListFromDb();
                         return await GetTable(eventTime);
                     }
                 }
             }
             return lastTable;
         }
-        private async Task<List<TableInfo>> GetTableList()
+        private async Task<List<TableInfo>> GetTableListFromDb()
         {
             const string sql = "SELECT * FROM ray_tablelist where prefix=@Table order by version asc";
             using (var connection = SqlFactory.CreateConnection(Connection))

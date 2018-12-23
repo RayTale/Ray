@@ -12,7 +12,6 @@ namespace Ray.Core.Internal
             if (state.Version + 1 != @event.Version)
                 throw new EventVersionNotMatchStateException(state.StateId.ToString(), grainType, @event.Version, state.Version);
             state.Version = @event.Version;
-            state.VersionTime = @event.Timestamp;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void FullUpdateVersion<K>(this IState<K> state, IEventBase<K> @event, Type grainType)
@@ -21,14 +20,12 @@ namespace Ray.Core.Internal
                 throw new EventVersionNotMatchStateException(state.StateId.ToString(), grainType, @event.Version, state.Version);
             state.DoingVersion = @event.Version;
             state.Version = @event.Version;
-            state.VersionTime = @event.Timestamp;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void UnsafeUpdateVersion<K>(this IState<K> state, long version, DateTime time)
         {
             state.DoingVersion = version;
             state.Version = version;
-            state.VersionTime = time;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void IncrementDoingVersion<K>(this IState<K> state, Type grainType)
