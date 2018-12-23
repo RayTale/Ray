@@ -26,9 +26,9 @@ namespace Ray.MongoDB
             mpscChannel.BindConsumer(BatchProcessing).ActiveConsumer();
             this.grainConfig = grainConfig;
         }
-        public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, Int64 startVersion, Int64 endVersion, DateTime? startTime = null)
+        public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, long startVersion, long endVersion)
         {
-            var collectionListTask = grainConfig.GetCollectionList(startTime);
+            var collectionListTask = grainConfig.GetCollectionList();
             if (!collectionListTask.IsCompleted)
                 await collectionListTask;
             var list = new List<IEventBase<K>>();
@@ -57,9 +57,9 @@ namespace Ray.MongoDB
             }
             return list;
         }
-        public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, string typeCode, Int64 startVersion, Int32 limit, DateTime? startTime = null)
+        public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, string typeCode, long startVersion, int limit)
         {
-            var collectionListTask = grainConfig.GetCollectionList(startTime);
+            var collectionListTask = grainConfig.GetCollectionList();
             if (!collectionListTask.IsCompleted)
                 await collectionListTask;
             var list = new List<IEventBase<K>>();

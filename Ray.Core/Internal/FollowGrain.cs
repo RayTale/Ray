@@ -94,7 +94,7 @@ namespace Ray.Core.Internal
                         await eventStorageTask;
                     while (true)
                     {
-                        var eventList = await eventStorageTask.Result.GetListAsync(GrainId, State.Version, State.Version + NumberOfEventsPerRead, State.VersionTime);
+                        var eventList = await eventStorageTask.Result.GetListAsync(GrainId, State.Version, State.Version + NumberOfEventsPerRead);
                         if (EventConcurrentProcessing)
                         {
                             await Task.WhenAll(eventList.Select(@event =>
@@ -225,7 +225,7 @@ namespace Ray.Core.Internal
                             var eventStorageTask = GetEventStorage();
                             if (!eventStorageTask.IsCompleted)
                                 await eventStorageTask;
-                            var eventList = await eventStorageTask.Result.GetListAsync(GrainId, State.Version, @event.Version, State.VersionTime);
+                            var eventList = await eventStorageTask.Result.GetListAsync(GrainId, State.Version, @event.Version);
                             foreach (var item in eventList)
                             {
                                 var onEventDeliveredTask = OnEventDelivered(item);

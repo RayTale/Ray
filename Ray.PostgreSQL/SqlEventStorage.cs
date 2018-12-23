@@ -29,12 +29,15 @@ namespace Ray.PostgreSQL
             mpscChannel.ActiveConsumer();
             this.tableInfo = tableInfo;
         }
-        public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, long startVersion, long endVersion, DateTime? startTime = null)
+        public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, long startVersion, long endVersion)
         {
             var originList = new List<SqlEvent>((int)(endVersion - startVersion));
             await Task.Run(async () =>
             {
-                var tableList = await tableInfo.GetTableList(startTime);
+                var getTableListTask = tableInfo.GetTableList();
+                if (!getTableListTask.IsCompleted)
+                    await getTableListTask;
+                var tableList = getTableListTask.Result;
                 using (var conn = tableInfo.CreateConnection() as NpgsqlConnection)
                 {
                     await conn.OpenAsync();
@@ -65,13 +68,16 @@ namespace Ray.PostgreSQL
             }
             return list.OrderBy(v => v.Version).ToList();
         }
-        public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, string typeCode, long startVersion, int limit, DateTime? startTime = null)
+        public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, string typeCode, long startVersion, int limit)
         {
             var originList = new List<byte[]>(limit);
             var type = TypeContainer.GetType(typeCode);
             await Task.Run(async () =>
             {
-                var tableList = await tableInfo.GetTableList(startTime);
+                var getTableListTask = tableInfo.GetTableList();
+                if (!getTableListTask.IsCompleted)
+                    await getTableListTask;
+                var tableList = getTableListTask.Result;
                 using (var conn = tableInfo.CreateConnection() as NpgsqlConnection)
                 {
                     await conn.OpenAsync();
