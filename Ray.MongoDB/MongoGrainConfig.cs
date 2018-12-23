@@ -13,13 +13,12 @@ namespace Ray.MongoDB
         public string DataBase { get; set; }
         public string EventCollection { get; set; }
         public string SnapshotCollection { get; set; }
-        public DateTime SplitStartTime { get; }
         private List<SplitCollectionInfo> AllSplitCollections { get; set; }
         public IMongoStorage Storage { get; }
         const string SplitCollectionName = "SplitCollections";
         readonly bool sharding = false;
         readonly int shardingDays;
-        public MongoGrainConfig(IMongoStorage storage, string database, string eventCollection, string snapshotCollection, DateTime splitCollectionStartTime, bool sharding = false, int shardingDays = 90)
+        public MongoGrainConfig(IMongoStorage storage, string database, string eventCollection, string snapshotCollection, bool sharding = false, int shardingDays = 90)
         {
             DataBase = database;
             EventCollection = eventCollection;
@@ -27,7 +26,6 @@ namespace Ray.MongoDB
             Storage = storage;
             this.sharding = sharding;
             this.shardingDays = shardingDays;
-            SplitStartTime = splitCollectionStartTime;
         }
         public async ValueTask<List<SplitCollectionInfo>> GetCollectionList(DateTime? startTime = null)
         {
@@ -106,38 +104,38 @@ namespace Ray.MongoDB
         readonly object collectionLock = new object();
         public async ValueTask<SplitCollectionInfo> GetCollection(DateTime eventTime)
         {
-            SplitCollectionInfo lastCollection = null;
-            if (AllSplitCollections.Count > 0) lastCollection = AllSplitCollections.Last();
+            var lastCollection = AllSplitCollections.LastOrDefault();
             //如果不需要分表，直接返回
             if (lastCollection != null && !sharding) return lastCollection;
-            var subTime = eventTime.Subtract(SplitStartTime);
+
+            var firstCollection = AllSplitCollections.FirstOrDefault();
+            var nowUtcTime = DateTime.UtcNow;
+            var subTime = eventTime.Subtract(firstCollection != null ? firstCollection.CreateTime : nowUtcTime);
             var newVersion = subTime.TotalDays > 0 ? Convert.ToInt32(Math.Floor(subTime.TotalDays / shardingDays)) : 0;
+
             if (lastCollection == null || newVersion > lastCollection.Version)
             {
-                if (lastCollection == null || newVersion > lastCollection.Version)
+                var collection = new SplitCollectionInfo
                 {
-                    var collection = new SplitCollectionInfo
+                    Id = ObjectId.GenerateNewId().ToString(),
+                    Version = newVersion,
+                    Type = EventCollection,
+                    CreateTime = nowUtcTime,
+                    Name = EventCollection + "_" + newVersion
+                };
+                try
+                {
+                    await Storage.GetCollection<SplitCollectionInfo>(DataBase, SplitCollectionName).InsertOneAsync(collection);
+                    AllSplitCollections.Add(collection);
+                    lastCollection = collection;
+                    await CreateEventIndex(collection.Name);
+                }
+                catch (MongoWriteException ex)
+                {
+                    if (ex.WriteError.Category == ServerErrorCategory.DuplicateKey)
                     {
-                        Id = ObjectId.GenerateNewId().ToString(),
-                        Version = newVersion,
-                        Type = EventCollection,
-                        CreateTime = DateTime.UtcNow,
-                        Name = EventCollection + "_" + newVersion
-                    };
-                    try
-                    {
-                        await Storage.GetCollection<SplitCollectionInfo>(DataBase, SplitCollectionName).InsertOneAsync(collection);
-                        AllSplitCollections.Add(collection);
-                        lastCollection = collection;
-                        await CreateEventIndex(collection.Name);
-                    }
-                    catch (MongoWriteException ex)
-                    {
-                        if (ex.WriteError.Category == ServerErrorCategory.DuplicateKey)
-                        {
-                            AllSplitCollections = await (await Storage.GetCollection<SplitCollectionInfo>(DataBase, SplitCollectionName).FindAsync(c => c.Type == EventCollection)).ToListAsync();
-                            return await GetCollection(eventTime);
-                        }
+                        AllSplitCollections = await (await Storage.GetCollection<SplitCollectionInfo>(DataBase, SplitCollectionName).FindAsync(c => c.Type == EventCollection)).ToListAsync();
+                        return await GetCollection(eventTime);
                     }
                 }
             }

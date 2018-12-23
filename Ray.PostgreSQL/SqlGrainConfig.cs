@@ -14,12 +14,11 @@ namespace Ray.PostgreSQL
         public string Connection { get; set; }
         public string EventTable { get; set; }
         public string SnapshotTable { get; set; }
-        public DateTime SplitTableStartTime { get; }
         private List<TableInfo> AllSplitTableList { get; set; }
         readonly bool sharding = false;
         readonly int shardingDays;
         readonly int stateIdLength;
-        public SqlGrainConfig(string conn, string eventTable, string snapshotTable, DateTime splitTableStartTime, bool sharding = false, int shardingDays = 40, int stateIdLength = 200)
+        public SqlGrainConfig(string conn, string eventTable, string snapshotTable, bool sharding = true, int shardingDays = 40, int stateIdLength = 200)
         {
             Connection = conn;
             EventTable = eventTable;
@@ -27,7 +26,6 @@ namespace Ray.PostgreSQL
             this.sharding = sharding;
             this.shardingDays = shardingDays;
             this.stateIdLength = stateIdLength;
-            SplitTableStartTime = splitTableStartTime;
         }
         int isBuilded = 0;
         bool buildedResult = false;
@@ -70,20 +68,22 @@ namespace Ray.PostgreSQL
         }
         public async ValueTask<TableInfo> GetTable(DateTime eventTime)
         {
-            TableInfo lastTable = null;
-            var cList = AllSplitTableList;
-            if (cList.Count > 0) lastTable = cList[cList.Count - 1];
+            var lastTable = AllSplitTableList.LastOrDefault();
             //如果不需要分表，直接返回
             if (lastTable != null && !sharding) return lastTable;
-            var subTime = eventTime.Subtract(SplitTableStartTime);
+            var firstTable = AllSplitTableList.FirstOrDefault();
+            var nowUtcTime = DateTime.UtcNow;
+            var subTime = eventTime.Subtract(firstTable != null ? firstTable.CreateTime : nowUtcTime);
+
             var newVersion = subTime.TotalDays > 0 ? Convert.ToInt32(Math.Floor(subTime.TotalDays / shardingDays)) : 0;
+
             if (lastTable == null || newVersion > lastTable.Version)
             {
                 var table = new TableInfo
                 {
                     Version = newVersion,
                     Prefix = EventTable,
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = nowUtcTime,
                     Name = EventTable + "_" + newVersion
                 };
                 try
