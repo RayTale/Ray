@@ -204,15 +204,14 @@ namespace Ray.Core.Internal
         }
         public async ValueTask Tell(W message)
         {
-            try
+            using (var ems = new MemoryStream(message.Bytes))
             {
-                using (var ems = new MemoryStream(message.Bytes))
+                if (Serializer.Deserialize(TypeContainer.GetType(message.TypeName), ems) is IEventBase<K> @event)
                 {
-                    if (Serializer.Deserialize(TypeContainer.GetType(message.TypeName), ems) is IEventBase<K> @event)
+                    if (Logger.IsEnabled(LogLevel.Trace))
+                        Logger.LogTrace(LogEventIds.FollowEventProcessing, "Start event handling, grain Id = {0} and state version = {1},event type = {2} ,event = {3}", GrainId.ToString(), State.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event));
+                    try
                     {
-                        if (Logger.IsEnabled(LogLevel.Trace))
-                            Logger.LogTrace(LogEventIds.FollowEventProcessing, "Start event handling, grain Id = {0} and state version = {1},event type = {2} ,event = {3}", GrainId.ToString(), State.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event));
-
                         if (@event.Version == State.Version + 1)
                         {
                             var onEventDeliveredTask = OnEventDelivered(@event);
@@ -249,18 +248,18 @@ namespace Ray.Core.Internal
                         if (Logger.IsEnabled(LogLevel.Trace))
                             Logger.LogTrace(LogEventIds.FollowEventProcessing, "Event Handling Completion, grain Id ={0} and state version = {1},event type = {2}", GrainId.ToString(), State.Version, @event.GetType().FullName);
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        if (Logger.IsEnabled(LogLevel.Information))
-                            Logger.LogInformation(LogEventIds.FollowEventProcessing, "Receive non-event messages, grain Id = {0} ,message type = {1}", GrainId.ToString(), message.TypeName);
+                        if (Logger.IsEnabled(LogLevel.Critical))
+                            Logger.LogCritical(LogEventIds.FollowEventProcessing, ex, "FollowGrain Event handling failed with Id = {0},event = {1}", GrainId.ToString(), JsonSerializer.Serialize(@event));
+                        ExceptionDispatchInfo.Capture(ex).Throw();
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                if (Logger.IsEnabled(LogLevel.Critical))
-                    Logger.LogCritical(LogEventIds.FollowEventProcessing, ex, "FollowGrain Event handling failed with Id = {0},event = {1}", GrainId.ToString(), JsonSerializer.Serialize(message));
-                ExceptionDispatchInfo.Capture(ex).Throw();
+                else
+                {
+                    if (Logger.IsEnabled(LogLevel.Information))
+                        Logger.LogInformation(LogEventIds.FollowEventProcessing, "Receive non-event messages, grain Id = {0} ,message type = {1}", GrainId.ToString(), message.TypeName);
+                }
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -71,8 +71,7 @@ namespace Ray.Core.Internal
             var startVersion = State.Version;
             if (UnprocessedEventList.Count > 0)
             {
-                var startEvt = UnprocessedEventList.Last();
-                startVersion = startEvt.Version;
+                startVersion = UnprocessedEventList.Last().Version;
             }
             var maxVersion = startVersion;
             TaskCompletionSource<bool> maxRequest = default;
@@ -154,7 +153,7 @@ namespace Ray.Core.Internal
             catch (Exception ex)
             {
                 if (Logger.IsEnabled(LogLevel.Error))
-                    Logger.LogError(LogEventIds.FollowGrainEventHandling, ex, "FollowGrain event handling failed, type {0} with Id {1}", GrainType.FullName, GrainId.ToString());
+                    Logger.LogError(LogEventIds.FollowGrainEventHandling, ex, "FollowGrain event handling failed with Id {1}", GrainId.ToString());
                 maxRequest?.TrySetException(ex);
             }
         }
