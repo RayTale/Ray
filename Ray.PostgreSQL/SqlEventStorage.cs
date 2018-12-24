@@ -34,7 +34,7 @@ namespace Ray.PostgreSQL
             var originList = new List<SqlEvent>((int)(endVersion - startVersion));
             await Task.Run(async () =>
             {
-                var getTableListTask = tableInfo.GetTableList();
+                var getTableListTask = tableInfo.GetTableListFromDb();
                 if (!getTableListTask.IsCompleted)
                     await getTableListTask;
                 var tableList = getTableListTask.Result;
@@ -74,7 +74,7 @@ namespace Ray.PostgreSQL
             var type = TypeContainer.GetType(typeCode);
             await Task.Run(async () =>
             {
-                var getTableListTask = tableInfo.GetTableList();
+                var getTableListTask = tableInfo.GetTableListFromDb();
                 if (!getTableListTask.IsCompleted)
                     await getTableListTask;
                 var tableList = getTableListTask.Result;

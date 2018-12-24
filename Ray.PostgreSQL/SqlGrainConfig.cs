@@ -50,17 +50,6 @@ namespace Ray.PostgreSQL
                 await Task.Delay(50);
             }
         }
-        public async ValueTask<List<TableInfo>> GetTableList()
-        {
-            if (AllSplitTableList == null || AllSplitTableList.Count == 0)
-            {
-                var task = GetTable(DateTime.UtcNow);
-                if (!task.IsCompleted)
-                    await task;
-                return new List<TableInfo>() { task.Result };
-            }
-            return AllSplitTableList;
-        }
         public async ValueTask<TableInfo> GetTable(DateTime eventTime)
         {
             var lastTable = AllSplitTableList.LastOrDefault();
@@ -84,24 +73,25 @@ namespace Ray.PostgreSQL
                 try
                 {
                     await CreateEventTable(table);
+                    AllSplitTableList.Add(table);
                     lastTable = table;
                 }
                 catch (Exception ex)
                 {
+                    AllSplitTableList = await GetTableListFromDb();
                     if (ex is Npgsql.PostgresException e && e.SqlState != "42P07" && e.SqlState != "23505")
                     {
-                        throw ex;
+                        throw;
                     }
                     else
                     {
-                        AllSplitTableList = await GetTableListFromDb();
                         return await GetTable(eventTime);
                     }
                 }
             }
             return lastTable;
         }
-        private async Task<List<TableInfo>> GetTableListFromDb()
+        public async Task<List<TableInfo>> GetTableListFromDb()
         {
             const string sql = "SELECT * FROM ray_tablelist where prefix=@Table order by version asc";
             using (var connection = SqlFactory.CreateConnection(Connection))
@@ -151,7 +141,7 @@ namespace Ray.PostgreSQL
                             else
                             {
                                 createEventTableListDict.TryRemove(key, out var v);
-                                throw e;
+                                throw;
                             }
                         }
                     }
@@ -206,7 +196,7 @@ namespace Ray.PostgreSQL
                         else
                         {
                             createStateTableDict.TryRemove(key, out var v);
-                            throw e;
+                            throw;
                         }
                     }
                 }
@@ -262,7 +252,7 @@ namespace Ray.PostgreSQL
                         else
                         {
                             createTableListDict.TryRemove(Connection, out var v);
-                            throw e;
+                            throw;
                         }
                     }
                 }
