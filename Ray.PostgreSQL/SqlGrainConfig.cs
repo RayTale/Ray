@@ -52,29 +52,27 @@ namespace Ray.PostgreSQL
         }
         public async ValueTask<TableInfo> GetTable(DateTime eventTime)
         {
-            var lastTable = AllSplitTableList.LastOrDefault();
-            //如果不需要分表，直接返回
-            if (lastTable != null && !sharding) return lastTable;
             var firstTable = AllSplitTableList.FirstOrDefault();
+            //如果不需要分表，直接返回
+            if (firstTable != null && !sharding) return firstTable;
             var nowUtcTime = DateTime.UtcNow;
             var subTime = eventTime.Subtract(firstTable != null ? firstTable.CreateTime : nowUtcTime);
-
-            var newVersion = subTime.TotalDays > 0 ? Convert.ToInt32(Math.Floor(subTime.TotalDays / shardingDays)) : 0;
-
-            if (lastTable == null || newVersion > lastTable.Version)
+            var version = subTime.TotalDays > 0 ? Convert.ToInt32(Math.Floor(subTime.TotalDays / shardingDays)) : 0;
+            var resultTable = AllSplitTableList.FirstOrDefault(t => t.Version == version);
+            if (resultTable == default)
             {
                 var table = new TableInfo
                 {
-                    Version = newVersion,
+                    Version = version,
                     Prefix = EventTable,
                     CreateTime = nowUtcTime,
-                    Name = EventTable + "_" + newVersion
+                    Name = EventTable + "_" + version
                 };
                 try
                 {
                     await CreateEventTable(table);
                     AllSplitTableList.Add(table);
-                    lastTable = table;
+                    resultTable = table;
                 }
                 catch (Exception ex)
                 {
@@ -83,13 +81,10 @@ namespace Ray.PostgreSQL
                     {
                         throw;
                     }
-                    else
-                    {
-                        return await GetTable(eventTime);
-                    }
+                    resultTable = AllSplitTableList.First(t => t.Version == version);
                 }
             }
-            return lastTable;
+            return resultTable;
         }
         public async Task<List<TableInfo>> GetTableListFromDb()
         {
