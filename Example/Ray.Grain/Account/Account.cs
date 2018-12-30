@@ -30,7 +30,7 @@ namespace Ray.Grain
             var task = ConcurrentRaiseEvent(async (state, eventFunc) =>
             {
                 var evt = new AmountAddEvent(amount, State.Balance + amount);
-                await eventFunc(evt, uniqueId, null);
+                await eventFunc(evt, uniqueId);
             }, isOk =>
             {
                 taskSource.TrySetResult(isOk);

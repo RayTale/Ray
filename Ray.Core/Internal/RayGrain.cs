@@ -252,10 +252,10 @@ namespace Ray.Core.Internal
         {
             return ProducerContainer.GetProducer(this);
         }
-        protected virtual async Task<bool> RaiseEvent(IEventBase<K> @event, EventUID uniqueId = null, string hashKey = null)
+        protected virtual async Task<bool> RaiseEvent(IEventBase<K> @event, EventUID uniqueId = null)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.GrainSnapshot, "Start raise event, grain Id ={0} and state version = {1},event type = {2} ,event ={3},uniqueueId= {4},hashkey= {5}", GrainId.ToString(), State.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event), uniqueId, hashKey);
+                Logger.LogTrace(LogEventIds.GrainSnapshot, "Start raise event, grain Id ={0} and state version = {1},event type = {2} ,event ={3},uniqueueId= {4}", GrainId.ToString(), State.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event), uniqueId);
             try
             {
                 State.IncrementDoingVersion(GrainType);//标记将要处理的Version
@@ -290,7 +290,7 @@ namespace Ray.Core.Internal
                             var mqServiceTask = GetEventProducer();
                             if (!mqServiceTask.IsCompleted)
                                 await mqServiceTask;
-                            var publishTask = mqServiceTask.Result.Publish(ms.ToArray(), string.IsNullOrEmpty(hashKey) ? GrainId.ToString() : hashKey);
+                            var publishTask = mqServiceTask.Result.Publish(ms.ToArray(), GrainId.ToString());
                             if (!publishTask.IsCompleted)
                                 await publishTask;
                         }

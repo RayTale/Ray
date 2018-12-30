@@ -29,7 +29,7 @@ namespace Ray.Core.Internal
             await base.OnDeactivateAsync();
             ConcurrentChannel.Complete();
         }
-        protected async ValueTask ConcurrentRaiseEvent(Func<S, Func<IEventBase<K>, EventUID, string, Task>, Task> handler, Func<bool, ValueTask> completedHandler, Action<Exception> exceptionHandler)
+        protected async ValueTask ConcurrentRaiseEvent(Func<S, Func<IEventBase<K>, EventUID, Task>, Task> handler, Func<bool, ValueTask> completedHandler, Action<Exception> exceptionHandler)
         {
             var writeTask = ConcurrentChannel.WriteAsync(new ReentryEventWrapper<K, S>(handler, completedHandler, exceptionHandler));
             if (!writeTask.IsCompleted)
@@ -50,12 +50,12 @@ namespace Ray.Core.Internal
         /// <param name="uniqueId">幂等性判定值</param>
         /// <param name="hashKey">消息异步分发的唯一hash的key</param>
         /// <returns></returns>
-        protected async Task<bool> ConcurrentRaiseEvent(IEventBase<K> @event, EventUID uniqueId = null, string hashKey = null)
+        protected async Task<bool> ConcurrentRaiseEvent(IEventBase<K> @event, EventUID uniqueId = null)
         {
             var taskSource = new TaskCompletionSource<bool>();
             var task = ConcurrentRaiseEvent(async (state, eventFunc) =>
             {
-                await eventFunc(@event, uniqueId, hashKey);
+                await eventFunc(@event, uniqueId);
             }, isOk =>
             {
                 taskSource.TrySetResult(isOk);
@@ -83,9 +83,9 @@ namespace Ray.Core.Internal
             {
                 foreach (var input in inputs)
                 {
-                    await input.Handler(State, (evt, uniqueId, hashKey) =>
+                    await input.Handler(State, (evt, uniqueId) =>
                     {
-                        TransactionRaiseEvent(evt, uniqueId, hashKey);
+                        TransactionRaiseEvent(evt, uniqueId);
                         input.Executed = true;
                         return Task.CompletedTask;
                     });
@@ -130,9 +130,9 @@ namespace Ray.Core.Internal
                 {
                     try
                     {
-                        await input.Handler(State, async (evt, uniqueId, hashKey) =>
+                        await input.Handler(State, async (evt, uniqueId) =>
                         {
-                            var result = await RaiseEvent(evt, uniqueId, hashKey);
+                            var result = await RaiseEvent(evt, uniqueId);
                             var completeTask = input.CompletedHandler(result);
                             if (!completeTask.IsCompleted)
                                 await completeTask;

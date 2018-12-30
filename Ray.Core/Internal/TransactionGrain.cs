@@ -169,7 +169,7 @@ namespace Ray.Core.Internal
                 EventsInTransactionProcessing.Clear();
             }
         }
-        protected override async Task<bool> RaiseEvent(IEventBase<K> @event, EventUID uniqueId = null, string hashKey = null)
+        protected override async Task<bool> RaiseEvent(IEventBase<K> @event, EventUID uniqueId = null)
         {
             if (TransactionPending)
             {
@@ -181,7 +181,7 @@ namespace Ray.Core.Internal
             var checkTask = TransactionStateCheck();
             if (!checkTask.IsCompleted)
                 await checkTask;
-            return await base.RaiseEvent(@event, uniqueId, hashKey);
+            return await base.RaiseEvent(@event, uniqueId);
         }
         /// <summary>
         /// 防止对象在State和BackupState中互相干扰，所以反序列化一个全新的Event对象给BackupState
