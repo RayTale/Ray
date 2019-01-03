@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Threading.Tasks;
-using Ray.Core.Internal;
+using Ray.Core.Abstractions;
 using Ray.Core.Messaging;
 
 namespace Ray.Core.EventBus
 {
     public abstract class MultiSubtHandler<K, TMessageWrapper> : SubHandler<TMessageWrapper>
-        where TMessageWrapper : IBytesMessage
+        where TMessageWrapper : IBytesWrapper
     {
         public MultiSubtHandler(IServiceProvider svProvider) : base(svProvider)
         {

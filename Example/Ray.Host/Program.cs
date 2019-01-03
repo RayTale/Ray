@@ -10,7 +10,7 @@ using Orleans.Hosting;
 using Orleans.Runtime;
 using Ray.Core;
 using Ray.Core.Client;
-using Ray.Core.Messaging;
+using Ray.Core.Abstractions;
 using Ray.Grain;
 using Ray.Handler;
 using Ray.IGrains;

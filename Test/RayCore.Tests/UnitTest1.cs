@@ -3,7 +3,7 @@ using Xunit;
 using Orleans.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Ray.Core.Messaging;
+using Ray.Core.Abstractions;
 using RayTest.IGrains;
 using Ray.PostgreSQL;
 using Ray.RabbitMQ;
@@ -18,7 +18,7 @@ namespace RayCore.Tests
 {
     public class UnitTest1
     {
-        TestCluster cluster;
+        readonly TestCluster cluster;
         public UnitTest1()
         {
             var build = new TestClusterBuilder();
@@ -57,9 +57,9 @@ namespace RayCore.Tests
                 .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(Account).Assembly).WithReferences())
                 .ConfigureServices((context, servicecollection) =>
                 {
-                    servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//×¢²áÐòÁÐ»¯×é¼þ
-                    servicecollection.AddPSqlSiloGrain();//×¢²áPostgresqlÎªÊÂ¼þ¿â
-                    servicecollection.AddRabbitMQ();//×¢²áRabbitMqÎªÄ¬ÈÏÏûÏ¢¶ÓÁÐ
+                    servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//×¢ï¿½ï¿½ï¿½ï¿½ï¿½Ð»ï¿½ï¿½ï¿½ï¿½
+                    servicecollection.AddPSqlSiloGrain();//×¢ï¿½ï¿½PostgresqlÎªï¿½Â¼ï¿½ï¿½ï¿½
+                    servicecollection.AddRabbitMQ();//×¢ï¿½ï¿½RabbitMqÎªÄ¬ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½
                 })
                 .Configure<SqlConfig>(c =>
                 {

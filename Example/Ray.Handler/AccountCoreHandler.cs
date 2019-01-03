@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Threading.Tasks;
+using Ray.Core.Abstractions;
 using Ray.Core.Client;
 using Ray.Core.EventBus;
-using Ray.Core.Internal;
 using Ray.IGrains;
 using Ray.IGrains.Actors;
 

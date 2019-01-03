@@ -1,4 +1,5 @@
 ﻿using System.Threading.Tasks;
+using Ray.Core.Abstractions;
 
 namespace Ray.Core.Internal
 {

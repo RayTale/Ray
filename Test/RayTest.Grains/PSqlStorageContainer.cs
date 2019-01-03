@@ -1,9 +1,9 @@
-﻿using Microsoft.Extensions.Options;
-using Ray.Core.Internal;
-using Ray.PostgreSQL;
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Options;
+using Ray.Core.Abstractions;
+using Ray.PostgreSQL;
 
 namespace RayTest.Grains
 {

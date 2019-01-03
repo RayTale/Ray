@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using Ray.Core.Abstractions;
 using Ray.Core.Client;
 using Ray.Core.Messaging;
 using Ray.Core.Messaging.Channels;

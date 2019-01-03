@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Orleans;
+using Ray.Core.Abstractions;
 using Ray.Core.Exceptions;
 using Ray.Core.Messaging;
 
@@ -15,7 +16,7 @@ namespace Ray.Core.Internal
 {
     public abstract class FollowGrain<K, S, W> : Grain
         where S : class, IState<K>, new()
-        where W : IBytesMessage
+        where W : IBytesWrapper
     {
         public FollowGrain(ILogger logger)
         {
@@ -195,75 +196,74 @@ namespace Ray.Core.Internal
             using (var wms = new MemoryStream(bytes))
             {
                 var message = Serializer.Deserialize<W>(wms);
-                var tellTask = Tell(message);
-                if (!tellTask.IsCompleted)
-                    return tellTask.AsTask();
-                else
-                    return Task.CompletedTask;
+                using (var ems = new MemoryStream(message.Bytes))
+                {
+                    if (Serializer.Deserialize(TypeContainer.GetType(message.TypeName), ems) is IEvent @event)
+                    {
+                        var tellTask = Tell(@event);
+                        if (!tellTask.IsCompleted)
+                            return tellTask.AsTask();
+                    }
+                    else
+                    {
+                        if (Logger.IsEnabled(LogLevel.Information))
+                            Logger.LogInformation(LogEventIds.FollowEventProcessing, "Receive non-event messages, grain Id = {0} ,message type = {1}", GrainId.ToString(), message.TypeName);
+                    }
+                }
             }
+            return Task.CompletedTask;
         }
-        public async ValueTask Tell(W message)
+        protected async ValueTask Tell(IEvent @event)
         {
-            using (var ems = new MemoryStream(message.Bytes))
+            if (Logger.IsEnabled(LogLevel.Trace))
+                Logger.LogTrace(LogEventIds.FollowEventProcessing, "Start event handling, grain Id = {0} and state version = {1},event type = {2} ,event = {3}", GrainId.ToString(), State.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event));
+            try
             {
-                if (Serializer.Deserialize(TypeContainer.GetType(message.TypeName), ems) is IEventBase<K> @event)
+                if (@event.Version == State.Version + 1)
                 {
-                    if (Logger.IsEnabled(LogLevel.Trace))
-                        Logger.LogTrace(LogEventIds.FollowEventProcessing, "Start event handling, grain Id = {0} and state version = {1},event type = {2} ,event = {3}", GrainId.ToString(), State.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event));
-                    try
+                    var onEventDeliveredTask = OnEventDelivered(@event);
+                    if (!onEventDeliveredTask.IsCompleted)
+                        await onEventDeliveredTask;
+                    State.FullUpdateVersion(@event, GrainType);//更新处理完成的Version
+                }
+                else if (@event.Version > State.Version)
+                {
+                    var eventStorageTask = GetEventStorage();
+                    if (!eventStorageTask.IsCompleted)
+                        await eventStorageTask;
+                    var eventList = await eventStorageTask.Result.GetListAsync(GrainId, State.Version, @event.Version);
+                    foreach (var item in eventList)
                     {
-                        if (@event.Version == State.Version + 1)
-                        {
-                            var onEventDeliveredTask = OnEventDelivered(@event);
-                            if (!onEventDeliveredTask.IsCompleted)
-                                await onEventDeliveredTask;
-                            State.FullUpdateVersion(@event, GrainType);//更新处理完成的Version
-                        }
-                        else if (@event.Version > State.Version)
-                        {
-                            var eventStorageTask = GetEventStorage();
-                            if (!eventStorageTask.IsCompleted)
-                                await eventStorageTask;
-                            var eventList = await eventStorageTask.Result.GetListAsync(GrainId, State.Version, @event.Version);
-                            foreach (var item in eventList)
-                            {
-                                var onEventDeliveredTask = OnEventDelivered(item);
-                                if (!onEventDeliveredTask.IsCompleted)
-                                    await onEventDeliveredTask;
-                                State.FullUpdateVersion(item, GrainType);//更新处理完成的Version
-                            }
-                        }
-                        if (@event.Version == State.Version + 1)
-                        {
-                            var onEventDeliveredTask = OnEventDelivered(@event);
-                            if (!onEventDeliveredTask.IsCompleted)
-                                await onEventDeliveredTask;
-                            State.FullUpdateVersion(@event, GrainType);//更新处理完成的Version
-                        }
-                        if (@event.Version > State.Version)
-                        {
-                            throw new EventVersionNotMatchStateException(GrainId.ToString(), GrainType, @event.Version, State.Version);
-                        }
-                        await SaveSnapshotAsync();
-                        if (Logger.IsEnabled(LogLevel.Trace))
-                            Logger.LogTrace(LogEventIds.FollowEventProcessing, "Event Handling Completion, grain Id ={0} and state version = {1},event type = {2}", GrainId.ToString(), State.Version, @event.GetType().FullName);
-                    }
-                    catch (Exception ex)
-                    {
-                        if (Logger.IsEnabled(LogLevel.Critical))
-                            Logger.LogCritical(LogEventIds.FollowEventProcessing, ex, "FollowGrain Event handling failed with Id = {0},event = {1}", GrainId.ToString(), JsonSerializer.Serialize(@event));
-                        ExceptionDispatchInfo.Capture(ex).Throw();
+                        var onEventDeliveredTask = OnEventDelivered(item);
+                        if (!onEventDeliveredTask.IsCompleted)
+                            await onEventDeliveredTask;
+                        State.FullUpdateVersion(item, GrainType);//更新处理完成的Version
                     }
                 }
-                else
+                if (@event.Version == State.Version + 1)
                 {
-                    if (Logger.IsEnabled(LogLevel.Information))
-                        Logger.LogInformation(LogEventIds.FollowEventProcessing, "Receive non-event messages, grain Id = {0} ,message type = {1}", GrainId.ToString(), message.TypeName);
+                    var onEventDeliveredTask = OnEventDelivered(@event);
+                    if (!onEventDeliveredTask.IsCompleted)
+                        await onEventDeliveredTask;
+                    State.FullUpdateVersion(@event, GrainType);//更新处理完成的Version
                 }
+                if (@event.Version > State.Version)
+                {
+                    throw new EventVersionNotMatchStateException(GrainId.ToString(), GrainType, @event.Version, State.Version);
+                }
+                await SaveSnapshotAsync();
+                if (Logger.IsEnabled(LogLevel.Trace))
+                    Logger.LogTrace(LogEventIds.FollowEventProcessing, "Event Handling Completion, grain Id ={0} and state version = {1},event type = {2}", GrainId.ToString(), State.Version, @event.GetType().FullName);
+            }
+            catch (Exception ex)
+            {
+                if (Logger.IsEnabled(LogLevel.Critical))
+                    Logger.LogCritical(LogEventIds.FollowEventProcessing, ex, "FollowGrain Event handling failed with Id = {0},event = {1}", GrainId.ToString(), JsonSerializer.Serialize(@event));
+                ExceptionDispatchInfo.Capture(ex).Throw();
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual ValueTask OnEventDelivered(IEventBase<K> @event) => new ValueTask();
+        protected virtual ValueTask OnEventDelivered(IEvent @event) => new ValueTask();
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask OnSaveSnapshot() => new ValueTask();
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

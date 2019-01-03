@@ -1,7 +1,7 @@
-﻿using Ray.Core.Messaging;
-using System;
+﻿using System;
 using System.IO;
 using ProtoBuf;
+using Ray.Core.Abstractions;
 
 namespace Ray.IGrains
 {

@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json;
+using Ray.Core.Abstractions;
 
 namespace Ray.Core.Messaging
 {

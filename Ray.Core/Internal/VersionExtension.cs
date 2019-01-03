@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
+using Ray.Core.Abstractions;
 using Ray.Core.Exceptions;
 
 namespace Ray.Core.Internal
@@ -7,14 +8,14 @@ namespace Ray.Core.Internal
     public static class VersionExtension
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void UpdateVersion<K>(this IState<K> state, IEventBase<K> @event, Type grainType)
+        public static void UpdateVersion<K>(this IState<K> state, IEvent @event, Type grainType)
         {
             if (state.Version + 1 != @event.Version)
                 throw new EventVersionNotMatchStateException(state.StateId.ToString(), grainType, @event.Version, state.Version);
             state.Version = @event.Version;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void FullUpdateVersion<K>(this IState<K> state, IEventBase<K> @event, Type grainType)
+        public static void FullUpdateVersion<K>(this IState<K> state, IEvent @event, Type grainType)
         {
             if (state.Version + 1 != @event.Version)
                 throw new EventVersionNotMatchStateException(state.StateId.ToString(), grainType, @event.Version, state.Version);
@@ -40,7 +41,7 @@ namespace Ray.Core.Internal
             state.DoingVersion -= 1;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string GetUniqueId<K>(this IEventBase<K> @event)
+        public static string GetUniqueId(this IEvent @event)
         {
             return @event.Version.ToString();
         }

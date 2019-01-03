@@ -11,9 +11,9 @@ using Microsoft.Extensions.Logging;
 using Npgsql;
 using NpgsqlTypes;
 using ProtoBuf;
+using Ray.Core.Abstractions;
 using Ray.Core.Internal;
 using Ray.Core.Messaging;
-using Ray.Core.Messaging.Channels;
 
 namespace Ray.PostgreSQL
 {

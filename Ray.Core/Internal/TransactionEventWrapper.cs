@@ -1,4 +1,6 @@
-﻿namespace Ray.Core.Internal
+﻿using Ray.Core.Abstractions;
+
+namespace Ray.Core.Internal
 {
     public class TransactionEventWrapper<K>
     {

@@ -1,7 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
+using Ray.Core.Internal;
 
-namespace Ray.Core.Internal
+namespace Ray.Core.Abstractions
 {
     public interface IEventStorage<K>
     {

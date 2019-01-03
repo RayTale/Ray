@@ -1,4 +1,4 @@
-﻿namespace Ray.Core.Messaging
+﻿namespace Ray.Core.Abstractions
 {
     public interface IJsonSerializer
     {

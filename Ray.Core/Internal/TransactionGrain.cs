@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Ray.Core.Abstractions;
 using Ray.Core.Exceptions;
 using Ray.Core.Messaging;
 using Ray.Core.Utils;
@@ -13,7 +14,7 @@ namespace Ray.Core.Internal
 {
     public abstract class TransactionGrain<K, S, W> : RayGrain<K, S, W>
         where S : class, IState<K>, ICloneable<S>, new()
-        where W : IBytesMessage, new()
+        where W : IBytesWrapper, new()
     {
         public TransactionGrain(ILogger logger) : base(logger)
         {
@@ -26,7 +27,7 @@ namespace Ray.Core.Internal
         protected override async Task RecoveryState()
         {
             await base.RecoveryState();
-            BackupState = State.DeepCopy();
+            BackupState = State.Clone();
         }
         protected async ValueTask BeginTransaction()
         {
@@ -139,7 +140,7 @@ namespace Ray.Core.Internal
                 {
                     if (BackupState.Version == TransactionStartVersion)
                     {
-                        State = BackupState.DeepCopy();
+                        State = BackupState.Clone();
                     }
                     else
                     {

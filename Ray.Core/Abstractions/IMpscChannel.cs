@@ -2,11 +2,11 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace Ray.Core.Messaging.Channels
+namespace Ray.Core.Abstractions
 {
     public interface IMpscChannel<T> : IMpscChannelBase
     {
-        MpscChannel<T> BindConsumer(Func<List<T>, Task> consumer);
+        IMpscChannel<T> BindConsumer(Func<List<T>, Task> consumer);
         ValueTask<bool> WriteAsync(T data);
     }
     public interface IMpscChannelBase

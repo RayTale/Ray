@@ -1,13 +1,13 @@
 ﻿using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Ray.Core.Messaging;
+using Ray.Core.Abstractions;
 
 namespace Ray.Core.Internal
 {
     public abstract class ReplicaGrain<K, S, W> : FollowGrain<K, S, W>
         where S : class, IState<K>, new()
-        where W : IBytesMessage
+        where W : IBytesWrapper
     {
         public ReplicaGrain(ILogger logger) : base(logger)
         {
@@ -19,7 +19,7 @@ namespace Ray.Core.Internal
             return base.OnActivateAsync();
         }
         protected override bool SaveSnapshot => false;
-        protected override ValueTask OnEventDelivered(IEventBase<K> @event)
+        protected override ValueTask OnEventDelivered(IEvent @event)
         {
             EventHandler.Apply(State, @event);
             return new ValueTask();

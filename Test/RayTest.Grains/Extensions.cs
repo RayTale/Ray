@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using Ray.Core.Abstractions;
 using Ray.Core.EventBus;
-using Ray.Core.Internal;
 using Ray.RabbitMQ;
 using RayTest.Grains.EventHandles;
 using RayTest.IGrains.States;

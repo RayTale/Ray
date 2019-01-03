@@ -1,7 +1,7 @@
 ﻿using System.Threading.Tasks;
 using Orleans;
 
-namespace Ray.Core.Internal
+namespace Ray.Core.Abstractions
 {
     public interface IStorageContainer
     {

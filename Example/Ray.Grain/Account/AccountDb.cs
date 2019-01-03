@@ -1,7 +1,7 @@
 ﻿using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Orleans;
-using Ray.Core.Internal;
+using Ray.Core.Abstractions;
 using Ray.IGrains.Actors;
 using Ray.IGrains.Events;
 using Ray.IGrains.States;
@@ -16,7 +16,7 @@ namespace Ray.Grain
         public override long GrainId => this.GetPrimaryKeyLong();
 
         protected override bool EventConcurrentProcessing => true;
-        protected override async ValueTask Process(IEventBase<long> @event)
+        protected override async ValueTask Process(IEvent @event)
         {
             switch (@event)
             {

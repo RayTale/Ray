@@ -1,9 +1,9 @@
 ﻿using Orleans;
-using Ray.Core.Internal;
+using Ray.Core.Abstractions;
 
 namespace Ray.IGrains.Actors
 {
-    public interface IAccountDb : IConcurrentFollowGrain, IGrainWithIntegerKey
+    public interface IAccountDb : IConcurrentFollow, IGrainWithIntegerKey
     {
     }
 }
