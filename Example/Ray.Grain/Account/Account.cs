@@ -14,11 +14,6 @@ namespace Ray.Grain
         {
         }
         public override long GrainId => this.GetPrimaryKeyLong();
-        protected override bool SupportAsyncFollow => true;
-        public override async Task OnActivateAsync()
-        {
-            await base.OnActivateAsync();
-        }
         public Task Transfer(long toAccountId, decimal amount)
         {
             var evt = new AmountTransferEvent(toAccountId, amount, this.State.Balance - amount);
