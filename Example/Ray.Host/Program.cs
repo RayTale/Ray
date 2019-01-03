@@ -7,14 +7,12 @@ using Microsoft.Extensions.Logging;
 using Orleans;
 using Orleans.Configuration;
 using Orleans.Hosting;
-using Orleans.Runtime;
 using Ray.Core;
-using Ray.Core.Client;
 using Ray.Core.Abstractions;
+using Ray.Core.Client;
 using Ray.Grain;
 using Ray.Handler;
 using Ray.IGrains;
-using Ray.IGrains.Actors;
 using Ray.MongoDB;
 using Ray.PostgreSQL;
 using Ray.RabbitMQ;
@@ -32,9 +30,8 @@ namespace Ray.MongoHost
             try
             {
                 using (var host = await StartSilo())
-                    //using (var client = await StartClientWithRetries())
-                    //{
-                    //var handlerStartup = client.ServiceProvider.GetService<HandlerStartup>();
+                {
+                    //var handlerStartup = host.Services.GetService<HandlerStartup>();
                     //await Task.WhenAll(
                     // handlerStartup.Start(SubscriberGroup.Core),
                     // handlerStartup.Start(SubscriberGroup.Db),
@@ -43,14 +40,12 @@ namespace Ray.MongoHost
                     {
                         Console.WriteLine("Input any key to stop");
                         Console.ReadLine();
-                        //client.Dispose();
                         await host.StopAsync();
                         Console.WriteLine("Input any key to Start");
                         Console.ReadLine();
                         await host.StartAsync();
                     }
-                //}
-                return 0;
+                }
             }
             catch (Exception ex)
             {
@@ -70,10 +65,16 @@ namespace Ray.MongoHost
                     servicecollection.AddRay();
                     servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
                     //注册postgresql为事件存储库
-                   // servicecollection.AddPSqlSiloGrain();
+                    servicecollection.AddPSqlSiloGrain();
                     //注册mongodb为事件存储库
-                    servicecollection.AddMongoDbSiloGrain();
+                    //servicecollection.AddMongoDbSiloGrain();
+                    servicecollection.AddMQHandler();//注册所有handler
+                    servicecollection.AddSingleton<IClientFactory, ClientFactory>();
                 })
+                 .Configure<GrainCollectionOptions>(options =>
+                 {
+                     options.CollectionAge = TimeSpan.FromMinutes(5);
+                 })
                 .Configure<SqlConfig>(c =>
                 {
                     c.ConnectionDict = new Dictionary<string, string> {
@@ -96,64 +97,23 @@ namespace Ray.MongoHost
                 {
                     logging.SetMinimumLevel(LogLevel.Information);
                     logging.AddConsole(options => options.IncludeScopes = true);
-                });
+                }).EnableDirectClient();
 
             var host = builder.Build();
             await host.StartAsync();
             return host;
         }
-        private static async Task<IClusterClient> StartClientWithRetries(int initializeAttemptsBeforeFailing = 5)
+    }
+    public class ClientFactory : IClientFactory
+    {
+        readonly IServiceProvider serviceProvider;
+        public ClientFactory(IServiceProvider serviceProvider)
         {
-            int attempt = 0;
-            IClusterClient client;
-            while (true)
-            {
-                try
-                {
-                    client = await ClientFactory.Build(() =>
-                    {
-                        var builder = new ClientBuilder()
-                        .UseLocalhostClustering()
-                        .ConfigureServices((context, servicecollection) =>
-                        {
-                            servicecollection.AddRay();
-                            servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
-                            servicecollection.AddRabbitMQ();//注册RabbitMq为默认消息队列
-                            servicecollection.AddLogging(logging => logging.AddConsole());
-                            servicecollection.AddMQHandler();//注册所有handler
-                            servicecollection.PostConfigure<RabbitConfig>(c =>
-                            {
-                                c.UserName = "admin";
-                                c.Password = "admin";
-                                c.Hosts = new[] { "127.0.0.1:5672" };
-                                c.MaxPoolSize = 100;
-                                c.VirtualHost = "/";
-                            });
-                        })
-                         .Configure<GrainCollectionOptions>(options =>
-                         {
-                             options.CollectionAge = TimeSpan.FromMinutes(5);
-                         })
-                        .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IAccount).Assembly).WithReferences())
-                        .ConfigureLogging(logging => logging.AddConsole());
-                        return builder;
-                    });
-                    Console.WriteLine("Client successfully connect to silo host");
-                    break;
-                }
-                catch (SiloUnavailableException)
-                {
-                    attempt++;
-                    Console.WriteLine($"Attempt {attempt} of {initializeAttemptsBeforeFailing} failed to initialize the Orleans client.");
-                    if (attempt > initializeAttemptsBeforeFailing)
-                    {
-                        throw;
-                    }
-                    await Task.Delay(TimeSpan.FromSeconds(4));
-                }
-            }
-
-            return client;
+            this.serviceProvider = serviceProvider;
+        }
+        public IClusterClient Create()
+        {
+            return serviceProvider.GetService<IClusterClient>();
         }
     }
 }

@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Ray.Core.Abstractions;
 using Ray.Core.Exceptions;
-using Ray.Core.Messaging;
 using Ray.Core.Utils;
 
 namespace Ray.Core.Internal

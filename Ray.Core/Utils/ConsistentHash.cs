@@ -7,7 +7,7 @@ namespace Ray.Core.Utils
 {
     public class ConsistentHash
     {
-        SortedDictionary<int, string> circle = new SortedDictionary<int, string>();
+        readonly SortedDictionary<int, string> circle = new SortedDictionary<int, string>();
         int _replicate = 200;    //default _replicate count
         int[] ayKeys = null;    //cache the ordered keys for better performance
 
@@ -132,7 +132,7 @@ namespace Ray.Core.Utils
         }
 
         //default String.GetHashCode() can't well spread strings like "1", "2", "3"
-        public static int BetterHash(String key)
+        public static int BetterHash(string key)
         {
             uint hash = MurmurHash2.Hash(Encoding.UTF8.GetBytes(key));
             return (int)hash;
