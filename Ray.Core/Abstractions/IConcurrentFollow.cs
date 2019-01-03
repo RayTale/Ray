@@ -1,11 +1,11 @@
 ﻿using System.Threading.Tasks;
 using Orleans.Concurrency;
 
-namespace Ray.Core.Internal
+namespace Ray.Core.Abstractions
 {
-    public interface IConcurrentFollowGrain
+    public interface IConcurrentFollow
     {
-        [AlwaysInterleave]
+        [AlwaysInterleave] 
         Task ConcurrentTell(byte[] bytes);
     }
 }

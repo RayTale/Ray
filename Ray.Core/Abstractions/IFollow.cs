@@ -1,8 +1,8 @@
 ﻿using System.Threading.Tasks;
 
-namespace Ray.Core.Internal
+namespace Ray.Core.Abstractions
 {
-    public interface IFollowGrain
+    public interface IFollow
     {
         Task Tell(byte[] bytes);
     }

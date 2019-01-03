@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Threading.Tasks;
+using Ray.Core.Abstractions;
 using Ray.Core.Client;
 using Ray.Core.EventBus;
-using Ray.Core.Internal;
 using Ray.IGrains;
 using Ray.IGrains.Actors;
 
@@ -10,7 +10,7 @@ namespace Ray.Handler
 {
     public sealed class AccountToDbHandler : SubHandler<MessageInfo>
     {
-        IClientFactory clientFactory;
+        readonly IClientFactory clientFactory;
         public AccountToDbHandler(IServiceProvider svProvider, IClientFactory clientFactory) : base(svProvider)
         {
             this.clientFactory = clientFactory;

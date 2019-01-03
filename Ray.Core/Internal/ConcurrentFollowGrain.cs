@@ -6,17 +6,17 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Ray.Core.Abstractions;
 using Ray.Core.Exceptions;
 using Ray.Core.Messaging;
-using Ray.Core.Messaging.Channels;
 
 namespace Ray.Core.Internal
 {
     public abstract class ConcurrentFollowGrain<K, S, W> : FollowGrain<K, S, W>
           where S : class, IState<K>, new()
-          where W : IBytesMessage
+          where W : IBytesWrapper
     {
-        readonly List<IEventBase<K>> UnprocessedEventList = new List<IEventBase<K>>();
+        readonly List<IEvent> UnprocessedEventList = new List<IEvent>();
         public ConcurrentFollowGrain(ILogger logger) : base(logger)
         {
         }
@@ -24,11 +24,11 @@ namespace Ray.Core.Internal
         /// <summary>
         /// 多生产者单消费者消息信道
         /// </summary>
-        protected IMpscChannel<MessageTaskSource<IEventBase<K>, bool>> ConcurrentChannel { get; private set; }
+        protected IMpscChannel<MessageTaskSource<IEvent, bool>> ConcurrentChannel { get; private set; }
         protected override bool EventConcurrentProcessing => true;
         public override Task OnActivateAsync()
         {
-            ConcurrentChannel = ServiceProvider.GetService<IMpscChannel<MessageTaskSource<IEventBase<K>, bool>>>().BindConsumer(BatchInputProcessing);
+            ConcurrentChannel = ServiceProvider.GetService<IMpscChannel<MessageTaskSource<IEvent, bool>>>().BindConsumer(BatchInputProcessing);
             ConcurrentChannel.ActiveConsumer();
             return base.OnActivateAsync();
         }
@@ -44,11 +44,11 @@ namespace Ray.Core.Internal
                 var message = Serializer.Deserialize<W>(wms);
                 using (var ems = new MemoryStream(message.Bytes))
                 {
-                    if (Serializer.Deserialize(TypeContainer.GetType(message.TypeName), ems) is IEventBase<K> @event)
+                    if (Serializer.Deserialize(TypeContainer.GetType(message.TypeName), ems) is IEvent @event)
                     {
                         if (@event.Version > State.Version)
                         {
-                            var writeTask = ConcurrentChannel.WriteAsync(new MessageTaskSource<IEventBase<K>, bool>(@event));
+                            var writeTask = ConcurrentChannel.WriteAsync(new MessageTaskSource<IEvent, bool>(@event));
                             if (!writeTask.IsCompleted)
                                 await writeTask;
                             if (!writeTask.Result)
@@ -64,10 +64,10 @@ namespace Ray.Core.Internal
             }
         }
         readonly TimeoutException timeoutException = new TimeoutException($"{nameof(OnEventDelivered)} with timeouts in {nameof(BatchInputProcessing)}");
-        private async Task BatchInputProcessing(List<MessageTaskSource<IEventBase<K>, bool>> events)
+        private async Task BatchInputProcessing(List<MessageTaskSource<IEvent, bool>> events)
         {
             var start = DateTime.UtcNow;
-            var evtList = new List<IEventBase<K>>();
+            var evtList = new List<IEvent>();
             var startVersion = State.Version;
             if (UnprocessedEventList.Count > 0)
             {
@@ -157,6 +157,5 @@ namespace Ray.Core.Internal
                 maxRequest?.TrySetException(ex);
             }
         }
-
     }
 }

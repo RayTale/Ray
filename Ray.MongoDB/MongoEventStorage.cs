@@ -8,9 +8,9 @@ using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using ProtoBuf;
+using Ray.Core.Abstractions;
 using Ray.Core.Internal;
 using Ray.Core.Messaging;
-using Ray.Core.Messaging.Channels;
 
 namespace Ray.MongoDB
 {

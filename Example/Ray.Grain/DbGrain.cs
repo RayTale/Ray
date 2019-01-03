@@ -1,5 +1,6 @@
 ﻿using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Ray.Core.Abstractions;
 using Ray.Core.Internal;
 using Ray.IGrains;
 
@@ -11,7 +12,7 @@ namespace Ray.Grain
         public DbGrain(ILogger logger) : base(logger)
         {
         }
-        protected override async ValueTask OnEventDelivered(IEventBase<K> @event)
+        protected override async ValueTask OnEventDelivered(IEvent @event)
         {
             var task = Process(@event);
             if (!task.IsCompleted)
@@ -28,6 +29,6 @@ namespace Ray.Grain
                 });
             }
         }
-        protected abstract ValueTask Process(IEventBase<K> @event);
+        protected abstract ValueTask Process(IEvent @event);
     }
 }

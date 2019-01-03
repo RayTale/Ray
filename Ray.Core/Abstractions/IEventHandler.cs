@@ -1,4 +1,4 @@
-﻿namespace Ray.Core.Internal
+﻿namespace Ray.Core.Abstractions
 {
     public interface IEventHandler<S>
     {

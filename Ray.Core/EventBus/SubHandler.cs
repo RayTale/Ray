@@ -2,12 +2,13 @@
 using System.IO;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using Ray.Core.Abstractions;
 using Ray.Core.Messaging;
 
 namespace Ray.Core.EventBus
 {
     public abstract class SubHandler<TMessageWrapper> : ISubHandler
-        where TMessageWrapper : IBytesMessage
+        where TMessageWrapper : IBytesWrapper
     {
         readonly IServiceProvider serviceProvider;
         public SubHandler(IServiceProvider svProvider)

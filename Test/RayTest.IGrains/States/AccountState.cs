@@ -1,6 +1,6 @@
-﻿using ProtoBuf;
-using Ray.Core.Internal;
-using System;
+﻿using System;
+using ProtoBuf;
+using Ray.Core.Abstractions;
 
 namespace RayTest.IGrains.States
 {
@@ -15,7 +15,7 @@ namespace RayTest.IGrains.States
         #endregion
         public decimal Balance { get; set; }
 
-        public AccountState DeepCopy()
+        public AccountState Clone()
         {
             return new AccountState
             {

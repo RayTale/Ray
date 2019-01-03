@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Ray.Core.Abstractions;
 using Ray.Core.Exceptions;
 using Ray.Core.Messaging;
 using Ray.Core.Messaging.Channels;
@@ -11,7 +12,7 @@ namespace Ray.Core.Internal
 {
     public abstract class ConcurrentGrain<K, S, W> : TransactionGrain<K, S, W>
         where S : class, IState<K>, ICloneable<S>, new()
-        where W : IBytesMessage, new()
+        where W : IBytesWrapper, new()
     {
         public ConcurrentGrain(ILogger logger) : base(logger)
         {

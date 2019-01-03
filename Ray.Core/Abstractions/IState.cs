@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Ray.Core.Internal
+﻿namespace Ray.Core.Abstractions
 {
     public interface IState<K>
     {

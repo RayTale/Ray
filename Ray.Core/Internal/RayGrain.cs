@@ -6,15 +6,15 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Orleans;
+using Ray.Core.Abstractions;
 using Ray.Core.EventBus;
-using Ray.Core.Messaging;
 using Ray.Core.Utils;
 
 namespace Ray.Core.Internal
 {
     public abstract class RayGrain<K, S, W> : Grain
         where S : class, IState<K>, new()
-        where W : IBytesMessage, new()
+        where W : IBytesWrapper, new()
     {
         public RayGrain(ILogger logger)
         {

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IO;
 
-namespace Ray.Core.Messaging
+namespace Ray.Core.Abstractions
 {
     public interface ISerializer
     {

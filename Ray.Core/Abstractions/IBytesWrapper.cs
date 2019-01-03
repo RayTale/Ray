@@ -1,7 +1,6 @@
-﻿namespace Ray.Core.Messaging
+﻿namespace Ray.Core.Abstractions
 {
-
-    public interface IBytesMessage
+    public interface IBytesWrapper
     {
         string TypeName { get; set; }
         byte[] Bytes { get; set; }

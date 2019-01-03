@@ -2,7 +2,7 @@
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
-using Ray.Core.Internal;
+using Ray.Core.Abstractions;
 using Ray.PostgreSQL;
 
 namespace Ray.Grain

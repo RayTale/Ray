@@ -1,10 +1,10 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
-using Ray.Core.Internal;
+using Ray.Core.Abstractions;
 using Ray.Core.EventBus;
+using Ray.Grain.EventHandles;
+using Ray.IGrains.States;
 using Ray.MongoDB;
 using Ray.RabbitMQ;
-using Ray.IGrains.States;
-using Ray.Grain.EventHandles;
 
 namespace Ray.Grain
 {

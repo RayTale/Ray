@@ -1,11 +1,12 @@
 ﻿using System;
-using System.Linq;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Ray.Core.Abstractions;
 
 namespace Ray.Core.Messaging.Channels
 {
@@ -26,7 +27,7 @@ namespace Ray.Core.Messaging.Channels
             this.logger = logger;
             this.options = options;
         }
-        public MpscChannel<T> BindConsumer(Func<List<T>, Task> consumer)
+        public IMpscChannel<T> BindConsumer(Func<List<T>, Task> consumer)
         {
             if (this.consumer == default)
                 this.consumer = consumer;

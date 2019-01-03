@@ -1,6 +1,6 @@
 ﻿using System.Threading.Tasks;
 
-namespace Ray.Core.Internal
+namespace Ray.Core.Abstractions
 {
     public interface IStateStorage<T, K> where T : IState<K>
     {

@@ -1,4 +1,4 @@
-﻿using Ray.Core.Internal;
+﻿using Ray.Core.Abstractions;
 using RayTest.IGrains.Events;
 using RayTest.IGrains.States;
 
