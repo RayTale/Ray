@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Orleans;
 using Orleans.Concurrency;
 using Ray.Core.Abstractions.Actors;
+using System.Threading;
 
 namespace Ray.Core.Actors
 {
@@ -17,13 +18,13 @@ namespace Ray.Core.Actors
             var nowTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             if (nowTimestamp > startTimestamp)
             {
-                startTimestamp = nowTimestamp;
-                times = 0;
+                Interlocked.Exchange(ref startTimestamp, nowTimestamp);
+                Interlocked.Exchange(ref times, 0);
             }
-            times += 1;
-            if (times <= 65535)
+            var newTimes = Interlocked.Increment(ref times);
+            if (newTimes <= 65535)
             {
-                return (startTimestamp << 16) | (ushort)times;
+                return (startTimestamp << 16) | (ushort)newTimes;
             }
             else
             {
