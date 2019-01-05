@@ -158,7 +158,14 @@ namespace Ray.Storage.PostgreSQL
                         {
                             foreach (var w in wrapList)
                             {
-                                w.Result = await conn.ExecuteAsync(saveSql, new { StateId = w.Value.StateId.ToString(), w.UniqueId, w.Value.GetType().FullName, Data = w.Bytes, w.Value.Version }, trans) > 0;
+                                w.Result = await conn.ExecuteAsync(saveSql, new
+                                {
+                                    StateId = w.Value.StateId.ToString(),
+                                    w.UniqueId,
+                                    TypeCode = w.Value.GetType().FullName,
+                                    Data = w.Bytes,
+                                    w.Value.Version
+                                }, trans) > 0;
                             }
                             trans.Commit();
                             wrapList.ForEach(wrap => wrap.TaskSource.TrySetResult(wrap.Result));

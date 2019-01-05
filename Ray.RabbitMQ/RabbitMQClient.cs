@@ -93,14 +93,6 @@ namespace Ray.EventBus.RabbitMQ
                 AutomaticRecoveryEnabled = false
             };
         }
-        public async Task ExchangeDeclare(string exchange)
-        {
-            using (var channel = await PullModel())
-            {
-                channel.Model.ExchangeDeclare(exchange, "direct", true);
-            }
-        }
-
         readonly ConcurrentQueue<ModelWrapper> modelPool = new ConcurrentQueue<ModelWrapper>();
         readonly List<ModelWrapper> modelList = new List<ModelWrapper>();
         readonly ConcurrentQueue<TaskCompletionSource<ModelWrapper>> modelTaskPool = new ConcurrentQueue<TaskCompletionSource<ModelWrapper>>();

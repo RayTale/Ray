@@ -4,7 +4,7 @@ using Orleans;
 
 namespace Ray.Core.Client
 {
-    public class ClientFactory : IClientFactory
+    public class ClusterClientFactory : IClusterClientFactory
     {
         static Func<IClientBuilder> _builderFunc;
         static IClusterClient _client;

@@ -1,20 +1,56 @@
-﻿using System.Threading.Tasks;
+﻿using System.Collections.Concurrent;
+using System.Threading.Tasks;
+using Ray.Core.Abstractions;
 using Ray.Core.EventBus;
 
 namespace Ray.EventBus.RabbitMQ
 {
-    public class RabbitMQService : IProducer
+    public class RabbitMQService<W> : IProducer 
+        where W : IBytesWrapper
     {
-        readonly RabbitPublisher publisher;
-        public RabbitMQService(RabbitPublisher publisher) => this.publisher = publisher;
+        readonly RabbitEventBus<W> publisher;
+        readonly IRabbitMQClient rabbitMQClient;
+        public RabbitMQService(
+            IRabbitMQClient rabbitMQClient,
+            RabbitEventBus<W> publisher)
+        {
+            this.publisher = publisher;
+            this.rabbitMQClient = rabbitMQClient;
+        }
 
+        readonly ConcurrentDictionary<string, ModelWrapper> modelDict = new ConcurrentDictionary<string, ModelWrapper>();
+        public async ValueTask<ModelWrapper> PullModel(string route)
+        {
+            if (!modelDict.TryGetValue(route, out var model))
+            {
+                var pullTask = rabbitMQClient.PullModel();
+                if (!pullTask.IsCompleted)
+                    await pullTask;
+                if (!modelDict.TryAdd(route, pullTask.Result))
+                {
+                    pullTask.Result.Dispose();
+                }
+            }
+            else if (model.Model.IsClosed)
+            {
+                if (modelDict.TryRemove(route, out var value))
+                {
+                    value.Dispose();
+                }
+                var pullTask = PullModel(route);
+                if (!pullTask.IsCompleted)
+                    await pullTask;
+                return pullTask.Result;
+            }
+            return model;
+        }
         public async ValueTask Publish(byte[] bytes, string hashKey)
         {
-            var task = publisher.GetQueue(hashKey);
-            if (!task.IsCompleted)
-                await task;
-            var (queue, model) = task.Result;
-            model.Publish(bytes, publisher.Exchange, queue, false);
+            var route = publisher.GetRoute(hashKey);
+            var pullTask = PullModel(route);
+            if (!pullTask.IsCompleted)
+                await pullTask;
+            pullTask.Result.Publish(bytes, publisher.Exchange, route, false);
         }
     }
 }

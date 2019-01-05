@@ -9,13 +9,14 @@ using Orleans.Configuration;
 using Orleans.Hosting;
 using Ray.Core;
 using Ray.Core.Abstractions;
+using Ray.Core.Abstractions.Actors;
 using Ray.Core.Client;
+using Ray.Core.EventBus;
+using Ray.EventBus.RabbitMQ;
 using Ray.Grain;
-using Ray.Handler;
 using Ray.IGrains;
 using Ray.Storage.MongoDB;
 using Ray.Storage.PostgreSQL;
-using Ray.EventBus.RabbitMQ;
 
 namespace Ray.MongoHost
 {
@@ -27,15 +28,21 @@ namespace Ray.MongoHost
         }
         private static async Task<int> RunMainAsync()
         {
+            var mqListenerNodes = new List<string> { "N1" };
             try
             {
                 using (var host = await StartSilo())
                 {
-                    //var handlerStartup = host.Services.GetService<HandlerStartup>();
-                    //await Task.WhenAll(
-                    // handlerStartup.Start(SubscriberGroup.Core),
-                    // handlerStartup.Start(SubscriberGroup.Db),
-                    // handlerStartup.Start(SubscriberGroup.Rep));
+                    var consumerManager = host.Services.GetService<IConsumerManager>();
+                    foreach (var node in mqListenerNodes)
+                    {
+                        var (isOk, lockId) = await host.Services.GetService<IClusterClient>().GetGrain<INoWaitLock>(node).Lock();
+                        if (isOk)
+                        {
+                            await consumerManager.Start(node, mqListenerNodes);
+                            break;
+                        }
+                    }
                     while (true)
                     {
                         Console.WriteLine("Input any key to stop");
@@ -68,8 +75,8 @@ namespace Ray.MongoHost
                     servicecollection.AddPSqlSiloGrain();
                     //注册mongodb为事件存储库
                     //servicecollection.AddMongoDbSiloGrain();
-                    servicecollection.AddMQHandler();//注册所有handler
-                    servicecollection.AddSingleton<IClientFactory, ClientFactory>();
+                    servicecollection.AddRabbitMQ<MessageInfo>();//注册RabbitMq为默认消息队列
+                    servicecollection.AddSingleton<IClusterClientFactory, ClientFactory>();
                 })
                  .Configure<GrainCollectionOptions>(options =>
                  {
@@ -104,7 +111,7 @@ namespace Ray.MongoHost
             return host;
         }
     }
-    public class ClientFactory : IClientFactory
+    public class ClientFactory : IClusterClientFactory
     {
         readonly IServiceProvider serviceProvider;
         public ClientFactory(IServiceProvider serviceProvider)

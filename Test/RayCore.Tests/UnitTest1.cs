@@ -57,9 +57,9 @@ namespace RayCore.Tests
                 .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(Account).Assembly).WithReferences())
                 .ConfigureServices((context, servicecollection) =>
                 {
-                    servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//ע�����л����
-                    servicecollection.AddPSqlSiloGrain();//ע��PostgresqlΪ�¼���
-                    servicecollection.AddRabbitMQ();//ע��RabbitMqΪĬ����Ϣ����
+                    servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();
+                    servicecollection.AddPSqlSiloGrain();
+                    servicecollection.AddRabbitMQ<MessageInfo>();
                 })
                 .Configure<SqlConfig>(c =>
                 {

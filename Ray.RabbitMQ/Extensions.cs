@@ -1,14 +1,18 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using Ray.Core.Abstractions;
 using Ray.Core.EventBus;
 
 namespace Ray.EventBus.RabbitMQ
 {
     public static class Extensions
     {
-        public static void AddRabbitMQ(this IServiceCollection serviceCollection)
+        public static void AddRabbitMQ<W>(this IServiceCollection serviceCollection)
+            where W : IBytesWrapper
         {
             serviceCollection.AddSingleton<IRabbitMQClient, RabbitMQClient>();
-            serviceCollection.AddSingleton<ISubManager, RabbitSubManager>();
+            serviceCollection.AddSingleton<IConsumerManager, RabbitSubManager<W>>();
+            serviceCollection.AddSingleton<IRabbitEventBusContainer<W>, EventBusContainer<W>>();
+            serviceCollection.AddSingleton(serviceProvider => serviceProvider.GetService<IRabbitEventBusContainer<W>>() as IProducerContainer);
         }
     }
 }

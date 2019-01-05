@@ -5,8 +5,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Ray.Core.Abstractions;
 using Ray.Core.Exceptions;
-using Ray.Core.Messaging;
-using Ray.Core.Messaging.Channels;
 
 namespace Ray.Core.Internal
 {

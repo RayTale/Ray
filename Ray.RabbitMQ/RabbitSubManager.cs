@@ -6,50 +6,53 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using Ray.Core.Abstractions;
 using Ray.Core.Client;
 using Ray.Core.EventBus;
 using Ray.Core.Utils;
 
 namespace Ray.EventBus.RabbitMQ
 {
-    public class RabbitSubManager : ISubManager
+    public class RabbitSubManager<W> : IConsumerManager
+        where W : IBytesWrapper
     {
-        readonly ILogger<RabbitSubManager> logger;
-        readonly IServiceProvider provider;
+        readonly ILogger<RabbitSubManager<W>> logger;
         readonly IRabbitMQClient client;
-        public RabbitSubManager(ILogger<RabbitSubManager> logger, IRabbitMQClient client, IServiceProvider provider)
+        readonly IRabbitEventBusContainer<W> rabbitEventBusContainer;
+        readonly IEventBusStartup<W> eventBusStartup;
+        public RabbitSubManager(
+            ILogger<RabbitSubManager<W>> logger,
+            IRabbitMQClient client,
+            IServiceProvider provider,
+            IEventBusStartup<W> eventBusStartup,
+            IRabbitEventBusContainer<W> rabbitEventBusContainer)
         {
             this.client = client;
             this.logger = logger;
-            this.provider = provider;
+            this.eventBusStartup = eventBusStartup;
+            this.rabbitEventBusContainer = rabbitEventBusContainer;
         }
-        public async Task Start(List<Subscriber> subscribers, string group, string node, List<string> nodeList = null)
+        public async Task Start(string node, List<string> nodeList = null)
         {
+            await eventBusStartup.ConfigureEventBus(rabbitEventBusContainer);
+            var subscribers = rabbitEventBusContainer.GetConsumers();
             var hash = nodeList == null ? null : new ConsistentHash(nodeList);
-            var consumerList = new SortedList<int, ConsumerInfo>();
+            var consumerList = new SortedList<int, ConsumerInfo<W>>();
             var rd = new Random((int)DateTime.UtcNow.Ticks);
             foreach (var subscriber in subscribers)
             {
-                if (subscriber is RabbitSubscriber sub)
+                if (subscriber is RabbitConsumer<W> sub)
                 {
-                    await sub.Init(client);
                     for (int i = 0; i < sub.QueueList.Count(); i++)
                     {
                         var queue = sub.QueueList[i];
-                        var hashNode = hash != null ? hash.GetNode(queue.Queue) : node;
+                        var hashNode = hash != null && nodeList.Count > 1 ? hash.GetNode(queue.Queue) : node;
                         if (node == hashNode)
                         {
-                            consumerList.Add(rd.Next(), new ConsumerInfo()
+                            consumerList.Add(rd.Next(), new ConsumerInfo<W>
                             {
-                                Exchange = sub.Exchange,
-                                Queue = $"{group}_{queue.Queue}",
-                                RoutingKey = queue.RoutingKey,
-                                MaxQos = sub.MaxQos,
-                                MinQos = sub.MinQos,
-                                IncQos = sub.IncQos,
-                                ErrorReject = sub.ErrorReject,
-                                AutoAck = sub.AutoAck,
-                                Handler = (ISubHandler)provider.GetService(sub.Handler)
+                                Consumer = sub,
+                                Queue = queue
                             });
                         }
                     }
@@ -58,9 +61,9 @@ namespace Ray.EventBus.RabbitMQ
             await Start(consumerList.Values.ToList(), 1);
         }
 
-        private List<ConsumerInfo> ConsumerList { get; set; }
+        private List<ConsumerInfo<W>> ConsumerList { get; set; }
         protected Timer MonitorTimer { get; private set; }
-        public async Task Start(List<ConsumerInfo> consumerList, int delay = 0)
+        public async Task Start(List<ConsumerInfo<W>> consumerList, int delay = 0)
         {
             if (consumerList != null)
             {
@@ -84,7 +87,7 @@ namespace Ray.EventBus.RabbitMQ
                 restartStatisticalCount = restartStatisticalCount + ConsumerList.Where(consumer => consumer.Children.Any(c => c.NeedRestart)).Count();
                 if (restartStatisticalCount > ConsumerList.Count / 3)
                 {
-                    ClientFactory.ReBuild();
+                    ClusterClientFactory.ReBuild();
                     restartStatisticalStartTime = nowTime;
                     restartStatisticalCount = 0;
                 }
@@ -105,7 +108,7 @@ namespace Ray.EventBus.RabbitMQ
                             consumer.Children.Remove(child);
                             consumer.NowQos -= child.Qos;
                         }
-                        if (consumer.NowQos < consumer.MinQos)
+                        if (consumer.NowQos < consumer.Consumer.MinQos)
                         {
                             await StartSub(consumer, false);
                         }
@@ -118,66 +121,66 @@ namespace Ray.EventBus.RabbitMQ
             }
             catch (Exception exception)
             {
-                logger.LogError(exception.InnerException ?? exception, "消息队列守护线程发生错误");
+                logger.LogError(exception.InnerException ?? exception, nameof(RabbitSubManager<W>));
             }
         }
-        private async Task StartSub(ConsumerInfo consumer, bool first)
+        private async Task StartSub(ConsumerInfo<W> consumer, bool first)
         {
             var child = new ConsumerChild
             {
                 Channel = await client.PullModel(),
-                Qos = consumer.MinQos
+                Qos = consumer.Consumer.MinQos
             };
             if (first)
             {
-                child.Channel.Model.ExchangeDeclare(consumer.Exchange, "direct", true);
-                child.Channel.Model.QueueDeclare(consumer.Queue, true, false, false, null);
-                child.Channel.Model.QueueBind(consumer.Queue, consumer.Exchange, consumer.RoutingKey);
+                child.Channel.Model.ExchangeDeclare(consumer.Consumer.EventBus.Exchange, "direct", true);
+                child.Channel.Model.QueueDeclare(consumer.Queue.Queue, true, false, false, null);
+                child.Channel.Model.QueueBind(consumer.Queue.Queue, consumer.Consumer.EventBus.Exchange, consumer.Queue.RoutingKey);
             }
-            child.Channel.Model.BasicQos(0, consumer.MinQos, false);
+            child.Channel.Model.BasicQos(0, consumer.Consumer.MinQos, false);
 
             child.BasicConsumer = new EventingBasicConsumer(child.Channel.Model);
             child.BasicConsumer.Received += async (ch, ea) =>
             {
                 await Process(consumer, child, ea, 0);
             };
-            child.BasicConsumer.ConsumerTag = child.Channel.Model.BasicConsume(consumer.Queue, consumer.AutoAck, child.BasicConsumer);
+            child.BasicConsumer.ConsumerTag = child.Channel.Model.BasicConsume(consumer.Queue.Queue, consumer.Consumer.AutoAck, child.BasicConsumer);
             child.NeedRestart = false;
             consumer.Children.Add(child);
             consumer.NowQos += child.Qos;
             consumer.StartTime = DateTime.UtcNow;
         }
-        private async Task ExpandQos(ConsumerInfo consumer)
+        private async Task ExpandQos(ConsumerInfo<W> consumer)
         {
-            if (consumer.NowQos + consumer.IncQos <= consumer.MaxQos)
+            if (consumer.NowQos + consumer.Consumer.IncQos <= consumer.Consumer.MaxQos)
             {
                 var child = new ConsumerChild
                 {
                     Channel = await client.PullModel(),
-                    Qos = consumer.IncQos
+                    Qos = consumer.Consumer.IncQos
                 };
-                child.Channel.Model.BasicQos(0, consumer.IncQos, false);
+                child.Channel.Model.BasicQos(0, consumer.Consumer.IncQos, false);
 
                 child.BasicConsumer = new EventingBasicConsumer(child.Channel.Model);
                 child.BasicConsumer.Received += async (ch, ea) =>
                 {
                     await Process(consumer, child, ea, 0);
                 };
-                child.BasicConsumer.ConsumerTag = child.Channel.Model.BasicConsume(consumer.Queue, consumer.AutoAck, child.BasicConsumer);
+                child.BasicConsumer.ConsumerTag = child.Channel.Model.BasicConsume(consumer.Queue.Queue, consumer.Consumer.AutoAck, child.BasicConsumer);
                 child.NeedRestart = false;
                 consumer.Children.Add(child);
                 consumer.NowQos += child.Qos;
                 consumer.StartTime = DateTime.UtcNow;
             }
         }
-        private async Task Process(ConsumerInfo consumer, ConsumerChild consumerChild, BasicDeliverEventArgs ea, int count)
+        private async Task Process(ConsumerInfo<W> consumer, ConsumerChild consumerChild, BasicDeliverEventArgs ea, int count)
         {
             if (count > 0)
                 await Task.Delay(count * 1000);
             try
             {
-                await consumer.Handler.Notice(ea.Body);
-                if (!consumer.AutoAck)
+                await consumer.Consumer.Notice(ea.Body);
+                if (!consumer.Consumer.AutoAck)
                 {
                     try
                     {
@@ -191,8 +194,8 @@ namespace Ray.EventBus.RabbitMQ
             }
             catch (Exception exception)
             {
-                logger.LogError(exception.InnerException ?? exception, $"An error occurred in {consumer.Exchange}-{consumer.Queue}");
-                if (consumer.ErrorReject)
+                logger.LogError(exception.InnerException ?? exception, $"An error occurred in {consumer.Consumer.EventBus.Exchange}-{consumer.Queue}");
+                if (consumer.Consumer.ErrorReject)
                 {
                     consumerChild.Channel.Model.BasicReject(ea.DeliveryTag, true);
                 }
@@ -220,18 +223,11 @@ namespace Ray.EventBus.RabbitMQ
             }
         }
     }
-    public class ConsumerInfo
+    public class ConsumerInfo<W> where W : IBytesWrapper
     {
-        public string Exchange { get; set; }
-        public string Queue { get; set; }
-        public string RoutingKey { get; set; }
-        public ushort MaxQos { get; set; }
-        public ushort MinQos { get; set; }
-        public ushort IncQos { get; set; }
+        public RabbitConsumer<W> Consumer { get; set; }
+        public QueueInfo Queue { get; set; }
         public ushort NowQos { get; set; }
-        public bool AutoAck { get; set; }
-        public bool ErrorReject { get; set; }
-        public ISubHandler Handler { get; set; }
         public List<ConsumerChild> Children { get; set; } = new List<ConsumerChild>();
         public DateTime StartTime { get; set; }
         public void Close()

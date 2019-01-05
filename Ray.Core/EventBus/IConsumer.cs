@@ -2,8 +2,8 @@
 
 namespace Ray.Core.EventBus
 {
-    public interface ISubHandler
+    public interface IConsumer
     {
-        Task Notice(byte[] data);
+        Task Notice(byte[] bytes);
     }
 }
