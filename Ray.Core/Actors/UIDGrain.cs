@@ -11,44 +11,23 @@ namespace Ray.Core.Actors
     [Reentrant]
     public class UIDGrain : Grain, IUID
     {
-        int times = 1;
-        long startTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        public async Task<long> NewLongID()
-        {
-            var nowTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            if (nowTimestamp > startTimestamp)
-            {
-                Interlocked.Exchange(ref startTimestamp, nowTimestamp);
-                Interlocked.Exchange(ref times, 0);
-            }
-            var newTimes = Interlocked.Increment(ref times);
-            if (newTimes <= 65535)
-            {
-                return (startTimestamp << 16) | (ushort)newTimes;
-            }
-            else
-            {
-                await Task.Delay(1);
-                return await NewLongID();
-            }
-        }
         int newStringByUtcTimes = 1;
-        long newStringByUtcStart = long.Parse(DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmssfff"));
+        long newStringByUtcStart = long.Parse(DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss"));
         readonly StringBuilder utcBuilder = new StringBuilder(22);
         public async Task<string> NewUtcID()
         {
-            var nowTimestamp = long.Parse(DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmssfff"));
+            var nowTimestamp = long.Parse(DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss"));
             if (nowTimestamp > newStringByUtcStart)
             {
-                newStringByUtcStart = nowTimestamp;
-                newStringByUtcTimes = 0;
+                Interlocked.Exchange(ref newStringByUtcStart, nowTimestamp);
+                Interlocked.Exchange(ref newStringByUtcTimes, 0);
             }
-            newStringByUtcTimes += 1;
-            if (newStringByUtcTimes <= 99999)
+            var newTimes = Interlocked.Increment(ref newStringByUtcTimes);
+            if (newTimes <= 999999)
             {
                 utcBuilder.Clear();
                 utcBuilder.Append(newStringByUtcStart.ToString());
-                var timesString = newStringByUtcTimes.ToString();
+                var timesString = newTimes.ToString();
                 for (int i = 0; i < 4 - timesString.Length; i++)
                 {
                     utcBuilder.Append("0");
@@ -58,28 +37,28 @@ namespace Ray.Core.Actors
             }
             else
             {
-                await Task.Delay(1);
+                await Task.Delay(1000);
                 return await NewUtcID();
             }
         }
 
         int newStringByLocalTimes = 1;
-        long newStringByLocalStart = long.Parse(DateTime.Now.ToString("yyyyMMddHHmmssfff"));
+        long newStringByLocalStart = long.Parse(DateTime.Now.ToString("yyyyMMddHHmmss"));
         readonly StringBuilder localBuilder = new StringBuilder(22);
         public async Task<string> NewLocalID()
         {
-            var nowTimestamp = long.Parse(DateTime.Now.ToString("yyyyMMddHHmmssfff"));
+            var nowTimestamp = long.Parse(DateTime.Now.ToString("yyyyMMddHHmmss"));
             if (nowTimestamp > newStringByLocalStart)
             {
-                newStringByLocalStart = nowTimestamp;
-                newStringByLocalTimes = 0;
+                Interlocked.Exchange(ref newStringByLocalStart, nowTimestamp);
+                Interlocked.Exchange(ref newStringByLocalTimes, 0);
             }
-            newStringByLocalTimes += 1;
-            if (newStringByLocalTimes <= 99999)
+            var newTimes = Interlocked.Increment(ref newStringByLocalTimes);
+            if (newTimes <= 999999)
             {
                 localBuilder.Clear();
                 localBuilder.Append(newStringByLocalStart.ToString());
-                var timesString = newStringByLocalTimes.ToString();
+                var timesString = newTimes.ToString();
                 for (int i = 0; i < 4 - timesString.Length; i++)
                 {
                     localBuilder.Append("0");
@@ -89,7 +68,7 @@ namespace Ray.Core.Actors
             }
             else
             {
-                await Task.Delay(1);
+                await Task.Delay(1000);
                 return await NewLocalID();
             }
         }
