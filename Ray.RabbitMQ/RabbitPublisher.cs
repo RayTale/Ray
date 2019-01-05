@@ -4,7 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Ray.Core.Utils;
 
-namespace Ray.RabbitMQ
+namespace Ray.EventBus.RabbitMQ
 {
     public class RabbitPublisher
     {

@@ -1,6 +1,6 @@
 ﻿using Ray.Core.EventBus;
 using Ray.Grain;
-using Ray.RabbitMQ;
+using Ray.EventBus.RabbitMQ;
 using System;
 using System.Collections.Generic;
 using System.Collections.Concurrent;

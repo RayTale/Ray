@@ -7,7 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Dapper;
 
-namespace Ray.PostgreSQL
+namespace Ray.Storage.PostgreSQL
 {
     public class SqlGrainConfig
     {

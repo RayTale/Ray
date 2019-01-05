@@ -7,15 +7,15 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.Core", "Ray.Core\Ray.Co
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Example", "Example", "{B04C458E-E534-482E-9E44-716A9580133D}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.RabbitMQ", "Ray.RabbitMQ\Ray.RabbitMQ.csproj", "{E46D1EDC-551E-4DEB-AF82-20F6F51FD76F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.EventBus.RabbitMQ", "Ray.RabbitMQ\Ray.EventBus.RabbitMQ.csproj", "{E46D1EDC-551E-4DEB-AF82-20F6F51FD76F}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.IGrains", "Example\Ray.IGrains\Ray.IGrains.csproj", "{3E8A1ED9-E8D3-4610-B7FC-7C3C1834A42C}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.Handler", "Example\Ray.Handler\Ray.Handler.csproj", "{848D7067-7C01-47F1-BD96-7BB1062AA6FA}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.PostgreSQL", "Ray.Postgresql\Ray.PostgreSQL.csproj", "{334E6D35-3909-49CA-B754-32147B738BF4}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.Storage.PostgreSQL", "Ray.Postgresql\Ray.Storage.PostgreSQL.csproj", "{334E6D35-3909-49CA-B754-32147B738BF4}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.MongoDB", "Ray.MongoDb\Ray.MongoDB.csproj", "{A36D1747-C176-4B8B-8141-CD84A87FE0BD}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.Storage.MongoDB", "Ray.MongoDb\Ray.Storage.MongoDB.csproj", "{A36D1747-C176-4B8B-8141-CD84A87FE0BD}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Test", "Test", "{93DE27BC-DBA4-4FA9-AA54-495290961438}"
 EndProject

@@ -3,8 +3,8 @@ using Ray.Core.Abstractions;
 using Ray.Core.EventBus;
 using Ray.Grain.EventHandles;
 using Ray.IGrains.States;
-using Ray.MongoDB;
-using Ray.RabbitMQ;
+using Ray.Storage.MongoDB;
+using Ray.EventBus.RabbitMQ;
 
 namespace Ray.Grain
 {

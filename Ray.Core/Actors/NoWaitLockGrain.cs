@@ -40,6 +40,7 @@ namespace Ray.Core.Actors
         {
             id = 0;
             expireTime = 0;
+            return Task.CompletedTask;
         }
     }
 }

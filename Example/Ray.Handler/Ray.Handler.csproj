@@ -11,7 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Ray.Core\Ray.Core.csproj" />
-    <ProjectReference Include="..\..\Ray.RabbitMQ\Ray.RabbitMQ.csproj" />
+    <ProjectReference Include="..\..\Ray.RabbitMQ\Ray.EventBus.RabbitMQ.csproj" />
     <ProjectReference Include="..\Ray.IGrains\Ray.IGrains.csproj" />
   </ItemGroup>
 

@@ -1,7 +1,7 @@
 ﻿using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 
-namespace Ray.PostgreSQL
+namespace Ray.Storage.PostgreSQL
 {
     public static class TaskExtension
     {

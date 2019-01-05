@@ -2,7 +2,7 @@
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using Ray.Core.Abstractions;
-using Ray.MongoDB;
+using Ray.Storage.MongoDB;
 
 namespace Ray.Grain
 {

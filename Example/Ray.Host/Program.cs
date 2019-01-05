@@ -13,9 +13,9 @@ using Ray.Core.Client;
 using Ray.Grain;
 using Ray.Handler;
 using Ray.IGrains;
-using Ray.MongoDB;
-using Ray.PostgreSQL;
-using Ray.RabbitMQ;
+using Ray.Storage.MongoDB;
+using Ray.Storage.PostgreSQL;
+using Ray.EventBus.RabbitMQ;
 
 namespace Ray.MongoHost
 {

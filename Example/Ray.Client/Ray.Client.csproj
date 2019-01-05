@@ -11,8 +11,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Ray.Postgresql\Ray.PostgreSQL.csproj" />
-    <ProjectReference Include="..\..\Ray.RabbitMQ\Ray.RabbitMQ.csproj" />
+    <ProjectReference Include="..\..\Ray.Postgresql\Ray.Storage.PostgreSQL.csproj" />
+    <ProjectReference Include="..\..\Ray.RabbitMQ\Ray.EventBus.RabbitMQ.csproj" />
     <ProjectReference Include="..\Ray.Handler\Ray.Handler.csproj" />
     <ProjectReference Include="..\Ray.IGrains\Ray.IGrains.csproj" />
   </ItemGroup>

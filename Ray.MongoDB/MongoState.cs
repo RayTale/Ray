@@ -1,6 +1,6 @@
 ﻿using MongoDB.Bson.Serialization.Attributes;
 
-namespace Ray.MongoDB
+namespace Ray.Storage.MongoDB
 {
     public class MongoState<K>
     {

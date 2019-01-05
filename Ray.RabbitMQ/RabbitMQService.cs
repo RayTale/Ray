@@ -1,7 +1,7 @@
 ﻿using System.Threading.Tasks;
 using Ray.Core.EventBus;
 
-namespace Ray.RabbitMQ
+namespace Ray.EventBus.RabbitMQ
 {
     public class RabbitMQService : IProducer
     {
