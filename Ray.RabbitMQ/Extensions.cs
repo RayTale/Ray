@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Ray.Core.EventBus;
 
-namespace Ray.RabbitMQ
+namespace Ray.EventBus.RabbitMQ
 {
     public static class Extensions
     {

@@ -8,7 +8,7 @@ using ProtoBuf;
 using RabbitMQ.Client;
 using Ray.Core.Utils;
 
-namespace Ray.RabbitMQ
+namespace Ray.EventBus.RabbitMQ
 {
     public class ConnectionWrapper
     {

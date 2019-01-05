@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using RabbitMQ.Client;
 
-namespace Ray.RabbitMQ
+namespace Ray.EventBus.RabbitMQ
 {
     public class RabbitConfig
     {

@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Ray.MongoDB
+namespace Ray.Storage.MongoDB
 {
     public class MongoConfig
     {

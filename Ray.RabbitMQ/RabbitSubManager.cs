@@ -10,7 +10,7 @@ using Ray.Core.Client;
 using Ray.Core.EventBus;
 using Ray.Core.Utils;
 
-namespace Ray.RabbitMQ
+namespace Ray.EventBus.RabbitMQ
 {
     public class RabbitSubManager : ISubManager
     {

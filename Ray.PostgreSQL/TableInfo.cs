@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Ray.PostgreSQL
+namespace Ray.Storage.PostgreSQL
 {
     public class TableInfo
     {

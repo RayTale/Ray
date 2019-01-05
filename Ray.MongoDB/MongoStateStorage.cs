@@ -8,7 +8,7 @@ using ProtoBuf;
 using Ray.Core.Abstractions;
 using Ray.Core.Utils;
 
-namespace Ray.MongoDB
+namespace Ray.Storage.MongoDB
 {
     public class MongoStateStorage<T, K> : IStateStorage<T, K> where T : class, IState<K>
     {

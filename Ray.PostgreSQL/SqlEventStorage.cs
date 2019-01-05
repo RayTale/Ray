@@ -15,7 +15,7 @@ using Ray.Core.Abstractions;
 using Ray.Core.Internal;
 using Ray.Core.Messaging;
 
-namespace Ray.PostgreSQL
+namespace Ray.Storage.PostgreSQL
 {
     public class SqlEventStorage<K> : IEventStorage<K>
     {

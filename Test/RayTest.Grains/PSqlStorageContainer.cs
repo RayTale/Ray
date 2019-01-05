@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
 using Ray.Core.Abstractions;
-using Ray.PostgreSQL;
+using Ray.Storage.PostgreSQL;
 
 namespace RayTest.Grains
 {

@@ -12,7 +12,9 @@ using Ray.Core.Abstractions;
 using Ray.Handler;
 using Ray.IGrains;
 using Ray.IGrains.Actors;
-using Ray.RabbitMQ;
+using Ray.EventBus.RabbitMQ;
+using Ray.Core.Abstractions.Actors;
+using System.Collections.Generic;
 
 namespace Ray.Client
 {
@@ -25,11 +27,16 @@ namespace Ray.Client
 
         private static async Task<int> RunMainAsync()
         {
+            var mqListenerNodes = new List<string> { "N1" };
             try
             {
                 using (var client = await StartClientWithRetries())
                 {
                     var handlerStartup = client.ServiceProvider.GetService<HandlerStartup>();
+                    foreach (var node in mqListenerNodes)
+                    {
+                      var (isOk, lockId) = await  client.GetGrain<INoWaitLock>(node).Lock();
+                    }
                     await Task.WhenAll(
                      handlerStartup.Start(SubscriberGroup.Core),
                      handlerStartup.Start(SubscriberGroup.Db),
@@ -42,11 +49,16 @@ namespace Ray.Client
                         var times = int.Parse(Console.ReadLine());
                         var stopWatch = new Stopwatch();
                         stopWatch.Start();
-                        await Task.WhenAll(Enumerable.Range(0, times).Select(x => client.GetGrain<IAccount>(1).AddAmount(1000)));
+                        var ids = await Task.WhenAll(Enumerable.Range(0, times).Select(x => client.GetGrain<IUID>("order").NewLocalID()));
                         stopWatch.Stop();
-                        Console.WriteLine($"{times }次操作完成，耗时:{stopWatch.ElapsedMilliseconds}ms");
+                        var distinctIds = ids.Distinct();
+                        if (ids.Count() != distinctIds.Count())
+                        {
+                            Console.WriteLine("id出现重复");
+                        }
+                        Console.WriteLine($"{times }个id生成完成，耗时:{stopWatch.ElapsedMilliseconds}ms");
                         await Task.Delay(200);
-                        Console.WriteLine($"余额为{await client.GetGrain<IAccount>(1).GetBalance()}");
+                        //Console.WriteLine($"余额为{await client.GetGrain<IAccount>(1).GetBalance()}");
                     }
                 }
             }

@@ -1,6 +1,6 @@
 ﻿using System.Threading.Tasks;
 
-namespace Ray.RabbitMQ
+namespace Ray.EventBus.RabbitMQ
 {
     public interface IRabbitMQClient : System.IDisposable
     {

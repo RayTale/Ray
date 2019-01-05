@@ -12,7 +12,7 @@ using Ray.Core.Abstractions;
 using Ray.Core.Internal;
 using Ray.Core.Messaging;
 
-namespace Ray.MongoDB
+namespace Ray.Storage.MongoDB
 {
     public class MongoEventStorage<K> : IEventStorage<K>
     {
