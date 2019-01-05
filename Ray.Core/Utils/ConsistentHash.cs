@@ -65,24 +65,6 @@ namespace Ray.Core.Utils
             ayKeys = circle.Keys.ToArray();
         }
 
-        //we keep this function just for performance compare
-        private string GetNode_slow(String key)
-        {
-            int hash = BetterHash(key);
-            if (circle.ContainsKey(hash))
-            {
-                return circle[hash];
-            }
-
-            int first = circle.Keys.FirstOrDefault(h => h >= hash);
-            if (first == new int())
-            {
-                first = ayKeys[0];
-            }
-            string node = circle[first];
-            return node;
-        }
-
         //return the index of first item that >= val.
         //if not exist, return 0;
         //ay should be ordered array.
@@ -118,7 +100,7 @@ namespace Ray.Core.Utils
             return end;
         }
 
-        public string GetNode(String key)
+        public string GetNode(string key)
         {
             //return GetNode_slow(key);
 

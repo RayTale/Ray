@@ -87,26 +87,34 @@ namespace Ray.Core.Internal
                     await eventStorageTask.Result.TransactionSaveAsync(EventsInTransactionProcessing);
                     if (SupportAsyncFollow)
                     {
-                        var mqService = GetEventProducer();
-                        if (!mqService.IsCompleted)
-                            await mqService;
-                        using (var ms = new PooledMemoryStream())
+                        try
                         {
-                            foreach (var @event in EventsInTransactionProcessing)
+                            var mqService = GetEventProducer();
+                            if (!mqService.IsCompleted)
+                                await mqService;
+                            using (var ms = new PooledMemoryStream())
                             {
-                                var data = new W
+                                foreach (var @event in EventsInTransactionProcessing)
                                 {
-                                    TypeName = @event.Evt.GetType().FullName,
-                                    Bytes = @event.Bytes
-                                };
-                                Serializer.Serialize(ms, data);
-                                var publishTask = mqService.Result.Publish(ms.ToArray(), @event.HashKey);
-                                if (!publishTask.IsCompleted)
-                                    await publishTask;
-                                OnRaiseSuccess(@event.Evt, @event.Bytes);
-                                ms.Position = 0;
-                                ms.SetLength(0);
+                                    var data = new W
+                                    {
+                                        TypeName = @event.Evt.GetType().FullName,
+                                        Bytes = @event.Bytes
+                                    };
+                                    Serializer.Serialize(ms, data);
+                                    var publishTask = mqService.Result.Publish(ms.ToArray(), @event.HashKey);
+                                    if (!publishTask.IsCompleted)
+                                        await publishTask;
+                                    OnRaiseSuccess(@event.Evt, @event.Bytes);
+                                    ms.Position = 0;
+                                    ms.SetLength(0);
+                                }
                             }
+                        }
+                        catch (Exception ex)
+                        {
+                            if (Logger.IsEnabled(LogLevel.Error))
+                                Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), State.Version);
                         }
                     }
                     else

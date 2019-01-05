@@ -287,12 +287,20 @@ namespace Ray.Core.Internal
                             Serializer.Serialize(ms, data);
                             //消息写入消息队列，以提供异步服务
                             EventApply(State, @event);
-                            var mqServiceTask = GetEventProducer();
-                            if (!mqServiceTask.IsCompleted)
-                                await mqServiceTask;
-                            var publishTask = mqServiceTask.Result.Publish(ms.ToArray(), GrainId.ToString());
-                            if (!publishTask.IsCompleted)
-                                await publishTask;
+                            try
+                            {
+                                var mqServiceTask = GetEventProducer();
+                                if (!mqServiceTask.IsCompleted)
+                                    await mqServiceTask;
+                                var publishTask = mqServiceTask.Result.Publish(ms.ToArray(), GrainId.ToString());
+                                if (!publishTask.IsCompleted)
+                                    await publishTask;
+                            }
+                            catch (Exception ex)
+                            {
+                                if (Logger.IsEnabled(LogLevel.Error))
+                                    Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), State.Version);
+                            }
                         }
                         else
                         {
@@ -318,7 +326,7 @@ namespace Ray.Core.Internal
             catch (Exception ex)
             {
                 if (Logger.IsEnabled(LogLevel.Error))
-                    Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "Raise event produces errors, type {0} with Id {1},state version ={2},event type = {3},event = {4}", GrainType.FullName, GrainId.ToString(), State.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event));
+                    Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "Raise event produces errors, state Id = {0}, version ={1},event type = {2},event = {3}", GrainId.ToString(), State.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event));
                 await RecoveryState();//还原状态
                 ExceptionDispatchInfo.Capture(ex).Throw();
             }
