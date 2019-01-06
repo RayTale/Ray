@@ -1,4 +1,4 @@
-﻿namespace Ray.Core.Messaging.Channels
+﻿namespace Ray.Core.Internal.Channels
 {
     public class ChannelOptions
     {

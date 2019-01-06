@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Ray.Core.Messaging.Channels
+namespace Ray.Core.Internal.Channels
 {
     public class RebindConsumerException : Exception
     {

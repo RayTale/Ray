@@ -10,19 +10,18 @@ using MongoDB.Driver;
 using ProtoBuf;
 using Ray.Core.Abstractions;
 using Ray.Core.Internal;
-using Ray.Core.Messaging;
 
 namespace Ray.Storage.MongoDB
 {
     public class MongoEventStorage<K> : IEventStorage<K>
     {
         readonly MongoGrainConfig grainConfig;
-        readonly IMpscChannel<BytesEventTaskSource<K>> mpscChannel;
+        readonly IMpscChannel<BytesEventWithTask<K>> mpscChannel;
         readonly ILogger<MongoEventStorage<K>> logger;
         public MongoEventStorage(IServiceProvider serviceProvider, MongoGrainConfig grainConfig)
         {
             logger = serviceProvider.GetService<ILogger<MongoEventStorage<K>>>();
-            mpscChannel = serviceProvider.GetService<IMpscChannel<BytesEventTaskSource<K>>>();
+            mpscChannel = serviceProvider.GetService<IMpscChannel<BytesEventWithTask<K>>>();
             mpscChannel.BindConsumer(BatchProcessing).ActiveConsumer();
             this.grainConfig = grainConfig;
         }
@@ -88,14 +87,14 @@ namespace Ray.Storage.MongoDB
         {
             return Task.Run(async () =>
             {
-                var wrap = new BytesEventTaskSource<K>(evt, bytes, uniqueId);
+                var wrap = new BytesEventWithTask<K>(evt, bytes, uniqueId);
                 var writeTask = mpscChannel.WriteAsync(wrap);
                 if (!writeTask.IsCompleted)
                     await writeTask;
                 return await wrap.TaskSource.Task;
             });
         }
-        private async Task BatchProcessing(List<BytesEventTaskSource<K>> wrapList)
+        private async Task BatchProcessing(List<BytesEventWithTask<K>> wrapList)
         {
             var documents = new List<MongoEvent<K>>();
             foreach (var wrap in wrapList)

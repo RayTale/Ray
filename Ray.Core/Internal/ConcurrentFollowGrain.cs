@@ -8,7 +8,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Ray.Core.Abstractions;
 using Ray.Core.Exceptions;
-using Ray.Core.Messaging;
 
 namespace Ray.Core.Internal
 {
@@ -24,11 +23,11 @@ namespace Ray.Core.Internal
         /// <summary>
         /// 多生产者单消费者消息信道
         /// </summary>
-        protected IMpscChannel<MessageTaskSource<IEvent, bool>> ConcurrentChannel { get; private set; }
+        protected IMpscChannel<DataWithTask<IEvent, bool>> ConcurrentChannel { get; private set; }
         protected override bool EventConcurrentProcessing => true;
         public override Task OnActivateAsync()
         {
-            ConcurrentChannel = ServiceProvider.GetService<IMpscChannel<MessageTaskSource<IEvent, bool>>>().BindConsumer(BatchInputProcessing);
+            ConcurrentChannel = ServiceProvider.GetService<IMpscChannel<DataWithTask<IEvent, bool>>>().BindConsumer(BatchInputProcessing);
             ConcurrentChannel.ActiveConsumer();
             return base.OnActivateAsync();
         }
@@ -48,7 +47,7 @@ namespace Ray.Core.Internal
                     {
                         if (@event.Version > State.Version)
                         {
-                            var writeTask = ConcurrentChannel.WriteAsync(new MessageTaskSource<IEvent, bool>(@event));
+                            var writeTask = ConcurrentChannel.WriteAsync(new DataWithTask<IEvent, bool>(@event));
                             if (!writeTask.IsCompleted)
                                 await writeTask;
                             if (!writeTask.Result)
@@ -64,7 +63,7 @@ namespace Ray.Core.Internal
             }
         }
         readonly TimeoutException timeoutException = new TimeoutException($"{nameof(OnEventDelivered)} with timeouts in {nameof(BatchInputProcessing)}");
-        private async Task BatchInputProcessing(List<MessageTaskSource<IEvent, bool>> events)
+        private async Task BatchInputProcessing(List<DataWithTask<IEvent, bool>> events)
         {
             var start = DateTime.UtcNow;
             var evtList = new List<IEvent>();

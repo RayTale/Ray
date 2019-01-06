@@ -1,10 +1,10 @@
 ﻿using System.Threading.Tasks;
 
-namespace Ray.Core.Messaging
+namespace Ray.Core.Internal
 {
-    public class MessageTaskSource<T, R>
+    public class DataWithTask<T, R>
     {
-        public MessageTaskSource(T message)
+        public DataWithTask(T message)
         {
             Value = message;
             TaskSource = new TaskCompletionSource<R>();

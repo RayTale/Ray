@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Threading.Tasks;
 using Orleans;
-using Ray.Core.Abstractions.Actors;
+using Ray.Core.IGrains;
 
-namespace Ray.Core.Actors
+namespace Ray.Core.Grains
 {
     public class NoWaitLockGrain : Grain, INoWaitLock
     {

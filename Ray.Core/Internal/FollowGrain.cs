@@ -10,7 +10,6 @@ using Microsoft.Extensions.Options;
 using Orleans;
 using Ray.Core.Abstractions;
 using Ray.Core.Exceptions;
-using Ray.Core.Messaging;
 
 namespace Ray.Core.Internal
 {

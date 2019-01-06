@@ -1,7 +1,7 @@
 ﻿using System.Threading.Tasks;
 using Orleans;
 
-namespace Ray.Core.Abstractions.Actors
+namespace Ray.Core.IGrains
 {
     public interface ILock : IGrainWithStringKey
     {
