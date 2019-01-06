@@ -240,12 +240,12 @@ namespace Ray.Core.Internal
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask<IStateStorage<S, K>> GetStateStorage()
         {
-            return StorageContainer.GetStateStorage<K, S>(this);
+            return StorageContainer.GetStateStorage<K, S>(this, GrainId);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask<IEventStorage<K>> GetEventStorage()
         {
-            return StorageContainer.GetEventStorage<K, S>(this);
+            return StorageContainer.GetEventStorage<K, S>(this, GrainId);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask<IProducer> GetEventProducer()

@@ -3,9 +3,9 @@ using Ray.Core.Abstractions;
 
 namespace Ray.EventBus.RabbitMQ
 {
-    public interface IEventBusStartup<W>
+    public interface IEventBusConfig<W>
         where W : IBytesWrapper
     {
-        Task ConfigureEventBus(IRabbitEventBusContainer<W> busContainer);
+        Task Configure(IRabbitEventBusContainer<W> busContainer);
     }
 }

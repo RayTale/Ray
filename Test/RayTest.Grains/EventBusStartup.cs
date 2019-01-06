@@ -4,9 +4,9 @@ using RayTest.IGrains;
 
 namespace RayTest.Grains
 {
-    public class EventBusStartup : IEventBusStartup<MessageInfo>
+    public class EventBusStartup : IEventBusConfig<MessageInfo>
     {
-        public Task ConfigureEventBus(IRabbitEventBusContainer<MessageInfo> busContainer)
+        public Task Configure(IRabbitEventBusContainer<MessageInfo> busContainer)
         {
             return busContainer.CreateEventBus<long>("Account", "account", 5).BindProducer<Account>().Enable();
         }

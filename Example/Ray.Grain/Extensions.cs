@@ -5,6 +5,7 @@ using Ray.Grain.EventHandles;
 using Ray.IGrains;
 using Ray.IGrains.States;
 using Ray.Storage.MongoDB;
+using Ray.Storage.PostgreSQL;
 
 namespace Ray.Grain
 {
@@ -13,14 +14,16 @@ namespace Ray.Grain
         public static void AddPSqlSiloGrain(this IServiceCollection serviceCollection)
         {
             serviceCollection.AddMQService();
-            serviceCollection.AddSingleton<IStorageContainer, PSQLStorageContainer>();
+            serviceCollection.AddPostgreSQLStorage();
+            serviceCollection.AddSingleton<Storage.PostgreSQL.IStorageConfig, PostgreSQLStorageConfig>();
             serviceCollection.AddGrainHandler();
         }
         public static void AddMongoDbSiloGrain(this IServiceCollection serviceCollection)
         {
             serviceCollection.AddMQService();
+            serviceCollection.AddMongoDBStorage();
             serviceCollection.AddSingleton<IMongoStorage, MongoStorage>();
-            serviceCollection.AddSingleton<IStorageContainer, MongoStorageContainer>();
+            serviceCollection.AddSingleton<Storage.MongoDB.IStorageConfig, MongoDBStorageConfig>();
             serviceCollection.AddGrainHandler();
         }
         public static void AddGrainHandler(this IServiceCollection serviceCollection)
@@ -29,7 +32,7 @@ namespace Ray.Grain
         }
         private static void AddMQService(this IServiceCollection serviceCollection)
         {
-            serviceCollection.AddSingleton<IEventBusStartup<MessageInfo>, EventBusStartup>();
+            serviceCollection.AddSingleton<IEventBusConfig<MessageInfo>, EventBusStartup>();
             serviceCollection.AddRabbitMQ<MessageInfo>();
         }
     }
