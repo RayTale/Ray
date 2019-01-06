@@ -7,10 +7,7 @@ namespace Ray.Grain
     public class PostgreSQLStorageConfig : IStorageConfig
     {
         readonly IOptions<SqlConfig> options;
-        public PostgreSQLStorageConfig(IOptions<SqlConfig> options)
-        {
-            this.options = options;
-        }
+        public PostgreSQLStorageConfig(IOptions<SqlConfig> options) => this.options = options;
         public Task Configure(IConfigContainer container)
         {
             container.CreateBuilder<long>((grain, id) => new SqlGrainConfig(options.Value.ConnectionDict["core_event"], "account_event", "account_state")).

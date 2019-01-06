@@ -6,10 +6,7 @@ namespace Ray.Grain
     public class MongoDBStorageConfig : IStorageConfig
     {
         readonly IMongoStorage mongoStorage;
-        public MongoDBStorageConfig(IMongoStorage mongoStorage)
-        {
-            this.mongoStorage = mongoStorage;
-        }
+        public MongoDBStorageConfig(IMongoStorage mongoStorage) => this.mongoStorage = mongoStorage;
         public Task Configure(IConfigContainer container)
         {
             container.CreateBuilder<long>((grain, id) => new MongoGrainConfig(mongoStorage, "Ray", "account_event", "account_state")).
