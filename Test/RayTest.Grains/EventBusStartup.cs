@@ -8,7 +8,7 @@ namespace RayTest.Grains
     {
         public Task ConfigureEventBus(IRabbitEventBusContainer<MessageInfo> busContainer)
         {
-            return busContainer.CreateEventBus<long>("Account", "account", 20).BindProducer<Account>().Complete();
+            return busContainer.CreateEventBus<long>("Account", "account", 5).BindProducer<Account>().Enable();
         }
     }
 }

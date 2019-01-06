@@ -7,12 +7,12 @@ namespace Ray.Grain
 {
     public class EventBusStartup : IEventBusStartup<MessageInfo>
     {
-        public Task ConfigureEventBus(IRabbitEventBusContainer<MessageInfo> busContainer)
+        public async Task ConfigureEventBus(IRabbitEventBusContainer<MessageInfo> busContainer)
         {
-            var eventBus = busContainer.CreateEventBus<long>("Account", "account", 20).BindProducer<Account>();
-            eventBus.DefiningConsumer<long>(DefaultPrefix.primary).BindConcurrentFollowWithLongId<IAccountFlow>().BindFollowWithLongId<IAccountRep>();
-            eventBus.DefiningConsumer<long>(DefaultPrefix.secondary).BindConcurrentFollowWithLongId<IAccountDb>();
-            return eventBus.Complete();
+            await busContainer.CreateEventBus<long>("Account", "account", 5).BindProducer<Account>().
+                      CreateConsumer<long>(DefaultPrefix.primary).BindConcurrentFollowWithLongId<IAccountFlow>().BindFollowWithLongId<IAccountRep>().Complete().
+                      CreateConsumer<long>(DefaultPrefix.secondary).BindConcurrentFollowWithLongId<IAccountDb>().Complete()
+                  .Enable();
         }
     }
 }

@@ -38,7 +38,7 @@ namespace Ray.Client
                         stopWatch.Stop();
                         Console.WriteLine($"{times }次操作完成，耗时:{stopWatch.ElapsedMilliseconds}ms");
                         await Task.Delay(200);
-                        Console.WriteLine($"余额为{await client.GetGrain<IAccount>(1).GetBalance()}");
+                        Console.WriteLine($"余额为{await client.GetGrain<IAccountRep>(1).GetBalance()}");
                     }
                 }
             }
