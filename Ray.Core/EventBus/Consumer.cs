@@ -1,7 +1,7 @@
 ﻿using System.IO;
 using System.Threading.Tasks;
 using Ray.Core.Abstractions;
-using Ray.Core.Messaging;
+using Ray.Core.Internal;
 
 namespace Ray.Core.EventBus
 {

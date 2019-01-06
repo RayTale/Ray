@@ -2,9 +2,9 @@
 
 namespace Ray.Core.Internal
 {
-    public class BytesEventTaskSource<K> : EventTaskSource<K>
+    public class BytesEventWithTask<K> : EventWithTask<K>
     {
-        public BytesEventTaskSource(IEventBase<K> value, byte[] bytes, string uniqueId = null) : base(value, uniqueId)
+        public BytesEventWithTask(IEventBase<K> value, byte[] bytes, string uniqueId = null) : base(value, uniqueId)
         {
             Bytes = bytes;
         }

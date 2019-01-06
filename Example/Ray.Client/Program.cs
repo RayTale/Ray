@@ -8,7 +8,6 @@ using Orleans;
 using Orleans.Runtime;
 using Ray.Core;
 using Ray.Core.Abstractions;
-using Ray.Core.Abstractions.Actors;
 using Ray.Core.Client;
 using Ray.IGrains;
 using Ray.IGrains.Actors;

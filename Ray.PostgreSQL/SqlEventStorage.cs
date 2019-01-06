@@ -13,19 +13,18 @@ using NpgsqlTypes;
 using ProtoBuf;
 using Ray.Core.Abstractions;
 using Ray.Core.Internal;
-using Ray.Core.Messaging;
 
 namespace Ray.Storage.PostgreSQL
 {
     public class SqlEventStorage<K> : IEventStorage<K>
     {
         readonly SqlGrainConfig tableInfo;
-        readonly IMpscChannel<BytesEventTaskSource<K>> mpscChannel;
+        readonly IMpscChannel<BytesEventWithTask<K>> mpscChannel;
         readonly ILogger<SqlEventStorage<K>> logger;
         public SqlEventStorage(IServiceProvider serviceProvider, SqlGrainConfig tableInfo)
         {
             logger = serviceProvider.GetService<ILogger<SqlEventStorage<K>>>();
-            mpscChannel = serviceProvider.GetService<IMpscChannel<BytesEventTaskSource<K>>>().BindConsumer(BatchProcessing);
+            mpscChannel = serviceProvider.GetService<IMpscChannel<BytesEventWithTask<K>>>().BindConsumer(BatchProcessing);
             mpscChannel.ActiveConsumer();
             this.tableInfo = tableInfo;
         }
@@ -115,14 +114,14 @@ namespace Ray.Storage.PostgreSQL
         {
             return Task.Run(async () =>
             {
-                var wrap = new BytesEventTaskSource<K>(evt, bytes, uniqueId);
+                var wrap = new BytesEventWithTask<K>(evt, bytes, uniqueId);
                 var writeTask = mpscChannel.WriteAsync(wrap);
                 if (!writeTask.IsCompleted)
                     await writeTask;
                 return await wrap.TaskSource.Task;
             });
         }
-        private async Task BatchProcessing(List<BytesEventTaskSource<K>> wrapList)
+        private async Task BatchProcessing(List<BytesEventWithTask<K>> wrapList)
         {
             var copySql = copySaveSqlDict.GetOrAdd((await tableInfo.GetTable(DateTime.UtcNow)).Name, key => $"copy {key}(stateid,uniqueId,typecode,data,version) FROM STDIN (FORMAT BINARY)");
             try

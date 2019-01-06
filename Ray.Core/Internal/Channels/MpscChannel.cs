@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Ray.Core.Abstractions;
 
-namespace Ray.Core.Messaging.Channels
+namespace Ray.Core.Internal.Channels
 {
     /// <summary>
     /// multi producter single consumer channel

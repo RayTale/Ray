@@ -2,9 +2,9 @@
 using System.Threading.Tasks;
 using Orleans;
 using Orleans.Concurrency;
-using Ray.Core.Abstractions.Actors;
+using Ray.Core.IGrains;
 
-namespace Ray.Core.Actors
+namespace Ray.Core.Grains
 {
     [Reentrant]
     public class LockGrain : Grain, ILock

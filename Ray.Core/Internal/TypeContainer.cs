@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 using System.Linq;
 using Ray.Core.Exceptions;
 
-namespace Ray.Core.Messaging
+namespace Ray.Core.Internal
 {
     public static class TypeContainer
     {
