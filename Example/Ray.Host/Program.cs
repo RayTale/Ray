@@ -108,6 +108,7 @@ namespace Ray.MongoHost
 
             var host = builder.Build();
             await host.StartAsync();
+            await host.Services.StartRay();
             return host;
         }
     }

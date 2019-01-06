@@ -17,24 +17,20 @@ namespace Ray.EventBus.RabbitMQ
         readonly ILogger<ConsumerManager<W>> logger;
         readonly IRabbitMQClient client;
         readonly IRabbitEventBusContainer<W> rabbitEventBusContainer;
-        readonly IEventBusStartup<W> eventBusStartup;
         readonly IServiceProvider provider;
         public ConsumerManager(
             ILogger<ConsumerManager<W>> logger,
             IRabbitMQClient client,
             IServiceProvider provider,
-            IEventBusStartup<W> eventBusStartup,
             IRabbitEventBusContainer<W> rabbitEventBusContainer)
         {
             this.provider = provider;
             this.client = client;
             this.logger = logger;
-            this.eventBusStartup = eventBusStartup;
             this.rabbitEventBusContainer = rabbitEventBusContainer;
         }
         public async Task Start(string node, List<string> nodeList = null)
         {
-            await eventBusStartup.ConfigureEventBus(rabbitEventBusContainer);
             var consumers = rabbitEventBusContainer.GetConsumers();
             var hash = nodeList == null ? null : new ConsistentHash(nodeList);
             var consumerList = new SortedList<int, ConsumerRunner<W>>();
