@@ -5,12 +5,12 @@ using Ray.Core.EventBus;
 
 namespace Ray.EventBus.RabbitMQ
 {
-    public class RabbitMQService<W> : IProducer 
+    public class RabbitProducer<W> : IProducer 
         where W : IBytesWrapper
     {
         readonly RabbitEventBus<W> publisher;
         readonly IRabbitMQClient rabbitMQClient;
-        public RabbitMQService(
+        public RabbitProducer(
             IRabbitMQClient rabbitMQClient,
             RabbitEventBus<W> publisher)
         {

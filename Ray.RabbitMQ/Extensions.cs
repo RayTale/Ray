@@ -10,7 +10,7 @@ namespace Ray.EventBus.RabbitMQ
             where W : IBytesWrapper
         {
             serviceCollection.AddSingleton<IRabbitMQClient, RabbitMQClient>();
-            serviceCollection.AddSingleton<IConsumerManager, RabbitSubManager<W>>();
+            serviceCollection.AddSingleton<IConsumerManager, ConsumerManager<W>>();
             serviceCollection.AddSingleton<IRabbitEventBusContainer<W>, EventBusContainer<W>>();
             serviceCollection.AddSingleton(serviceProvider => serviceProvider.GetService<IRabbitEventBusContainer<W>>() as IProducerContainer);
         }

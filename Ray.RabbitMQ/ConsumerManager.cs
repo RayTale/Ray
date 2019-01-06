@@ -13,15 +13,15 @@ using Ray.Core.Utils;
 
 namespace Ray.EventBus.RabbitMQ
 {
-    public class RabbitSubManager<W> : IConsumerManager
+    public class ConsumerManager<W> : IConsumerManager
         where W : IBytesWrapper
     {
-        readonly ILogger<RabbitSubManager<W>> logger;
+        readonly ILogger<ConsumerManager<W>> logger;
         readonly IRabbitMQClient client;
         readonly IRabbitEventBusContainer<W> rabbitEventBusContainer;
         readonly IEventBusStartup<W> eventBusStartup;
-        public RabbitSubManager(
-            ILogger<RabbitSubManager<W>> logger,
+        public ConsumerManager(
+            ILogger<ConsumerManager<W>> logger,
             IRabbitMQClient client,
             IServiceProvider provider,
             IEventBusStartup<W> eventBusStartup,
@@ -121,7 +121,7 @@ namespace Ray.EventBus.RabbitMQ
             }
             catch (Exception exception)
             {
-                logger.LogError(exception.InnerException ?? exception, nameof(RabbitSubManager<W>));
+                logger.LogError(exception.InnerException ?? exception, nameof(ConsumerManager<W>));
             }
         }
         private async Task StartSub(ConsumerInfo<W> consumer, bool first)

@@ -54,7 +54,7 @@ namespace Ray.EventBus.RabbitMQ
             {
                 return new ValueTask<IProducer>(producerDict.GetOrAdd(type, key =>
                 {
-                    return new RabbitMQService<W>(rabbitMQClient, eventBus);
+                    return new RabbitProducer<W>(rabbitMQClient, eventBus);
                 }));
             }
             else
