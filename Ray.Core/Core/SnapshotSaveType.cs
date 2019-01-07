@@ -1,4 +1,4 @@
-﻿namespace Ray.Core.Storage
+﻿namespace Ray.Core
 {
     /// <summary>
     /// 状态快照保存方式
