@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Ray.Core;
-using Ray.Core.Abstractions;
+using Ray.Core.Storage;
 
 namespace Ray.Storage.PostgreSQL
 {

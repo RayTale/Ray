@@ -4,8 +4,10 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Orleans;
-using Ray.Core.Abstractions;
+using Ray.Core;
+using Ray.Core.Event;
 using Ray.Core.EventBus;
+using Ray.Core.Serialization;
 
 namespace Ray.EventBus.RabbitMQ
 {

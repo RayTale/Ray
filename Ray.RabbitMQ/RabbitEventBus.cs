@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
-using Ray.Core.Abstractions;
+using Ray.Core.Serialization;
 using Ray.Core.Utils;
 
 namespace Ray.EventBus.RabbitMQ

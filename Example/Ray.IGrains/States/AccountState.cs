@@ -1,6 +1,6 @@
 ﻿using System;
 using ProtoBuf;
-using Ray.Core.Abstractions;
+using Ray.Core.State;
 
 namespace Ray.IGrains.States
 {

@@ -2,7 +2,8 @@
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using Orleans;
-using Ray.Core.Abstractions;
+using Ray.Core.State;
+using Ray.Core.Storage;
 
 namespace Ray.Storage.PostgreSQL
 {

@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
-using Ray.Core.Abstractions;
+using Ray.Core.Serialization;
 
 namespace Ray.EventBus.RabbitMQ
 {

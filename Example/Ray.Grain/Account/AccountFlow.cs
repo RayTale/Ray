@@ -1,8 +1,8 @@
 ﻿using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Orleans;
-using Ray.Core.Abstractions;
-using Ray.Core.Internal;
+using Ray.Core;
+using Ray.Core.Event;
 using Ray.IGrains;
 using Ray.IGrains.Actors;
 using Ray.IGrains.Events;

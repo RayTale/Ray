@@ -1,5 +1,5 @@
 ﻿using Orleans;
-using Ray.Core.Abstractions;
+using Ray.Core;
 
 namespace Ray.IGrains.Actors
 {

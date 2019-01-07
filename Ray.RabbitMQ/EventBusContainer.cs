@@ -4,8 +4,8 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Orleans;
 using RabbitMQ.Client;
-using Ray.Core.Abstractions;
 using Ray.Core.EventBus;
+using Ray.Core.Serialization;
 
 namespace Ray.EventBus.RabbitMQ
 {

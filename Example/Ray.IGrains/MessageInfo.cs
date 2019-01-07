@@ -1,6 +1,6 @@
 ﻿using Orleans.Concurrency;
 using ProtoBuf;
-using Ray.Core.Abstractions;
+using Ray.Core.Serialization;
 
 namespace Ray.IGrains
 {

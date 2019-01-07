@@ -1,18 +1,18 @@
-using Orleans.TestingHost;
-using Xunit;
-using Orleans.Hosting;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Ray.Core.Abstractions;
-using RayTest.IGrains;
-using Ray.Storage.PostgreSQL;
-using Ray.EventBus.RabbitMQ;
-using System.Collections.Generic;
-using Microsoft.Extensions.Configuration;
 using Orleans;
+using Orleans.Hosting;
+using Orleans.TestingHost;
+using Ray.Core.Serialization;
+using Ray.EventBus.RabbitMQ;
+using Ray.Storage.PostgreSQL;
 using RayTest.Grains;
+using RayTest.IGrains;
 using RayTest.IGrains.Actors;
-using System.Threading.Tasks;
+using Xunit;
 
 namespace RayCore.Tests
 {

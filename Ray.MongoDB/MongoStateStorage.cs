@@ -5,7 +5,8 @@ using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using ProtoBuf;
-using Ray.Core.Abstractions;
+using Ray.Core.State;
+using Ray.Core.Storage;
 using Ray.Core.Utils;
 
 namespace Ray.Storage.MongoDB

@@ -2,7 +2,8 @@
 using System.Threading.Tasks;
 using Dapper;
 using ProtoBuf;
-using Ray.Core.Abstractions;
+using Ray.Core.State;
+using Ray.Core.Storage;
 using Ray.Core.Utils;
 
 namespace Ray.Storage.PostgreSQL

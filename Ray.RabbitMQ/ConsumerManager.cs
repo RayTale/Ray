@@ -5,8 +5,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Ray.Core.Abstractions;
 using Ray.Core.EventBus;
+using Ray.Core.Serialization;
 using Ray.Core.Utils;
 
 namespace Ray.EventBus.RabbitMQ

@@ -8,20 +8,22 @@ using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using ProtoBuf;
-using Ray.Core.Abstractions;
-using Ray.Core.Internal;
+using Ray.Core.Channels;
+using Ray.Core.Event;
+using Ray.Core.Serialization;
+using Ray.Core.Storage;
 
 namespace Ray.Storage.MongoDB
 {
     public class MongoEventStorage<K> : IEventStorage<K>
     {
         readonly MongoGrainConfig grainConfig;
-        readonly IMpscChannel<BytesEventWithTask<K>> mpscChannel;
+        readonly IMpscChannel<DataAsyncWrapper<EventSaveWrapper<K>, bool>> mpscChannel;
         readonly ILogger<MongoEventStorage<K>> logger;
         public MongoEventStorage(IServiceProvider serviceProvider, MongoGrainConfig grainConfig)
         {
             logger = serviceProvider.GetService<ILogger<MongoEventStorage<K>>>();
-            mpscChannel = serviceProvider.GetService<IMpscChannel<BytesEventWithTask<K>>>();
+            mpscChannel = serviceProvider.GetService<IMpscChannel<DataAsyncWrapper<EventSaveWrapper<K>, bool>>>();
             mpscChannel.BindConsumer(BatchProcessing).ActiveConsumer();
             this.grainConfig = grainConfig;
         }
@@ -87,71 +89,71 @@ namespace Ray.Storage.MongoDB
         {
             return Task.Run(async () =>
             {
-                var wrap = new BytesEventWithTask<K>(evt, bytes, uniqueId);
+                var wrap = new DataAsyncWrapper<EventSaveWrapper<K>, bool>(new EventSaveWrapper<K>(evt, bytes, uniqueId));
                 var writeTask = mpscChannel.WriteAsync(wrap);
                 if (!writeTask.IsCompleted)
                     await writeTask;
                 return await wrap.TaskSource.Task;
             });
         }
-        private async Task BatchProcessing(List<BytesEventWithTask<K>> wrapList)
+        private async Task BatchProcessing(List<DataAsyncWrapper<EventSaveWrapper<K>, bool>> wrapperList)
         {
             var documents = new List<MongoEvent<K>>();
-            foreach (var wrap in wrapList)
+            foreach (var wrap in wrapperList)
             {
                 documents.Add(new MongoEvent<K>
                 {
                     Id = new ObjectId(),
-                    StateId = wrap.Value.StateId,
-                    Version = wrap.Value.Version,
+                    StateId = wrap.Value.Event.StateId,
+                    Version = wrap.Value.Event.Version,
                     TypeCode = wrap.Value.GetType().FullName,
-                    Data = wrap.Bytes,
-                    UniqueId = string.IsNullOrEmpty(wrap.UniqueId) ? wrap.Value.Version.ToString() : wrap.UniqueId
+                    Data = wrap.Value.Bytes,
+                    UniqueId = string.IsNullOrEmpty(wrap.Value.UniqueId) ? wrap.Value.Event.Version.ToString() : wrap.Value.UniqueId
                 });
             }
             var collectionTask = grainConfig.GetCollection(DateTime.UtcNow);
             if (!collectionTask.IsCompleted)
                 await collectionTask;
             var collection = grainConfig.Storage.GetCollection<MongoEvent<K>>(grainConfig.DataBase, collectionTask.Result.Name);
-            wrapList.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
+            wrapperList.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
             try
             {
                 await collection.InsertManyAsync(documents);
-                wrapList.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
+                wrapperList.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
             }
             catch
             {
-                foreach (var wrap in wrapList)
+                foreach (var wrapper in wrapperList)
                 {
                     try
                     {
                         await collection.InsertOneAsync(new MongoEvent<K>
                         {
                             Id = new ObjectId(),
-                            StateId = wrap.Value.StateId,
-                            Version = wrap.Value.Version,
-                            TypeCode = wrap.Value.GetType().FullName,
-                            Data = wrap.Bytes,
-                            UniqueId = string.IsNullOrEmpty(wrap.UniqueId) ? wrap.Value.Version.ToString() : wrap.UniqueId
+                            StateId = wrapper.Value.Event.StateId,
+                            Version = wrapper.Value.Event.Version,
+                            TypeCode = wrapper.Value.GetType().FullName,
+                            Data = wrapper.Value.Bytes,
+                            UniqueId = string.IsNullOrEmpty(wrapper.Value.UniqueId) ? wrapper.Value.Event.Version.ToString() : wrapper.Value.UniqueId
                         });
-                        wrap.TaskSource.TrySetResult(true);
+                        wrapper.TaskSource.TrySetResult(true);
                     }
                     catch (MongoWriteException ex)
                     {
                         if (ex.WriteError.Category != ServerErrorCategory.DuplicateKey)
                         {
-                            wrap.TaskSource.TrySetException(ex);
+                            wrapper.TaskSource.TrySetException(ex);
                         }
                         else
                         {
-                            wrap.TaskSource.TrySetResult(false);
+                            wrapper.TaskSource.TrySetResult(false);
                         }
                     }
                 }
             }
         }
 
-        public async Task TransactionSaveAsync(List<TransactionEventWrapper<K>> list)
+        public async Task TransactionSaveAsync(List<EventTransmitWrapper<K>> list)
         {
             var inserts = new List<MongoEvent<K>>();
             foreach (var data in list)
