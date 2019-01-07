@@ -64,7 +64,7 @@ namespace Ray.Core.Internal
         /// 是否开启事件并发处理
         /// </summary>
         protected virtual bool EventConcurrentProcessing => false;
-        protected Type GrainType { get; private set; }
+        protected Type GrainType { get; }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask<IEventStorage<K>> GetEventStorage()
         {

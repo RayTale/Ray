@@ -14,7 +14,7 @@ namespace RayTest.Grains
         {
         }
         public override long GrainId => this.GetPrimaryKeyLong();
-        protected override bool SupportAsyncFollow => true;
+        protected override bool SupportFollow => true;
         public override async Task OnActivateAsync()
         {
             await base.OnActivateAsync();
