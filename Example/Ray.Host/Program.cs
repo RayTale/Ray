@@ -9,8 +9,6 @@ using Orleans.Configuration;
 using Orleans.Hosting;
 using Ray.Core;
 using Ray.Core.Client;
-using Ray.Core.EventBus;
-using Ray.Core.IGrains;
 using Ray.Core.Serialization;
 using Ray.EventBus.RabbitMQ;
 using Ray.Grain;
@@ -28,21 +26,10 @@ namespace Ray.MongoHost
         }
         private static async Task<int> RunMainAsync()
         {
-            var mqListenerNodes = new List<string> { "N1" };
             try
             {
                 using (var host = await StartSilo())
                 {
-                    var consumerManager = host.Services.GetService<IConsumerManager>();
-                    foreach (var node in mqListenerNodes)
-                    {
-                        var (isOk, lockId) = await host.Services.GetService<IClusterClient>().GetGrain<INoWaitLock>(node).Lock();
-                        if (isOk)
-                        {
-                            await consumerManager.Start(node, mqListenerNodes);
-                            break;
-                        }
-                    }
                     while (true)
                     {
                         Console.WriteLine("Input any key to stop");
@@ -65,11 +52,11 @@ namespace Ray.MongoHost
             var builder = new SiloHostBuilder()
                 .UseLocalhostClustering()
                 .UseDashboard()
+                .AddRay()
                 .Configure<EndpointOptions>(options => options.AdvertisedIPAddress = IPAddress.Loopback)
                 .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(Account).Assembly).WithReferences())
                 .ConfigureServices((context, servicecollection) =>
                 {
-                    servicecollection.AddRay();
                     servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
                     //注册postgresql为事件存储库
                     servicecollection.AddPSqlSiloGrain();
@@ -108,7 +95,6 @@ namespace Ray.MongoHost
 
             var host = builder.Build();
             await host.StartAsync();
-            await host.Services.StartRay();
             return host;
         }
     }

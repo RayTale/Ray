@@ -60,9 +60,9 @@ namespace Ray.Client
                     {
                         var builder = new ClientBuilder()
                         .UseLocalhostClustering()
+                        .AddRay()
                         .ConfigureServices((context, servicecollection) =>
                         {
-                            servicecollection.AddRay();//注册Client获取方法
                             servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
                         })
                         .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IAccount).Assembly).WithReferences())
