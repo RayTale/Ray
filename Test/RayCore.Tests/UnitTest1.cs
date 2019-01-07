@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Orleans;
 using Orleans.Hosting;
 using Orleans.TestingHost;
+using Ray.Core;
 using Ray.Core.Serialization;
 using Ray.EventBus.RabbitMQ;
 using Ray.Storage.PostgreSQL;
@@ -54,6 +55,7 @@ namespace RayCore.Tests
         public void Configure(ISiloHostBuilder hostBuilder)
         {
             hostBuilder
+                .AddRay()
                 .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(Account).Assembly).WithReferences())
                 .ConfigureServices((context, servicecollection) =>
                 {

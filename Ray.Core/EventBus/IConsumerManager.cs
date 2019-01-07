@@ -5,7 +5,7 @@ namespace Ray.Core.EventBus
 {
     public interface IConsumerManager
     {
-        Task Start(string node, List<string> nodeList = null);
+        Task Start();
         void Stop();
     }
 }

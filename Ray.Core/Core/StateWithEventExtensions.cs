@@ -6,7 +6,7 @@ using Ray.Core.State;
 
 namespace Ray.Core
 {
-    public static class Extensions
+    public static class StateWithEventExtensions
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void UpdateVersion<K>(this IState<K> state, IEvent @event, Type grainType)
