@@ -20,6 +20,7 @@ namespace Ray.Core.Internal
         public FollowGrain(ILogger logger)
         {
             Logger = logger;
+            GrainType = GetType();
         }
         protected RayOptions ConfigOptions { get; private set; }
         protected ILogger Logger { get; private set; }
@@ -67,7 +68,7 @@ namespace Ray.Core.Internal
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask<IEventStorage<K>> GetEventStorage()
         {
-            return StorageContainer.GetEventStorage<K, S>(this,GrainId);
+            return StorageContainer.GetEventStorage<K, S>(this, GrainId);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask<IStateStorage<S, K>> GetStateStorage()
@@ -75,55 +76,27 @@ namespace Ray.Core.Internal
             return StorageContainer.GetStateStorage<K, S>(this, GrainId);
         }
         #region 初始化数据
-        public override async Task OnActivateAsync()
+        /// <summary>
+        /// 依赖注入统一方法
+        /// </summary>
+        protected virtual void DependencyInjection()
         {
-            if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.GrainActivateId, "Start activation followgrain with id = {0}", GrainId.ToString());
-            GrainType = GetType();
             ConfigOptions = ServiceProvider.GetService<IOptions<RayOptions>>().Value;
             StorageContainer = ServiceProvider.GetService<IStorageContainer>();
             Serializer = ServiceProvider.GetService<ISerializer>();
             JsonSerializer = ServiceProvider.GetService<IJsonSerializer>();
+        }
+        public override async Task OnActivateAsync()
+        {
+            if (Logger.IsEnabled(LogLevel.Trace))
+                Logger.LogTrace(LogEventIds.GrainActivateId, "Start activation followgrain with id = {0}", GrainId.ToString());
+            DependencyInjection();
             try
             {
                 await ReadSnapshotAsync();
                 if (FullyActive)
                 {
-                    var eventStorageTask = GetEventStorage();
-                    if (!eventStorageTask.IsCompleted)
-                        await eventStorageTask;
-                    while (true)
-                    {
-                        var eventList = await eventStorageTask.Result.GetListAsync(GrainId, State.Version, State.Version + NumberOfEventsPerRead);
-                        if (EventConcurrentProcessing)
-                        {
-                            await Task.WhenAll(eventList.Select(@event =>
-                            {
-                                var task = OnEventDelivered(@event);
-                                if (!task.IsCompleted)
-                                    return task.AsTask();
-                                else
-                                    return Task.CompletedTask;
-                            }));
-                            var lastEvt = eventList.Last();
-                            State.UnsafeUpdateVersion(lastEvt.Version, lastEvt.Timestamp);
-                        }
-                        else
-                        {
-                            foreach (var @event in eventList)
-                            {
-                                State.IncrementDoingVersion(GrainType);//标记将要处理的Version
-                                var task = OnEventDelivered(@event);
-                                if (!task.IsCompleted)
-                                    await task;
-                                State.UpdateVersion(@event, GrainType);//更新处理完成的Version
-                            }
-                        }
-                        var saveTask = SaveSnapshotAsync();
-                        if (!saveTask.IsCompleted)
-                            await saveTask;
-                        if (eventList.Count < NumberOfEventsPerRead) break;
-                    };
+                    await FullActive();
                 }
                 if (Logger.IsEnabled(LogLevel.Trace))
                     Logger.LogTrace(LogEventIds.GrainActivateId, "Followgrain activation completed with id = {0}", GrainId.ToString());
@@ -134,6 +107,44 @@ namespace Ray.Core.Internal
                     Logger.LogCritical(LogEventIds.FollowGrainActivateId, ex, "Followgrain activation failed with Id = {0}", GrainId.ToString());
                 ExceptionDispatchInfo.Capture(ex).Throw();
             }
+        }
+        private async Task FullActive()
+        {
+            var eventStorageTask = GetEventStorage();
+            if (!eventStorageTask.IsCompleted)
+                await eventStorageTask;
+            while (true)
+            {
+                var eventList = await eventStorageTask.Result.GetListAsync(GrainId, State.Version, State.Version + NumberOfEventsPerRead);
+                if (EventConcurrentProcessing)
+                {
+                    await Task.WhenAll(eventList.Select(@event =>
+                    {
+                        var task = OnEventDelivered(@event);
+                        if (!task.IsCompleted)
+                            return task.AsTask();
+                        else
+                            return Task.CompletedTask;
+                    }));
+                    var lastEvt = eventList.Last();
+                    State.UnsafeUpdateVersion(lastEvt.Version, lastEvt.Timestamp);
+                }
+                else
+                {
+                    foreach (var @event in eventList)
+                    {
+                        State.IncrementDoingVersion(GrainType);//标记将要处理的Version
+                        var task = OnEventDelivered(@event);
+                        if (!task.IsCompleted)
+                            await task;
+                        State.UpdateVersion(@event, GrainType);//更新处理完成的Version
+                    }
+                }
+                var saveTask = SaveSnapshotAsync();
+                if (!saveTask.IsCompleted)
+                    await saveTask;
+                if (eventList.Count < NumberOfEventsPerRead) break;
+            };
         }
         public override Task OnDeactivateAsync()
         {
