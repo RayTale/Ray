@@ -19,6 +19,7 @@ namespace Ray.Core.Internal
         public RayGrain(ILogger logger)
         {
             Logger = logger;
+            GrainType = GetType();
         }
         protected RayOptions ConfigOptions { get; private set; }
         protected ILogger Logger { get; private set; }
@@ -52,6 +53,18 @@ namespace Ray.Core.Internal
         protected virtual bool SupportAsyncFollow => true;
         protected Type GrainType { get; private set; }
         /// <summary>
+        /// 依赖注入统一方法
+        /// </summary>
+        protected virtual void DependencyInjection()
+        {
+            ConfigOptions = ServiceProvider.GetService<IOptions<RayOptions>>().Value;
+            StorageContainer = ServiceProvider.GetService<IStorageContainer>();
+            ProducerContainer = ServiceProvider.GetService<IProducerContainer>();
+            Serializer = ServiceProvider.GetService<ISerializer>();
+            JsonSerializer = ServiceProvider.GetService<IJsonSerializer>();
+            EventHandler = ServiceProvider.GetService<IEventHandler<S>>();
+        }
+        /// <summary>
         /// Grain激活时调用用来初始化的方法(禁止在子类重写,请使用)
         /// </summary>
         /// <returns></returns>
@@ -59,13 +72,7 @@ namespace Ray.Core.Internal
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace(LogEventIds.GrainActivateId, "Start activation grain with id = {0}", GrainId.ToString());
-            GrainType = GetType();
-            ConfigOptions = ServiceProvider.GetService<IOptions<RayOptions>>().Value;
-            StorageContainer = ServiceProvider.GetService<IStorageContainer>();
-            ProducerContainer = ServiceProvider.GetService<IProducerContainer>();
-            Serializer = ServiceProvider.GetService<ISerializer>();
-            JsonSerializer = ServiceProvider.GetService<IJsonSerializer>();
-            EventHandler = ServiceProvider.GetService<IEventHandler<S>>();
+            DependencyInjection();
             try
             {
                 await RecoveryState();
