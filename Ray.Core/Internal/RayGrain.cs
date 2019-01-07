@@ -46,12 +46,12 @@ namespace Ray.Core.Internal
         /// <summary>
         /// 失活的时候保存快照的最小事件Version间隔
         /// </summary>
-        protected virtual int SnapshotMinVersionInterval => ConfigOptions.SnapshotMinVersionInterval;
+        protected virtual int MinSnapshotVersionInterval => ConfigOptions.MinSnapshotVersionInterval;
         /// <summary>
         /// 是否支持异步follow，true代表事件会广播，false事件不会进行广播
         /// </summary>
-        protected virtual bool SupportAsyncFollow => true;
-        protected Type GrainType { get; private set; }
+        protected virtual bool SupportFollow => true;
+        protected Type GrainType { get; }
         /// <summary>
         /// 依赖注入统一方法
         /// </summary>
@@ -126,7 +126,7 @@ namespace Ray.Core.Internal
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace(LogEventIds.GrainDeactivateId, "Grain start deactivation with id = {0}", GrainId.ToString());
-            var needSaveSnap = State.Version - SnapshotEventVersion >= SnapshotMinVersionInterval;
+            var needSaveSnap = State.Version - SnapshotEventVersion >= MinSnapshotVersionInterval;
             try
             {
                 if (needSaveSnap)
@@ -282,7 +282,7 @@ namespace Ray.Core.Internal
                         await getEventStorageTask;
                     if (await getEventStorageTask.Result.SaveAsync(@event, bytes, uniqueId.UID))
                     {
-                        if (SupportAsyncFollow)
+                        if (SupportFollow)
                         {
                             var data = new W
                             {

@@ -85,7 +85,7 @@ namespace Ray.Core.Internal
                     if (!eventStorageTask.IsCompleted)
                         await eventStorageTask;
                     await eventStorageTask.Result.TransactionSaveAsync(EventsInTransactionProcessing);
-                    if (SupportAsyncFollow)
+                    if (SupportFollow)
                     {
                         try
                         {
