@@ -1,4 +1,4 @@
-﻿using Ray.Core.Abstractions;
+﻿using Ray.Core.Event;
 using Ray.IGrains.Events;
 using Ray.IGrains.States;
 

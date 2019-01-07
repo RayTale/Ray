@@ -11,20 +11,22 @@ using Microsoft.Extensions.Logging;
 using Npgsql;
 using NpgsqlTypes;
 using ProtoBuf;
-using Ray.Core.Abstractions;
-using Ray.Core.Internal;
+using Ray.Core.Channels;
+using Ray.Core.Event;
+using Ray.Core.Serialization;
+using Ray.Core.Storage;
 
 namespace Ray.Storage.PostgreSQL
 {
     public class SqlEventStorage<K> : IEventStorage<K>
     {
         readonly SqlGrainConfig tableInfo;
-        readonly IMpscChannel<BytesEventWithTask<K>> mpscChannel;
+        readonly IMpscChannel<DataAsyncWrapper<EventSaveWrapper<K>, bool>> mpscChannel;
         readonly ILogger<SqlEventStorage<K>> logger;
         public SqlEventStorage(IServiceProvider serviceProvider, SqlGrainConfig tableInfo)
         {
             logger = serviceProvider.GetService<ILogger<SqlEventStorage<K>>>();
-            mpscChannel = serviceProvider.GetService<IMpscChannel<BytesEventWithTask<K>>>().BindConsumer(BatchProcessing);
+            mpscChannel = serviceProvider.GetService<IMpscChannel<DataAsyncWrapper<EventSaveWrapper<K>, bool>>>().BindConsumer(BatchProcessing);
             mpscChannel.ActiveConsumer();
             this.tableInfo = tableInfo;
         }
@@ -114,14 +116,14 @@ namespace Ray.Storage.PostgreSQL
         {
             return Task.Run(async () =>
             {
-                var wrap = new BytesEventWithTask<K>(evt, bytes, uniqueId);
+                var wrap = new DataAsyncWrapper<EventSaveWrapper<K>, bool>(new EventSaveWrapper<K>(evt, bytes, uniqueId));
                 var writeTask = mpscChannel.WriteAsync(wrap);
                 if (!writeTask.IsCompleted)
                     await writeTask;
                 return await wrap.TaskSource.Task;
             });
         }
-        private async Task BatchProcessing(List<BytesEventWithTask<K>> wrapList)
+        private async Task BatchProcessing(List<DataAsyncWrapper<EventSaveWrapper<K>, bool>> wrapperList)
         {
             var copySql = copySaveSqlDict.GetOrAdd((await tableInfo.GetTable(DateTime.UtcNow)).Name, key => $"copy {key}(stateid,uniqueId,typecode,data,version) FROM STDIN (FORMAT BINARY)");
             try
@@ -131,19 +133,19 @@ namespace Ray.Storage.PostgreSQL
                     await conn.OpenAsync();
                     using (var writer = conn.BeginBinaryImport(copySql))
                     {
-                        foreach (var evt in wrapList)
+                        foreach (var wrapper in wrapperList)
                         {
                             writer.StartRow();
-                            writer.Write(evt.Value.StateId.ToString(), NpgsqlDbType.Varchar);
-                            writer.Write(evt.UniqueId, NpgsqlDbType.Varchar);
-                            writer.Write(evt.Value.GetType().FullName, NpgsqlDbType.Varchar);
-                            writer.Write(evt.Bytes, NpgsqlDbType.Bytea);
-                            writer.Write(evt.Value.Version, NpgsqlDbType.Bigint);
+                            writer.Write(wrapper.Value.Event.StateId.ToString(), NpgsqlDbType.Varchar);
+                            writer.Write(wrapper.Value.UniqueId, NpgsqlDbType.Varchar);
+                            writer.Write(wrapper.Value.GetType().FullName, NpgsqlDbType.Varchar);
+                            writer.Write(wrapper.Value.Bytes, NpgsqlDbType.Bytea);
+                            writer.Write(wrapper.Value.Event.Version, NpgsqlDbType.Bigint);
                         }
                         writer.Complete();
                     }
                 }
-                wrapList.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
+                wrapperList.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
             }
             catch
             {
@@ -155,24 +157,24 @@ namespace Ray.Storage.PostgreSQL
                     {
                         try
                         {
-                            foreach (var w in wrapList)
+                            foreach (var wrapper in wrapperList)
                             {
-                                w.Result = await conn.ExecuteAsync(saveSql, new
+                                wrapper.Value.ReturnValue = await conn.ExecuteAsync(saveSql, new
                                 {
-                                    StateId = w.Value.StateId.ToString(),
-                                    w.UniqueId,
-                                    TypeCode = w.Value.GetType().FullName,
-                                    Data = w.Bytes,
-                                    w.Value.Version
+                                    StateId = wrapper.Value.Event.StateId.ToString(),
+                                    wrapper.Value.UniqueId,
+                                    TypeCode = wrapper.Value.GetType().FullName,
+                                    Data = wrapper.Value.Bytes,
+                                    wrapper.Value.Event.Version
                                 }, trans) > 0;
                             }
                             trans.Commit();
-                            wrapList.ForEach(wrap => wrap.TaskSource.TrySetResult(wrap.Result));
+                            wrapperList.ForEach(wrap => wrap.TaskSource.TrySetResult(wrap.Value.ReturnValue));
                         }
                         catch (Exception e)
                         {
                             trans.Rollback();
-                            wrapList.ForEach(wrap => wrap.TaskSource.TrySetException(e));
+                            wrapperList.ForEach(wrap => wrap.TaskSource.TrySetException(e));
                         }
                     }
                 }
@@ -185,7 +187,7 @@ namespace Ray.Storage.PostgreSQL
                 key => $"INSERT INTO {key}(stateid,uniqueId,typecode,data,version) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version) ON CONFLICT ON CONSTRAINT {key}_id_unique DO NOTHING");
         }
         static readonly ConcurrentDictionary<string, string> copySaveSqlDict = new ConcurrentDictionary<string, string>();
-        public async Task TransactionSaveAsync(List<TransactionEventWrapper<K>> list)
+        public async Task TransactionSaveAsync(List<EventTransmitWrapper<K>> list)
         {
             var getTableTask = tableInfo.GetTable(DateTime.UtcNow);
             if (!getTableTask.IsCompleted)

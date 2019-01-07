@@ -1,7 +1,8 @@
 ﻿using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Orleans;
-using Ray.Core.Internal;
+using Ray.Core;
+using Ray.Core.Event;
 using RayTest.IGrains.Actors;
 using RayTest.IGrains.Events;
 using RayTest.IGrains.States;

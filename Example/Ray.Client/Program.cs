@@ -7,8 +7,8 @@ using Microsoft.Extensions.Logging;
 using Orleans;
 using Orleans.Runtime;
 using Ray.Core;
-using Ray.Core.Abstractions;
 using Ray.Core.Client;
+using Ray.Core.Serialization;
 using Ray.IGrains;
 using Ray.IGrains.Actors;
 

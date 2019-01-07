@@ -1,5 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
-using Ray.Core.Abstractions;
+using Ray.Core.Event;
 using Ray.EventBus.RabbitMQ;
 using Ray.Grain.EventHandles;
 using Ray.IGrains;

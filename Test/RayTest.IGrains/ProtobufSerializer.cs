@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IO;
 using ProtoBuf;
-using Ray.Core.Abstractions;
+using Ray.Core.Serialization;
 
 namespace RayTest.IGrains
 {

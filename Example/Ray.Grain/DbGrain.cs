@@ -1,7 +1,8 @@
 ﻿using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Ray.Core.Abstractions;
-using Ray.Core.Internal;
+using Ray.Core;
+using Ray.Core.Event;
+using Ray.Core.State;
 using Ray.IGrains;
 
 namespace Ray.Grain
