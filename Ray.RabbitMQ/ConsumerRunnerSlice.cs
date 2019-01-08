@@ -13,10 +13,7 @@ namespace Ray.EventBus.RabbitMQ
         {
             if (Channel != default && Channel.Model.IsOpen)
             {
-                if (!NeedRestart)
-                    BasicConsumer.Model.Abort();
-                else
-                    BasicConsumer.Model.Close();
+                BasicConsumer.Model.Close();
                 BasicConsumer.Model.Dispose();
             }
             Channel?.Dispose();
