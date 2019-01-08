@@ -17,10 +17,10 @@ namespace Ray.Storage.MongoDB
 {
     public class MongoEventStorage<K> : IEventStorage<K>
     {
-        readonly MongoGrainConfig grainConfig;
+        readonly StorageConfig grainConfig;
         readonly IMpscChannel<DataAsyncWrapper<EventSaveWrapper<K>, bool>> mpscChannel;
         readonly ILogger<MongoEventStorage<K>> logger;
-        public MongoEventStorage(IServiceProvider serviceProvider, MongoGrainConfig grainConfig)
+        public MongoEventStorage(IServiceProvider serviceProvider, StorageConfig grainConfig)
         {
             logger = serviceProvider.GetService<ILogger<MongoEventStorage<K>>>();
             mpscChannel = serviceProvider.GetService<IMpscChannel<DataAsyncWrapper<EventSaveWrapper<K>, bool>>>();

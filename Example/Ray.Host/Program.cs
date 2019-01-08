@@ -62,7 +62,6 @@ namespace Ray.MongoHost
                     servicecollection.AddPSqlSiloGrain();
                     //注册mongodb为事件存储库
                     //servicecollection.AddMongoDbSiloGrain();
-                    servicecollection.AddRabbitMQ<MessageInfo>();//注册RabbitMq为默认消息队列
                     servicecollection.AddSingleton<IClusterClientFactory, ClientFactory>();
                 })
                  .Configure<GrainCollectionOptions>(options =>

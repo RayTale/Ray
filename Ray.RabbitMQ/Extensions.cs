@@ -1,4 +1,6 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using System;
+using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Ray.Core;
 using Ray.Core.EventBus;
 using Ray.Core.Serialization;
@@ -7,7 +9,7 @@ namespace Ray.EventBus.RabbitMQ
 {
     public static class Extensions
     {
-        public static void AddRabbitMQ<W>(this IServiceCollection serviceCollection)
+        public static void AddRabbitMQ<W>(this IServiceCollection serviceCollection,Func<IRabbitEventBusContainer<W>,Task> configure)
             where W : IBytesWrapper
         {
             serviceCollection.AddSingleton<IRabbitMQClient, RabbitMQClient>();
@@ -16,7 +18,7 @@ namespace Ray.EventBus.RabbitMQ
             serviceCollection.AddSingleton(serviceProvider => serviceProvider.GetService<IRabbitEventBusContainer<W>>() as IProducerContainer);
             Startup.Register(serviceProvider =>
             {
-                return serviceProvider.GetService<IEventBusConfig<W>>().Configure(serviceProvider.GetService<IRabbitEventBusContainer<W>>());
+                return configure(serviceProvider.GetService<IRabbitEventBusContainer<W>>());
             });
         }
     }

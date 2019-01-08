@@ -8,7 +8,7 @@ using MongoDB.Driver;
 
 namespace Ray.Storage.MongoDB
 {
-    public class MongoGrainConfig
+    public class StorageConfig
     {
         public string DataBase { get; set; }
         public string EventCollection { get; set; }
@@ -18,7 +18,7 @@ namespace Ray.Storage.MongoDB
         const string SplitCollectionName = "SplitCollections";
         readonly bool sharding = false;
         readonly int shardingDays;
-        public MongoGrainConfig(IMongoStorage storage, string database, string eventCollection, string snapshotCollection, bool sharding = false, int shardingDays = 90)
+        public StorageConfig(IMongoStorage storage, string database, string eventCollection, string snapshotCollection, bool sharding = false, int shardingDays = 90)
         {
             DataBase = database;
             EventCollection = eventCollection;

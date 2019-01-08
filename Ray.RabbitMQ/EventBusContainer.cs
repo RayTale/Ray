@@ -47,9 +47,9 @@ namespace Ray.EventBus.RabbitMQ
         }
 
         readonly ConcurrentDictionary<Type, IProducer> producerDict = new ConcurrentDictionary<Type, IProducer>();
-        public ValueTask<IProducer> GetProducer(Grain grain)
+        public ValueTask<IProducer> GetProducer<T>(T data)
         {
-            var type = grain.GetType();
+            var type = data.GetType();
             if (eventBusDictionary.TryGetValue(type, out var eventBus))
             {
                 return new ValueTask<IProducer>(producerDict.GetOrAdd(type, key =>

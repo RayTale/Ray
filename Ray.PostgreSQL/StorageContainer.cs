@@ -7,30 +7,30 @@ using Ray.Core.Storage;
 
 namespace Ray.Storage.PostgreSQL
 {
-    public class StorageContainer : IStorageContainer, IConfigContainer
+    public class StorageContainer :  IStorageContainer
     {
         readonly IServiceProvider serviceProvider;
-        readonly ConcurrentDictionary<Type, object> configBuilderDict = new ConcurrentDictionary<Type, object>();
-        readonly ConcurrentDictionary<string, ValueTask<SqlGrainConfig>> grainConfigDict = new ConcurrentDictionary<string, ValueTask<SqlGrainConfig>>();
+        readonly IConfigureContainer<StorageConfig, ConfigParameter> configureContainer;
+        readonly ConcurrentDictionary<string, ValueTask<StorageConfig>> grainConfigDict = new ConcurrentDictionary<string, ValueTask<StorageConfig>>();
         public StorageContainer(
-            IServiceProvider serviceProvider)
+            IServiceProvider serviceProvider,
+            IConfigureContainer<StorageConfig, ConfigParameter> configureContainer)
         {
             this.serviceProvider = serviceProvider;
+            this.configureContainer = configureContainer;
         }
         readonly ConcurrentDictionary<string, object> eventStorageDict = new ConcurrentDictionary<string, object>();
         public async ValueTask<IEventStorage<K>> GetEventStorage<K, S>(Grain grain, K grainId)
              where S : class, IState<K>, new()
         {
             var grainType = grain.GetType();
-            if (configBuilderDict.TryGetValue(grainType, out var value) &&
-                value is GrainConfigBuilderWrapper<K> builder)
+            if (configureContainer.ConfigBuilderDict.TryGetValue(grainType, out var value) &&
+                value is ConfigureBuilderWrapper<K, StorageConfig, ConfigParameter> builder)
             {
-                var dictKey = builder.IgnoreGrainId ? grainType.FullName : $"{grainType.FullName}-{grainId.ToString()}";
+                var dictKey = builder.Parameter.StaticByType ? grainType.FullName : $"{grainType.FullName}-{grainId.ToString()}";
                 var configTask = grainConfigDict.GetOrAdd(dictKey, async key =>
                 {
-                    var newConfig = builder.Generator(grain, grainId);
-                    if (!string.IsNullOrEmpty(builder.SnapshotTable))
-                        newConfig.SnapshotTable = builder.SnapshotTable;
+                    var newConfig = builder.Generator(grain, grainId, builder.Parameter);
                     var task = newConfig.Build();
                     if (!task.IsCompleted)
                         await task;
@@ -46,7 +46,7 @@ namespace Ray.Storage.PostgreSQL
             }
             else
             {
-                throw new NotImplementedException($"{nameof(GrainConfigBuilderWrapper<K>)} of {grainType.FullName}");
+                throw new NotImplementedException($"{nameof(ConfigureBuilderWrapper<K, StorageConfig, ConfigParameter>)} of {grainType.FullName}");
             }
         }
         readonly ConcurrentDictionary<string, object> stateStorageDict = new ConcurrentDictionary<string, object>();
@@ -54,15 +54,13 @@ namespace Ray.Storage.PostgreSQL
             where S : class, IState<K>, new()
         {
             var grainType = grain.GetType();
-            if (configBuilderDict.TryGetValue(grainType, out var value) &&
-                value is GrainConfigBuilderWrapper<K> builder)
+            if (configureContainer.ConfigBuilderDict.TryGetValue(grainType, out var value) &&
+                value is ConfigureBuilderWrapper<K, StorageConfig, ConfigParameter> builder)
             {
-                var dictKey = builder.IgnoreGrainId ? grainType.FullName : $"{grainType.FullName}-{grainId.ToString()}";
+                var dictKey = builder.Parameter.StaticByType ? grainType.FullName : $"{grainType.FullName}-{grainId.ToString()}";
                 var configTask = grainConfigDict.GetOrAdd(dictKey, async key =>
                 {
-                    var newConfig = builder.Generator(grain, grainId);
-                    if (!string.IsNullOrEmpty(builder.SnapshotTable))
-                        newConfig.SnapshotTable = builder.SnapshotTable;
+                    var newConfig = builder.Generator(grain, grainId, builder.Parameter);
                     var task = newConfig.Build();
                     if (!task.IsCompleted)
                         await task;
@@ -78,18 +76,8 @@ namespace Ray.Storage.PostgreSQL
             }
             else
             {
-                throw new NotImplementedException($"{nameof(GrainConfigBuilderWrapper<K>)} of {grainType.FullName}");
+                throw new NotImplementedException($"{nameof(ConfigureBuilderWrapper<K, StorageConfig, ConfigParameter>)} of {grainType.FullName}");
             }
-        }
-
-        public GrainConfigBuilder<K> CreateBuilder<K>(Func<Grain, K, SqlGrainConfig> generator, bool ignoreGrainId = true)
-        {
-            return new GrainConfigBuilder<K>(this, generator, ignoreGrainId);
-        }
-
-        public void RegisterBuilder<K>(Type type, GrainConfigBuilderWrapper<K> builder)
-        {
-            configBuilderDict.TryAdd(type, builder);
         }
     }
 }

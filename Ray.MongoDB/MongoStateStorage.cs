@@ -13,8 +13,8 @@ namespace Ray.Storage.MongoDB
 {
     public class MongoStateStorage<T, K> : IStateStorage<T, K> where T : class, IState<K>
     {
-        readonly MongoGrainConfig grainConfig;
-        public MongoStateStorage(MongoGrainConfig grainConfig)
+        readonly StorageConfig grainConfig;
+        public MongoStateStorage(StorageConfig grainConfig)
         {
             this.grainConfig = grainConfig;
         }

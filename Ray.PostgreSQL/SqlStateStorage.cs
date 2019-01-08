@@ -8,15 +8,16 @@ using Ray.Core.Utils;
 
 namespace Ray.Storage.PostgreSQL
 {
-    public class SqlStateStorage<T, K> : IStateStorage<T, K> where T : class, IState<K>
+    public class SqlStateStorage<T, K> : IStateStorage<T, K>
+        where T : class, IState<K>
     {
-        readonly SqlGrainConfig tableInfo;
+        readonly StorageConfig tableInfo;
         private readonly string deleteSql;
         private readonly string getByIdSql;
         private readonly string insertSql;
         private readonly string updateSql;
 
-        public SqlStateStorage(SqlGrainConfig table)
+        public SqlStateStorage(StorageConfig table)
         {
             tableInfo = table;
             deleteSql = $"DELETE FROM {tableInfo.SnapshotTable} where stateid=@StateId";
