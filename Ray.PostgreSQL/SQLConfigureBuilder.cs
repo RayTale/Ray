@@ -13,7 +13,7 @@ namespace Ray.Storage.PostgreSQL
         }
         public SQLConfigureBuilder<K> BindTo<T>(string snapshotTable = null)
         {
-            BindTo<K>(new ConfigParameter(staticByType, snapshotTable));
+            BindTo<T>(new ConfigParameter(staticByType, snapshotTable));
             return this;
         }
     }
