@@ -30,13 +30,13 @@ namespace Ray.EventBus.RabbitMQ
         {
             return Task.WhenAll(HandlerFuncs.Select(func => func(bytes, data)));
         }
-        public RabbitConsumer<W> Bind<F>(Func<byte[], object, Task> handler)
+        public RabbitConsumer<W> Post<F>(Func<byte[], object, Task> handler)
             where F : IFollow
         {
             HandlerFuncs.Add(handler);
             return this;
         }
-        public RabbitConsumer<W> BindFollowWithLongId<F>()
+        public RabbitConsumer<W> PostWithLongID<F>()
             where F : IFollow, IGrainWithIntegerKey
         {
             HandlerFuncs.Add((byte[] bytes, object evt) =>
@@ -48,7 +48,7 @@ namespace Ray.EventBus.RabbitMQ
             });
             return this;
         }
-        public RabbitConsumer<W> BindConcurrentFollowWithLongId<F>()
+        public RabbitConsumer<W> ConcurrentPostWithLongID<F>()
             where F : IConcurrentFollow, IGrainWithIntegerKey
         {
             HandlerFuncs.Add((byte[] bytes, object evt) =>
@@ -60,7 +60,7 @@ namespace Ray.EventBus.RabbitMQ
             });
             return this;
         }
-        public RabbitConsumer<W> BindFollowWithStringId<F>()
+        public RabbitConsumer<W> PostWithStringID<F>()
             where F : IFollow, IGrainWithStringKey
         {
             HandlerFuncs.Add((byte[] bytes, object evt) =>
@@ -72,7 +72,7 @@ namespace Ray.EventBus.RabbitMQ
             });
             return this;
         }
-        public RabbitConsumer<W> BindConcurrentFollowWithStringId<F>()
+        public RabbitConsumer<W> ConcurrentPostWithStringID<F>()
             where F : IConcurrentFollow, IGrainWithStringKey
         {
             HandlerFuncs.Add((byte[] bytes, object evt) =>

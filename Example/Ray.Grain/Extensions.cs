@@ -37,8 +37,8 @@ namespace Ray.Grain
             serviceCollection.AddRabbitMQ<MessageInfo>(async container =>
             {
                 await container.CreateEventBus<long>("Account", "account", 5).BindProducer<Account>().
-                     CreateConsumer<long>(DefaultPrefix.primary).BindConcurrentFollowWithLongId<IAccountFlow>().BindFollowWithLongId<IAccountRep>().Complete().
-                     CreateConsumer<long>(DefaultPrefix.secondary).BindConcurrentFollowWithLongId<IAccountDb>().Complete()
+                     CreateConsumer<long>(DefaultPrefix.primary).ConcurrentPostWithLongID<IAccountFlow>().PostWithLongID<IAccountRep>().Complete().
+                     CreateConsumer<long>(DefaultPrefix.secondary).ConcurrentPostWithLongID<IAccountDb>().Complete()
                  .Enable();
             });
         }
