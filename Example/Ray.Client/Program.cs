@@ -7,7 +7,6 @@ using Microsoft.Extensions.Logging;
 using Orleans;
 using Orleans.Runtime;
 using Ray.Core;
-using Ray.Core.Client;
 using Ray.Core.Serialization;
 using Ray.IGrains;
 using Ray.IGrains.Actors;
@@ -56,19 +55,17 @@ namespace Ray.Client
             {
                 try
                 {
-                    client = await ClusterClientFactory.Build(() =>
-                    {
-                        var builder = new ClientBuilder()
-                        .UseLocalhostClustering()
-                        .AddRay()
-                        .ConfigureServices((context, servicecollection) =>
-                        {
-                            servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
-                        })
-                        .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IAccount).Assembly).WithReferences())
-                        .ConfigureLogging(logging => logging.AddConsole());
-                        return builder;
-                    });
+                    var builder = new ClientBuilder()
+                   .UseLocalhostClustering()
+                   .AddRay()
+                   .ConfigureServices((context, servicecollection) =>
+                   {
+                       servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
+                   })
+                   .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IAccount).Assembly).WithReferences())
+                   .ConfigureLogging(logging => logging.AddConsole());
+                    client = builder.Build();
+                    await client.Connect();
                     Console.WriteLine("Client successfully connect to silo host");
                     break;
                 }

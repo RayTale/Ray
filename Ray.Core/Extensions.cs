@@ -2,7 +2,6 @@
 using Orleans;
 using Orleans.Hosting;
 using Ray.Core.Channels;
-using Ray.Core.Client;
 using Ray.Core.Serialization;
 using Ray.Core.Storage;
 
@@ -12,7 +11,6 @@ namespace Ray.Core
     {
         private static void AddRay(this IServiceCollection serviceCollection)
         {
-            serviceCollection.AddSingleton<IClusterClientFactory, ClusterClientFactory>();
             serviceCollection.AddTransient(typeof(IMpscChannel<>), typeof(MpscChannel<>));
             serviceCollection.AddSingleton<IJsonSerializer, DefaultJsonSerializer>();
             serviceCollection.AddSingleton(typeof(IConfigureContainer<,>), typeof(ConfigureContainer<,>));
