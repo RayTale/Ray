@@ -20,10 +20,10 @@ namespace Ray.Storage.PostgreSQL
 {
     public class SqlEventStorage<K> : IEventStorage<K>
     {
-        readonly SqlGrainConfig tableInfo;
+        readonly StorageConfig tableInfo;
         readonly IMpscChannel<DataAsyncWrapper<EventSaveWrapper<K>, bool>> mpscChannel;
         readonly ILogger<SqlEventStorage<K>> logger;
-        public SqlEventStorage(IServiceProvider serviceProvider, SqlGrainConfig tableInfo)
+        public SqlEventStorage(IServiceProvider serviceProvider, StorageConfig tableInfo)
         {
             logger = serviceProvider.GetService<ILogger<SqlEventStorage<K>>>();
             mpscChannel = serviceProvider.GetService<IMpscChannel<DataAsyncWrapper<EventSaveWrapper<K>, bool>>>().BindConsumer(BatchProcessing);

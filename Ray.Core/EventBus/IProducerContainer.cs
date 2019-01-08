@@ -1,10 +1,9 @@
-﻿using Orleans;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 
 namespace Ray.Core.EventBus
 {
     public interface IProducerContainer
     {
-        ValueTask<IProducer> GetProducer(Grain grain);
+        ValueTask<IProducer> GetProducer<T>(T data);
     }
 }

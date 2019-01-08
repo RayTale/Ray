@@ -61,7 +61,6 @@ namespace RayCore.Tests
                 {
                     servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();
                     servicecollection.AddPSqlSiloGrain();
-                    servicecollection.AddRabbitMQ<MessageInfo>();
                 })
                 .Configure<SqlConfig>(c =>
                 {

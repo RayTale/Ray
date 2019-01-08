@@ -9,7 +9,7 @@ using Dapper;
 
 namespace Ray.Storage.PostgreSQL
 {
-    public class SqlGrainConfig
+    public class StorageConfig
     {
         public string Connection { get; set; }
         public string EventTable { get; set; }
@@ -18,7 +18,7 @@ namespace Ray.Storage.PostgreSQL
         readonly bool sharding = false;
         readonly int shardingDays;
         readonly int stateIdLength;
-        public SqlGrainConfig(string conn, string eventTable, string snapshotTable, bool sharding = true, int shardingDays = 40, int stateIdLength = 200)
+        public StorageConfig(string conn, string eventTable, string snapshotTable, bool sharding = true, int shardingDays = 40, int stateIdLength = 200)
         {
             Connection = conn;
             EventTable = eventTable;
