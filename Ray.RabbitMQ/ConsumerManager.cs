@@ -43,15 +43,18 @@ namespace Ray.EventBus.RabbitMQ
         private ConcurrentDictionary<string, long> LockDict { get; } = new ConcurrentDictionary<string, long>();
         private Timer HeathCheckTimer { get; set; }
         private Timer DistributedMonitorTime { get; set; }
+        private Timer DistributedHoldTimer { get; set; }
         const int lockHoldingSeconds = 60;
         int distributedMonitorTimeLock = 0;
+        int distributedHoldTimerLock = 0;
         int heathCheckTimerLock = 0;
 
         public async Task Start()
         {
             if (rabbitEventBusOptions.Nodes != default && rabbitEventBusOptions.Nodes.Length > 0)
             {
-                DistributedMonitorTime = new Timer(state => DistributedStart().Wait(), null, 1000, 20 * 1000);
+                DistributedMonitorTime = new Timer(state => DistributedStart().Wait(), null, 1000, 60 * 2 * 1000);
+                DistributedHoldTimer = new Timer(state => DistributedHold().Wait(), null, 20 * 1000, 20 * 1000);
             }
             else
             {
@@ -74,7 +77,7 @@ namespace Ray.EventBus.RabbitMQ
 
                             if (!isOk && expectMillisecondDelay > 0)
                             {
-                                await Task.Delay(expectMillisecondDelay + 1000);
+                                await Task.Delay(expectMillisecondDelay + 100);
                                 (isOk, lockId, expectMillisecondDelay) = await clusterClientFactory.Create().GetGrain<IWeightHoldLock>(node).Lock(weight, lockHoldingSeconds);
                                 if (isOk)
                                     await Task.Delay(10 * 1000);
@@ -86,24 +89,42 @@ namespace Ray.EventBus.RabbitMQ
                                 break;
                             }
                         }
-                        else if (LockDict.TryGetValue(node, out var lockId))
-                        {
-                            var holdResult = await clusterClientFactory.Create().GetGrain<IWeightHoldLock>(node).Hold(lockId, lockHoldingSeconds);
-                            if (!holdResult)
-                            {
-                                consumerRunners.ForEach(runner => runner.Close());
-                                NodeRunnerDict.TryRemove(node, out var _);
-                                LockDict.TryRemove(node, out var _);
-                            }
-                        }
                     }
                     Interlocked.Exchange(ref distributedMonitorTimeLock, 0);
                 }
             }
             catch (Exception exception)
             {
-                logger.LogError(exception.InnerException ?? exception, nameof(ConsumerManager<W>));
+                logger.LogError(exception.InnerException ?? exception, nameof(DistributedStart));
                 Interlocked.Exchange(ref distributedMonitorTimeLock, 0);
+            }
+        }
+        private async Task DistributedHold()
+        {
+            try
+            {
+                if (Interlocked.CompareExchange(ref distributedHoldTimerLock, 1, 0) == 0)
+                {
+                    foreach (var lockKV in LockDict)
+                    {
+                        if (LockDict.TryGetValue(lockKV.Key, out var lockId))
+                        {
+                            var holdResult = await clusterClientFactory.Create().GetGrain<IWeightHoldLock>(lockKV.Key).Hold(lockId, lockHoldingSeconds);
+                            if (!holdResult && NodeRunnerDict.TryGetValue(lockKV.Key, out var consumerRunners))
+                            {
+                                consumerRunners.ForEach(runner => runner.Close());
+                                NodeRunnerDict.TryRemove(lockKV.Key, out var _);
+                                LockDict.TryRemove(lockKV.Key, out var _);
+                            }
+                        }
+                    }
+                    Interlocked.Exchange(ref distributedHoldTimerLock, 0);
+                }
+            }
+            catch (Exception exception)
+            {
+                logger.LogError(exception.InnerException ?? exception, nameof(DistributedHold));
+                Interlocked.Exchange(ref distributedHoldTimerLock, 0);
             }
         }
         private async Task Start(string node = null, string[] nodeList = null)
@@ -158,7 +179,7 @@ namespace Ray.EventBus.RabbitMQ
             }
             catch (Exception exception)
             {
-                logger.LogError(exception.InnerException ?? exception, nameof(ConsumerManager<W>));
+                logger.LogError(exception.InnerException ?? exception, nameof(HeathCheck));
                 Interlocked.Exchange(ref heathCheckTimerLock, 0);
             }
         }
@@ -182,6 +203,8 @@ namespace Ray.EventBus.RabbitMQ
                 HeathCheckTimer.Dispose();
             if (DistributedMonitorTime != default)
                 DistributedMonitorTime.Dispose();
+            if (DistributedHoldTimer != default)
+                DistributedHoldTimer.Dispose();
         }
     }
 }
