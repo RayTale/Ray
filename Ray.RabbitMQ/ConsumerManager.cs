@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -6,12 +7,11 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Ray.Core.Client;
+using Orleans;
 using Ray.Core.EventBus;
 using Ray.Core.IGrains;
 using Ray.Core.Serialization;
 using Ray.Core.Utils;
-using System.Collections.Concurrent;
 
 namespace Ray.EventBus.RabbitMQ
 {
@@ -23,11 +23,11 @@ namespace Ray.EventBus.RabbitMQ
         readonly IRabbitEventBusContainer<W> rabbitEventBusContainer;
         readonly IServiceProvider provider;
         readonly RabbitEventBusOptions rabbitEventBusOptions;
-        readonly IClusterClientFactory clusterClientFactory;
+        readonly IGrainFactory grainFactory;
         public ConsumerManager(
             ILogger<ConsumerManager<W>> logger,
             IRabbitMQClient client,
-            IClusterClientFactory clusterClientFactory,
+            IGrainFactory grainFactory,
             IServiceProvider provider,
             IOptions<RabbitEventBusOptions> rabbitEventBusOptions,
             IRabbitEventBusContainer<W> rabbitEventBusContainer)
@@ -37,7 +37,7 @@ namespace Ray.EventBus.RabbitMQ
             this.logger = logger;
             this.rabbitEventBusOptions = rabbitEventBusOptions.Value;
             this.rabbitEventBusContainer = rabbitEventBusContainer;
-            this.clusterClientFactory = clusterClientFactory;
+            this.grainFactory = grainFactory;
         }
         private ConcurrentDictionary<string, List<ConsumerRunner<W>>> NodeRunnerDict { get; } = new ConcurrentDictionary<string, List<ConsumerRunner<W>>>();
         private ConcurrentDictionary<string, long> LockDict { get; } = new ConcurrentDictionary<string, long>();
@@ -73,12 +73,12 @@ namespace Ray.EventBus.RabbitMQ
                         if (!NodeRunnerDict.TryGetValue(node, out var consumerRunners))
                         {
                             int weight = NodeRunnerDict.Count > 0 ? 100 : 99;
-                            var (isOk, lockId, expectMillisecondDelay) = await clusterClientFactory.Create().GetGrain<IWeightHoldLock>(node).Lock(weight, lockHoldingSeconds);
+                            var (isOk, lockId, expectMillisecondDelay) = await grainFactory.GetGrain<IWeightHoldLock>(node).Lock(weight, lockHoldingSeconds);
 
                             if (!isOk && expectMillisecondDelay > 0)
                             {
                                 await Task.Delay(expectMillisecondDelay + 100);
-                                (isOk, lockId, expectMillisecondDelay) = await clusterClientFactory.Create().GetGrain<IWeightHoldLock>(node).Lock(weight, lockHoldingSeconds);
+                                (isOk, lockId, expectMillisecondDelay) = await grainFactory.GetGrain<IWeightHoldLock>(node).Lock(weight, lockHoldingSeconds);
                                 if (isOk)
                                     await Task.Delay(10 * 1000);
                             }
@@ -109,7 +109,7 @@ namespace Ray.EventBus.RabbitMQ
                     {
                         if (LockDict.TryGetValue(lockKV.Key, out var lockId))
                         {
-                            var holdResult = await clusterClientFactory.Create().GetGrain<IWeightHoldLock>(lockKV.Key).Hold(lockId, lockHoldingSeconds);
+                            var holdResult = await grainFactory.GetGrain<IWeightHoldLock>(lockKV.Key).Hold(lockId, lockHoldingSeconds);
                             if (!holdResult && NodeRunnerDict.TryGetValue(lockKV.Key, out var consumerRunners))
                             {
                                 consumerRunners.ForEach(runner => runner.Close());

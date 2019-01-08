@@ -8,7 +8,6 @@ using Orleans;
 using Orleans.Configuration;
 using Orleans.Hosting;
 using Ray.Core;
-using Ray.Core.Client;
 using Ray.Core.Serialization;
 using Ray.EventBus.RabbitMQ;
 using Ray.Grain;
@@ -62,7 +61,6 @@ namespace Ray.MongoHost
                     servicecollection.AddPSqlSiloGrain();
                     //注册mongodb为事件存储库
                     //servicecollection.AddMongoDbSiloGrain();
-                    servicecollection.AddSingleton<IClusterClientFactory, ClientFactory>();
                 })
                  .Configure<GrainCollectionOptions>(options =>
                  {
@@ -95,18 +93,6 @@ namespace Ray.MongoHost
             var host = builder.Build();
             await host.StartAsync();
             return host;
-        }
-    }
-    public class ClientFactory : IClusterClientFactory
-    {
-        readonly IServiceProvider serviceProvider;
-        public ClientFactory(IServiceProvider serviceProvider)
-        {
-            this.serviceProvider = serviceProvider;
-        }
-        public IClusterClient Create()
-        {
-            return serviceProvider.GetService<IClusterClient>();
         }
     }
 }
