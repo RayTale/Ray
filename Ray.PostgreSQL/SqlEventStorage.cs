@@ -32,7 +32,7 @@ namespace Ray.Storage.PostgreSQL
         }
         public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, long startVersion, long endVersion)
         {
-            var originList = new List<SqlEvent>((int)(endVersion - startVersion));
+            var originList = new List<EventBytesWrapper>((int)(endVersion - startVersion));
             await Task.Run(async () =>
             {
                 var getTableListTask = tableInfo.GetTableListFromDb();
@@ -49,7 +49,7 @@ namespace Ray.Storage.PostgreSQL
                         {
                             while (reader.StartRow() != -1)
                             {
-                                originList.Add(new SqlEvent { TypeCode = reader.Read<string>(NpgsqlDbType.Varchar), Data = reader.Read<byte[]>(NpgsqlDbType.Bytea) });
+                                originList.Add(new EventBytesWrapper { TypeCode = reader.Read<string>(NpgsqlDbType.Varchar), Data = reader.Read<byte[]>(NpgsqlDbType.Bytea) });
                             }
                         }
                     }
