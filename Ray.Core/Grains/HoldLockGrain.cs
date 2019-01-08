@@ -5,16 +5,16 @@ using Ray.Core.IGrains;
 
 namespace Ray.Core.Grains
 {
-    public class NoWaitLockGrain : Grain, INoWaitLock
+    public class HoldLockGrain : Grain, IHoldLock
     {
-        long id = 0;
+        long lockId = 0;
         long expireTime = 0;
-        public Task<(bool isOk, long lockId)> Lock(long holdingSeconds = 30)
+        public Task<(bool isOk, long lockId)> Lock(int holdingSeconds = 30)
         {
             var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            if (id == 0 || now > expireTime)
+            if (lockId == 0 || now > expireTime)
             {
-                id = now;
+                lockId = now;
                 expireTime = now + holdingSeconds * 1000;
                 return Task.FromResult((true, now));
             }
@@ -23,9 +23,9 @@ namespace Ray.Core.Grains
                 return Task.FromResult((false, (long)0));
             }
         }
-        public Task<bool> Hold(long lockId, long holdingSeconds = 30)
+        public Task<bool> Hold(long lockId, int holdingSeconds = 30)
         {
-            if (id == lockId)
+            if (this.lockId == lockId)
             {
                 expireTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + holdingSeconds * 1000;
                 return Task.FromResult(true);
@@ -36,10 +36,13 @@ namespace Ray.Core.Grains
             }
         }
 
-        public Task Unlock()
+        public Task Unlock(long lockId)
         {
-            id = 0;
-            expireTime = 0;
+            if (this.lockId == lockId)
+            {
+                this.lockId = 0;
+                expireTime = 0;
+            }
             return Task.CompletedTask;
         }
     }

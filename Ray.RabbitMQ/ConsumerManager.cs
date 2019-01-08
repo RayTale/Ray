@@ -11,6 +11,7 @@ using Ray.Core.EventBus;
 using Ray.Core.IGrains;
 using Ray.Core.Serialization;
 using Ray.Core.Utils;
+using System.Collections.Concurrent;
 
 namespace Ray.EventBus.RabbitMQ
 {
@@ -38,16 +39,19 @@ namespace Ray.EventBus.RabbitMQ
             this.rabbitEventBusContainer = rabbitEventBusContainer;
             this.clusterClientFactory = clusterClientFactory;
         }
-        private List<ConsumerRunner<W>> ConsumerList { get; } = new List<ConsumerRunner<W>>();
+        private ConcurrentDictionary<string, List<ConsumerRunner<W>>> NodeRunnerDict { get; } = new ConcurrentDictionary<string, List<ConsumerRunner<W>>>();
+        private ConcurrentDictionary<string, long> LockDict { get; } = new ConcurrentDictionary<string, long>();
         private Timer HeathCheckTimer { get; set; }
         private Timer DistributedMonitorTime { get; set; }
-        private List<StartedNode> StartedNodeList { get; } = new List<StartedNode>();
+        const int lockHoldingSeconds = 60;
+        int distributedMonitorTimeLock = 0;
+        int heathCheckTimerLock = 0;
+
         public async Task Start()
         {
             if (rabbitEventBusOptions.Nodes != default && rabbitEventBusOptions.Nodes.Length > 0)
             {
-                await DistributedStart();
-                DistributedMonitorTime = new Timer(state => DistributedStart().Wait(), null, 60 * 1000, 60 * 1000);
+                DistributedMonitorTime = new Timer(state => DistributedStart().Wait(), null, 1000, 20 * 1000);
             }
             else
             {
@@ -59,20 +63,47 @@ namespace Ray.EventBus.RabbitMQ
         {
             try
             {
-                foreach (var node in rabbitEventBusOptions.Nodes.Where(node => !StartedNodeList.Exists(s => s.Node == node)))
+                if (Interlocked.CompareExchange(ref distributedMonitorTimeLock, 1, 0) == 0)
                 {
-                    var (isOk, lockId) = await clusterClientFactory.Create().GetGrain<INoWaitLock>(node).Lock(60);
-                    if (isOk)
+                    foreach (var node in rabbitEventBusOptions.Nodes)
                     {
-                        await Start(node, rabbitEventBusOptions.Nodes);
-                        StartedNodeList.Add(new StartedNode { Node = node, LockId = lockId });
-                        break;
+                        if (!NodeRunnerDict.TryGetValue(node, out var consumerRunners))
+                        {
+                            int weight = NodeRunnerDict.Count > 0 ? 100 : 99;
+                            var (isOk, lockId, expectMillisecondDelay) = await clusterClientFactory.Create().GetGrain<IWeightHoldLock>(node).Lock(weight, lockHoldingSeconds);
+
+                            if (!isOk && expectMillisecondDelay > 0)
+                            {
+                                await Task.Delay(expectMillisecondDelay + 1000);
+                                (isOk, lockId, expectMillisecondDelay) = await clusterClientFactory.Create().GetGrain<IWeightHoldLock>(node).Lock(weight, lockHoldingSeconds);
+                                if (isOk)
+                                    await Task.Delay(10 * 1000);
+                            }
+                            if (isOk)
+                            {
+                                await Start(node, rabbitEventBusOptions.Nodes);
+                                LockDict.TryAdd(node, lockId);
+                                break;
+                            }
+                        }
+                        else if (LockDict.TryGetValue(node, out var lockId))
+                        {
+                            var holdResult = await clusterClientFactory.Create().GetGrain<IWeightHoldLock>(node).Hold(lockId, lockHoldingSeconds);
+                            if (!holdResult)
+                            {
+                                consumerRunners.ForEach(runner => runner.Close());
+                                NodeRunnerDict.TryRemove(node, out var _);
+                                LockDict.TryRemove(node, out var _);
+                            }
+                        }
                     }
+                    Interlocked.Exchange(ref distributedMonitorTimeLock, 0);
                 }
             }
             catch (Exception exception)
             {
                 logger.LogError(exception.InnerException ?? exception, nameof(ConsumerManager<W>));
+                Interlocked.Exchange(ref distributedMonitorTimeLock, 0);
             }
         }
         private async Task Start(string node = null, string[] nodeList = null)
@@ -96,47 +127,61 @@ namespace Ray.EventBus.RabbitMQ
                     }
                 }
             }
-            await Start(consumerList.Values.ToList());
+            await Work(node, consumerList.Values.ToList());
         }
-        private async Task Start(List<ConsumerRunner<W>> consumerList)
+        private async Task Work(string node, List<ConsumerRunner<W>> consumerRunners)
         {
-            if (consumerList != null)
+            if (consumerRunners != default)
             {
-                for (int i = 0; i < consumerList.Count; i++)
+                if (NodeRunnerDict.TryAdd(node, consumerRunners))
                 {
-                    await consumerList[i].Run();
-                    await Task.Delay(rabbitEventBusOptions.QueueStartMillisecondsDelay);
+                    for (int i = 0; i < consumerRunners.Count; i++)
+                    {
+                        await consumerRunners[i].Run();
+                        await Task.Delay(rabbitEventBusOptions.QueueStartMillisecondsDelay);
+                    }
                 }
-                ConsumerList.AddRange(consumerList);
             }
         }
         private async Task HeathCheck()
         {
             try
             {
-                foreach (var consumer in ConsumerList)
+                if (Interlocked.CompareExchange(ref heathCheckTimerLock, 1, 0) == 0)
                 {
-                    await consumer.HeathCheck();
+                    foreach (var runners in NodeRunnerDict.Values)
+                    {
+                        await Task.WhenAll(runners.Select(runner => runner.HeathCheck()));
+                    }
+                    Interlocked.Exchange(ref heathCheckTimerLock, 0);
                 }
             }
             catch (Exception exception)
             {
                 logger.LogError(exception.InnerException ?? exception, nameof(ConsumerManager<W>));
+                Interlocked.Exchange(ref heathCheckTimerLock, 0);
             }
         }
         public void Stop()
         {
-            if (ConsumerList != null)
+            if (NodeRunnerDict != null)
             {
-                foreach (var consumer in ConsumerList)
+                foreach (var runners in NodeRunnerDict.Values)
                 {
-                    foreach (var child in consumer.Slices)
+                    foreach (var runner in runners)
                     {
-                        child.NeedRestart = false;
+                        foreach (var child in runner.Slices)
+                        {
+                            child.NeedRestart = false;
+                        }
+                        runner.Close();
                     }
-                    consumer.Close();
                 }
             }
+            if (HeathCheckTimer != default)
+                HeathCheckTimer.Dispose();
+            if (DistributedMonitorTime != default)
+                DistributedMonitorTime.Dispose();
         }
     }
 }
