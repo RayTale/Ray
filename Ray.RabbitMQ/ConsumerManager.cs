@@ -58,7 +58,7 @@ namespace Ray.EventBus.RabbitMQ
             }
             else
             {
-                await Start(null, null);
+                await Start("default", null);
             }
             HeathCheckTimer = new Timer(state => { HeathCheck().Wait(); }, null, 5 * 1000, 10 * 1000);
         }

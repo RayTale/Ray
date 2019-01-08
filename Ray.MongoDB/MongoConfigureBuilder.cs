@@ -13,7 +13,7 @@ namespace Ray.Storage.MongoDB
         }
         public MongoConfigureBuilder<K> BindTo<T>(string snapshotCollection = null)
         {
-            BindTo<K>(new ConfigParameter(staticByType, snapshotCollection));
+            BindTo<T>(new ConfigParameter(staticByType, snapshotCollection));
             return this;
         }
     }
