@@ -8,10 +8,9 @@ namespace RayTest.IGrains.Events
     public class AmountTransferEvent : IEventBase<long>
     {
         #region base
-        public Int64 Version { get; set; }
-        public DateTime Timestamp { get; set; }
+        public long Version { get; set; }
+        public long Timestamp { get; set; }
         public long StateId { get; set; }
-        public string TypeCode => GetType().FullName;
         #endregion
         public long ToAccountId { get; set; }
         public decimal Amount { get; set; }

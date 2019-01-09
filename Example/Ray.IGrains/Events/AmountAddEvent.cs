@@ -1,5 +1,4 @@
-﻿using System;
-using ProtoBuf;
+﻿using ProtoBuf;
 using Ray.Core.Event;
 
 namespace Ray.IGrains.Events
@@ -9,7 +8,7 @@ namespace Ray.IGrains.Events
     {
         #region base
         public long Version { get; set; }
-        public DateTime Timestamp { get; set; }
+        public long Timestamp { get; set; }
         public long StateId { get; set; }
         #endregion
         public decimal Amount { get; set; }

@@ -111,7 +111,7 @@ namespace Ray.Storage.MongoDB
                     UniqueId = string.IsNullOrEmpty(wrap.Value.UniqueId) ? wrap.Value.Event.Version.ToString() : wrap.Value.UniqueId
                 });
             }
-            var collectionTask = grainConfig.GetCollection(DateTime.UtcNow);
+            var collectionTask = grainConfig.GetCollection(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
             if (!collectionTask.IsCompleted)
                 await collectionTask;
             var collection = grainConfig.Storage.GetCollection<MongoEvent<K>>(grainConfig.DataBase, collectionTask.Result.Name);
@@ -169,7 +169,7 @@ namespace Ray.Storage.MongoDB
                 };
                 inserts.Add(mEvent);
             }
-            var collectionTask = grainConfig.GetCollection(DateTime.UtcNow);
+            var collectionTask = grainConfig.GetCollection(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
             if (!collectionTask.IsCompleted)
                 await collectionTask;
             await grainConfig.Storage.GetCollection<MongoEvent<K>>(grainConfig.DataBase, collectionTask.Result.Name).InsertManyAsync(inserts);

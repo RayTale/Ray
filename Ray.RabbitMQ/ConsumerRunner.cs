@@ -29,7 +29,7 @@ namespace Ray.EventBus.RabbitMQ
         public QueueInfo Queue { get; }
         public ushort NowQos { get; set; }
         public List<ConsumerRunnerSlice> Slices { get; set; } = new List<ConsumerRunnerSlice>();
-        public DateTime StartTime { get; set; }
+        public DateTimeOffset StartTime { get; set; }
         private bool isFirst = true;
         public async Task Run()
         {
@@ -56,7 +56,7 @@ namespace Ray.EventBus.RabbitMQ
             child.NeedRestart = false;
             Slices.Add(child);
             NowQos += child.Qos;
-            StartTime = DateTime.UtcNow;
+            StartTime = DateTimeOffset.UtcNow;
         }
         public async Task ExpandQos()
         {
@@ -78,7 +78,7 @@ namespace Ray.EventBus.RabbitMQ
                 child.NeedRestart = false;
                 Slices.Add(child);
                 NowQos += child.Qos;
-                StartTime = DateTime.UtcNow;
+                StartTime = DateTimeOffset.UtcNow;
             }
         }
         public async Task HeathCheck()
@@ -97,7 +97,7 @@ namespace Ray.EventBus.RabbitMQ
                     await Run();
                 }
             }
-            else if ((DateTime.UtcNow - StartTime).TotalMinutes >= 5)
+            else if ((DateTimeOffset.UtcNow - StartTime).TotalMinutes >= 5)
             {
                 await ExpandQos();//扩容操作
             }

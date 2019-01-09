@@ -132,7 +132,7 @@ namespace Ray.EventBus.RabbitMQ
             var consumers = rabbitEventBusContainer.GetConsumers();
             var hash = nodeList == null || nodeList.Length == 0 ? null : new ConsistentHash(nodeList);
             var consumerList = new SortedList<int, ConsumerRunner<W>>();
-            var rd = new Random((int)DateTime.UtcNow.Ticks);
+            var rd = new Random((int)DateTimeOffset.UtcNow.Ticks);
             foreach (var consumer in consumers)
             {
                 if (consumer is RabbitConsumer<W> value)

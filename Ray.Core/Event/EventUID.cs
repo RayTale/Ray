@@ -4,13 +4,13 @@ namespace Ray.Core.Event
 {
     public class EventUID
     {
-        public static readonly EventUID Empty = new EventUID(null, DateTime.MinValue);
-        public EventUID(string uid, DateTime timestamp)
+        public static readonly EventUID Empty = new EventUID(null, DateTimeOffset.MinValue.ToUnixTimeMilliseconds());
+        public EventUID(string uid, long timestamp)
         {
             UID = uid;
             Timestamp = timestamp;
         }
         public string UID { get; }
-        public DateTime Timestamp { get; }
+        public long Timestamp { get; }
     }
 }

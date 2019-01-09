@@ -1,5 +1,4 @@
-﻿using System;
-using ProtoBuf;
+﻿using ProtoBuf;
 using Ray.Core.State;
 
 namespace RayTest.IGrains.States
@@ -9,9 +8,8 @@ namespace RayTest.IGrains.States
     {
         #region base
         public long StateId { get; set; }
-        public Int64 Version { get; set; }
-        public Int64 DoingVersion { get; set; }
-        public DateTime VersionTime { get; set; }
+        public long Version { get; set; }
+        public long DoingVersion { get; set; }
         #endregion
         public decimal Balance { get; set; }
 
@@ -22,7 +20,6 @@ namespace RayTest.IGrains.States
                 StateId = StateId,
                 Version = Version,
                 DoingVersion = DoingVersion,
-                VersionTime = VersionTime,
                 Balance = Balance
             };
         }

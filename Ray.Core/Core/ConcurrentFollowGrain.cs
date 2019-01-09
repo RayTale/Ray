@@ -69,7 +69,6 @@ namespace Ray.Core
         readonly TimeoutException timeoutException = new TimeoutException($"{nameof(OnEventDelivered)} with timeouts in {nameof(BatchInputProcessing)}");
         private async Task BatchInputProcessing(List<DataAsyncWrapper<IEvent, bool>> events)
         {
-            var start = DateTime.UtcNow;
             var evtList = new List<IEvent>();
             var startVersion = State.Version;
             if (UnprocessedEventList.Count > 0)

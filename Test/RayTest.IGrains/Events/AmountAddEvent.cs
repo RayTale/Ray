@@ -1,5 +1,4 @@
-﻿using System;
-using ProtoBuf;
+﻿using ProtoBuf;
 using Ray.Core.Event;
 
 namespace RayTest.IGrains.Events
@@ -8,8 +7,8 @@ namespace RayTest.IGrains.Events
     public class AmountAddEvent : IEventBase<long>
     {
         #region base
-        public Int64 Version { get; set; }
-        public DateTime Timestamp { get; set; }
+        public long Version { get; set; }
+        public long Timestamp { get; set; }
         public long StateId { get; set; }
         #endregion
         public decimal Amount { get; set; }
