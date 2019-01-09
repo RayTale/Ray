@@ -24,7 +24,7 @@ namespace Ray.Storage.PostgreSQL
             EventTable = eventTable;
             SnapshotTable = snapshotTable;
             this.sharding = sharding;
-            this.shardingMilliseconds = shardingDays * 24 * 60 * 60 * 1000;
+            shardingMilliseconds = shardingDays * 24 * 60 * 60 * 1000;
             this.stateIdLength = stateIdLength;
         }
         int isBuilded = 0;
@@ -228,7 +228,7 @@ namespace Ray.Storage.PostgreSQL
                         Prefix varchar(255) not null,
                         Name varchar(255) not null,
                         Version int4,
-                        Createtime timestamp(6)
+                        Createtime int8
                     )WITH (OIDS=FALSE);
                     CREATE UNIQUE INDEX IF NOT EXISTS table_version ON ray_tablelist USING btree(Prefix, Version)";
             if (createTableListDict.TryAdd(Connection, true))
