@@ -16,7 +16,7 @@ namespace Ray.Storage.PostgreSQL
         public string SnapshotTable { get; set; }
         private List<TableInfo> AllSplitTableList { get; set; }
         readonly bool sharding = false;
-        readonly int shardingDays;
+        readonly int shardingMilliseconds;
         readonly int stateIdLength;
         public StorageConfig(string conn, string eventTable, string snapshotTable, bool sharding = true, int shardingDays = 40, int stateIdLength = 200)
         {
@@ -24,7 +24,7 @@ namespace Ray.Storage.PostgreSQL
             EventTable = eventTable;
             SnapshotTable = snapshotTable;
             this.sharding = sharding;
-            this.shardingDays = shardingDays;
+            this.shardingMilliseconds = shardingDays * 24 * 60 * 60 * 1000;
             this.stateIdLength = stateIdLength;
         }
         int isBuilded = 0;
@@ -50,14 +50,14 @@ namespace Ray.Storage.PostgreSQL
                 await Task.Delay(50);
             }
         }
-        public async ValueTask<TableInfo> GetTable(DateTime eventTime)
+        public async ValueTask<TableInfo> GetTable(long eventTimestamp)
         {
             var firstTable = AllSplitTableList.FirstOrDefault();
             //如果不需要分表，直接返回
             if (firstTable != null && !sharding) return firstTable;
-            var nowUtcTime = DateTime.UtcNow;
-            var subTime = eventTime.Subtract(firstTable != null ? firstTable.CreateTime : nowUtcTime);
-            var version = subTime.TotalDays > 0 ? Convert.ToInt32(Math.Floor(subTime.TotalDays / shardingDays)) : 0;
+            var nowUtcTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var subMilliseconds = eventTimestamp - (firstTable != null ? firstTable.CreateTime : nowUtcTime);
+            var version = subMilliseconds > 0 ? (int)(subMilliseconds / shardingMilliseconds) : 0;
             var resultTable = AllSplitTableList.FirstOrDefault(t => t.Version == version);
             if (resultTable == default)
             {

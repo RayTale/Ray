@@ -24,7 +24,7 @@ namespace Ray.Core
         protected S BackupState { get; set; }
         protected bool TransactionPending { get; private set; }
         protected long TransactionStartVersion { get; private set; }
-        protected DateTime BeginTransactionTime { get; private set; }
+        protected DateTimeOffset BeginTransactionTime { get; private set; }
         private readonly List<EventTransmitWrapper<K>> EventsInTransactionProcessing = new List<EventTransmitWrapper<K>>();
         protected override async Task RecoveryState()
         {
@@ -39,7 +39,7 @@ namespace Ray.Core
             {
                 if (TransactionPending)
                 {
-                    if ((DateTime.UtcNow - BeginTransactionTime).TotalSeconds > ConfigOptions.TransactionTimeoutSeconds)
+                    if ((DateTimeOffset.UtcNow - BeginTransactionTime).TotalSeconds > ConfigOptions.TransactionTimeoutSeconds)
                     {
                         var rollBackTask = RollbackTransaction();//事务阻赛超过一分钟自动回滚
                         if (!rollBackTask.IsCompleted)
@@ -55,7 +55,7 @@ namespace Ray.Core
                     await checkTask;
                 TransactionPending = true;
                 TransactionStartVersion = State.Version;
-                BeginTransactionTime = DateTime.UtcNow;
+                BeginTransactionTime = DateTimeOffset.UtcNow;
                 if (Logger.IsEnabled(LogLevel.Trace))
                     Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Begin transaction successfully with id {0},transaction start state version {1}", GrainId.ToString(), TransactionStartVersion.ToString());
             }
@@ -226,7 +226,7 @@ namespace Ray.Core
                 @event.Version = State.Version + 1;
                 if (uniqueId == default) uniqueId = EventUID.Empty;
                 if (string.IsNullOrEmpty(uniqueId.UID))
-                    @event.Timestamp = DateTime.UtcNow;
+                    @event.Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 else
                     @event.Timestamp = uniqueId.Timestamp;
                 EventsInTransactionProcessing.Add(new EventTransmitWrapper<K>(@event, uniqueId.UID, string.IsNullOrEmpty(hashKey) ? GrainId.ToString() : hashKey));

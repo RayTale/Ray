@@ -1,5 +1,4 @@
-﻿using System;
-using MongoDB.Bson.Serialization.Attributes;
+﻿using MongoDB.Bson.Serialization.Attributes;
 
 namespace Ray.Storage.MongoDB
 {
@@ -10,6 +9,6 @@ namespace Ray.Storage.MongoDB
         public string Type { get; set; }
         public string Name { get; set; }
         public int Version { get; set; }
-        public DateTime CreateTime { get; set; }
+        public long CreateTime { get; set; }
     }
 }

@@ -1,5 +1,4 @@
-﻿using System;
-using ProtoBuf;
+﻿using ProtoBuf;
 using Ray.Core.State;
 
 namespace RayTest.IGrains.States
@@ -10,6 +9,5 @@ namespace RayTest.IGrains.States
         public T StateId { get; set; }
         public long Version { get; set; }
         public long DoingVersion { get; set; }
-        public DateTime VersionTime { get; set; }
     }
 }

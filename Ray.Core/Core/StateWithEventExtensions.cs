@@ -24,7 +24,7 @@ namespace Ray.Core
             state.Version = @event.Version;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void UnsafeUpdateVersion<K>(this IState<K> state, long version, DateTime time)
+        public static void UnsafeUpdateVersion<K>(this IState<K> state, long version, long timestamp)
         {
             state.DoingVersion = version;
             state.Version = version;

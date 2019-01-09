@@ -125,7 +125,7 @@ namespace Ray.Storage.PostgreSQL
         }
         private async Task BatchProcessing(List<DataAsyncWrapper<EventSaveWrapper<K>, bool>> wrapperList)
         {
-            var copySql = copySaveSqlDict.GetOrAdd((await tableInfo.GetTable(DateTime.UtcNow)).Name, key => $"copy {key}(stateid,uniqueId,typecode,data,version) FROM STDIN (FORMAT BINARY)");
+            var copySql = copySaveSqlDict.GetOrAdd((await tableInfo.GetTable(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())).Name, key => $"copy {key}(stateid,uniqueId,typecode,data,version) FROM STDIN (FORMAT BINARY)");
             try
             {
                 using (var conn = tableInfo.CreateConnection() as NpgsqlConnection)
@@ -183,13 +183,13 @@ namespace Ray.Storage.PostgreSQL
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private async ValueTask<string> GetInsertSql()
         {
-            return saveSqlDict.GetOrAdd((await tableInfo.GetTable(DateTime.UtcNow)).Name,
+            return saveSqlDict.GetOrAdd((await tableInfo.GetTable(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())).Name,
                 key => $"INSERT INTO {key}(stateid,uniqueId,typecode,data,version) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version) ON CONFLICT ON CONSTRAINT {key}_id_unique DO NOTHING");
         }
         static readonly ConcurrentDictionary<string, string> copySaveSqlDict = new ConcurrentDictionary<string, string>();
         public async Task TransactionSaveAsync(List<EventTransmitWrapper<K>> list)
         {
-            var getTableTask = tableInfo.GetTable(DateTime.UtcNow);
+            var getTableTask = tableInfo.GetTable(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
             if (!getTableTask.IsCompleted)
                 await getTableTask;
             var saveSql = copySaveSqlDict.GetOrAdd(getTableTask.Result.Name,

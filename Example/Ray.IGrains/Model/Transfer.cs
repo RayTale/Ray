@@ -9,6 +9,6 @@ namespace Ray.IGrains.Model
         public string Id { get; set; }
         public decimal Amount { get; set; }
         public int To { get; set; }
-        public DateTime CreateTime { get; set; }
+        public long CreateTime { get; set; }
     }
 }

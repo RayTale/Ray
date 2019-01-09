@@ -43,11 +43,11 @@ namespace Ray.Core.Grains
         }
 
         int newStringByLocalTimes = 1;
-        long newStringByLocalStart = long.Parse(DateTime.Now.ToString("yyyyMMddHHmmss"));
+        long newStringByLocalStart = long.Parse(DateTimeOffset.Now.ToString("yyyyMMddHHmmss"));
         readonly StringBuilder localBuilder = new StringBuilder(22);
         public async Task<string> NewLocalID()
         {
-            var nowTimestamp = long.Parse(DateTime.Now.ToString("yyyyMMddHHmmss"));
+            var nowTimestamp = long.Parse(DateTimeOffset.Now.ToString("yyyyMMddHHmmss"));
             if (nowTimestamp > newStringByLocalStart)
             {
                 Interlocked.Exchange(ref newStringByLocalStart, nowTimestamp);

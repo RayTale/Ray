@@ -275,7 +275,7 @@ namespace Ray.Core
                 @event.Version = State.Version + 1;
                 if (uniqueId == default) uniqueId = EventUID.Empty;
                 if (string.IsNullOrEmpty(uniqueId.UID))
-                    @event.Timestamp = DateTime.UtcNow;
+                    @event.Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 else
                     @event.Timestamp = uniqueId.Timestamp;
                 using (var ms = new PooledMemoryStream())
