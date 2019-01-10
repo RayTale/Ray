@@ -8,11 +8,11 @@ namespace Ray.Storage.PostgreSQL
     {
         public static void AddPostgreSQLStorage(this IServiceCollection serviceCollection)
         {
-            serviceCollection.AddSingleton<IStorageContainer, StorageContainer>();
+            serviceCollection.AddSingleton<IBaseStorageFactory<StorageConfig>, StorageFactory>();
             Startup.Register(serviceProvider =>
             {
                 return serviceProvider.GetService<IStorageConfiguration<StorageConfig, ConfigParameter>>().
-                Configure(serviceProvider.GetService<IConfigureContainer<StorageConfig, ConfigParameter>>());
+                Configure(serviceProvider.GetService<IConfigureBuilderContainer>());
             });
         }
     }

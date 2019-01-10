@@ -5,26 +5,26 @@ using Orleans;
 using Ray.Core.State;
 using Ray.Core.Storage;
 
-namespace Ray.Storage.PostgreSQL
+namespace Ray.Storage.MongoDB
 {
-    public class StorageContainer :  IStorageContainer
+    public class StorageFactory : IBaseStorageFactory<StorageConfig>
     {
         readonly IServiceProvider serviceProvider;
-        readonly IConfigureContainer<StorageConfig, ConfigParameter> configureContainer;
+        readonly IConfigureBuilderContainer configureContainer;
         readonly ConcurrentDictionary<string, ValueTask<StorageConfig>> grainConfigDict = new ConcurrentDictionary<string, ValueTask<StorageConfig>>();
-        public StorageContainer(
+        public StorageFactory(
             IServiceProvider serviceProvider,
-            IConfigureContainer<StorageConfig, ConfigParameter> configureContainer)
+            IConfigureBuilderContainer configureContainer)
         {
             this.serviceProvider = serviceProvider;
             this.configureContainer = configureContainer;
         }
         readonly ConcurrentDictionary<string, object> eventStorageDict = new ConcurrentDictionary<string, object>();
-        public async ValueTask<IEventStorage<K>> GetEventStorage<K, S>(Grain grain, K grainId)
+        public async ValueTask<IEventStorage<K>> CreateEventStorage<K, S>(Grain grain, K grainId)
              where S : class, IState<K>, new()
         {
             var grainType = grain.GetType();
-            if (configureContainer.ConfigBuilderDict.TryGetValue(grainType, out var value) &&
+            if (configureContainer.TryGetValue(grainType, out var value) &&
                 value is ConfigureBuilderWrapper<K, StorageConfig, ConfigParameter> builder)
             {
                 var dictKey = builder.Parameter.StaticByType ? grainType.FullName : $"{grainType.FullName}-{grainId.ToString()}";
@@ -40,9 +40,9 @@ namespace Ray.Storage.PostgreSQL
                     await configTask;
                 var storage = eventStorageDict.GetOrAdd(dictKey, key =>
                  {
-                     return new SqlEventStorage<K>(serviceProvider, configTask.Result);
+                     return new MongoEventStorage<K>(serviceProvider, configTask.Result);
                  });
-                return storage as SqlEventStorage<K>;
+                return storage as MongoEventStorage<K>;
             }
             else
             {
@@ -50,11 +50,11 @@ namespace Ray.Storage.PostgreSQL
             }
         }
         readonly ConcurrentDictionary<string, object> stateStorageDict = new ConcurrentDictionary<string, object>();
-        public async ValueTask<IStateStorage<S, K>> GetStateStorage<K, S>(Grain grain, K grainId)
+        public async ValueTask<IStateStorage<K,S>> CreateStateStorage<K, S>(Grain grain, K grainId)
             where S : class, IState<K>, new()
         {
             var grainType = grain.GetType();
-            if (configureContainer.ConfigBuilderDict.TryGetValue(grainType, out var value) &&
+            if (configureContainer.TryGetValue(grainType, out var value) &&
                 value is ConfigureBuilderWrapper<K, StorageConfig, ConfigParameter> builder)
             {
                 var dictKey = builder.Parameter.StaticByType ? grainType.FullName : $"{grainType.FullName}-{grainId.ToString()}";
@@ -70,9 +70,9 @@ namespace Ray.Storage.PostgreSQL
                     await configTask;
                 var storage = stateStorageDict.GetOrAdd(dictKey, key =>
                {
-                   return new SqlStateStorage<S, K>(configTask.Result);
+                   return new MongoStateStorage<K,S>(configTask.Result);
                });
-                return storage as SqlStateStorage<S, K>;
+                return storage as MongoStateStorage<K,S>;
             }
             else
             {

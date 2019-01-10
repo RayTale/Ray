@@ -13,7 +13,8 @@ namespace Ray.Core
         {
             serviceCollection.AddTransient(typeof(IMpscChannel<>), typeof(MpscChannel<>));
             serviceCollection.AddSingleton<IJsonSerializer, DefaultJsonSerializer>();
-            serviceCollection.AddSingleton(typeof(IConfigureContainer<,>), typeof(ConfigureContainer<,>));
+            serviceCollection.AddSingleton<IConfigureBuilderContainer, ConfigureBuilderContainer>();
+            serviceCollection.AddSingleton<IStorageFactoryContainer, StorageFactoryContainer>();
         }
         public static IClientBuilder AddRay(this IClientBuilder clientBuilder)
         {
