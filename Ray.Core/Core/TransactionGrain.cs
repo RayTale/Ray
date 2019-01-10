@@ -84,17 +84,11 @@ namespace Ray.Core
                             ms.SetLength(0);
                         }
                     }
-                    var eventStorageTask = GetEventStorage();
-                    if (!eventStorageTask.IsCompleted)
-                        await eventStorageTask;
-                    await eventStorageTask.Result.TransactionSaveAsync(EventsInTransactionProcessing);
+                    await EventStorage.TransactionSaveAsync(EventsInTransactionProcessing);
                     if (SupportFollow)
                     {
                         try
                         {
-                            var mqService = GetEventProducer();
-                            if (!mqService.IsCompleted)
-                                await mqService;
                             using (var ms = new PooledMemoryStream())
                             {
                                 foreach (var @event in EventsInTransactionProcessing)
@@ -105,7 +99,7 @@ namespace Ray.Core
                                         Bytes = @event.Bytes
                                     };
                                     Serializer.Serialize(ms, data);
-                                    var publishTask = mqService.Result.Publish(ms.ToArray(), @event.HashKey);
+                                    var publishTask = EventBusProducer.Publish(ms.ToArray(), @event.HashKey);
                                     if (!publishTask.IsCompleted)
                                         await publishTask;
                                     OnRaiseSuccess(@event.Evt, @event.Bytes);

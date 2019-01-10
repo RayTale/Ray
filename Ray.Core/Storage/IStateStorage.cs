@@ -3,7 +3,7 @@ using Ray.Core.State;
 
 namespace Ray.Core.Storage
 {
-    public interface IStateStorage<T, K> 
+    public interface IStateStorage<K, T>
         where T : IState<K>
     {
         Task<T> GetByIdAsync(K id);

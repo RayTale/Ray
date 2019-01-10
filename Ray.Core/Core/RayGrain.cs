@@ -29,7 +29,7 @@ namespace Ray.Core
         protected BaseOptions ConfigOptions { get; private set; }
         protected ILogger Logger { get; private set; }
         protected IProducerContainer ProducerContainer { get; private set; }
-        protected IStorageContainer StorageContainer { get; private set; }
+        protected IStorageFactory StorageFactory { get; private set; }
         protected IJsonSerializer JsonSerializer { get; private set; }
         protected ISerializer Serializer { get; private set; }
         protected S State { get; set; }
@@ -60,14 +60,29 @@ namespace Ray.Core
         /// <summary>
         /// 依赖注入统一方法
         /// </summary>
-        protected virtual void DependencyInjection()
+        protected async virtual ValueTask DependencyInjection()
         {
             ConfigOptions = ServiceProvider.GetService<IOptions<BaseOptions>>().Value;
-            StorageContainer = ServiceProvider.GetService<IStorageContainer>();
+            StorageFactory = ServiceProvider.GetService<IStorageFactoryContainer>().CreateFactory(GrainType);
             ProducerContainer = ServiceProvider.GetService<IProducerContainer>();
             Serializer = ServiceProvider.GetService<ISerializer>();
             JsonSerializer = ServiceProvider.GetService<IJsonSerializer>();
             EventHandler = ServiceProvider.GetService<IEventHandler<S>>();
+            //创建事件存储器
+            var eventStorageTask = StorageFactory.CreateEventStorage<K, S>(this, GrainId);
+            if (!eventStorageTask.IsCompleted)
+                await eventStorageTask;
+            EventStorage = eventStorageTask.Result;
+            //创建状态存储器
+            var stateStorageTask = StorageFactory.CreateStateStorage<K, S>(this, GrainId);
+            if (!stateStorageTask.IsCompleted)
+                await stateStorageTask;
+            StateStorage = stateStorageTask.Result;
+            //创建事件发布器
+            var producerTask = ProducerContainer.GetProducer(this);
+            if (!producerTask.IsCompleted)
+                await producerTask;
+            EventBusProducer = producerTask.Result;
         }
         /// <summary>
         /// Grain激活时调用用来初始化的方法(禁止在子类重写,请使用)
@@ -77,7 +92,9 @@ namespace Ray.Core
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace(LogEventIds.GrainActivateId, "Start activation grain with id = {0}", GrainId.ToString());
-            DependencyInjection();
+            var dITask = DependencyInjection();
+            if (!dITask.IsCompleted)
+                await dITask;
             try
             {
                 await RecoveryState();
@@ -104,12 +121,9 @@ namespace Ray.Core
                 var readSnapshotTask = ReadSnapshotAsync();
                 if (!readSnapshotTask.IsCompleted)
                     await readSnapshotTask;
-                var eventStorageTask = GetEventStorage();
-                if (!eventStorageTask.IsCompleted)
-                    await eventStorageTask;
                 while (true)
                 {
-                    var eventList = await eventStorageTask.Result.GetListAsync(GrainId, State.Version, State.Version + NumberOfEventsPerRead);
+                    var eventList = await EventStorage.GetListAsync(GrainId, State.Version, State.Version + NumberOfEventsPerRead);
                     foreach (var @event in eventList)
                     {
                         State.IncrementDoingVersion(GrainType);//标记将要处理的Version
@@ -165,10 +179,7 @@ namespace Ray.Core
                 Logger.LogTrace(LogEventIds.GrainSnapshot, "Start read snapshot  with Id = {0} ,state version = {1}", GrainId.ToString(), State.Version);
             try
             {
-                var stateStorageTask = GetStateStorage();
-                if (!stateStorageTask.IsCompleted)
-                    await stateStorageTask;
-                State = await stateStorageTask.Result.GetByIdAsync(GrainId);
+                State = await StateStorage.GetByIdAsync(GrainId);
                 if (State == default)
                 {
                     NoSnapshot = true;
@@ -202,18 +213,15 @@ namespace Ray.Core
                         var onSaveSnapshotTask = OnSaveSnapshot();
                         if (!onSaveSnapshotTask.IsCompleted)
                             await onSaveSnapshotTask;
-                        var getStateStorageTask = GetStateStorage();
-                        if (!getStateStorageTask.IsCompleted)
-                            await getStateStorageTask;
                         if (NoSnapshot)
                         {
-                            await getStateStorageTask.Result.InsertAsync(State);
+                            await StateStorage.InsertAsync(State);
                             SnapshotEventVersion = State.Version;
                             NoSnapshot = false;
                         }
                         else
                         {
-                            await getStateStorageTask.Result.UpdateAsync(State);
+                            await StateStorage.UpdateAsync(State);
                             SnapshotEventVersion = State.Version;
                         }
                         if (Logger.IsEnabled(LogLevel.Trace))
@@ -244,26 +252,20 @@ namespace Ray.Core
         }
         protected async Task ClearStateAsync()
         {
-            var getStateStorageTask = GetStateStorage();
-            if (!getStateStorageTask.IsCompleted)
-                await getStateStorageTask;
-            await getStateStorageTask.Result.DeleteAsync(GrainId);
+            await StateStorage.DeleteAsync(GrainId);
         }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual ValueTask<IStateStorage<S, K>> GetStateStorage()
-        {
-            return StorageContainer.GetStateStorage<K, S>(this, GrainId);
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual ValueTask<IEventStorage<K>> GetEventStorage()
-        {
-            return StorageContainer.GetEventStorage<K, S>(this, GrainId);
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual ValueTask<IProducer> GetEventProducer()
-        {
-            return ProducerContainer.GetProducer(this);
-        }
+        /// <summary>
+        /// 事件存储器
+        /// </summary>
+        protected IEventStorage<K> EventStorage { get; private set; }
+        /// <summary>
+        /// 状态存储器
+        /// </summary>
+        protected IStateStorage<K, S> StateStorage { get; private set; }
+        /// <summary>
+        /// 事件发布器
+        /// </summary>
+        protected IProducer EventBusProducer { get; private set; }
         protected virtual async Task<bool> RaiseEvent(IEventBase<K> @event, EventUID uniqueId = null)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
@@ -282,10 +284,7 @@ namespace Ray.Core
                 {
                     Serializer.Serialize(ms, @event);
                     var bytes = ms.ToArray();
-                    var getEventStorageTask = GetEventStorage();
-                    if (!getEventStorageTask.IsCompleted)
-                        await getEventStorageTask;
-                    if (await getEventStorageTask.Result.SaveAsync(@event, bytes, uniqueId.UID))
+                    if (await EventStorage.SaveAsync(@event, bytes, uniqueId.UID))
                     {
                         if (SupportFollow)
                         {
@@ -301,10 +300,7 @@ namespace Ray.Core
                             EventApply(State, @event);
                             try
                             {
-                                var mqServiceTask = GetEventProducer();
-                                if (!mqServiceTask.IsCompleted)
-                                    await mqServiceTask;
-                                var publishTask = mqServiceTask.Result.Publish(ms.ToArray(), GrainId.ToString());
+                                var publishTask = EventBusProducer.Publish(ms.ToArray(), GrainId.ToString());
                                 if (!publishTask.IsCompleted)
                                     await publishTask;
                             }
@@ -377,10 +373,7 @@ namespace Ray.Core
                     ms.Position = 0;
                     ms.SetLength(0);
                     Serializer.Serialize(ms, data);
-                    var mqServiceTask = GetEventProducer();
-                    if (!mqServiceTask.IsCompleted)
-                        await mqServiceTask;
-                    var pubLishTask = mqServiceTask.Result.Publish(ms.ToArray(), hashKey);
+                    var pubLishTask = EventBusProducer.Publish(ms.ToArray(), hashKey);
                     if (!pubLishTask.IsCompleted)
                         await pubLishTask;
                 }

@@ -20,11 +20,11 @@ namespace Ray.Core.Storage
             return this;
         }
 
-        public void Complete(IConfigureContainer<C, P> container)
+        public void Complete(IConfigureBuilderContainer container)
         {
             foreach (var (type, parameter) in bindList)
             {
-                container.RegisterBuilder(type, new ConfigureBuilderWrapper<K, C, P>(generator, parameter));
+                container.Register(type, new ConfigureBuilderWrapper<K, C, P>(generator, parameter));
             }
         }
     }

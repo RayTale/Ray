@@ -8,7 +8,7 @@ using Ray.Core.Utils;
 
 namespace Ray.Storage.PostgreSQL
 {
-    public class SqlStateStorage<T, K> : IStateStorage<T, K>
+    public class SqlStateStorage<K, T> : IStateStorage<K, T>
         where T : class, IState<K>
     {
         readonly StorageConfig tableInfo;

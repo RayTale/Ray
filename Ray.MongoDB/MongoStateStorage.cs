@@ -11,7 +11,7 @@ using Ray.Core.Utils;
 
 namespace Ray.Storage.MongoDB
 {
-    public class MongoStateStorage<T, K> : IStateStorage<T, K> where T : class, IState<K>
+    public class MongoStateStorage<K, T> : IStateStorage<K, T> where T : class, IState<K>
     {
         readonly StorageConfig grainConfig;
         public MongoStateStorage(StorageConfig grainConfig)
