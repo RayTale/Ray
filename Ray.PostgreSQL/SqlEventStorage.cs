@@ -10,7 +10,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using NpgsqlTypes;
-using ProtoBuf;
 using Ray.Core.Channels;
 using Ray.Core.Event;
 using Ray.Core.Serialization;
@@ -23,9 +22,11 @@ namespace Ray.Storage.PostgreSQL
         readonly StorageConfig tableInfo;
         readonly IMpscChannel<DataAsyncWrapper<EventSaveWrapper<K>, bool>> mpscChannel;
         readonly ILogger<SqlEventStorage<K>> logger;
+        readonly ISerializer serializer;
         public SqlEventStorage(IServiceProvider serviceProvider, StorageConfig tableInfo)
         {
             logger = serviceProvider.GetService<ILogger<SqlEventStorage<K>>>();
+            serializer = serviceProvider.GetService<ISerializer>();
             mpscChannel = serviceProvider.GetService<IMpscChannel<DataAsyncWrapper<EventSaveWrapper<K>, bool>>>().BindConsumer(BatchProcessing);
             mpscChannel.ActiveConsumer();
             this.tableInfo = tableInfo;
@@ -61,7 +62,7 @@ namespace Ray.Storage.PostgreSQL
             {
                 using (var ms = new MemoryStream(origin.Data))
                 {
-                    if (Serializer.Deserialize(TypeContainer.GetType(origin.TypeCode), ms) is IActorEvent<K> evt)
+                    if (serializer.Deserialize(TypeContainer.GetType(origin.TypeCode), ms) is IActorEvent<K> evt)
                     {
                         list.Add(evt);
                     }
@@ -102,7 +103,7 @@ namespace Ray.Storage.PostgreSQL
             {
                 using (var ms = new MemoryStream(origin))
                 {
-                    if (Serializer.Deserialize(type, ms) is IActorEvent<K> evt)
+                    if (serializer.Deserialize(type, ms) is IActorEvent<K> evt)
                     {
                         list.Add(evt);
                     }

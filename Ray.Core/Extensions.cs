@@ -23,6 +23,7 @@ namespace Ray.Core
         }
         public static ISiloHostBuilder AddRay(this ISiloHostBuilder siloHostBuilder)
         {
+            siloHostBuilder.ConfigureServices((context, servicecollection) => servicecollection.AddRay());
             siloHostBuilder.AddStartupTask<SiloStartupTask>();
             return siloHostBuilder;
         }

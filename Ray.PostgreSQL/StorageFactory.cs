@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Orleans;
+using Ray.Core.Serialization;
 using Ray.Core.State;
 using Ray.Core.Storage;
 
@@ -70,7 +72,7 @@ namespace Ray.Storage.PostgreSQL
                     await configTask;
                 var storage = stateStorageDict.GetOrAdd(dictKey, key =>
                {
-                   return new SqlStateStorage<K, S>(configTask.Result);
+                   return new SqlStateStorage<K, S>(serviceProvider.GetService<ISerializer>(), configTask.Result);
                });
                 return storage as SqlStateStorage<K, S>;
             }
