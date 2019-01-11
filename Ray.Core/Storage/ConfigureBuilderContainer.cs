@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using Ray.Core.Exceptions;
 
 namespace Ray.Core.Storage
 {
@@ -8,7 +9,8 @@ namespace Ray.Core.Storage
         private readonly ConcurrentDictionary<Type, BaseConfigureBuilderWrapper> configBuilderWrapperDict = new ConcurrentDictionary<Type, BaseConfigureBuilderWrapper>();
         public void Register(Type type, BaseConfigureBuilderWrapper builder)
         {
-            configBuilderWrapperDict.TryAdd(type, builder);
+            if (!configBuilderWrapperDict.TryAdd(type, builder))
+                throw new StorageConfigureBuilderReRegisterException(type.FullName);
         }
 
         public bool TryGetValue(Type type, out BaseConfigureBuilderWrapper builderWrapper)
