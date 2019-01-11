@@ -4,7 +4,7 @@ using Ray.Core.State;
 namespace RayTest.IGrains.States
 {
     [ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
-    public class AccountState : IState<long>, ICloneable<AccountState>
+    public class AccountState : IActorState<long>, ICloneable<AccountState>
     {
         #region base
         public long StateId { get; set; }

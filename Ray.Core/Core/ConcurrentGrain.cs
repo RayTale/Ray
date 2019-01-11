@@ -13,7 +13,7 @@ using Ray.Core.State;
 namespace Ray.Core
 {
     public abstract class ConcurrentGrain<K, S, W> : TransactionGrain<K, S, W>
-        where S : class, IState<K>, ICloneable<S>, new()
+        where S : class, IActorState<K>, ICloneable<S>, new()
         where W : IBytesWrapper, new()
     {
         public ConcurrentGrain(ILogger logger) : base(logger)
@@ -32,7 +32,7 @@ namespace Ray.Core
             await base.OnDeactivateAsync();
             ConcurrentChannel.Complete();
         }
-        protected async ValueTask ConcurrentRaiseEvent(Func<S, Func<IEventBase<K>, EventUID, Task>, Task> handler, Func<bool, ValueTask> completedHandler, Action<Exception> exceptionHandler)
+        protected async ValueTask ConcurrentRaiseEvent(Func<S, Func<IActorEvent<K>, EventUID, Task>, Task> handler, Func<bool, ValueTask> completedHandler, Action<Exception> exceptionHandler)
         {
             var writeTask = ConcurrentChannel.WriteAsync(new EventReentryWrapper<K, S>(handler, completedHandler, exceptionHandler));
             if (!writeTask.IsCompleted)
@@ -47,13 +47,13 @@ namespace Ray.Core
         }
         /// <summary>
         /// 不依赖当前状态的的事件的并发处理
-        /// 如果事件的产生依赖当前状态，请使用<see cref="ConcurrentRaiseEvent(Func{S, Func{IEventBase{K}, string, string, Task}, Task}, Func{bool, ValueTask}, Action{Exception})"/>
+        /// 如果事件的产生依赖当前状态，请使用<see cref="ConcurrentRaiseEvent(Func{S, Func{IActorEvent{K}, string, string, Task}, Task}, Func{bool, ValueTask}, Action{Exception})"/>
         /// </summary>
         /// <param name="event">不依赖当前状态的事件</param>
         /// <param name="uniqueId">幂等性判定值</param>
         /// <param name="hashKey">消息异步分发的唯一hash的key</param>
         /// <returns></returns>
-        protected async Task<bool> ConcurrentRaiseEvent(IEventBase<K> @event, EventUID uniqueId = null)
+        protected async Task<bool> ConcurrentRaiseEvent(IActorEvent<K> @event, EventUID uniqueId = null)
         {
             var taskSource = new TaskCompletionSource<bool>();
             var task = ConcurrentRaiseEvent(async (state, eventFunc) =>

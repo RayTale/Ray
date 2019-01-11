@@ -17,8 +17,8 @@ using Ray.Core.Utils;
 
 namespace Ray.Core
 {
-    public abstract class RayGrain<K, S, W> : Grain
-        where S : class, IState<K>, new()
+    public abstract class RayGrain<K, S,W> : Grain
+        where S : class, IActorState<K>, new()
         where W : IBytesWrapper, new()
     {
         public RayGrain(ILogger logger)
@@ -266,7 +266,7 @@ namespace Ray.Core
         /// 事件发布器
         /// </summary>
         protected IProducer EventBusProducer { get; private set; }
-        protected virtual async Task<bool> RaiseEvent(IEventBase<K> @event, EventUID uniqueId = null)
+        protected virtual async Task<bool> RaiseEvent(IActorEvent<K> @event, EventUID uniqueId = null)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace(LogEventIds.GrainSnapshot, "Start raise event, grain Id ={0} and state version = {1},event type = {2} ,event ={3},uniqueueId= {4}", GrainId.ToString(), State.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event), uniqueId);
@@ -341,10 +341,10 @@ namespace Ray.Core
             return false;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual void OnRaiseSuccess(IEventBase<K> @event, byte[] bytes)
+        protected virtual void OnRaiseSuccess(IEvent @event, byte[] bytes)
         {
         }
-        protected virtual void EventApply(S state, IEventBase<K> evt)
+        protected virtual void EventApply(S state, IEvent evt)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace(LogEventIds.GrainRaiseEvent, "Start apply event, grain Id= {0} and state version is {1}},event type = {2},event = {3}", GrainId.ToString(), State.Version, evt.GetType().FullName, JsonSerializer.Serialize(evt));

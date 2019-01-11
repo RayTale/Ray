@@ -8,7 +8,7 @@ using Ray.IGrains;
 namespace Ray.Grain
 {
     public abstract class DbGrain<K, S> : ConcurrentFollowGrain<K, S, MessageInfo>
-          where S : class, IState<K>, new()
+          where S : class, IActorState<K>, new()
     {
         public DbGrain(ILogger logger) : base(logger)
         {

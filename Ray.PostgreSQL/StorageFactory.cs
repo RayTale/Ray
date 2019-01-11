@@ -21,7 +21,7 @@ namespace Ray.Storage.PostgreSQL
         }
         readonly ConcurrentDictionary<string, object> eventStorageDict = new ConcurrentDictionary<string, object>();
         public async ValueTask<IEventStorage<K>> CreateEventStorage<K, S>(Grain grain, K grainId)
-             where S : class, IState<K>, new()
+             where S : class, IActorState<K>, new()
         {
             var grainType = grain.GetType();
             if (configureContainer.TryGetValue(grainType, out var value) &&
@@ -51,7 +51,7 @@ namespace Ray.Storage.PostgreSQL
         }
         readonly ConcurrentDictionary<string, object> stateStorageDict = new ConcurrentDictionary<string, object>();
         public async ValueTask<IStateStorage<K, S>> CreateStateStorage<K, S>(Grain grain, K grainId)
-            where S : class, IState<K>, new()
+            where S : class, IActorState<K>, new()
         {
             var grainType = grain.GetType();
             if (configureContainer.TryGetValue(grainType, out var value) &&
