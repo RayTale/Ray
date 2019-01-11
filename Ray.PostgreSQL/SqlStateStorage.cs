@@ -1,7 +1,7 @@
 ﻿using System.IO;
 using System.Threading.Tasks;
 using Dapper;
-using ProtoBuf;
+using Ray.Core.Serialization;
 using Ray.Core.State;
 using Ray.Core.Storage;
 using Ray.Core.Utils;
@@ -16,9 +16,10 @@ namespace Ray.Storage.PostgreSQL
         private readonly string getByIdSql;
         private readonly string insertSql;
         private readonly string updateSql;
-
-        public SqlStateStorage(StorageConfig table)
+        readonly ISerializer serializer;
+        public SqlStateStorage(ISerializer serializer, StorageConfig table)
         {
+            this.serializer = serializer;
             tableInfo = table;
             deleteSql = $"DELETE FROM {tableInfo.SnapshotTable} where stateid=@StateId";
             getByIdSql = $"select data FROM {tableInfo.SnapshotTable} where stateid=@StateId";
@@ -44,7 +45,7 @@ namespace Ray.Storage.PostgreSQL
             {
                 using (var ms = new MemoryStream(state))
                 {
-                    return Serializer.Deserialize<T>(ms);
+                    return serializer.Deserialize<T>(ms);
                 }
             }
             return null;
@@ -54,7 +55,7 @@ namespace Ray.Storage.PostgreSQL
         {
             using (var ms = new PooledMemoryStream())
             {
-                Serializer.Serialize(ms, data);
+                serializer.Serialize(ms, data);
                 using (var connection = tableInfo.CreateConnection())
                 {
                     await connection.ExecuteAsync(insertSql, new { StateId = data.StateId.ToString(), Data = ms.ToArray(), data.Version });
@@ -66,7 +67,7 @@ namespace Ray.Storage.PostgreSQL
         {
             using (var ms = new PooledMemoryStream())
             {
-                Serializer.Serialize(ms, data);
+                serializer.Serialize(ms, data);
                 using (var connection = tableInfo.CreateConnection())
                 {
                     await connection.ExecuteAsync(updateSql, new { StateId = data.StateId.ToString(), Data = ms.ToArray(), data.Version });

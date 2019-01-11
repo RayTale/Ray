@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Threading.Tasks;
 using ProtoBuf;
 using Ray.Core.Serialization;
 

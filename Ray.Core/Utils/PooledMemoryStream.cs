@@ -1,8 +1,9 @@
-﻿namespace Ray.Core.Utils
+﻿using System;
+using System.IO;
+using System.Buffers;
+
+namespace Ray.Core.Utils
 {
-    using System;
-    using System.IO;
-    using System.Buffers;
     public class PooledMemoryStream : Stream
     {
         /// <summary>create writable memory stream with default parameters</summary>

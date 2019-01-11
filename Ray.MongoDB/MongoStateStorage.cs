@@ -4,7 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
-using ProtoBuf;
+using Ray.Core.Serialization;
 using Ray.Core.State;
 using Ray.Core.Storage;
 using Ray.Core.Utils;
@@ -14,8 +14,10 @@ namespace Ray.Storage.MongoDB
     public class MongoStateStorage<K, T> : IStateStorage<K, T> where T : class, IActorState<K>
     {
         readonly StorageConfig grainConfig;
-        public MongoStateStorage(StorageConfig grainConfig)
+        readonly ISerializer serializer;
+        public MongoStateStorage(ISerializer serializer, StorageConfig grainConfig)
         {
+            this.serializer = serializer;
             this.grainConfig = grainConfig;
         }
         public async Task DeleteAsync(K id)
@@ -38,7 +40,7 @@ namespace Ray.Storage.MongoDB
                 {
                     using (var ms = new MemoryStream(data))
                     {
-                        result = Serializer.Deserialize<T>(ms);
+                        result = serializer.Deserialize<T>(ms); ;
                     }
                 }
             }
@@ -55,7 +57,7 @@ namespace Ray.Storage.MongoDB
             };
             using (var ms = new PooledMemoryStream())
             {
-                Serializer.Serialize<T>(ms, data);
+                serializer.Serialize<T>(ms, data);
                 mState.Data = ms.ToArray();
             }
             if (mState.Data != null && mState.Data.Count() > 0)
@@ -69,7 +71,7 @@ namespace Ray.Storage.MongoDB
             byte[] bytes;
             using (var ms = new PooledMemoryStream())
             {
-                Serializer.Serialize<T>(ms, data);
+                serializer.Serialize<T>(ms, data);
                 bytes = ms.ToArray();
             }
             if (bytes != null && bytes.Count() > 0)

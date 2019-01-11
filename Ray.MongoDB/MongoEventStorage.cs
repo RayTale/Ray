@@ -7,7 +7,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;
-using ProtoBuf;
 using Ray.Core.Channels;
 using Ray.Core.Event;
 using Ray.Core.Serialization;
@@ -20,8 +19,10 @@ namespace Ray.Storage.MongoDB
         readonly StorageConfig grainConfig;
         readonly IMpscChannel<DataAsyncWrapper<EventSaveWrapper<K>, bool>> mpscChannel;
         readonly ILogger<MongoEventStorage<K>> logger;
+        readonly ISerializer serializer;
         public MongoEventStorage(IServiceProvider serviceProvider, StorageConfig grainConfig)
         {
+            serializer = serviceProvider.GetService<ISerializer>();
             logger = serviceProvider.GetService<ILogger<MongoEventStorage<K>>>();
             mpscChannel = serviceProvider.GetService<IMpscChannel<DataAsyncWrapper<EventSaveWrapper<K>, bool>>>();
             mpscChannel.BindConsumer(BatchProcessing).ActiveConsumer();
@@ -45,7 +46,7 @@ namespace Ray.Storage.MongoDB
                     var data = document["Data"].AsByteArray;
                     using (var ms = new MemoryStream(data))
                     {
-                        if (Serializer.Deserialize(TypeContainer.GetType(typeCode), ms) is IActorEvent<K> evt)
+                        if (serializer.Deserialize(TypeContainer.GetType(typeCode), ms) is IActorEvent<K> evt)
                         {
                             readVersion = evt.Version;
                             if (readVersion <= endVersion)
@@ -74,7 +75,7 @@ namespace Ray.Storage.MongoDB
                     var data = document["Data"].AsByteArray;
                     using (var ms = new MemoryStream(data))
                     {
-                        if (Serializer.Deserialize(TypeContainer.GetType(typeCode), ms) is IActorEvent<K> evt)
+                        if (serializer.Deserialize(TypeContainer.GetType(typeCode), ms) is IActorEvent<K> evt)
                         {
                             list.Add(evt);
                         }

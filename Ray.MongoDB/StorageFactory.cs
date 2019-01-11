@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Orleans;
+using Ray.Core.Serialization;
 using Ray.Core.State;
 using Ray.Core.Storage;
 
@@ -50,7 +52,7 @@ namespace Ray.Storage.MongoDB
             }
         }
         readonly ConcurrentDictionary<string, object> stateStorageDict = new ConcurrentDictionary<string, object>();
-        public async ValueTask<IStateStorage<K,S>> CreateStateStorage<K, S>(Grain grain, K grainId)
+        public async ValueTask<IStateStorage<K, S>> CreateStateStorage<K, S>(Grain grain, K grainId)
             where S : class, IActorState<K>, new()
         {
             var grainType = grain.GetType();
@@ -70,9 +72,9 @@ namespace Ray.Storage.MongoDB
                     await configTask;
                 var storage = stateStorageDict.GetOrAdd(dictKey, key =>
                {
-                   return new MongoStateStorage<K,S>(configTask.Result);
+                   return new MongoStateStorage<K, S>(serviceProvider.GetService<ISerializer>(), configTask.Result);
                });
-                return storage as MongoStateStorage<K,S>;
+                return storage as MongoStateStorage<K, S>;
             }
             else
             {
