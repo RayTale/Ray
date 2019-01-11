@@ -30,7 +30,7 @@ namespace Ray.Storage.PostgreSQL
             mpscChannel.ActiveConsumer();
             this.tableInfo = tableInfo;
         }
-        public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, long startVersion, long endVersion)
+        public async Task<IList<IActorEvent<K>>> GetListAsync(K stateId, long startVersion, long endVersion)
         {
             var originList = new List<EventBytesWrapper>((int)(endVersion - startVersion));
             await Task.Run(async () =>
@@ -56,12 +56,12 @@ namespace Ray.Storage.PostgreSQL
                 }
             });
 
-            var list = new List<IEventBase<K>>(originList.Count);
+            var list = new List<IActorEvent<K>>(originList.Count);
             foreach (var origin in originList)
             {
                 using (var ms = new MemoryStream(origin.Data))
                 {
-                    if (Serializer.Deserialize(TypeContainer.GetType(origin.TypeCode), ms) is IEventBase<K> evt)
+                    if (Serializer.Deserialize(TypeContainer.GetType(origin.TypeCode), ms) is IActorEvent<K> evt)
                     {
                         list.Add(evt);
                     }
@@ -69,7 +69,7 @@ namespace Ray.Storage.PostgreSQL
             }
             return list.OrderBy(v => v.Version).ToList();
         }
-        public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, string typeCode, long startVersion, int limit)
+        public async Task<IList<IActorEvent<K>>> GetListAsync(K stateId, string typeCode, long startVersion, int limit)
         {
             var originList = new List<byte[]>(limit);
             var type = TypeContainer.GetType(typeCode);
@@ -97,12 +97,12 @@ namespace Ray.Storage.PostgreSQL
                     }
                 }
             });
-            var list = new List<IEventBase<K>>(originList.Count);
+            var list = new List<IActorEvent<K>>(originList.Count);
             foreach (var origin in originList)
             {
                 using (var ms = new MemoryStream(origin))
                 {
-                    if (Serializer.Deserialize(type, ms) is IEventBase<K> evt)
+                    if (Serializer.Deserialize(type, ms) is IActorEvent<K> evt)
                     {
                         list.Add(evt);
                     }
@@ -112,7 +112,7 @@ namespace Ray.Storage.PostgreSQL
         }
 
         static readonly ConcurrentDictionary<string, string> saveSqlDict = new ConcurrentDictionary<string, string>();
-        public Task<bool> SaveAsync(IEventBase<K> evt, byte[] bytes, string uniqueId = null)
+        public Task<bool> SaveAsync(IActorEvent<K> evt, byte[] bytes, string uniqueId = null)
         {
             return Task.Run(async () =>
             {

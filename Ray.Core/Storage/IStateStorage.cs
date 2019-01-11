@@ -4,7 +4,7 @@ using Ray.Core.State;
 namespace Ray.Core.Storage
 {
     public interface IStateStorage<K, T>
-        where T : IState<K>
+        where T : IActorState<K>
     {
         Task<T> GetByIdAsync(K id);
 

@@ -8,7 +8,7 @@ using Ray.Core.State;
 namespace Ray.Core
 {
     public abstract class ReplicaGrain<K, S, W> : FollowGrain<K, S, W>
-        where S : class, IState<K>, new()
+        where S : class, IActorState<K>, new()
         where W : IBytesWrapper
     {
         public ReplicaGrain(ILogger logger) : base(logger)

@@ -19,7 +19,7 @@ using Ray.Core.Storage;
 namespace Ray.Core
 {
     public abstract class FollowGrain<K, S, W> : Grain
-        where S : class, IState<K>, new()
+        where S : class, IActorState<K>, new()
         where W : IBytesWrapper
     {
         public FollowGrain(ILogger logger)

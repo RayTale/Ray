@@ -9,7 +9,7 @@ using Ray.Core.Utils;
 namespace Ray.Storage.PostgreSQL
 {
     public class SqlStateStorage<K, T> : IStateStorage<K, T>
-        where T : class, IState<K>
+        where T : class, IActorState<K>
     {
         readonly StorageConfig tableInfo;
         private readonly string deleteSql;

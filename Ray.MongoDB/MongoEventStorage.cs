@@ -27,12 +27,12 @@ namespace Ray.Storage.MongoDB
             mpscChannel.BindConsumer(BatchProcessing).ActiveConsumer();
             this.grainConfig = grainConfig;
         }
-        public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, long startVersion, long endVersion)
+        public async Task<IList<IActorEvent<K>>> GetListAsync(K stateId, long startVersion, long endVersion)
         {
             var collectionListTask = grainConfig.GetCollectionList();
             if (!collectionListTask.IsCompleted)
                 await collectionListTask;
-            var list = new List<IEventBase<K>>();
+            var list = new List<IActorEvent<K>>();
             long readVersion = 0;
             foreach (var collection in collectionListTask.Result)
             {
@@ -45,7 +45,7 @@ namespace Ray.Storage.MongoDB
                     var data = document["Data"].AsByteArray;
                     using (var ms = new MemoryStream(data))
                     {
-                        if (Serializer.Deserialize(TypeContainer.GetType(typeCode), ms) is IEventBase<K> evt)
+                        if (Serializer.Deserialize(TypeContainer.GetType(typeCode), ms) is IActorEvent<K> evt)
                         {
                             readVersion = evt.Version;
                             if (readVersion <= endVersion)
@@ -58,12 +58,12 @@ namespace Ray.Storage.MongoDB
             }
             return list;
         }
-        public async Task<IList<IEventBase<K>>> GetListAsync(K stateId, string typeCode, long startVersion, int limit)
+        public async Task<IList<IActorEvent<K>>> GetListAsync(K stateId, string typeCode, long startVersion, int limit)
         {
             var collectionListTask = grainConfig.GetCollectionList();
             if (!collectionListTask.IsCompleted)
                 await collectionListTask;
-            var list = new List<IEventBase<K>>();
+            var list = new List<IActorEvent<K>>();
             foreach (var collection in collectionListTask.Result)
             {
                 var filterBuilder = Builders<BsonDocument>.Filter;
@@ -74,7 +74,7 @@ namespace Ray.Storage.MongoDB
                     var data = document["Data"].AsByteArray;
                     using (var ms = new MemoryStream(data))
                     {
-                        if (Serializer.Deserialize(TypeContainer.GetType(typeCode), ms) is IEventBase<K> evt)
+                        if (Serializer.Deserialize(TypeContainer.GetType(typeCode), ms) is IActorEvent<K> evt)
                         {
                             list.Add(evt);
                         }
@@ -85,7 +85,7 @@ namespace Ray.Storage.MongoDB
             }
             return list;
         }
-        public Task<bool> SaveAsync(IEventBase<K> evt, byte[] bytes, string uniqueId = null)
+        public Task<bool> SaveAsync(IActorEvent<K> evt, byte[] bytes, string uniqueId = null)
         {
             return Task.Run(async () =>
             {

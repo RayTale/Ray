@@ -41,7 +41,7 @@ namespace Ray.EventBus.RabbitMQ
         {
             HandlerFuncs.Add((byte[] bytes, object evt) =>
             {
-                if (evt is IEventBase<long> value)
+                if (evt is IActorEvent<long> value)
                     return EventBus.ServiceProvider.GetService<IClusterClient>().GetGrain<F>(value.StateId).Tell(bytes);
                 else
                     return Task.CompletedTask;
@@ -53,7 +53,7 @@ namespace Ray.EventBus.RabbitMQ
         {
             HandlerFuncs.Add((byte[] bytes, object evt) =>
             {
-                if (evt is IEventBase<long> value)
+                if (evt is IActorEvent<long> value)
                     return EventBus.ServiceProvider.GetService<IClusterClient>().GetGrain<F>(value.StateId).ConcurrentTell(bytes);
                 else
                     return Task.CompletedTask;
@@ -65,7 +65,7 @@ namespace Ray.EventBus.RabbitMQ
         {
             HandlerFuncs.Add((byte[] bytes, object evt) =>
             {
-                if (evt is IEventBase<string> value)
+                if (evt is IActorEvent<string> value)
                     return EventBus.ServiceProvider.GetService<IClusterClient>().GetGrain<F>(value.StateId).Tell(bytes);
                 else
                     return Task.CompletedTask;
@@ -77,7 +77,7 @@ namespace Ray.EventBus.RabbitMQ
         {
             HandlerFuncs.Add((byte[] bytes, object evt) =>
             {
-                if (evt is IEventBase<string> value)
+                if (evt is IActorEvent<string> value)
                     return EventBus.ServiceProvider.GetService<IClusterClient>().GetGrain<F>(value.StateId).ConcurrentTell(bytes);
                 else
                     return Task.CompletedTask;

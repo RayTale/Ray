@@ -16,7 +16,7 @@ using Ray.Core.State;
 namespace Ray.Core
 {
     public abstract class ConcurrentFollowGrain<K, S, W> : FollowGrain<K, S, W>
-          where S : class, IState<K>, new()
+          where S : class, IActorState<K>, new()
           where W : IBytesWrapper
     {
         readonly List<IEvent> UnprocessedEventList = new List<IEvent>();

@@ -4,7 +4,7 @@ using Ray.Core.Event;
 namespace RayTest.IGrains.Events
 {
     [ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
-    public class AmountAddEvent : IEventBase<long>
+    public class AmountAddEvent : IActorEvent<long>
     {
         #region base
         public long Version { get; set; }

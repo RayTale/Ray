@@ -9,14 +9,14 @@ namespace Ray.Core
     public static class StateWithEventExtensions
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void UpdateVersion<K>(this IState<K> state, IEvent @event, Type grainType)
+        public static void UpdateVersion<K>(this IActorState<K> state, IEvent @event, Type grainType)
         {
             if (state.Version + 1 != @event.Version)
                 throw new EventVersionNotMatchStateException(state.StateId.ToString(), grainType, @event.Version, state.Version);
             state.Version = @event.Version;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void FullUpdateVersion<K>(this IState<K> state, IEvent @event, Type grainType)
+        public static void FullUpdateVersion<K>(this IActorState<K> state, IEvent @event, Type grainType)
         {
             if (state.Version + 1 != @event.Version)
                 throw new EventVersionNotMatchStateException(state.StateId.ToString(), grainType, @event.Version, state.Version);
@@ -24,20 +24,20 @@ namespace Ray.Core
             state.Version = @event.Version;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void UnsafeUpdateVersion<K>(this IState<K> state, long version, long timestamp)
+        public static void UnsafeUpdateVersion<K>(this IActorState<K> state, long version, long timestamp)
         {
             state.DoingVersion = version;
             state.Version = version;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void IncrementDoingVersion<K>(this IState<K> state, Type grainType)
+        public static void IncrementDoingVersion<K>(this IActorState<K> state, Type grainType)
         {
             if (state.DoingVersion != state.Version)
                 throw new StateInsecurityException(state.StateId.ToString(), grainType, state.DoingVersion, state.Version);
             state.DoingVersion += 1;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void DecrementDoingVersion<K>(this IState<K> state)
+        public static void DecrementDoingVersion<K>(this IActorState<K> state)
         {
             state.DoingVersion -= 1;
         }
@@ -47,7 +47,7 @@ namespace Ray.Core
             return @event.Version.ToString();
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string GetEventId<K>(this IEventBase<K> @event)
+        public static string GetEventId<K>(this IActorEvent<K> @event)
         {
             return $"{@event.StateId}_{@event.Version}";
         }

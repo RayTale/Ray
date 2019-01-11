@@ -15,7 +15,7 @@ using Ray.Core.Utils;
 namespace Ray.Core
 {
     public abstract class TransactionGrain<K, S, W> : RayGrain<K, S, W>
-        where S : class, IState<K>, ICloneable<S>, new()
+        where S : class, IActorState<K>, ICloneable<S>, new()
         where W : IBytesWrapper, new()
     {
         public TransactionGrain(ILogger logger) : base(logger)
@@ -174,7 +174,7 @@ namespace Ray.Core
                 EventsInTransactionProcessing.Clear();
             }
         }
-        protected override async Task<bool> RaiseEvent(IEventBase<K> @event, EventUID uniqueId = null)
+        protected override async Task<bool> RaiseEvent(IActorEvent<K> @event, EventUID uniqueId = null)
         {
             if (TransactionPending)
             {
@@ -194,15 +194,15 @@ namespace Ray.Core
         /// <param name="event">事件本体</param>
         /// <param name="bytes">事件序列化之后的二进制数据</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected override void OnRaiseSuccess(IEventBase<K> @event, byte[] bytes)
+        protected override void OnRaiseSuccess(IEvent @event, byte[] bytes)
         {
             using (var dms = new MemoryStream(bytes))
             {
-                EventApply(BackupState, (IEventBase<K>)Serializer.Deserialize(@event.GetType(), dms));
+                EventApply(BackupState, (IEvent)Serializer.Deserialize(@event.GetType(), dms));
             }
             BackupState.FullUpdateVersion(@event, GrainType);//更新处理完成的Version
         }
-        protected void TransactionRaiseEvent(IEventBase<K> @event, EventUID uniqueId = null, string hashKey = null)
+        protected void TransactionRaiseEvent(IActorEvent<K> @event, EventUID uniqueId = null, string hashKey = null)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace(LogEventIds.GrainSnapshot, "Start raise event by transaction, grain Id ={0} and state version = {1},event type = {2} ,event = {3},uniqueueId = {4},hashkey = {5}", GrainId.ToString(), State.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event), uniqueId, hashKey);
