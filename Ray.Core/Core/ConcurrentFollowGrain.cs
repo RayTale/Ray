@@ -107,7 +107,7 @@ namespace Ray.Core
                     var inputLast = orderList.Last();
                     if (startVersion + orderList.Count != inputLast.Base.Version)
                     {
-                        var loadList = await EventStorage.GetListAsync(GrainId, startVersion, inputLast.Base.Version);
+                        var loadList = await EventStorage.GetList(GrainId, startVersion, inputLast.Base.Version);
                         UnprocessedEventList.AddRange(loadList);
                     }
                     else

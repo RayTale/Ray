@@ -124,7 +124,7 @@ namespace Ray.Core
                     await readSnapshotTask;
                 while (true)
                 {
-                    var eventList = await EventStorage.GetListAsync(GrainId, State.Version, State.Version + NumberOfEventsPerRead);
+                    var eventList = await EventStorage.GetList(GrainId, State.Version, State.Version + NumberOfEventsPerRead);
                     foreach (var @event in eventList)
                     {
                         State.IncrementDoingVersion(GrainType);//标记将要处理的Version
@@ -180,7 +180,7 @@ namespace Ray.Core
                 Logger.LogTrace(LogEventIds.GrainSnapshot, "Start read snapshot  with Id = {0} ,state version = {1}", GrainId.ToString(), State.Version);
             try
             {
-                State = await StateStorage.GetByIdAsync(GrainId);
+                State = await StateStorage.Get(GrainId);
                 if (State == default)
                 {
                     NoSnapshot = true;
@@ -216,13 +216,13 @@ namespace Ray.Core
                             await onSaveSnapshotTask;
                         if (NoSnapshot)
                         {
-                            await StateStorage.InsertAsync(State);
+                            await StateStorage.Insert(State);
                             SnapshotEventVersion = State.Version;
                             NoSnapshot = false;
                         }
                         else
                         {
-                            await StateStorage.UpdateAsync(State);
+                            await StateStorage.Update(State);
                             SnapshotEventVersion = State.Version;
                         }
                         if (Logger.IsEnabled(LogLevel.Trace))
@@ -253,7 +253,7 @@ namespace Ray.Core
         }
         protected async Task ClearStateAsync()
         {
-            await StateStorage.DeleteAsync(GrainId);
+            await StateStorage.Delete(GrainId);
         }
         /// <summary>
         /// 事件存储器
@@ -285,7 +285,7 @@ namespace Ray.Core
                 {
                     Serializer.Serialize(ms, @event);
                     var bytes = ms.ToArray();
-                    if (await EventStorage.SaveAsync(@event, bytes, uniqueId.UID))
+                    if (await EventStorage.Append(@event, bytes, uniqueId.UID))
                     {
                         if (SupportFollow)
                         {

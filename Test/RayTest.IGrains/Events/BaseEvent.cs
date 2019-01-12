@@ -1,6 +1,6 @@
 ﻿using Ray.Core.Event;
 
-namespace Ray.IGrains.Events
+namespace RayTest.IGrains.Events
 {
     public abstract class BaseEvent<K> : IEvent<K, EventBase<K>>
     {

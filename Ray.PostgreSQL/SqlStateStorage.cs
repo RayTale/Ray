@@ -26,7 +26,7 @@ namespace Ray.Storage.PostgreSQL
             insertSql = $"INSERT into {tableInfo.SnapshotTable}(stateid,data,version)VALUES(@StateId,@Data,@Version)";
             updateSql = $"update {tableInfo.SnapshotTable} set data=@Data,version=@Version where stateid=@StateId";
         }
-        public async Task DeleteAsync(K id)
+        public async Task Delete(K id)
         {
             using (var conn = tableInfo.CreateConnection())
             {
@@ -34,7 +34,7 @@ namespace Ray.Storage.PostgreSQL
             }
         }
 
-        public async Task<T> GetByIdAsync(K id)
+        public async Task<T> Get(K id)
         {
             byte[] state;
             using (var conn = tableInfo.CreateConnection())
@@ -51,7 +51,7 @@ namespace Ray.Storage.PostgreSQL
             return null;
         }
 
-        public async Task InsertAsync(T data)
+        public async Task Insert(T data)
         {
             using (var ms = new PooledMemoryStream())
             {
@@ -63,7 +63,7 @@ namespace Ray.Storage.PostgreSQL
             }
         }
 
-        public async Task UpdateAsync(T data)
+        public async Task Update(T data)
         {
             using (var ms = new PooledMemoryStream())
             {

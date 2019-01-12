@@ -29,7 +29,7 @@ namespace Ray.Storage.MongoDB
             mpscChannel.BindConsumer(BatchProcessing).ActiveConsumer();
             this.grainConfig = grainConfig;
         }
-        public async Task<IList<IEvent<K, E>>> GetListAsync(K stateId, long startVersion, long endVersion)
+        public async Task<IList<IEvent<K, E>>> GetList(K stateId, long startVersion, long endVersion)
         {
             var collectionListTask = grainConfig.GetCollectionList();
             if (!collectionListTask.IsCompleted)
@@ -60,7 +60,7 @@ namespace Ray.Storage.MongoDB
             }
             return list;
         }
-        public async Task<IList<IEvent<K, E>>> GetListAsync(K stateId, string typeCode, long startVersion, int limit)
+        public async Task<IList<IEvent<K, E>>> GetListByType(K stateId, string typeCode, long startVersion, int limit)
         {
             var collectionListTask = grainConfig.GetCollectionList();
             if (!collectionListTask.IsCompleted)
@@ -87,7 +87,7 @@ namespace Ray.Storage.MongoDB
             }
             return list;
         }
-        public Task<bool> SaveAsync(IEvent<K, E> evt, byte[] bytes, string uniqueId = null)
+        public Task<bool> Append(IEvent<K, E> evt, byte[] bytes, string uniqueId = null)
         {
             return Task.Run(async () =>
             {
@@ -155,7 +155,7 @@ namespace Ray.Storage.MongoDB
             }
         }
 
-        public async Task TransactionSaveAsync(List<EventTransmitWrapper<K, E>> list)
+        public async Task TransactionBatchAppend(List<EventTransmitWrapper<K, E>> list)
         {
             var inserts = new List<MongoEvent<K>>();
             foreach (var data in list)

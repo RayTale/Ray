@@ -85,7 +85,7 @@ namespace Ray.Core
                             ms.SetLength(0);
                         }
                     }
-                    await EventStorage.TransactionSaveAsync(EventsInTransactionProcessing);
+                    await EventStorage.TransactionBatchAppend(EventsInTransactionProcessing);
                     if (SupportFollow)
                     {
                         try

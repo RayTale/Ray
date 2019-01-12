@@ -20,13 +20,13 @@ namespace Ray.Storage.MongoDB
             this.serializer = serializer;
             this.grainConfig = grainConfig;
         }
-        public async Task DeleteAsync(K id)
+        public async Task Delete(K id)
         {
             var filterBuilder = Builders<BsonDocument>.Filter;
             var filter = filterBuilder.Eq("StateId", id);
             await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotCollection).DeleteManyAsync(filter);
         }
-        public async Task<T> GetByIdAsync(K id)
+        public async Task<T> Get(K id)
         {
             var filterBuilder = Builders<BsonDocument>.Filter;
             var filter = filterBuilder.Eq("StateId", id);
@@ -47,7 +47,7 @@ namespace Ray.Storage.MongoDB
             return result;
         }
 
-        public async Task InsertAsync(T data)
+        public async Task Insert(T data)
         {
             var mState = new MongoState<K>
             {
@@ -64,7 +64,7 @@ namespace Ray.Storage.MongoDB
                 await grainConfig.Storage.GetCollection<MongoState<K>>(grainConfig.DataBase, grainConfig.SnapshotCollection).InsertOneAsync(mState, null, new CancellationTokenSource(3000).Token);
         }
 
-        public async Task UpdateAsync(T data)
+        public async Task Update(T data)
         {
             var filterBuilder = Builders<BsonDocument>.Filter;
             var filter = filterBuilder.Eq("StateId", data.StateId);

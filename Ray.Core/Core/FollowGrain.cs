@@ -128,7 +128,7 @@ namespace Ray.Core
         {
             while (true)
             {
-                var eventList = await EventStorage.GetListAsync(GrainId, State.Version, State.Version + NumberOfEventsPerRead);
+                var eventList = await EventStorage.GetList(GrainId, State.Version, State.Version + NumberOfEventsPerRead);
                 if (EventConcurrentProcessing)
                 {
                     await Task.WhenAll(eventList.Select(@event =>
@@ -179,7 +179,7 @@ namespace Ray.Core
                 Logger.LogTrace(LogEventIds.GrainSnapshot, "Start read snapshot  with Id = {0} ,state version = {1}", GrainId.ToString(), State.Version);
             try
             {
-                State = await StateStorage.GetByIdAsync(GrainId);
+                State = await StateStorage.Get(GrainId);
                 if (State == null)
                 {
                     NoSnapshot = true;
@@ -248,7 +248,7 @@ namespace Ray.Core
                 }
                 else if (@event.Base.Version > State.Version)
                 {
-                    var eventList = await EventStorage.GetListAsync(GrainId, State.Version, @event.Base.Version);
+                    var eventList = await EventStorage.GetList(GrainId, State.Version, @event.Base.Version);
                     foreach (var item in eventList)
                     {
                         var onEventDeliveredTask = OnEventDelivered(item);
@@ -300,12 +300,12 @@ namespace Ray.Core
                             await onSaveSnapshotTask;
                         if (NoSnapshot)
                         {
-                            await StateStorage.InsertAsync(State);
+                            await StateStorage.Insert(State);
                             NoSnapshot = false;
                         }
                         else
                         {
-                            await StateStorage.UpdateAsync(State);
+                            await StateStorage.Update(State);
                         }
                         SnapshotEventVersion = State.Version;
                         var onSavedSnapshotTask = OnSavedSnapshot();
