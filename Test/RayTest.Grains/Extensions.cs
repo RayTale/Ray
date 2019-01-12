@@ -5,6 +5,7 @@ using Ray.EventBus.RabbitMQ;
 using Ray.Storage.PostgreSQL;
 using RayTest.Grains.EventHandles;
 using RayTest.IGrains;
+using RayTest.IGrains.Events;
 using RayTest.IGrains.States;
 
 namespace RayTest.Grains
@@ -27,7 +28,7 @@ namespace RayTest.Grains
         }
         public static void AddGrainHandler(this IServiceCollection serviceCollection)
         {
-            serviceCollection.AddSingleton<IEventHandler<AccountState>, AccountEventHandle>();
+            serviceCollection.AddSingleton<IEventHandler<long, EventBase<long>, AccountState>, AccountEventHandle>();
         }
     }
 }

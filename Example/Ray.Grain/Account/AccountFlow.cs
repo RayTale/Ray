@@ -10,14 +10,14 @@ using Ray.IGrains.States;
 
 namespace Ray.Grain
 {
-    public sealed class AccountFlow : ConcurrentFollowGrain<long, AsyncState<long>, MessageInfo>, IAccountFlow
+    public sealed class AccountFlow : ConcurrentFollowGrain<long, EventBase<long>, AsyncState<long>, MessageInfo>, IAccountFlow
     {
         public AccountFlow(ILogger<AccountFlow> logger) : base(logger)
         {
         }
         public override long GrainId => this.GetPrimaryKeyLong();
         protected override bool EventConcurrentProcessing => true;
-        protected override async ValueTask OnEventDelivered(IEvent @event)
+        protected override async ValueTask OnEventDelivered(IEvent<long, EventBase<long>> @event)
         {
             switch (@event)
             {

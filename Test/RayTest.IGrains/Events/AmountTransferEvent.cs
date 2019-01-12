@@ -1,17 +1,11 @@
-﻿using System;
-using ProtoBuf;
-using Ray.Core.Event;
+﻿using ProtoBuf;
 
 namespace RayTest.IGrains.Events
 {
     [ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
-    public class AmountTransferEvent : IActorEvent<long>
+    public class AmountTransferEvent : BaseEvent<long>
     {
-        #region base
-        public long Version { get; set; }
-        public long Timestamp { get; set; }
-        public long StateId { get; set; }
-        #endregion
+        public override EventBase<long> Base { get; set; } = new EventBase<long>();
         public long ToAccountId { get; set; }
         public decimal Amount { get; set; }
         public decimal Balance { get; set; }

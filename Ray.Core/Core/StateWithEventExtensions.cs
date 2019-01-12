@@ -9,19 +9,21 @@ namespace Ray.Core
     public static class StateWithEventExtensions
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void UpdateVersion<K>(this IActorState<K> state, IEvent @event, Type grainType)
+        public static void UpdateVersion<K, E>(this IActorState<K> state, IEvent<K, E> @event, Type grainType)
+            where E : IEventBase<K>
         {
-            if (state.Version + 1 != @event.Version)
-                throw new EventVersionNotMatchStateException(state.StateId.ToString(), grainType, @event.Version, state.Version);
-            state.Version = @event.Version;
+            if (state.Version + 1 != @event.Base.Version)
+                throw new EventVersionNotMatchStateException(state.StateId.ToString(), grainType, @event.Base.Version, state.Version);
+            state.Version = @event.Base.Version;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void FullUpdateVersion<K>(this IActorState<K> state, IEvent @event, Type grainType)
+        public static void FullUpdateVersion<K, E>(this IActorState<K> state, IEvent<K, E> @event, Type grainType)
+            where E : IEventBase<K>
         {
-            if (state.Version + 1 != @event.Version)
-                throw new EventVersionNotMatchStateException(state.StateId.ToString(), grainType, @event.Version, state.Version);
-            state.DoingVersion = @event.Version;
-            state.Version = @event.Version;
+            if (state.Version + 1 != @event.Base.Version)
+                throw new EventVersionNotMatchStateException(state.StateId.ToString(), grainType, @event.Base.Version, state.Version);
+            state.DoingVersion = @event.Base.Version;
+            state.Version = @event.Base.Version;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void UnsafeUpdateVersion<K>(this IActorState<K> state, long version, long timestamp)
@@ -42,14 +44,16 @@ namespace Ray.Core
             state.DoingVersion -= 1;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string GetUniqueId(this IEvent @event)
+        public static string GetEventId<K, E>(this IEvent<K, E> @event)
+            where E : IEventBase<K>
         {
-            return @event.Version.ToString();
+            return $"{@event.Base.StateId.ToString()}_{@event.Base.Version.ToString()}";
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string GetEventId<K>(this IActorEvent<K> @event)
+        public static EventUID GetNextUID<K, E>(this IEvent<K, E> @event)
+            where E : IEventBase<K>
         {
-            return $"{@event.StateId}_{@event.Version}";
+            return new EventUID(@event.GetEventId(), @event.Base.Timestamp);
         }
     }
 }

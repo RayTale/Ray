@@ -1,10 +1,7 @@
-﻿using System;
-
-namespace Ray.Core.Event
+﻿namespace Ray.Core.Event
 {
-    public interface IEvent
+    public interface IEvent<K, E> where E : IEventBase<K>
     {
-        long Version { get; set; }
-        long Timestamp { get; set; }
+        E Base { get; set; }
     }
 }
