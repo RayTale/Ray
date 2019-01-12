@@ -32,7 +32,7 @@ namespace Ray.Storage.PostgreSQL
             mpscChannel.ActiveConsumer();
             this.tableInfo = tableInfo;
         }
-        public async Task<IList<IEvent<K, E>>> GetListAsync(K stateId, long startVersion, long endVersion)
+        public async Task<IList<IEvent<K, E>>> GetList(K stateId, long startVersion, long endVersion)
         {
             var originList = new List<EventBytesWrapper>((int)(endVersion - startVersion));
             await Task.Run(async () =>
@@ -71,7 +71,7 @@ namespace Ray.Storage.PostgreSQL
             }
             return list.OrderBy(e => e.Base.Version).ToList();
         }
-        public async Task<IList<IEvent<K, E>>> GetListAsync(K stateId, string typeCode, long startVersion, int limit)
+        public async Task<IList<IEvent<K, E>>> GetListByType(K stateId, string typeCode, long startVersion, int limit)
         {
             var originList = new List<byte[]>(limit);
             var type = TypeContainer.GetType(typeCode);
@@ -114,7 +114,7 @@ namespace Ray.Storage.PostgreSQL
         }
 
         static readonly ConcurrentDictionary<string, string> saveSqlDict = new ConcurrentDictionary<string, string>();
-        public Task<bool> SaveAsync(IEvent<K, E> evt, byte[] bytes, string uniqueId = null)
+        public Task<bool> Append(IEvent<K, E> evt, byte[] bytes, string uniqueId = null)
         {
             return Task.Run(async () =>
             {
@@ -189,7 +189,7 @@ namespace Ray.Storage.PostgreSQL
                 key => $"INSERT INTO {key}(stateid,uniqueId,typecode,data,version) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version) ON CONFLICT ON CONSTRAINT {key}_id_unique DO NOTHING");
         }
         static readonly ConcurrentDictionary<string, string> copySaveSqlDict = new ConcurrentDictionary<string, string>();
-        public async Task TransactionSaveAsync(List<EventTransmitWrapper<K, E>> list)
+        public async Task TransactionBatchAppend(List<EventTransmitWrapper<K, E>> list)
         {
             var getTableTask = tableInfo.GetTable(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
             if (!getTableTask.IsCompleted)

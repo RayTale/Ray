@@ -3,15 +3,15 @@ using Ray.Core.State;
 
 namespace Ray.Core.Storage
 {
-    public interface IStateStorage<K, T>
-        where T : IActorState<K>
+    public interface IStateStorage<K, S>
+        where S : IActorState<K>
     {
-        Task<T> GetByIdAsync(K id);
+        Task<S> Get(K id);
 
-        Task InsertAsync(T data);
+        Task Insert(S data);
 
-        Task UpdateAsync(T data);
+        Task Update(S data);
 
-        Task DeleteAsync(K id);
+        Task Delete(K id);
     }
 }
