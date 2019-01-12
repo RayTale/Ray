@@ -8,7 +8,7 @@ using Ray.IGrains.States;
 
 namespace Ray.Grain
 {
-    public sealed class AccountDb : DbGrain<long, AsyncState<long>>, IAccountDb
+    public sealed class AccountDb : DbGrain<long, EventBase<long>, AsyncState<long>>, IAccountDb
     {
         public AccountDb(ILogger<AccountDb> logger) : base(logger)
         {
@@ -16,7 +16,7 @@ namespace Ray.Grain
         public override long GrainId => this.GetPrimaryKeyLong();
 
         protected override bool EventConcurrentProcessing => true;
-        protected override async ValueTask Process(IEvent @event)
+        protected override async ValueTask Process(IEvent<long, EventBase<long>> @event)
         {
             switch (@event)
             {

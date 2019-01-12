@@ -18,7 +18,8 @@ using Ray.Core.Storage;
 
 namespace Ray.Core
 {
-    public abstract class FollowGrain<K, S, W> : Grain
+    public abstract class FollowGrain<K, E, S, W> : Grain
+        where E : IEventBase<K>
         where S : class, IActorState<K>, new()
         where W : IBytesWrapper
     {
@@ -73,7 +74,7 @@ namespace Ray.Core
         /// <summary>
         /// 事件存储器
         /// </summary>
-        protected IEventStorage<K> EventStorage { get; private set; }
+        protected IEventStorage<K, E> EventStorage { get; private set; }
         /// <summary>
         /// 状态存储器
         /// </summary>
@@ -89,7 +90,7 @@ namespace Ray.Core
             Serializer = ServiceProvider.GetService<ISerializer>();
             JsonSerializer = ServiceProvider.GetService<IJsonSerializer>();
             //创建事件存储器
-            var eventStorageTask = StorageFactory.CreateEventStorage<K, S>(this, GrainId);
+            var eventStorageTask = StorageFactory.CreateEventStorage<K, E, S>(this, GrainId);
             if (!eventStorageTask.IsCompleted)
                 await eventStorageTask;
             EventStorage = eventStorageTask.Result;
@@ -139,7 +140,7 @@ namespace Ray.Core
                             return Task.CompletedTask;
                     }));
                     var lastEvt = eventList.Last();
-                    State.UnsafeUpdateVersion(lastEvt.Version, lastEvt.Timestamp);
+                    State.UnsafeUpdateVersion(lastEvt.Base.Version, lastEvt.Base.Timestamp);
                 }
                 else
                 {
@@ -217,7 +218,7 @@ namespace Ray.Core
                 var message = Serializer.Deserialize<W>(wms);
                 using (var ems = new MemoryStream(message.Bytes))
                 {
-                    if (Serializer.Deserialize(TypeContainer.GetType(message.TypeName), ems) is IEvent @event)
+                    if (Serializer.Deserialize(TypeContainer.GetType(message.TypeName), ems) is IEvent<K, E> @event)
                     {
                         var tellTask = Tell(@event);
                         if (!tellTask.IsCompleted)
@@ -232,22 +233,22 @@ namespace Ray.Core
             }
             return Task.CompletedTask;
         }
-        protected async ValueTask Tell(IEvent @event)
+        protected async ValueTask Tell(IEvent<K, E> @event)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace(LogEventIds.FollowEventProcessing, "Start event handling, grain Id = {0} and state version = {1},event type = {2} ,event = {3}", GrainId.ToString(), State.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event));
             try
             {
-                if (@event.Version == State.Version + 1)
+                if (@event.Base.Version == State.Version + 1)
                 {
                     var onEventDeliveredTask = OnEventDelivered(@event);
                     if (!onEventDeliveredTask.IsCompleted)
                         await onEventDeliveredTask;
                     State.FullUpdateVersion(@event, GrainType);//更新处理完成的Version
                 }
-                else if (@event.Version > State.Version)
+                else if (@event.Base.Version > State.Version)
                 {
-                    var eventList = await EventStorage.GetListAsync(GrainId, State.Version, @event.Version);
+                    var eventList = await EventStorage.GetListAsync(GrainId, State.Version, @event.Base.Version);
                     foreach (var item in eventList)
                     {
                         var onEventDeliveredTask = OnEventDelivered(item);
@@ -256,16 +257,16 @@ namespace Ray.Core
                         State.FullUpdateVersion(item, GrainType);//更新处理完成的Version
                     }
                 }
-                if (@event.Version == State.Version + 1)
+                if (@event.Base.Version == State.Version + 1)
                 {
                     var onEventDeliveredTask = OnEventDelivered(@event);
                     if (!onEventDeliveredTask.IsCompleted)
                         await onEventDeliveredTask;
                     State.FullUpdateVersion(@event, GrainType);//更新处理完成的Version
                 }
-                if (@event.Version > State.Version)
+                if (@event.Base.Version > State.Version)
                 {
-                    throw new EventVersionNotMatchStateException(GrainId.ToString(), GrainType, @event.Version, State.Version);
+                    throw new EventVersionNotMatchStateException(GrainId.ToString(), GrainType, @event.Base.Version, State.Version);
                 }
                 await SaveSnapshotAsync();
                 if (Logger.IsEnabled(LogLevel.Trace))
@@ -279,7 +280,7 @@ namespace Ray.Core
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual ValueTask OnEventDelivered(IEvent @event) => new ValueTask();
+        protected virtual ValueTask OnEventDelivered(IEvent<K, E> @event) => new ValueTask();
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask OnSaveSnapshot() => new ValueTask();
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

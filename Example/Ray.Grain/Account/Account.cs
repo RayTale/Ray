@@ -9,7 +9,7 @@ using Ray.IGrains.States;
 
 namespace Ray.Grain
 {
-    public sealed class Account : ConcurrentGrain<long, AccountState, IGrains.MessageInfo>, IAccount
+    public sealed class Account : ConcurrentGrain<long, EventBase<long>, AccountState, IGrains.MessageInfo>, IAccount
     {
         public Account(ILogger<Account> logger) : base(logger)
         {

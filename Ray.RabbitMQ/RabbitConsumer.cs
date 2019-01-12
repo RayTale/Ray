@@ -36,49 +36,53 @@ namespace Ray.EventBus.RabbitMQ
             HandlerFuncs.Add(handler);
             return this;
         }
-        public RabbitConsumer<W> PostWithLongID<F>()
+        public RabbitConsumer<W> PostWithLongID<F, E>()
             where F : IFollow, IGrainWithIntegerKey
+            where E : IEventBase<long>
         {
             HandlerFuncs.Add((byte[] bytes, object evt) =>
             {
-                if (evt is IActorEvent<long> value)
-                    return EventBus.ServiceProvider.GetService<IClusterClient>().GetGrain<F>(value.StateId).Tell(bytes);
+                if (evt is IEvent<long, E> value)
+                    return EventBus.ServiceProvider.GetService<IClusterClient>().GetGrain<F>(value.Base.StateId).Tell(bytes);
                 else
                     return Task.CompletedTask;
             });
             return this;
         }
-        public RabbitConsumer<W> ConcurrentPostWithLongID<F>()
+        public RabbitConsumer<W> ConcurrentPostWithLongID<F, E>()
             where F : IConcurrentFollow, IGrainWithIntegerKey
+            where E : IEventBase<long>
         {
             HandlerFuncs.Add((byte[] bytes, object evt) =>
             {
-                if (evt is IActorEvent<long> value)
-                    return EventBus.ServiceProvider.GetService<IClusterClient>().GetGrain<F>(value.StateId).ConcurrentTell(bytes);
+                if (evt is IEvent<long, E> value)
+                    return EventBus.ServiceProvider.GetService<IClusterClient>().GetGrain<F>(value.Base.StateId).ConcurrentTell(bytes);
                 else
                     return Task.CompletedTask;
             });
             return this;
         }
-        public RabbitConsumer<W> PostWithStringID<F>()
+        public RabbitConsumer<W> PostWithStringID<F, E>()
             where F : IFollow, IGrainWithStringKey
+            where E : IEventBase<string>
         {
             HandlerFuncs.Add((byte[] bytes, object evt) =>
             {
-                if (evt is IActorEvent<string> value)
-                    return EventBus.ServiceProvider.GetService<IClusterClient>().GetGrain<F>(value.StateId).Tell(bytes);
+                if (evt is IEvent<string, E> value)
+                    return EventBus.ServiceProvider.GetService<IClusterClient>().GetGrain<F>(value.Base.StateId).Tell(bytes);
                 else
                     return Task.CompletedTask;
             });
             return this;
         }
-        public RabbitConsumer<W> ConcurrentPostWithStringID<F>()
+        public RabbitConsumer<W> ConcurrentPostWithStringID<F, E>()
             where F : IConcurrentFollow, IGrainWithStringKey
+            where E : IEventBase<string>
         {
             HandlerFuncs.Add((byte[] bytes, object evt) =>
             {
-                if (evt is IActorEvent<string> value)
-                    return EventBus.ServiceProvider.GetService<IClusterClient>().GetGrain<F>(value.StateId).ConcurrentTell(bytes);
+                if (evt is IEvent<string, E> value)
+                    return EventBus.ServiceProvider.GetService<IClusterClient>().GetGrain<F>(value.Base.StateId).ConcurrentTell(bytes);
                 else
                     return Task.CompletedTask;
             });

@@ -7,13 +7,14 @@ using Ray.IGrains;
 
 namespace Ray.Grain
 {
-    public abstract class DbGrain<K, S> : ConcurrentFollowGrain<K, S, MessageInfo>
+    public abstract class DbGrain<K, E, S> : ConcurrentFollowGrain<K, E, S, MessageInfo>
+        where E : IEventBase<K>
           where S : class, IActorState<K>, new()
     {
         public DbGrain(ILogger logger) : base(logger)
         {
         }
-        protected override async ValueTask OnEventDelivered(IEvent @event)
+        protected override async ValueTask OnEventDelivered(IEvent<K, E> @event)
         {
             var task = Process(@event);
             if (!task.IsCompleted)
@@ -30,6 +31,6 @@ namespace Ray.Grain
                 });
             }
         }
-        protected abstract ValueTask Process(IEvent @event);
+        protected abstract ValueTask Process(IEvent<K, E> @event);
     }
 }

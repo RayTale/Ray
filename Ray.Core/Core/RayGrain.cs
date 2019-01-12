@@ -17,7 +17,8 @@ using Ray.Core.Utils;
 
 namespace Ray.Core
 {
-    public abstract class RayGrain<K, S,W> : Grain
+    public abstract class RayGrain<K, E, S, W> : Grain
+        where E : IEventBase<K>
         where S : class, IActorState<K>, new()
         where W : IBytesWrapper, new()
     {
@@ -33,7 +34,7 @@ namespace Ray.Core
         protected IJsonSerializer JsonSerializer { get; private set; }
         protected ISerializer Serializer { get; private set; }
         protected S State { get; set; }
-        protected IEventHandler<S> EventHandler { get; private set; }
+        protected IEventHandler<K, E, S> EventHandler { get; private set; }
         public abstract K GrainId { get; }
         protected virtual SnapshotSaveType SnapshotStorageType => SnapshotSaveType.Master;
         /// <summary>
@@ -67,9 +68,9 @@ namespace Ray.Core
             ProducerContainer = ServiceProvider.GetService<IProducerContainer>();
             Serializer = ServiceProvider.GetService<ISerializer>();
             JsonSerializer = ServiceProvider.GetService<IJsonSerializer>();
-            EventHandler = ServiceProvider.GetService<IEventHandler<S>>();
+            EventHandler = ServiceProvider.GetService<IEventHandler<K, E, S>>();
             //创建事件存储器
-            var eventStorageTask = StorageFactory.CreateEventStorage<K, S>(this, GrainId);
+            var eventStorageTask = StorageFactory.CreateEventStorage<K, E, S>(this, GrainId);
             if (!eventStorageTask.IsCompleted)
                 await eventStorageTask;
             EventStorage = eventStorageTask.Result;
@@ -257,7 +258,7 @@ namespace Ray.Core
         /// <summary>
         /// 事件存储器
         /// </summary>
-        protected IEventStorage<K> EventStorage { get; private set; }
+        protected IEventStorage<K, E> EventStorage { get; private set; }
         /// <summary>
         /// 状态存储器
         /// </summary>
@@ -266,20 +267,20 @@ namespace Ray.Core
         /// 事件发布器
         /// </summary>
         protected IProducer EventBusProducer { get; private set; }
-        protected virtual async Task<bool> RaiseEvent(IActorEvent<K> @event, EventUID uniqueId = null)
+        protected virtual async Task<bool> RaiseEvent(IEvent<K, E> @event, EventUID uniqueId = null)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace(LogEventIds.GrainSnapshot, "Start raise event, grain Id ={0} and state version = {1},event type = {2} ,event ={3},uniqueueId= {4}", GrainId.ToString(), State.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event), uniqueId);
             try
             {
                 State.IncrementDoingVersion(GrainType);//标记将要处理的Version
-                @event.StateId = GrainId;
-                @event.Version = State.Version + 1;
+                @event.Base.StateId = GrainId;
+                @event.Base.Version = State.Version + 1;
                 if (uniqueId == default) uniqueId = EventUID.Empty;
                 if (string.IsNullOrEmpty(uniqueId.UID))
-                    @event.Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    @event.Base.Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 else
-                    @event.Timestamp = uniqueId.Timestamp;
+                    @event.Base.Timestamp = uniqueId.Timestamp;
                 using (var ms = new PooledMemoryStream())
                 {
                     Serializer.Serialize(ms, @event);
@@ -326,7 +327,7 @@ namespace Ray.Core
                     else
                     {
                         if (Logger.IsEnabled(LogLevel.Information))
-                            Logger.LogInformation(LogEventIds.GrainRaiseEvent, "Raise event failure because of idempotency limitation, grain Id = {0},state version = {1},event type = {2} with version = {3}", GrainId.ToString(), State.Version, @event.GetType().FullName, @event.Version);
+                            Logger.LogInformation(LogEventIds.GrainRaiseEvent, "Raise event failure because of idempotency limitation, grain Id = {0},state version = {1},event type = {2} with version = {3}", GrainId.ToString(), State.Version, @event.GetType().FullName, @event.Base.Version);
                         State.DecrementDoingVersion();//还原doing Version
                     }
                 }
@@ -341,10 +342,10 @@ namespace Ray.Core
             return false;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual void OnRaiseSuccess(IEvent @event, byte[] bytes)
+        protected virtual void OnRaiseSuccess(IEvent<K, E> @event, byte[] bytes)
         {
         }
-        protected virtual void EventApply(S state, IEvent evt)
+        protected virtual void EventApply(S state, IEvent<K, E> evt)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace(LogEventIds.GrainRaiseEvent, "Start apply event, grain Id= {0} and state version is {1}},event type = {2},event = {3}", GrainId.ToString(), State.Version, evt.GetType().FullName, JsonSerializer.Serialize(evt));

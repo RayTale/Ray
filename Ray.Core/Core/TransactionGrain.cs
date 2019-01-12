@@ -14,7 +14,8 @@ using Ray.Core.Utils;
 
 namespace Ray.Core
 {
-    public abstract class TransactionGrain<K, S, W> : RayGrain<K, S, W>
+    public abstract class TransactionGrain<K, E, S, W> : RayGrain<K, E, S, W>
+        where E : IEventBase<K>
         where S : class, IActorState<K>, ICloneable<S>, new()
         where W : IBytesWrapper, new()
     {
@@ -25,7 +26,7 @@ namespace Ray.Core
         protected bool TransactionPending { get; private set; }
         protected long TransactionStartVersion { get; private set; }
         protected DateTimeOffset BeginTransactionTime { get; private set; }
-        private readonly List<EventTransmitWrapper<K>> EventsInTransactionProcessing = new List<EventTransmitWrapper<K>>();
+        private readonly List<EventTransmitWrapper<K, E>> EventsInTransactionProcessing = new List<EventTransmitWrapper<K, E>>();
         protected override async Task RecoveryState()
         {
             await base.RecoveryState();
@@ -174,7 +175,7 @@ namespace Ray.Core
                 EventsInTransactionProcessing.Clear();
             }
         }
-        protected override async Task<bool> RaiseEvent(IActorEvent<K> @event, EventUID uniqueId = null)
+        protected override async Task<bool> RaiseEvent(IEvent<K, E> @event, EventUID uniqueId = null)
         {
             if (TransactionPending)
             {
@@ -194,15 +195,15 @@ namespace Ray.Core
         /// <param name="event">事件本体</param>
         /// <param name="bytes">事件序列化之后的二进制数据</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected override void OnRaiseSuccess(IEvent @event, byte[] bytes)
+        protected override void OnRaiseSuccess(IEvent<K, E> @event, byte[] bytes)
         {
             using (var dms = new MemoryStream(bytes))
             {
-                EventApply(BackupState, (IEvent)Serializer.Deserialize(@event.GetType(), dms));
+                EventApply(BackupState, (IEvent<K, E>)Serializer.Deserialize(@event.GetType(), dms));
             }
             BackupState.FullUpdateVersion(@event, GrainType);//更新处理完成的Version
         }
-        protected void TransactionRaiseEvent(IActorEvent<K> @event, EventUID uniqueId = null, string hashKey = null)
+        protected void TransactionRaiseEvent(IEvent<K, E> @event, EventUID uniqueId = null, string hashKey = null)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace(LogEventIds.GrainSnapshot, "Start raise event by transaction, grain Id ={0} and state version = {1},event type = {2} ,event = {3},uniqueueId = {4},hashkey = {5}", GrainId.ToString(), State.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event), uniqueId, hashKey);
@@ -216,14 +217,14 @@ namespace Ray.Core
             try
             {
                 State.IncrementDoingVersion(GrainType);//标记将要处理的Version
-                @event.StateId = GrainId;
-                @event.Version = State.Version + 1;
+                @event.Base.StateId = GrainId;
+                @event.Base.Version = State.Version + 1;
                 if (uniqueId == default) uniqueId = EventUID.Empty;
                 if (string.IsNullOrEmpty(uniqueId.UID))
-                    @event.Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    @event.Base.Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 else
-                    @event.Timestamp = uniqueId.Timestamp;
-                EventsInTransactionProcessing.Add(new EventTransmitWrapper<K>(@event, uniqueId.UID, string.IsNullOrEmpty(hashKey) ? GrainId.ToString() : hashKey));
+                    @event.Base.Timestamp = uniqueId.Timestamp;
+                EventsInTransactionProcessing.Add(new EventTransmitWrapper<K, E>(@event, uniqueId.UID, string.IsNullOrEmpty(hashKey) ? GrainId.ToString() : hashKey));
                 EventApply(State, @event);
                 State.UpdateVersion(@event, GrainType);//更新处理完成的Version
                 if (Logger.IsEnabled(LogLevel.Trace))

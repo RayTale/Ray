@@ -15,11 +15,12 @@ using Ray.Core.State;
 
 namespace Ray.Core
 {
-    public abstract class ConcurrentFollowGrain<K, S, W> : FollowGrain<K, S, W>
+    public abstract class ConcurrentFollowGrain<K, E, S, W> : FollowGrain<K, E, S, W>
+          where E : IEventBase<K>
           where S : class, IActorState<K>, new()
           where W : IBytesWrapper
     {
-        readonly List<IEvent> UnprocessedEventList = new List<IEvent>();
+        readonly List<IEvent<K, E>> UnprocessedEventList = new List<IEvent<K, E>>();
         public ConcurrentFollowGrain(ILogger logger) : base(logger)
         {
         }
@@ -27,11 +28,11 @@ namespace Ray.Core
         /// <summary>
         /// 多生产者单消费者消息信道
         /// </summary>
-        protected IMpscChannel<DataAsyncWrapper<IEvent, bool>> ConcurrentChannel { get; private set; }
+        protected IMpscChannel<DataAsyncWrapper<IEvent<K, E>, bool>> ConcurrentChannel { get; private set; }
         protected override bool EventConcurrentProcessing => true;
         public override Task OnActivateAsync()
         {
-            ConcurrentChannel = ServiceProvider.GetService<IMpscChannel<DataAsyncWrapper<IEvent, bool>>>().BindConsumer(BatchInputProcessing);
+            ConcurrentChannel = ServiceProvider.GetService<IMpscChannel<DataAsyncWrapper<IEvent<K, E>, bool>>>().BindConsumer(BatchInputProcessing);
             ConcurrentChannel.ActiveConsumer();
             return base.OnActivateAsync();
         }
@@ -47,11 +48,11 @@ namespace Ray.Core
                 var message = Serializer.Deserialize<W>(wms);
                 using (var ems = new MemoryStream(message.Bytes))
                 {
-                    if (Serializer.Deserialize(TypeContainer.GetType(message.TypeName), ems) is IEvent @event)
+                    if (Serializer.Deserialize(TypeContainer.GetType(message.TypeName), ems) is IEvent<K, E> @event)
                     {
-                        if (@event.Version > State.Version)
+                        if (@event.Base.Version > State.Version)
                         {
-                            var writeTask = ConcurrentChannel.WriteAsync(new DataAsyncWrapper<IEvent, bool>(@event));
+                            var writeTask = ConcurrentChannel.WriteAsync(new DataAsyncWrapper<IEvent<K, E>, bool>(@event));
                             if (!writeTask.IsCompleted)
                                 await writeTask;
                             if (!writeTask.Result)
@@ -67,13 +68,13 @@ namespace Ray.Core
             }
         }
         readonly TimeoutException timeoutException = new TimeoutException($"{nameof(OnEventDelivered)} with timeouts in {nameof(BatchInputProcessing)}");
-        private async Task BatchInputProcessing(List<DataAsyncWrapper<IEvent, bool>> events)
+        private async Task BatchInputProcessing(List<DataAsyncWrapper<IEvent<K, E>, bool>> events)
         {
-            var evtList = new List<IEvent>();
+            var evtList = new List<IEvent<K, E>>();
             var startVersion = State.Version;
             if (UnprocessedEventList.Count > 0)
             {
-                startVersion = UnprocessedEventList.Last().Version;
+                startVersion = UnprocessedEventList.Last().Base.Version;
             }
             var maxVersion = startVersion;
             TaskCompletionSource<bool> maxRequest = default;
@@ -81,17 +82,17 @@ namespace Ray.Core
             {
                 foreach (var wrap in events)
                 {
-                    if (wrap.Value.Version <= startVersion)
+                    if (wrap.Value.Base.Version <= startVersion)
                     {
                         wrap.TaskSource.TrySetResult(true);
                     }
                     else
                     {
                         evtList.Add(wrap.Value);
-                        if (wrap.Value.Version > maxVersion)
+                        if (wrap.Value.Base.Version > maxVersion)
                         {
                             maxRequest?.TrySetResult(true);
-                            maxVersion = wrap.Value.Version;
+                            maxVersion = wrap.Value.Base.Version;
                             maxRequest = wrap.TaskSource;
                         }
                         else
@@ -100,13 +101,13 @@ namespace Ray.Core
                         }
                     }
                 }
-                var orderList = evtList.OrderBy(w => w.Version).ToList();
+                var orderList = evtList.OrderBy(e => e.Base.Version).ToList();
                 if (orderList.Count > 0)
                 {
                     var inputLast = orderList.Last();
-                    if (startVersion + orderList.Count != inputLast.Version)
+                    if (startVersion + orderList.Count != inputLast.Base.Version)
                     {
-                        var loadList = await EventStorage.GetListAsync(GrainId, startVersion, inputLast.Version);
+                        var loadList = await EventStorage.GetListAsync(GrainId, startVersion, inputLast.Base.Version);
                         UnprocessedEventList.AddRange(loadList);
                     }
                     else
@@ -134,7 +135,7 @@ namespace Ray.Core
                             {
                                 tokenSource.Cancel();
                                 var lastEvt = UnprocessedEventList.Last();
-                                State.UnsafeUpdateVersion(lastEvt.Version, lastEvt.Timestamp);
+                                State.UnsafeUpdateVersion(lastEvt.Base.Version, lastEvt.Base.Timestamp);
                                 var saveTask = SaveSnapshotAsync();
                                 if (!saveTask.IsCompleted)
                                     await saveTask;

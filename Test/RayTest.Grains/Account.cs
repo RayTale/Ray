@@ -9,7 +9,7 @@ using RayTest.IGrains.States;
 
 namespace RayTest.Grains
 {
-    public sealed class Account : TransactionGrain<long, AccountState, IGrains.MessageInfo>, IAccount
+    public sealed class Account : TransactionGrain<long, EventBase<long>, AccountState, IGrains.MessageInfo>, IAccount
     {
         public Account(ILogger<Account> logger) : base(logger)
         {

@@ -5,6 +5,7 @@ using Ray.EventBus.RabbitMQ;
 using Ray.Grain.EventHandles;
 using Ray.IGrains;
 using Ray.IGrains.Actors;
+using Ray.IGrains.Events;
 using Ray.IGrains.States;
 using Ray.Storage.MongoDB;
 using Ray.Storage.PostgreSQL;
@@ -30,15 +31,15 @@ namespace Ray.Grain
         }
         public static void AddGrainHandler(this IServiceCollection serviceCollection)
         {
-            serviceCollection.AddSingleton<IEventHandler<AccountState>, AccountEventHandle>();
+            serviceCollection.AddSingleton<IEventHandler<long, EventBase<long>, AccountState>, AccountEventHandle>();
         }
         private static void AddMQService(this IServiceCollection serviceCollection)
         {
             serviceCollection.AddRabbitMQ<MessageInfo>(async container =>
             {
                 await container.CreateEventBus<long>("Account", "account", 5).BindProducer<Account>().
-                     CreateConsumer<long>(DefaultPrefix.primary).ConcurrentPostWithLongID<IAccountFlow>().PostWithLongID<IAccountRep>().Complete().
-                     CreateConsumer<long>(DefaultPrefix.secondary).ConcurrentPostWithLongID<IAccountDb>().Complete()
+                     CreateConsumer<long>(DefaultPrefix.primary).ConcurrentPostWithLongID<IAccountFlow, EventBase<long>>().PostWithLongID<IAccountRep, EventBase<long>>().Complete().
+                     CreateConsumer<long>(DefaultPrefix.secondary).ConcurrentPostWithLongID<IAccountDb, EventBase<long>>().Complete()
                  .Enable();
             });
         }
