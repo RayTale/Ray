@@ -21,6 +21,6 @@
         /// <summary>
         /// 状态已经终结，不允许再产生新的事件
         /// </summary>
-        bool IsEnd { get; set; }
+        bool IsOver { get; set; }
     }
 }

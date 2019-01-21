@@ -3,6 +3,10 @@
     public class ArchiveOptions
     {
         /// <summary>
+        /// 是否开启归档
+        /// </summary>
+        public bool On { get; set; }
+        /// <summary>
         /// 归档必须满足的间隔毫秒数
         /// </summary>
         public int IntervalMilliseconds { get; set; }

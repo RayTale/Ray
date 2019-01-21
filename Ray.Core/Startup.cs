@@ -9,15 +9,36 @@ namespace Ray.Core
 {
     public static class Startup
     {
-        static readonly List<Func<IServiceProvider, Task>> methods = new List<Func<IServiceProvider, Task>>();
-        public static void Register(Func<IServiceProvider, Task> method)
+        static readonly List<FuncWrapper> methods = new List<FuncWrapper>();
+        public static void Register(Func<IServiceProvider, Task> method, int sortIndex = 0)
         {
-            methods.Add(method);
+            methods.Add(new FuncWrapper(sortIndex, method));
         }
         internal static Task StartRay(IServiceProvider serviceProvider)
         {
-            methods.Add(provider => provider.GetService<IConsumerManager>().Start());
-            return Task.WhenAll(methods.Select(m => m(serviceProvider)));
+            methods.Add(new FuncWrapper(int.MaxValue, provider => provider.GetService<IConsumerManager>().Start()));
+            methods.Sort(new FuncComparer());
+            return Task.WhenAll(methods.Select(value => value.Func(serviceProvider)));
+        }
+        private class FuncComparer : IComparer<FuncWrapper>
+        {
+            public int Compare(FuncWrapper x, FuncWrapper y)
+            {
+                if (x.SortIndex > y.SortIndex)
+                    return 0;
+                else
+                    return -1;
+            }
+        }
+        private class FuncWrapper
+        {
+            public FuncWrapper(int sortIndex, Func<IServiceProvider, Task> func)
+            {
+                SortIndex = sortIndex;
+                Func = func;
+            }
+            public int SortIndex { get; set; }
+            public Func<IServiceProvider, Task> Func { get; set; }
         }
     }
 }

@@ -14,9 +14,10 @@ using Ray.Core.Utils;
 
 namespace Ray.Core
 {
-    public abstract class TransactionGrain<K, E, S, W> : RayGrain<K, E, S, W>
+    public abstract class TransactionGrain<K, E, S, B, W> : RayGrain<K, E, S, B, W>
         where E : IEventBase<K>
-        where S : class, IActorState<K>, ICloneable<S>, new()
+        where S : class, IState<K, B>, ICloneable<S>, new()
+        where B : IStateBase<K>, new()
         where W : IBytesWrapper, new()
     {
         public TransactionGrain(ILogger logger) : base(logger)
@@ -55,7 +56,7 @@ namespace Ray.Core
                 if (!checkTask.IsCompleted)
                     await checkTask;
                 TransactionPending = true;
-                TransactionStartVersion = State.Version;
+                TransactionStartVersion = State.Base.Version;
                 BeginTransactionTime = DateTimeOffset.UtcNow;
                 if (Logger.IsEnabled(LogLevel.Trace))
                     Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Begin transaction successfully with id {0},transaction start state version {1}", GrainId.ToString(), TransactionStartVersion.ToString());
@@ -70,7 +71,7 @@ namespace Ray.Core
         protected async Task CommitTransaction()
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Commit transaction with id = {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), EventsInTransactionProcessing.Count.ToString(), TransactionStartVersion.ToString(), State.Version.ToString());
+                Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Commit transaction with id = {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), EventsInTransactionProcessing.Count.ToString(), TransactionStartVersion.ToString(), State.Base.Version.ToString());
             if (EventsInTransactionProcessing.Count > 0)
             {
                 try
@@ -112,7 +113,7 @@ namespace Ray.Core
                         catch (Exception ex)
                         {
                             if (Logger.IsEnabled(LogLevel.Error))
-                                Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), State.Version);
+                                Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), State.Base.Version);
                         }
                     }
                     else
@@ -124,7 +125,7 @@ namespace Ray.Core
                     if (!saveSnapshotTask.IsCompleted)
                         await saveSnapshotTask;
                     if (Logger.IsEnabled(LogLevel.Trace))
-                        Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Commit transaction with id {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), EventsInTransactionProcessing.Count.ToString(), TransactionStartVersion.ToString(), State.Version.ToString());
+                        Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Commit transaction with id {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), EventsInTransactionProcessing.Count.ToString(), TransactionStartVersion.ToString(), State.Base.Version.ToString());
                 }
                 catch (Exception ex)
                 {
@@ -140,10 +141,10 @@ namespace Ray.Core
             if (TransactionPending)
             {
                 if (Logger.IsEnabled(LogLevel.Trace))
-                    Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Rollback transaction successfully with id = {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), EventsInTransactionProcessing.Count.ToString(), TransactionStartVersion.ToString(), State.Version.ToString());
+                    Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Rollback transaction successfully with id = {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), EventsInTransactionProcessing.Count.ToString(), TransactionStartVersion.ToString(), State.Base.Version.ToString());
                 try
                 {
-                    if (BackupState.Version == TransactionStartVersion)
+                    if (BackupState.Base.Version == TransactionStartVersion)
                     {
                         State = BackupState.Clone();
                     }
@@ -154,7 +155,7 @@ namespace Ray.Core
                     EventsInTransactionProcessing.Clear();
                     TransactionPending = false;
                     if (Logger.IsEnabled(LogLevel.Trace))
-                        Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Rollback transaction successfully with id = {0},state version = {1}", GrainId.ToString(), State.Version.ToString());
+                        Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Rollback transaction successfully with id = {0},state version = {1}", GrainId.ToString(), State.Base.Version.ToString());
                 }
                 catch (Exception ex)
                 {
@@ -168,8 +169,8 @@ namespace Ray.Core
         private async ValueTask TransactionStateCheck()
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Check transaction with id = {0},backup version = {1},state version = {2}", GrainId.ToString(), BackupState.Version, State.Version);
-            if (BackupState.Version != State.Version)
+                Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Check transaction with id = {0},backup version = {1},state version = {2}", GrainId.ToString(), BackupState.Base.Version, State.Base.Version);
+            if (BackupState.Base.Version != State.Base.Version)
             {
                 await RecoveryState();
                 EventsInTransactionProcessing.Clear();
@@ -206,7 +207,7 @@ namespace Ray.Core
         protected void TransactionRaiseEvent(IEvent<K, E> @event, EventUID uniqueId = null, string hashKey = null)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.GrainSnapshot, "Start raise event by transaction, grain Id ={0} and state version = {1},event type = {2} ,event = {3},uniqueueId = {4},hashkey = {5}", GrainId.ToString(), State.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event), uniqueId, hashKey);
+                Logger.LogTrace(LogEventIds.GrainSnapshot, "Start raise event by transaction, grain Id ={0} and state version = {1},event type = {2} ,event = {3},uniqueueId = {4},hashkey = {5}", GrainId.ToString(), State.Base.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event), uniqueId, hashKey);
             if (!TransactionPending)
             {
                 var ex = new UnopenTransactionException(GrainId.ToString(), GrainType, nameof(TransactionRaiseEvent));
@@ -218,7 +219,7 @@ namespace Ray.Core
             {
                 State.IncrementDoingVersion(GrainType);//标记将要处理的Version
                 @event.Base.StateId = GrainId;
-                @event.Base.Version = State.Version + 1;
+                @event.Base.Version = State.Base.Version + 1;
                 if (uniqueId == default) uniqueId = EventUID.Empty;
                 if (string.IsNullOrEmpty(uniqueId.UID))
                     @event.Base.Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -228,7 +229,7 @@ namespace Ray.Core
                 EventApply(State, @event);
                 State.UpdateVersion(@event, GrainType);//更新处理完成的Version
                 if (Logger.IsEnabled(LogLevel.Trace))
-                    Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Raise event successfully, grain Id= {0} and state version is {1}}", GrainId.ToString(), State.Version);
+                    Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Raise event successfully, grain Id= {0} and state version is {1}}", GrainId.ToString(), State.Base.Version);
             }
             catch (Exception ex)
             {

@@ -35,10 +35,7 @@ namespace Ray.EventBus.RabbitMQ
         }
         public async Task Work(RabbitEventBus<W> bus)
         {
-            foreach (var producer in bus.Producers)
-            {
-                eventBusDictionary.TryAdd(producer, bus);
-            }
+            eventBusDictionary.TryAdd(bus.ProducerType, bus);
             eventBusList.Add(bus);
             using (var channel = await rabbitMQClient.PullModel())
             {
@@ -54,7 +51,7 @@ namespace Ray.EventBus.RabbitMQ
             {
                 return new ValueTask<IProducer>(producerDict.GetOrAdd(type, key =>
                 {
-                    return new RabbitProducer<W>(rabbitMQClient, eventBus);
+                    return new RabbitProducer<W>(rabbitMQClient, eventBus, type);
                 }));
             }
             else

@@ -10,6 +10,7 @@ namespace Ray.Core.Storage
         Task<IList<IEvent<K, E>>> GetList(K stateId, long startVersion, long endVersion);
         Task<IList<IEvent<K, E>>> GetListByType(K stateId, string typeCode, long startVersion, int limit);
         Task<bool> Append(IEvent<K, E> data, byte[] bytes, string uniqueId = null);
+        Task Delete(K stateId, long endVersion);
         Task TransactionBatchAppend(List<EventTransmitWrapper<K, E>> list);
     }
 }

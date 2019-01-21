@@ -10,7 +10,8 @@ using Ray.IGrains.States;
 
 namespace Ray.Grain
 {
-    public sealed class AccountFlow : ConcurrentFollowGrain<long, EventBase<long>, AsyncState<long>, MessageInfo>, IAccountFlow
+    public sealed class AccountFlow :
+        ConcurrentFollowGrain<long, EventBase<long>, FollowState<long>, StateBase<long>, MessageInfo>, IAccountFlow
     {
         public AccountFlow(ILogger<AccountFlow> logger) : base(logger)
         {

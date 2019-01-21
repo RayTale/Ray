@@ -23,8 +23,7 @@ namespace Ray.Storage.PostgreSQL
             this.configureContainer = configureContainer;
         }
         readonly ConcurrentDictionary<string, object> eventStorageDict = new ConcurrentDictionary<string, object>();
-        public async ValueTask<IEventStorage<K, E>> CreateEventStorage<K, E, S>(Grain grain, K grainId)
-             where S : class, IActorState<K>, new()
+        public async ValueTask<IEventStorage<K, E>> CreateEventStorage<K, E>(Grain grain, K grainId)
              where E : IEventBase<K>
         {
             var grainType = grain.GetType();
@@ -54,8 +53,9 @@ namespace Ray.Storage.PostgreSQL
             }
         }
         readonly ConcurrentDictionary<string, object> stateStorageDict = new ConcurrentDictionary<string, object>();
-        public async ValueTask<IStateStorage<K, S>> CreateStateStorage<K, S>(Grain grain, K grainId)
-            where S : class, IActorState<K>, new()
+        public async ValueTask<IStateStorage<K, S, B>> CreateStateStorage<K, S, B>(Grain grain, K grainId)
+            where S : class, IState<K, B>, new()
+            where B : IStateBase<K>, new()
         {
             var grainType = grain.GetType();
             if (configureContainer.TryGetValue(grainType, out var value) &&
@@ -74,14 +74,20 @@ namespace Ray.Storage.PostgreSQL
                     await configTask;
                 var storage = stateStorageDict.GetOrAdd(dictKey, key =>
                {
-                   return new SqlStateStorage<K, S>(serviceProvider.GetService<ISerializer>(), configTask.Result);
+                   return new SqlStateStorage<K, S, B>(serviceProvider.GetService<ISerializer>(), configTask.Result);
                });
-                return storage as SqlStateStorage<K, S>;
+                return storage as SqlStateStorage<K, S, B>;
             }
             else
             {
                 throw new NotImplementedException($"{nameof(ConfigureBuilderWrapper<K, StorageConfig, ConfigParameter>)} of {grainType.FullName}");
             }
+        }
+
+        ValueTask<IArchiveStorage<K, S, B>> IStorageFactory.CreateArchiveStorage<K, S, B>(Grain grain, K grainId)
+        {
+            //TODO
+            throw new NotImplementedException();
         }
     }
 }

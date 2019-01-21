@@ -4,7 +4,7 @@ using RayTest.IGrains.States;
 
 namespace RayTest.Grains.EventHandles
 {
-    public class AccountEventHandle : IEventHandler<long, EventBase<long>, AccountState>
+    public class AccountEventHandle : IEventHandler<long, EventBase<long>, AccountState, StateBase<long>>
     {
         public void Apply(AccountState state, IEvent<long, EventBase<long>> evt)
         {

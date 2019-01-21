@@ -15,9 +15,10 @@ using Ray.Core.State;
 
 namespace Ray.Core
 {
-    public abstract class ConcurrentFollowGrain<K, E, S, W> : FollowGrain<K, E, S, W>
+    public abstract class ConcurrentFollowGrain<K, E, S, B, W> : FollowGrain<K, E, S, B, W>, IConcurrentFollow
           where E : IEventBase<K>
-          where S : class, IActorState<K>, new()
+          where S : class, IState<K, B>, new()
+          where B : IStateBase<K>, new()
           where W : IBytesWrapper
     {
         readonly List<IEvent<K, E>> UnprocessedEventList = new List<IEvent<K, E>>();
@@ -50,7 +51,7 @@ namespace Ray.Core
                 {
                     if (Serializer.Deserialize(TypeContainer.GetType(message.TypeName), ems) is IEvent<K, E> @event)
                     {
-                        if (@event.Base.Version > State.Version)
+                        if (@event.Base.Version > State.Base.Version)
                         {
                             var writeTask = ConcurrentChannel.WriteAsync(new DataAsyncWrapper<IEvent<K, E>, bool>(@event));
                             if (!writeTask.IsCompleted)
@@ -71,7 +72,7 @@ namespace Ray.Core
         private async Task BatchInputProcessing(List<DataAsyncWrapper<IEvent<K, E>, bool>> events)
         {
             var evtList = new List<IEvent<K, E>>();
-            var startVersion = State.Version;
+            var startVersion = State.Base.Version;
             if (UnprocessedEventList.Count > 0)
             {
                 startVersion = UnprocessedEventList.Last().Base.Version;

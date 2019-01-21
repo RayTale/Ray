@@ -8,7 +8,7 @@ using Ray.IGrains.States;
 
 namespace Ray.Grain
 {
-    public sealed class AccountDb : DbGrain<long, EventBase<long>, AsyncState<long>>, IAccountDb
+    public sealed class AccountDb : DbGrain<long, EventBase<long>, FollowState<long>, StateBase<long>>, IAccountDb
     {
         public AccountDb(ILogger<AccountDb> logger) : base(logger)
         {

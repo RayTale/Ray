@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Orleans;
 using Orleans.Hosting;
+using Ray.Core.Abstractions;
 using Ray.Core.Channels;
 using Ray.Core.Serialization;
 using Ray.Core.Storage;
@@ -15,6 +16,7 @@ namespace Ray.Core
             serviceCollection.AddSingleton<IJsonSerializer, DefaultJsonSerializer>();
             serviceCollection.AddSingleton<IConfigureBuilderContainer, ConfigureBuilderContainer>();
             serviceCollection.AddSingleton<IStorageFactoryContainer, StorageFactoryContainer>();
+            serviceCollection.AddSingleton<IFollowUnitContainer, FollowUnitContainer>();
         }
         public static IClientBuilder AddRay(this IClientBuilder clientBuilder)
         {

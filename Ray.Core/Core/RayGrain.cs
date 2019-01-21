@@ -9,6 +9,7 @@ using Orleans;
 using Ray.Core.Configuration;
 using Ray.Core.Event;
 using Ray.Core.EventBus;
+using Ray.Core.Exceptions;
 using Ray.Core.Logging;
 using Ray.Core.Serialization;
 using Ray.Core.State;
@@ -17,9 +18,10 @@ using Ray.Core.Utils;
 
 namespace Ray.Core
 {
-    public abstract class RayGrain<K, E, S, W> : Grain
+    public abstract class RayGrain<K, E, S, B, W> : Grain
         where E : IEventBase<K>
-        where S : class, IActorState<K>, new()
+        where S : class, IState<K, B>, new()
+        where B : IStateBase<K>, new()
         where W : IBytesWrapper, new()
     {
         public RayGrain(ILogger logger)
@@ -28,15 +30,19 @@ namespace Ray.Core
             GrainType = GetType();
         }
         protected BaseOptions ConfigOptions { get; private set; }
+        protected ArchiveOptions ArchiveOptions { get; private set; }
         protected ILogger Logger { get; private set; }
         protected IProducerContainer ProducerContainer { get; private set; }
         protected IStorageFactory StorageFactory { get; private set; }
         protected IJsonSerializer JsonSerializer { get; private set; }
         protected ISerializer Serializer { get; private set; }
         protected S State { get; set; }
-        protected IEventHandler<K, E, S> EventHandler { get; private set; }
+        protected IEventHandler<K, E, S, B> EventHandler { get; private set; }
         public abstract K GrainId { get; }
-        protected virtual SnapshotSaveType SnapshotStorageType => SnapshotSaveType.Master;
+        /// <summary>
+        /// 快照
+        /// </summary>
+        protected virtual StateStorageProcessor StateStorageProcessor => StateStorageProcessor.Master;
         /// <summary>
         /// 保存快照的事件Version间隔
         /// </summary>
@@ -57,6 +63,9 @@ namespace Ray.Core
         /// 是否支持异步follow，true代表事件会广播，false事件不会进行广播
         /// </summary>
         protected virtual bool SupportFollow => true;
+        /// <summary>
+        /// 当前Grain的真实Type
+        /// </summary>
         protected Type GrainType { get; }
         /// <summary>
         /// 依赖注入统一方法
@@ -64,18 +73,19 @@ namespace Ray.Core
         protected async virtual ValueTask DependencyInjection()
         {
             ConfigOptions = ServiceProvider.GetService<IOptions<BaseOptions>>().Value;
+            ArchiveOptions = ServiceProvider.GetService<IOptions<ArchiveOptions>>().Value;
             StorageFactory = ServiceProvider.GetService<IStorageFactoryContainer>().CreateFactory(GrainType);
             ProducerContainer = ServiceProvider.GetService<IProducerContainer>();
             Serializer = ServiceProvider.GetService<ISerializer>();
             JsonSerializer = ServiceProvider.GetService<IJsonSerializer>();
-            EventHandler = ServiceProvider.GetService<IEventHandler<K, E, S>>();
+            EventHandler = ServiceProvider.GetService<IEventHandler<K, E, S, B>>();
             //创建事件存储器
-            var eventStorageTask = StorageFactory.CreateEventStorage<K, E, S>(this, GrainId);
+            var eventStorageTask = StorageFactory.CreateEventStorage<K, E>(this, GrainId);
             if (!eventStorageTask.IsCompleted)
                 await eventStorageTask;
             EventStorage = eventStorageTask.Result;
             //创建状态存储器
-            var stateStorageTask = StorageFactory.CreateStateStorage<K, S>(this, GrainId);
+            var stateStorageTask = StorageFactory.CreateStateStorage<K, S, B>(this, GrainId);
             if (!stateStorageTask.IsCompleted)
                 await stateStorageTask;
             StateStorage = stateStorageTask.Result;
@@ -124,7 +134,7 @@ namespace Ray.Core
                     await readSnapshotTask;
                 while (true)
                 {
-                    var eventList = await EventStorage.GetList(GrainId, State.Version, State.Version + NumberOfEventsPerRead);
+                    var eventList = await EventStorage.GetList(GrainId, State.Base.Version, State.Base.Version + NumberOfEventsPerRead);
                     foreach (var @event in eventList)
                     {
                         State.IncrementDoingVersion(GrainType);//标记将要处理的Version
@@ -134,11 +144,11 @@ namespace Ray.Core
                     if (eventList.Count < NumberOfEventsPerRead) break;
                 };
                 if (Logger.IsEnabled(LogLevel.Trace))
-                    Logger.LogTrace(LogEventIds.GrainStateRecoveryId, "The state of id = {0} recovery has been completed ,state version = {1}", GrainId.ToString(), State.Version);
+                    Logger.LogTrace(LogEventIds.GrainStateRecoveryId, "The state of id = {0} recovery has been completed ,state version = {1}", GrainId.ToString(), State.Base.Version);
             }
             catch (Exception ex)
             {
-                Logger.LogCritical(LogEventIds.GrainStateRecoveryId, ex, "The state of id = {0} recovery has failed ,state version = {1}", GrainId.ToString(), State.Version);
+                Logger.LogCritical(LogEventIds.GrainStateRecoveryId, ex, "The state of id = {0} recovery has failed ,state version = {1}", GrainId.ToString(), State.Base.Version);
                 ExceptionDispatchInfo.Capture(ex).Throw();
             }
         }
@@ -146,7 +156,7 @@ namespace Ray.Core
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace(LogEventIds.GrainDeactivateId, "Grain start deactivation with id = {0}", GrainId.ToString());
-            var needSaveSnap = State.Version - SnapshotEventVersion >= MinSnapshotVersionInterval;
+            var needSaveSnap = State.Base.Version - SnapshotEventVersion >= MinSnapshotVersionInterval;
             try
             {
                 if (needSaveSnap)
@@ -177,7 +187,7 @@ namespace Ray.Core
         protected virtual async Task ReadSnapshotAsync()
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.GrainSnapshot, "Start read snapshot  with Id = {0} ,state version = {1}", GrainId.ToString(), State.Version);
+                Logger.LogTrace(LogEventIds.GrainSnapshot, "Start read snapshot  with Id = {0} ,state version = {1}", GrainId.ToString(), State.Base.Version);
             try
             {
                 State = await StateStorage.Get(GrainId);
@@ -188,9 +198,9 @@ namespace Ray.Core
                     if (!createTask.IsCompleted)
                         await createTask;
                 }
-                SnapshotEventVersion = State.Version;
+                SnapshotEventVersion = State.Base.Version;
                 if (Logger.IsEnabled(LogLevel.Trace))
-                    Logger.LogTrace(LogEventIds.GrainSnapshot, "The snapshot of id = {0} read completed, state version = {1}", GrainId.ToString(), State.Version);
+                    Logger.LogTrace(LogEventIds.GrainSnapshot, "The snapshot of id = {0} read completed, state version = {1}", GrainId.ToString(), State.Base.Version);
             }
             catch (Exception ex)
             {
@@ -202,12 +212,14 @@ namespace Ray.Core
 
         protected async ValueTask SaveSnapshotAsync(bool force = false)
         {
+            if (State.Base.Version != State.Base.DoingVersion)
+                throw new StateInsecurityException(State.Base.StateId.ToString(), GrainType, State.Base.DoingVersion, State.Base.Version);
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.GrainSnapshot, "Start save snapshot  with Id = {0} ,state version = {1},save type = {2}", GrainId.ToString(), State.Version, SnapshotStorageType.ToString());
-            if (SnapshotStorageType == SnapshotSaveType.Master)
+                Logger.LogTrace(LogEventIds.GrainSnapshot, "Start save snapshot  with Id = {0} ,state version = {1},save type = {2}", GrainId.ToString(), State.Base.Version, StateStorageProcessor.ToString());
+            if (StateStorageProcessor == StateStorageProcessor.Master)
             {
                 //如果版本号差超过设置则更新快照
-                if (force || (State.Version - SnapshotEventVersion >= SnapshotVersionInterval))
+                if (force || (State.Base.Version - SnapshotEventVersion >= SnapshotVersionInterval))
                 {
                     try
                     {
@@ -217,16 +229,16 @@ namespace Ray.Core
                         if (NoSnapshot)
                         {
                             await StateStorage.Insert(State);
-                            SnapshotEventVersion = State.Version;
+                            SnapshotEventVersion = State.Base.Version;
                             NoSnapshot = false;
                         }
                         else
                         {
                             await StateStorage.Update(State);
-                            SnapshotEventVersion = State.Version;
+                            SnapshotEventVersion = State.Base.Version;
                         }
                         if (Logger.IsEnabled(LogLevel.Trace))
-                            Logger.LogTrace(LogEventIds.GrainSnapshot, "The snapshot of id={0} save completed ,state version = {1}", GrainId.ToString(), State.Version);
+                            Logger.LogTrace(LogEventIds.GrainSnapshot, "The snapshot of id={0} save completed ,state version = {1}", GrainId.ToString(), State.Base.Version);
                     }
                     catch (Exception ex)
                     {
@@ -236,6 +248,29 @@ namespace Ray.Core
                     }
                 }
             }
+        }
+        protected async Task Over()
+        {
+            if (State.Base.IsOver)
+                throw new StateIsOverException(State.Base.StateId.ToString(), GrainType);
+            if (State.Base.Version != State.Base.DoingVersion)
+                throw new StateInsecurityException(State.Base.StateId.ToString(), GrainType, State.Base.DoingVersion, State.Base.Version);
+            State.Base.IsOver = true;
+            State.Base.IsLatest = true;
+            if (SnapshotEventVersion != State.Base.Version)
+            {
+                var saveTask = SaveSnapshotAsync(true);
+                if (!saveTask.IsCompleted)
+                    await saveTask;
+            }
+            else
+            {
+                await StateStorage.Over(State.Base.StateId);
+            }
+        }
+        protected virtual async ValueTask ClearEvents(long endVersion)
+        {
+            //TODO 清理事件接口
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask OnSaveSnapshot() => new ValueTask();
@@ -247,13 +282,25 @@ namespace Ray.Core
         {
             State = new S
             {
-                StateId = GrainId
+                Base = new B
+                {
+                    StateId = GrainId
+                }
             };
             return new ValueTask();
         }
-        protected async Task ClearStateAsync()
+        /// <summary>
+        /// 删除状态
+        /// </summary>
+        /// <returns></returns>
+        protected async ValueTask DeleteState()
         {
-            await StateStorage.Delete(GrainId);
+            //TODO 需要判定快照是不是已经被清理，如果被清理则不允许删除快照
+            if (SnapshotEventVersion > 0)
+            {
+                await StateStorage.Delete(GrainId);
+                SnapshotEventVersion = 0;
+            }
         }
         /// <summary>
         /// 事件存储器
@@ -262,7 +309,11 @@ namespace Ray.Core
         /// <summary>
         /// 状态存储器
         /// </summary>
-        protected IStateStorage<K, S> StateStorage { get; private set; }
+        protected IStateStorage<K, S, B> StateStorage { get; private set; }
+        /// <summary>
+        /// 归档存储器
+        /// </summary>
+        protected IArchiveStorage<K, S, B> ArchiveStorage { get; private set; }
         /// <summary>
         /// 事件发布器
         /// </summary>
@@ -270,12 +321,14 @@ namespace Ray.Core
         protected virtual async Task<bool> RaiseEvent(IEvent<K, E> @event, EventUID uniqueId = null)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.GrainSnapshot, "Start raise event, grain Id ={0} and state version = {1},event type = {2} ,event ={3},uniqueueId= {4}", GrainId.ToString(), State.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event), uniqueId);
+                Logger.LogTrace(LogEventIds.GrainSnapshot, "Start raise event, grain Id ={0} and state version = {1},event type = {2} ,event ={3},uniqueueId= {4}", GrainId.ToString(), State.Base.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event), uniqueId);
+            if (State.Base.IsOver)
+                throw new StateIsOverException(State.Base.StateId.ToString(), GrainType);
             try
             {
                 State.IncrementDoingVersion(GrainType);//标记将要处理的Version
                 @event.Base.StateId = GrainId;
-                @event.Base.Version = State.Version + 1;
+                @event.Base.Version = State.Base.Version + 1;
                 if (uniqueId == default) uniqueId = EventUID.Empty;
                 if (string.IsNullOrEmpty(uniqueId.UID))
                     @event.Base.Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -308,7 +361,7 @@ namespace Ray.Core
                             catch (Exception ex)
                             {
                                 if (Logger.IsEnabled(LogLevel.Error))
-                                    Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), State.Version);
+                                    Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), State.Base.Version);
                             }
                         }
                         else
@@ -321,13 +374,13 @@ namespace Ray.Core
                             await saveSnapshotTask;
                         OnRaiseSuccess(@event, bytes);
                         if (Logger.IsEnabled(LogLevel.Trace))
-                            Logger.LogTrace(LogEventIds.GrainRaiseEvent, "Raise event successfully, grain Id= {0} and state version = {1}}", GrainId.ToString(), State.Version);
+                            Logger.LogTrace(LogEventIds.GrainRaiseEvent, "Raise event successfully, grain Id= {0} and state version = {1}}", GrainId.ToString(), State.Base.Version);
                         return true;
                     }
                     else
                     {
                         if (Logger.IsEnabled(LogLevel.Information))
-                            Logger.LogInformation(LogEventIds.GrainRaiseEvent, "Raise event failure because of idempotency limitation, grain Id = {0},state version = {1},event type = {2} with version = {3}", GrainId.ToString(), State.Version, @event.GetType().FullName, @event.Base.Version);
+                            Logger.LogInformation(LogEventIds.GrainRaiseEvent, "Raise event failure because of idempotency limitation, grain Id = {0},state version = {1},event type = {2} with version = {3}", GrainId.ToString(), State.Base.Version, @event.GetType().FullName, @event.Base.Version);
                         State.DecrementDoingVersion();//还原doing Version
                     }
                 }
@@ -335,7 +388,7 @@ namespace Ray.Core
             catch (Exception ex)
             {
                 if (Logger.IsEnabled(LogLevel.Error))
-                    Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "Raise event produces errors, state Id = {0}, version ={1},event type = {2},event = {3}", GrainId.ToString(), State.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event));
+                    Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "Raise event produces errors, state Id = {0}, version ={1},event type = {2},event = {3}", GrainId.ToString(), State.Base.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event));
                 await RecoveryState();//还原状态
                 ExceptionDispatchInfo.Capture(ex).Throw();
             }
@@ -345,10 +398,14 @@ namespace Ray.Core
         protected virtual void OnRaiseSuccess(IEvent<K, E> @event, byte[] bytes)
         {
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected virtual void OnArchiveCompleted()
+        {
+        }
         protected virtual void EventApply(S state, IEvent<K, E> evt)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.GrainRaiseEvent, "Start apply event, grain Id= {0} and state version is {1}},event type = {2},event = {3}", GrainId.ToString(), State.Version, evt.GetType().FullName, JsonSerializer.Serialize(evt));
+                Logger.LogTrace(LogEventIds.GrainRaiseEvent, "Start apply event, grain Id= {0} and state version is {1}},event type = {2},event = {3}", GrainId.ToString(), State.Base.Version, evt.GetType().FullName, JsonSerializer.Serialize(evt));
             EventHandler.Apply(state, evt);
         }
         /// <summary>

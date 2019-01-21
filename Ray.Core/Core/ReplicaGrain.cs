@@ -7,18 +7,19 @@ using Ray.Core.State;
 
 namespace Ray.Core
 {
-    public abstract class ReplicaGrain<K, E, S, W> : FollowGrain<K, E, S, W>
+    public abstract class ReplicaGrain<K, E, S, B, W> : FollowGrain<K, E, S, B, W>
         where E : IEventBase<K>
-        where S : class, IActorState<K>, new()
+        where S : class, IState<K, B>, new()
+        where B : IStateBase<K>, new()
         where W : IBytesWrapper
     {
         public ReplicaGrain(ILogger logger) : base(logger)
         {
         }
-        protected IEventHandler<K, E, S> EventHandler { get; private set; }
+        protected IEventHandler<K, E, S, B> EventHandler { get; private set; }
         public override Task OnActivateAsync()
         {
-            EventHandler = ServiceProvider.GetService<IEventHandler<K, E, S>>();
+            EventHandler = ServiceProvider.GetService<IEventHandler<K, E, S, B>>();
             return base.OnActivateAsync();
         }
         protected override bool SaveSnapshot => false;

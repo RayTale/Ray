@@ -8,8 +8,9 @@ using Ray.Core.Utils;
 
 namespace Ray.Storage.PostgreSQL
 {
-    public class SqlStateStorage<K, T> : IStateStorage<K, T>
-        where T : class, IActorState<K>
+    public class SqlStateStorage<K, S, B> : IStateStorage<K, S, B>
+        where S : class, IState<K, B>
+        where B : IStateBase<K>, new()
     {
         readonly StorageConfig tableInfo;
         private readonly string deleteSql;
@@ -34,7 +35,7 @@ namespace Ray.Storage.PostgreSQL
             }
         }
 
-        public async Task<T> Get(K id)
+        public async Task<S> Get(K id)
         {
             byte[] state;
             using (var conn = tableInfo.CreateConnection())
@@ -45,32 +46,38 @@ namespace Ray.Storage.PostgreSQL
             {
                 using (var ms = new MemoryStream(state))
                 {
-                    return serializer.Deserialize<T>(ms);
+                    return serializer.Deserialize<S>(ms);
                 }
             }
             return null;
         }
 
-        public async Task Insert(T data)
+        public async Task Insert(S data)
         {
             using (var ms = new PooledMemoryStream())
             {
                 serializer.Serialize(ms, data);
                 using (var connection = tableInfo.CreateConnection())
                 {
-                    await connection.ExecuteAsync(insertSql, new { StateId = data.StateId.ToString(), Data = ms.ToArray(), data.Version });
+                    await connection.ExecuteAsync(insertSql, new { StateId = data.Base.StateId.ToString(), Data = ms.ToArray(), data.Base.Version });
                 }
             }
         }
 
-        public async Task Update(T data)
+        public Task Over(K id)
+        {
+            //TODO
+            throw new System.NotImplementedException();
+        }
+
+        public async Task Update(S data)
         {
             using (var ms = new PooledMemoryStream())
             {
                 serializer.Serialize(ms, data);
                 using (var connection = tableInfo.CreateConnection())
                 {
-                    await connection.ExecuteAsync(updateSql, new { StateId = data.StateId.ToString(), Data = ms.ToArray(), data.Version });
+                    await connection.ExecuteAsync(updateSql, new { StateId = data.Base.StateId.ToString(), Data = ms.ToArray(), data.Base.Version });
                 }
             }
         }

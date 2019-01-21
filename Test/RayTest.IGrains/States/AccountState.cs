@@ -4,22 +4,23 @@ using Ray.Core.State;
 namespace RayTest.IGrains.States
 {
     [ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
-    public class AccountState : IActorState<long>, ICloneable<AccountState>
+    public class AccountState : BaseState<long>, ICloneable<AccountState>
     {
-        #region base
-        public long StateId { get; set; }
-        public long Version { get; set; }
-        public long DoingVersion { get; set; }
-        #endregion
+        public override StateBase<long> Base { get; set; }
         public decimal Balance { get; set; }
-
         public AccountState Clone()
         {
             return new AccountState
             {
-                StateId = StateId,
-                Version = Version,
-                DoingVersion = DoingVersion,
+                Base = new StateBase<long>
+                {
+                    StateId = Base.StateId,
+                    DoingVersion = Base.DoingVersion,
+                    IsOver = Base.IsOver,
+                    Version = Base.Version,
+                    IsLatest = Base.IsLatest,
+                    LatestMinEventTimestamp = Base.LatestMinEventTimestamp
+                },
                 Balance = Balance
             };
         }

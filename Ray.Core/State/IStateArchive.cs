@@ -1,7 +1,8 @@
 ﻿namespace Ray.Core.State
 {
-    public interface IStateArchive<K, S>
-        where S : IActorState<K>
+    public interface IStateArchive<K, S, B>
+        where S : IState<K, B>
+        where B : IStateBase<K>, new()
     {
         S State { get; set; }
         ArchiveInfo ArchiveInfo { get; set; }

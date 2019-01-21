@@ -1,24 +1,30 @@
-﻿using System.Collections.Concurrent;
+﻿using System;
+using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using Ray.Core.EventBus;
 using Ray.Core.Serialization;
 
 namespace Ray.EventBus.RabbitMQ
 {
-    public class RabbitProducer<W> : IProducer 
+    public class RabbitProducer<W> : IProducer
         where W : IBytesWrapper
     {
         readonly RabbitEventBus<W> publisher;
         readonly IRabbitMQClient rabbitMQClient;
         public RabbitProducer(
             IRabbitMQClient rabbitMQClient,
-            RabbitEventBus<W> publisher)
+            RabbitEventBus<W> publisher,
+            Type grainType)
         {
+            GrainType = grainType;
             this.publisher = publisher;
             this.rabbitMQClient = rabbitMQClient;
         }
 
         readonly ConcurrentDictionary<string, ModelWrapper> modelDict = new ConcurrentDictionary<string, ModelWrapper>();
+
+        public Type GrainType { get; }
+
         public async ValueTask<ModelWrapper> PullModel(string route)
         {
             if (!modelDict.TryGetValue(route, out var model))
