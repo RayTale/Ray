@@ -9,7 +9,8 @@ using Ray.IGrains.States;
 
 namespace Ray.Grain
 {
-    public sealed class AccountRep : ReplicaGrain<long, EventBase<long>, AccountState, MessageInfo>, IAccountRep
+    public sealed class AccountRep : 
+        ReplicaGrain<long, EventBase<long>, AccountState, StateBase<long>, MessageInfo>, IAccountRep
     {
 
         public AccountRep(ILogger<AccountRep> logger) : base(logger)

@@ -28,7 +28,7 @@ namespace RayTest.Grains
         }
         public static void AddGrainHandler(this IServiceCollection serviceCollection)
         {
-            serviceCollection.AddSingleton<IEventHandler<long, EventBase<long>, AccountState>, AccountEventHandle>();
+            serviceCollection.AddSingleton<IEventHandler<long, EventBase<long>, AccountState, StateBase<long>>, AccountEventHandle>();
         }
     }
 }

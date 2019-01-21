@@ -217,5 +217,11 @@ namespace Ray.Storage.PostgreSQL
                 }
             });
         }
+
+        public Task Delete(K stateId, long endVersion)
+        {
+            //TODO
+            throw new NotImplementedException();
+        }
     }
 }

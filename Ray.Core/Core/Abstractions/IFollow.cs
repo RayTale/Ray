@@ -2,7 +2,7 @@
 
 namespace Ray.Core
 {
-    public interface IFollow
+    public interface IFollow : IVersionGrain
     {
         Task Tell(byte[] bytes);
     }

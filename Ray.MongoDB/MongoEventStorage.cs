@@ -14,7 +14,7 @@ using Ray.Core.Storage;
 
 namespace Ray.Storage.MongoDB
 {
-    public class MongoEventStorage<K, E> : IEventStorage<K, E>
+    public class MongoEventStorage<K, E> : IEventStorage<K,E>
         where E : IEventBase<K>
     {
         readonly StorageConfig grainConfig;
@@ -175,6 +175,12 @@ namespace Ray.Storage.MongoDB
             if (!collectionTask.IsCompleted)
                 await collectionTask;
             await grainConfig.Storage.GetCollection<MongoEvent<K>>(grainConfig.DataBase, collectionTask.Result.Name).InsertManyAsync(inserts);
+        }
+
+        public Task Delete(K stateId, long endVersion)
+        {
+            //TODO 实现Delete
+            throw new NotImplementedException();
         }
     }
 }

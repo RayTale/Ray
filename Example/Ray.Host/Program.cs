@@ -69,7 +69,7 @@ namespace Ray.MongoHost
                 .Configure<SqlConfig>(c =>
                 {
                     c.ConnectionDict = new Dictionary<string, string> {
-                        { "core_event","Server=127.0.0.1;Port=5432;Database=Ray;User Id=postgres;Password=extop;Pooling=true;MaxPoolSize=20;"}
+                        { "core_event","Server=127.0.0.1;Port=5432;Database=Ray;User Id=postgres;Password=admin;Pooling=true;MaxPoolSize=20;"}
                     };
                 })
                 .Configure<MongoConfig>(c =>

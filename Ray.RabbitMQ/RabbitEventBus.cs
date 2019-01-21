@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using Ray.Core.Abstractions;
+using Ray.Core.Exceptions;
 using Ray.Core.Serialization;
 using Ray.Core.Utils;
 
@@ -46,7 +48,7 @@ namespace Ray.EventBus.RabbitMQ
         public string RoutePrefix { get; }
         public int LBCount { get; }
         public List<string> RouteList { get; }
-        public List<Type> Producers { get; set; } = new List<Type>();
+        public Type ProducerType { get; set; }
         public List<RabbitConsumer<W>> Consumers { get; set; } = new List<RabbitConsumer<W>>();
         public string GetRoute(string key)
         {
@@ -54,12 +56,15 @@ namespace Ray.EventBus.RabbitMQ
         }
         public RabbitEventBus<W> BindProducer<T>()
         {
-            Producers.Add(typeof(T));
+            if (ProducerType == null)
+                ProducerType = typeof(T);
+            else
+                throw new EventBusMultiplebindingProducerException(typeof(T).FullName);
             return this;
         }
-        public RabbitConsumer<W> CreateConsumer<K>(string prefix = null, ushort minQos = 100, ushort incQos =100, ushort maxQos = 300, bool autoAck = false, bool errorReject = false)
+        public RabbitEventBus<W> CreateConsumer<K>(string prefix = null, ushort minQos = 100, ushort incQos = 100, ushort maxQos = 300, bool autoAck = false, bool errorReject = false)
         {
-            var consumer = new RabbitConsumer<W>(ServiceProvider.GetService<ISerializer>())
+            var consumer = new RabbitConsumer<W>(ServiceProvider.GetService<IFollowUnitContainer>().GetUnit<K>(ProducerType).GetEventHandlers(), ServiceProvider.GetService<ISerializer>())
             {
                 EventBus = this,
                 QueueList = new List<QueueInfo>(),
@@ -67,15 +72,14 @@ namespace Ray.EventBus.RabbitMQ
                 MaxQos = maxQos,
                 MinQos = minQos,
                 IncQos = incQos,
-                ErrorReject = errorReject,
-                HandlerFuncs = new List<Func<byte[], object, Task>>()
+                ErrorReject = errorReject
             };
             foreach (var route in RouteList)
             {
                 consumer.QueueList.Add(new QueueInfo { RoutingKey = route, Queue = $"{prefix}_{route}" });
             }
             Consumers.Add(consumer);
-            return consumer;
+            return this;
         }
         public Task Enable()
         {

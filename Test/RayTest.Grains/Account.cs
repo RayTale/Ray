@@ -3,13 +3,15 @@ using Microsoft.Extensions.Logging;
 using Orleans;
 using Ray.Core;
 using Ray.Core.Event;
+using RayTest.IGrains;
 using RayTest.IGrains.Actors;
 using RayTest.IGrains.Events;
 using RayTest.IGrains.States;
 
 namespace RayTest.Grains
 {
-    public sealed class Account : TransactionGrain<long, EventBase<long>, AccountState, IGrains.MessageInfo>, IAccount
+    public sealed class Account :
+        TransactionGrain<long, EventBase<long>, AccountState, StateBase<long>, MessageInfo>, IAccount
     {
         public Account(ILogger<Account> logger) : base(logger)
         {

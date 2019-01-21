@@ -12,9 +12,10 @@ using Ray.Core.State;
 
 namespace Ray.Core
 {
-    public abstract class ConcurrentGrain<K, E, S, W> : TransactionGrain<K, E, S, W>
+    public abstract class ConcurrentGrain<K, E, S, B, W> : TransactionGrain<K, E, S, B, W>
         where E : IEventBase<K>
-        where S : class, IActorState<K>, ICloneable<S>, new()
+        where S : class, IState<K, B>, ICloneable<S>, new()
+        where B : IStateBase<K>, new()
         where W : IBytesWrapper, new()
     {
         public ConcurrentGrain(ILogger logger) : base(logger)

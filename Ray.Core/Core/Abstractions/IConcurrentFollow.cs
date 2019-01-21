@@ -3,9 +3,9 @@ using Orleans.Concurrency;
 
 namespace Ray.Core
 {
-    public interface IConcurrentFollow
+    public interface IConcurrentFollow : IVersionGrain
     {
-        [AlwaysInterleave] 
+        [AlwaysInterleave]
         Task ConcurrentTell(byte[] bytes);
     }
 }

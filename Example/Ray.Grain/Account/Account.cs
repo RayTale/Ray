@@ -3,13 +3,14 @@ using Microsoft.Extensions.Logging;
 using Orleans;
 using Ray.Core;
 using Ray.Core.Event;
+using Ray.IGrains;
 using Ray.IGrains.Actors;
 using Ray.IGrains.Events;
 using Ray.IGrains.States;
 
 namespace Ray.Grain
 {
-    public sealed class Account : ConcurrentGrain<long, EventBase<long>, AccountState, IGrains.MessageInfo>, IAccount
+    public sealed class Account : ConcurrentGrain<long, EventBase<long>, AccountState, StateBase<long>, MessageInfo>, IAccount
     {
         public Account(ILogger<Account> logger) : base(logger)
         {

@@ -3,8 +3,9 @@ using Ray.Core.State;
 
 namespace Ray.Core.Storage
 {
-    public interface IStateStorage<K, S>
-        where S : IActorState<K>
+    public interface IStateStorage<K, S, B>
+        where S : IState<K, B>
+        where B : IStateBase<K>, new()
     {
         Task<S> Get(K id);
 
@@ -13,5 +14,6 @@ namespace Ray.Core.Storage
         Task Update(S data);
 
         Task Delete(K id);
+        Task Over(K id);
     }
 }
