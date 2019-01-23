@@ -2,7 +2,6 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Orleans;
 using RabbitMQ.Client;
 using Ray.Core.EventBus;
 using Ray.Core.Serialization;

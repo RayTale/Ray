@@ -8,10 +8,12 @@ namespace Ray.Core.Storage
         where S : IState<K, B>
         where B : IStateBase<K>, new()
     {
-        Task Insert(IStateArchive<K, S, B> archive);
-        Task Delete(long id);
-        Task<ArchiveInfo> GetLastBrief(K stateId);
-        Task<List<ArchiveInfo>> GetBriefList(K stateId);
+        Task Insert(BriefArchive brief, S state);
+        Task Delete(string briefId, K stateId);
+        Task EventIsClear(string id);
+        Task<BriefArchive> GetFirstBrief(K stateId);
+        Task<BriefArchive> GetLastBrief(K stateId);
+        Task<List<BriefArchive>> GetBriefList(K stateId);
         Task<IStateArchive<K, S, B>> Get(long id);
     }
 }
