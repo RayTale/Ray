@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Orleans;
@@ -31,9 +30,9 @@ namespace Ray.Core
             return eventHandlers;
         }
 
-        public Func<string, Task<long[]>> GetAllVersionsFunc()
+        public List<Func<string, Task<long>>> GetAllVersionsFunc()
         {
-            return stateId => Task.WhenAll(followVersionHandlers.Select(m => m(stateId)));
+            return followVersionHandlers;
         }
         public FollowUnitWithString<E> BindEventHandler(Func<byte[], object, Task> handler)
         {

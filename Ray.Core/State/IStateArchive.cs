@@ -5,6 +5,6 @@
         where B : IStateBase<K>, new()
     {
         S State { get; set; }
-        ArchiveInfo ArchiveInfo { get; set; }
+        BriefArchive ArchiveInfo { get; set; }
     }
 }

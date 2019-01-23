@@ -9,11 +9,11 @@
         /// <summary>
         /// RayGrain保存快照的事件Version间隔
         /// </summary>
-        public int SnapshotVersionInterval { get; set; } = 500;
+        public int SnapshotIntervalVersion { get; set; } = 500;
         /// <summary>
         /// RayGrain失活的时候保存快照的最小事件Version间隔
         /// </summary>
-        public int MinSnapshotVersionInterval { get; set; } = 1;
+        public int MinSnapshotIntervalVersion { get; set; } = 1;
         /// <summary>
         /// FollowGrain保存快照的事件Version间隔
         /// </summary>

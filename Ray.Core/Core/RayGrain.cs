@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
@@ -6,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Orleans;
+using Ray.Core.Abstractions;
 using Ray.Core.Configuration;
 using Ray.Core.Event;
 using Ray.Core.EventBus;
@@ -30,7 +32,7 @@ namespace Ray.Core
             GrainType = GetType();
         }
         protected BaseOptions ConfigOptions { get; private set; }
-        protected ArchiveOptions ArchiveOptions { get; private set; }
+        protected OverEventClearOptions OverEventClearOptions { get; private set; }
         protected ILogger Logger { get; private set; }
         protected IProducerContainer ProducerContainer { get; private set; }
         protected IStorageFactory StorageFactory { get; private set; }
@@ -38,6 +40,7 @@ namespace Ray.Core
         protected ISerializer Serializer { get; private set; }
         protected S State { get; set; }
         protected IEventHandler<K, E, S, B> EventHandler { get; private set; }
+        protected IFollowUnit<K> FollowUnit { get; private set; }
         public abstract K GrainId { get; }
         /// <summary>
         /// 快照
@@ -46,7 +49,7 @@ namespace Ray.Core
         /// <summary>
         /// 保存快照的事件Version间隔
         /// </summary>
-        protected virtual int SnapshotVersionInterval => ConfigOptions.SnapshotVersionInterval;
+        protected virtual int SnapshotIntervalVersion => ConfigOptions.SnapshotIntervalVersion;
         /// <summary>
         /// 分批次批量读取事件的时候每次读取的数据量
         /// </summary>
@@ -58,7 +61,7 @@ namespace Ray.Core
         /// <summary>
         /// 失活的时候保存快照的最小事件Version间隔
         /// </summary>
-        protected virtual int MinSnapshotVersionInterval => ConfigOptions.MinSnapshotVersionInterval;
+        protected virtual int MinSnapshotIntervaVersionl => ConfigOptions.MinSnapshotIntervalVersion;
         /// <summary>
         /// 是否支持异步follow，true代表事件会广播，false事件不会进行广播
         /// </summary>
@@ -73,12 +76,13 @@ namespace Ray.Core
         protected async virtual ValueTask DependencyInjection()
         {
             ConfigOptions = ServiceProvider.GetService<IOptions<BaseOptions>>().Value;
-            ArchiveOptions = ServiceProvider.GetService<IOptions<ArchiveOptions>>().Value;
+            OverEventClearOptions = ServiceProvider.GetService<IOptions<OverEventClearOptions>>().Value;
             StorageFactory = ServiceProvider.GetService<IStorageFactoryContainer>().CreateFactory(GrainType);
             ProducerContainer = ServiceProvider.GetService<IProducerContainer>();
             Serializer = ServiceProvider.GetService<ISerializer>();
             JsonSerializer = ServiceProvider.GetService<IJsonSerializer>();
             EventHandler = ServiceProvider.GetService<IEventHandler<K, E, S, B>>();
+            FollowUnit = ServiceProvider.GetService<IFollowUnitContainer>().GetUnit<K>(GrainType);
             //创建事件存储器
             var eventStorageTask = StorageFactory.CreateEventStorage<K, E>(this, GrainId);
             if (!eventStorageTask.IsCompleted)
@@ -156,7 +160,7 @@ namespace Ray.Core
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace(LogEventIds.GrainDeactivateId, "Grain start deactivation with id = {0}", GrainId.ToString());
-            var needSaveSnap = State.Base.Version - SnapshotEventVersion >= MinSnapshotVersionInterval;
+            var needSaveSnap = State.Base.Version - SnapshotEventVersion >= MinSnapshotIntervaVersionl;
             try
             {
                 if (needSaveSnap)
@@ -179,7 +183,7 @@ namespace Ray.Core
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual ValueTask OnDeactivated() => new ValueTask();
+        protected virtual ValueTask OnDeactivated() => Consts.ValueTaskDone;
         /// <summary>
         ///  true:当前状态无快照,false:当前状态已经存在快照
         /// </summary>
@@ -219,7 +223,7 @@ namespace Ray.Core
             if (StateStorageProcessor == StateStorageProcessor.Master)
             {
                 //如果版本号差超过设置则更新快照
-                if (force || (State.Base.Version - SnapshotEventVersion >= SnapshotVersionInterval))
+                if (force || (State.Base.Version - SnapshotEventVersion >= SnapshotIntervalVersion))
                 {
                     try
                     {
@@ -253,6 +257,11 @@ namespace Ray.Core
         {
             if (State.Base.IsOver)
                 throw new StateIsOverException(State.Base.StateId.ToString(), GrainType);
+            var versions = await Task.WhenAll(FollowUnit.GetAllVersionsFunc().Select(func => func(State.Base.StateId)));
+            if (versions.Any(v => v < State.Base.Version))
+            {
+                throw new FollowNotCompletedException(GrainType.FullName, State.Base.StateId.ToString());
+            }
             if (State.Base.Version != State.Base.DoingVersion)
                 throw new StateInsecurityException(State.Base.StateId.ToString(), GrainType, State.Base.DoingVersion, State.Base.Version);
             State.Base.IsOver = true;
@@ -267,13 +276,17 @@ namespace Ray.Core
             {
                 await StateStorage.Over(State.Base.StateId);
             }
+            if (OverEventClearOptions.On)
+            {
+                await ClearEvents(State.Base.Version);
+            }
         }
-        protected virtual async ValueTask ClearEvents(long endVersion)
+        protected virtual async Task ClearEvents(long endVersion)
         {
-            //TODO 清理事件接口
+            await EventStorage.Delete(State.Base.StateId, endVersion);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual ValueTask OnSaveSnapshot() => new ValueTask();
+        protected virtual ValueTask OnSaveSnapshot() => Consts.ValueTaskDone;
         /// <summary>
         /// 初始化状态，必须实现
         /// </summary>
@@ -287,7 +300,7 @@ namespace Ray.Core
                     StateId = GrainId
                 }
             };
-            return new ValueTask();
+            return Consts.ValueTaskDone;
         }
         /// <summary>
         /// 删除状态
@@ -311,10 +324,6 @@ namespace Ray.Core
         /// </summary>
         protected IStateStorage<K, S, B> StateStorage { get; private set; }
         /// <summary>
-        /// 归档存储器
-        /// </summary>
-        protected IArchiveStorage<K, S, B> ArchiveStorage { get; private set; }
-        /// <summary>
         /// 事件发布器
         /// </summary>
         protected IProducer EventBusProducer { get; private set; }
@@ -326,7 +335,6 @@ namespace Ray.Core
                 throw new StateIsOverException(State.Base.StateId.ToString(), GrainType);
             try
             {
-                State.IncrementDoingVersion(GrainType);//标记将要处理的Version
                 @event.Base.StateId = GrainId;
                 @event.Base.Version = State.Base.Version + 1;
                 if (uniqueId == default) uniqueId = EventUID.Empty;
@@ -334,6 +342,8 @@ namespace Ray.Core
                     @event.Base.Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 else
                     @event.Base.Timestamp = uniqueId.Timestamp;
+
+                State.IncrementDoingVersion(GrainType);//标记将要处理的Version
                 using (var ms = new PooledMemoryStream())
                 {
                     Serializer.Serialize(ms, @event);
@@ -372,7 +382,9 @@ namespace Ray.Core
                         var saveSnapshotTask = SaveSnapshotAsync();
                         if (!saveSnapshotTask.IsCompleted)
                             await saveSnapshotTask;
-                        OnRaiseSuccess(@event, bytes);
+                        var task = OnRaiseSuccess(@event, bytes);
+                        if (!task.IsCompleted)
+                            await task;
                         if (Logger.IsEnabled(LogLevel.Trace))
                             Logger.LogTrace(LogEventIds.GrainRaiseEvent, "Raise event successfully, grain Id= {0} and state version = {1}}", GrainId.ToString(), State.Base.Version);
                         return true;
@@ -395,13 +407,9 @@ namespace Ray.Core
             return false;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual void OnRaiseSuccess(IEvent<K, E> @event, byte[] bytes)
-        {
-        }
+        protected virtual ValueTask OnRaiseStart(IEvent<K, E> @event) => Consts.ValueTaskDone;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual void OnArchiveCompleted()
-        {
-        }
+        protected virtual ValueTask OnRaiseSuccess(IEvent<K, E> @event, byte[] bytes) => Consts.ValueTaskDone;
         protected virtual void EventApply(S state, IEvent<K, E> evt)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
