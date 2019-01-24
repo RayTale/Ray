@@ -382,7 +382,7 @@ namespace Ray.Core
                         var saveSnapshotTask = SaveSnapshotAsync();
                         if (!saveSnapshotTask.IsCompleted)
                             await saveSnapshotTask;
-                        var task = OnRaiseSuccess(@event, bytes);
+                        var task = OnRaiseSuccessed(@event, bytes);
                         if (!task.IsCompleted)
                             await task;
                         if (Logger.IsEnabled(LogLevel.Trace))
@@ -393,6 +393,9 @@ namespace Ray.Core
                     {
                         if (Logger.IsEnabled(LogLevel.Information))
                             Logger.LogInformation(LogEventIds.GrainRaiseEvent, "Raise event failure because of idempotency limitation, grain Id = {0},state version = {1},event type = {2} with version = {3}", GrainId.ToString(), State.Base.Version, @event.GetType().FullName, @event.Base.Version);
+                        var task = OnRaiseFailed(@event);
+                        if (!task.IsCompleted)
+                            await task;
                         State.DecrementDoingVersion();//还原doing Version
                     }
                 }
@@ -409,7 +412,9 @@ namespace Ray.Core
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask OnRaiseStart(IEvent<K, E> @event) => Consts.ValueTaskDone;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual ValueTask OnRaiseSuccess(IEvent<K, E> @event, byte[] bytes) => Consts.ValueTaskDone;
+        protected virtual ValueTask OnRaiseSuccessed(IEvent<K, E> @event, byte[] bytes) => Consts.ValueTaskDone;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected virtual ValueTask OnRaiseFailed(IEvent<K, E> @event) => Consts.ValueTaskDone;
         protected virtual void EventApply(S state, IEvent<K, E> evt)
         {
             if (Logger.IsEnabled(LogLevel.Trace))

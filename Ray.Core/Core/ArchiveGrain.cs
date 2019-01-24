@@ -1,23 +1,17 @@
 ﻿using System;
-using System.Linq;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Orleans;
-using Ray.Core.Configuration;
 using Ray.Core.Event;
-using Ray.Core.EventBus;
 using Ray.Core.Exceptions;
 using Ray.Core.IGrains;
-using Ray.Core.Logging;
 using Ray.Core.Serialization;
 using Ray.Core.State;
 using Ray.Core.Storage;
-using Ray.Core.Utils;
 
 namespace Ray.Core.Core
 {
@@ -35,7 +29,6 @@ namespace Ray.Core.Core
         protected ArchiveOptions ArchiveOptions { get; private set; }
         protected ArchiveEventClearOptions ArchiveEventClearOptions { get; private set; }
         protected List<BriefArchive> BriefArchiveList { get; private set; }
-        protected BriefArchive FirstArchive { get; set; }
         protected BriefArchive LastArchive { get; private set; }
         protected BriefArchive NewArchive { get; private set; }
         public ArchiveGrain(ILogger logger) : base(logger)
@@ -44,31 +37,33 @@ namespace Ray.Core.Core
         public override async Task OnActivateAsync()
         {
             await base.OnActivateAsync();
-            //加载归档信息
-            BriefArchiveList = await ArchiveStorage.GetBriefList(State.Base.StateId);
-            FirstArchive = BriefArchiveList.FirstOrDefault();
-            LastArchive = BriefArchiveList.LastOrDefault();
-            if (!IsCompletedArchive(LastArchive))
+            if (ArchiveOptions.On)
             {
-                await ArchiveStorage.Delete(LastArchive.Id, State.Base.StateId);
-                BriefArchiveList.Remove(LastArchive);
-                NewArchive = LastArchive;
+                //加载归档信息
+                BriefArchiveList = await ArchiveStorage.GetBriefList(State.Base.StateId);
                 LastArchive = BriefArchiveList.LastOrDefault();
-            }
-            if (NewArchive != default && NewArchive.EndVersion < State.Base.Version)
-            {
-                //归档恢复
-                while (true)
+                if (LastArchive != default && !IsCompletedArchive(LastArchive))
                 {
-                    var eventList = await EventStorage.GetList(GrainId, NewArchive.EndVersion, NewArchive.EndVersion + NumberOfEventsPerRead);
-                    foreach (var @event in eventList)
+                    await ArchiveStorage.Delete(LastArchive.Id, State.Base.StateId);
+                    BriefArchiveList.Remove(LastArchive);
+                    NewArchive = LastArchive;
+                    LastArchive = BriefArchiveList.LastOrDefault();
+                }
+                if (NewArchive != default && NewArchive.EndVersion < State.Base.Version)
+                {
+                    //归档恢复
+                    while (true)
                     {
-                        var task = EventArchive(@event);
-                        if (!task.IsCompleted)
-                            await task;
-                    }
-                    if (NewArchive.EndVersion == State.Base.Version) break;
-                };
+                        var eventList = await EventStorage.GetList(GrainId, NewArchive.EndVersion, NewArchive.EndVersion + NumberOfEventsPerRead);
+                        foreach (var @event in eventList)
+                        {
+                            var task = EventArchive(@event);
+                            if (!task.IsCompleted)
+                                await task;
+                        }
+                        if (NewArchive.EndVersion == State.Base.Version) break;
+                    };
+                }
             }
         }
         public override async Task OnDeactivateAsync()
@@ -105,6 +100,7 @@ namespace Ray.Core.Core
                     var minArchive = noCleareds.FirstOrDefault();
                     if (minArchive != default)
                     {
+                        //清理归档对应的事件
                         await ArchiveStorage.EventIsClear(minArchive.Id);
                         minArchive.EventIsCleared = true;
                         //如果快照的版本小于需要清理的最大事件版本号，则保存快照
@@ -118,30 +114,53 @@ namespace Ray.Core.Core
                     }
                 }
             }
+            //只保留配置指定的归档个数
+            while (BriefArchiveList.Count > ArchiveOptions.RetainCount)
+            {
+                var eventClearedList = BriefArchiveList.Where(b => b.EventIsCleared).ToList();
+                if (eventClearedList.Count > 1)
+                {
+                    var first = eventClearedList.First();
+                    await ArchiveStorage.Delete(first.Id, State.Base.StateId);
+                    BriefArchiveList.Remove(first);
+                }
+                else
+                    break;
+            }
         }
         protected override async ValueTask OnRaiseStart(IEvent<K, E> @event)
         {
-            foreach (var archive in BriefArchiveList.OrderByDescending(v => v.Index).ToList())
+            if (ArchiveEventClearOptions.On)
             {
-                if (@event.Base.Timestamp < archive.EndTimestamp)
+                foreach (var archive in BriefArchiveList.OrderByDescending(v => v.Index).ToList())
                 {
-                    if (archive.EventIsCleared)
-                        throw new EventIsClearedException(@event.GetType().FullName, JsonSerializer.Serialize(@event), archive.Index);
-                    await ArchiveStorage.Delete(LastArchive.Id, State.Base.StateId);
-                    NewArchive = CombineArchiveInfo(archive, NewArchive);
-                    await ArchiveStorage.Insert(NewArchive, State);
-                    BriefArchiveList.Remove(archive);
-                    BriefArchiveList.Add(NewArchive);
-                    NewArchive = default;
-                    LastArchive = BriefArchiveList.LastOrDefault();
-                    FirstArchive = BriefArchiveList.FirstOrDefault();
+                    if (@event.Base.Timestamp < archive.EndTimestamp)
+                    {
+                        if (archive.EventIsCleared)
+                            throw new EventIsClearedException(@event.GetType().FullName, JsonSerializer.Serialize(@event), archive.Index);
+                        await ArchiveStorage.Delete(archive.Id, State.Base.StateId);
+                        if (NewArchive != default)
+                            NewArchive = CombineArchiveInfo(archive, NewArchive);
+                        else
+                            NewArchive = archive;
+                        BriefArchiveList.Remove(archive);
+                    }
                 }
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected override ValueTask OnRaiseSuccess(IEvent<K, E> @event, byte[] bytes)
+        protected override ValueTask OnRaiseSuccessed(IEvent<K, E> @event, byte[] bytes)
         {
             return EventArchive(@event);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected override ValueTask OnRaiseFailed(IEvent<K, E> @event)
+        {
+            if (ArchiveOptions.On)
+            {
+                return Archive();
+            }
+            return Consts.ValueTaskDone;
         }
         protected async ValueTask EventArchive(IEvent<K, E> @event)
         {
@@ -209,8 +228,6 @@ namespace Ray.Core.Core
                 )
             {
                 await ArchiveStorage.Insert(NewArchive, State);
-                if (FirstArchive == default)
-                    FirstArchive = NewArchive;
                 BriefArchiveList.Add(NewArchive);
                 LastArchive = NewArchive;
                 NewArchive = default;
