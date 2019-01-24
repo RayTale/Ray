@@ -3,7 +3,7 @@
     /// <summary>
     /// 状态快照保存方式
     /// </summary>
-    public enum StateStorageProcessor
+    public enum SnapshotProcessor
     {
         /// <summary>
         /// 同步保存在当前Actor上

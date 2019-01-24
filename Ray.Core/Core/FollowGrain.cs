@@ -21,7 +21,7 @@ namespace Ray.Core
     public abstract class FollowGrain<K, E, S, B, W> : Grain, IFollow
         where E : IEventBase<K>
         where S : class, IState<K, B>, new()
-        where B : IStateBase<K>, new()
+        where B : ISnapshot<K>, new()
         where W : IBytesWrapper
     {
         public FollowGrain(ILogger logger)
@@ -79,7 +79,7 @@ namespace Ray.Core
         /// <summary>
         /// 状态存储器
         /// </summary>
-        protected IStateStorage<K, S, B> StateStorage { get; private set; }
+        protected ISnapshotStorage<K, S, B> SnapshotStorage { get; private set; }
         #region 初始化数据
         /// <summary>
         /// 依赖注入统一方法
@@ -96,10 +96,10 @@ namespace Ray.Core
                 await eventStorageTask;
             EventStorage = eventStorageTask.Result;
             //创建状态存储器
-            var stateStorageTask = StorageFactory.CreateStateStorage<K, S, B>(this, GrainId);
+            var stateStorageTask = StorageFactory.CreateSnapshotStorage<K, S, B>(this, GrainId);
             if (!stateStorageTask.IsCompleted)
                 await stateStorageTask;
-            StateStorage = stateStorageTask.Result;
+            SnapshotStorage = stateStorageTask.Result;
         }
         public override async Task OnActivateAsync()
         {
@@ -180,7 +180,7 @@ namespace Ray.Core
                 Logger.LogTrace(LogEventIds.GrainSnapshot, "Start read snapshot  with Id = {0} ,state version = {1}", GrainId.ToString(), State.Base.Version);
             try
             {
-                State = await StateStorage.Get(GrainId);
+                State = await SnapshotStorage.Get(GrainId);
                 if (State == null)
                 {
                     NoSnapshot = true;
@@ -308,12 +308,12 @@ namespace Ray.Core
                             await onSaveSnapshotTask;
                         if (NoSnapshot)
                         {
-                            await StateStorage.Insert(State);
+                            await SnapshotStorage.Insert(State);
                             NoSnapshot = false;
                         }
                         else
                         {
-                            await StateStorage.Update(State);
+                            await SnapshotStorage.Update(State);
                         }
                         SnapshotEventVersion = State.Base.Version;
                         var onSavedSnapshotTask = OnSavedSnapshot();

@@ -3,9 +3,9 @@ using Ray.Core.State;
 
 namespace Ray.Core.Storage
 {
-    public interface IStateStorage<K, S, B>
+    public interface ISnapshotStorage<K, S, B>
         where S : IState<K, B>
-        where B : IStateBase<K>, new()
+        where B : ISnapshot<K>, new()
     {
         Task<S> Get(K id);
 

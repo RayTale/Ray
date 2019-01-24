@@ -1,10 +1,10 @@
 ﻿namespace Ray.Core.State
 {
-    public class OverEventClearOptions
+    public class OverOptions
     {
         /// <summary>
         /// 是否开启事件清理
         /// </summary>
-        public bool On { get; set; }
+        public bool ClearEvent { get; set; }
     }
 }

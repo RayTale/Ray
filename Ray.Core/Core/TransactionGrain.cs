@@ -17,7 +17,7 @@ namespace Ray.Core
     public abstract class TransactionGrain<K, E, S, B, W> : RayGrain<K, E, S, B, W>
         where E : IEventBase<K>
         where S : class, IState<K, B>, ICloneable<S>, new()
-        where B : IStateBase<K>, new()
+        where B : ISnapshot<K>, new()
         where W : IBytesWrapper, new()
     {
         public TransactionGrain(ILogger logger) : base(logger)
@@ -41,7 +41,7 @@ namespace Ray.Core
             {
                 if (TransactionPending)
                 {
-                    if ((DateTimeOffset.UtcNow - BeginTransactionTime).TotalSeconds > ConfigOptions.TransactionTimeoutSeconds)
+                    if ((DateTimeOffset.UtcNow - BeginTransactionTime).TotalSeconds > BaseOptions.TransactionTimeoutSeconds)
                     {
                         var rollBackTask = RollbackTransaction();//事务阻赛超过一分钟自动回滚
                         if (!rollBackTask.IsCompleted)
@@ -104,7 +104,9 @@ namespace Ray.Core
                                     var publishTask = EventBusProducer.Publish(ms.ToArray(), @event.HashKey);
                                     if (!publishTask.IsCompleted)
                                         await publishTask;
-                                    OnRaiseSuccessed(@event.Evt, @event.Bytes);
+                                    var task = OnRaiseSuccessed(@event.Evt, @event.Bytes);
+                                    if (!task.IsCompleted)
+                                        await task;
                                     ms.Position = 0;
                                     ms.SetLength(0);
                                 }
@@ -118,7 +120,12 @@ namespace Ray.Core
                     }
                     else
                     {
-                        EventsInTransactionProcessing.ForEach(evt => OnRaiseSuccessed(evt.Evt, evt.Bytes));
+                        foreach (var evtWrapper in EventsInTransactionProcessing)
+                        {
+                            var task = OnRaiseSuccessed(evtWrapper.Evt, evtWrapper.Bytes);
+                            if (!task.IsCompleted)
+                                await task;
+                        }
                     }
                     EventsInTransactionProcessing.Clear();
                     var saveSnapshotTask = SaveSnapshotAsync();
@@ -196,13 +203,15 @@ namespace Ray.Core
         /// <param name="event">事件本体</param>
         /// <param name="bytes">事件序列化之后的二进制数据</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected override void OnRaiseSuccessed(IEvent<K, E> @event, byte[] bytes)
+        protected override ValueTask OnRaiseSuccessed(IEvent<K, E> @event, byte[] bytes)
         {
             using (var dms = new MemoryStream(bytes))
             {
                 EventApply(BackupState, (IEvent<K, E>)Serializer.Deserialize(@event.GetType(), dms));
             }
             BackupState.FullUpdateVersion(@event, GrainType);//更新处理完成的Version
+            //父级涉及状态归档
+            return base.OnRaiseSuccessed(@event, bytes);
         }
         protected void TransactionRaiseEvent(IEvent<K, E> @event, EventUID uniqueId = null, string hashKey = null)
         {

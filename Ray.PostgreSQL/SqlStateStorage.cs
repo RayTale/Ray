@@ -8,9 +8,9 @@ using Ray.Core.Utils;
 
 namespace Ray.Storage.PostgreSQL
 {
-    public class SqlStateStorage<K, S, B> : IStateStorage<K, S, B>
+    public class SqlStateStorage<K, S, B> : ISnapshotStorage<K, S, B>
         where S : class, IState<K, B>
-        where B : IStateBase<K>, new()
+        where B : ISnapshot<K>, new()
     {
         readonly StorageConfig tableInfo;
         private readonly string deleteSql;

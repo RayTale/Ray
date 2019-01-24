@@ -1,7 +1,7 @@
 ﻿namespace Ray.Core.State
 {
     public interface IState<K, B>
-        where B : IStateBase<K>, new()
+        where B : ISnapshot<K>, new()
     {
         B Base { get; set; }
     }
