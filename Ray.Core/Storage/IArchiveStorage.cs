@@ -6,14 +6,14 @@ namespace Ray.Core.Storage
 {
     public interface IArchiveStorage<K, S, B>
         where S : IState<K, B>
-        where B : IStateBase<K>, new()
+        where B : ISnapshot<K>, new()
     {
-        Task Insert(BriefArchive brief, S state);
+        Task Insert(ArchiveBrief brief, S state);
         Task Delete(string briefId, K stateId);
         Task EventIsClear(string id);
-        Task<BriefArchive> GetFirstBrief(K stateId);
-        Task<BriefArchive> GetLastBrief(K stateId);
-        Task<List<BriefArchive>> GetBriefList(K stateId);
-        Task<IStateArchive<K, S, B>> Get(long id);
+        Task<ArchiveBrief> GetFirstBrief(K stateId);
+        Task<ArchiveBrief> GetLastBrief(K stateId);
+        Task<List<ArchiveBrief>> GetBriefList(K stateId);
+        Task<SnapshotArchive<K, S, B>> Get(long id);
     }
 }

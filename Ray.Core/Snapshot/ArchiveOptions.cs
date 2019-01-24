@@ -30,5 +30,9 @@
         /// 保留的归档个数
         /// </summary>
         public int RetainCount { get; set; }
+        /// <summary>
+        /// 事件清理配置信息
+        /// </summary>
+        public ArchiveEventClearOptions EventClearOptions { get; set; }
     }
 }

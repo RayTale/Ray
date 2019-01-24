@@ -4,7 +4,7 @@ using Ray.Core.State;
 namespace RayTest.IGrains.States
 {
     [ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
-    public class StateBase<K> : IStateBase<K>
+    public class StateBase<K> : ISnapshot<K>
     {
         public long DoingVersion { get; set; }
         public long Version { get; set; }

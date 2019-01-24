@@ -18,7 +18,7 @@ namespace Ray.Core
     public abstract class ConcurrentFollowGrain<K, E, S, B, W> : FollowGrain<K, E, S, B, W>, IConcurrentFollow
           where E : IEventBase<K>
           where S : class, IState<K, B>, new()
-          where B : IStateBase<K>, new()
+          where B : ISnapshot<K>, new()
           where W : IBytesWrapper
     {
         readonly List<IEvent<K, E>> UnprocessedEventList = new List<IEvent<K, E>>();

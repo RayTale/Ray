@@ -1,6 +1,6 @@
 ﻿namespace Ray.Core.State
 {
-    public class BriefArchive
+    public class ArchiveBrief
     {
         public string Id { get; set; }
         public long StartVersion { get; set; }

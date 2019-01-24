@@ -1,6 +1,6 @@
 ﻿namespace Ray.Core.State
 {
-    public interface IStateBase<K> : IActorOwned<K>
+    public interface ISnapshot<K> : IActorOwned<K>
     {
         /// <summary>
         /// 正在处理中的Version

@@ -53,9 +53,9 @@ namespace Ray.Storage.MongoDB
             }
         }
         readonly ConcurrentDictionary<string, object> stateStorageDict = new ConcurrentDictionary<string, object>();
-        public async ValueTask<IStateStorage<K, S, B>> CreateStateStorage<K, S, B>(Grain grain, K grainId)
+        public async ValueTask<ISnapshotStorage<K, S, B>> CreateSnapshotStorage<K, S, B>(Grain grain, K grainId)
             where S : class, IState<K, B>, new()
-            where B : IStateBase<K>, new()
+            where B : ISnapshot<K>, new()
         {
             var grainType = grain.GetType();
             if (configureContainer.TryGetValue(grainType, out var value) &&

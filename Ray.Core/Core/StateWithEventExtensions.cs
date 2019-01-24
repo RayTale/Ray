@@ -11,7 +11,7 @@ namespace Ray.Core
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void UpdateVersion<K, B, E>(this IState<K, B> state, IEvent<K, E> @event, Type grainType)
             where E : IEventBase<K>
-            where B : IStateBase<K>, new()
+            where B : ISnapshot<K>, new()
         {
             if (state.Base.Version + 1 != @event.Base.Version)
                 throw new EventVersionNotMatchStateException(state.Base.StateId.ToString(), grainType, @event.Base.Version, state.Base.Version);
@@ -20,7 +20,7 @@ namespace Ray.Core
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void FullUpdateVersion<K, B, E>(this IState<K, B> state, IEvent<K, E> @event, Type grainType)
             where E : IEventBase<K>
-            where B : IStateBase<K>, new()
+            where B : ISnapshot<K>, new()
         {
             if (state.Base.Version + 1 != @event.Base.Version)
                 throw new EventVersionNotMatchStateException(state.Base.StateId.ToString(), grainType, @event.Base.Version, state.Base.Version);
@@ -29,14 +29,14 @@ namespace Ray.Core
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void UnsafeUpdateVersion<K, B>(this IState<K, B> state, long version, long timestamp)
-            where B : IStateBase<K>, new()
+            where B : ISnapshot<K>, new()
         {
             state.Base.DoingVersion = version;
             state.Base.Version = version;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void IncrementDoingVersion<K, B>(this IState<K, B> state, Type grainType)
-            where B : IStateBase<K>, new()
+            where B : ISnapshot<K>, new()
         {
             if (state.Base.DoingVersion != state.Base.Version)
                 throw new StateInsecurityException(state.Base.StateId.ToString(), grainType, state.Base.DoingVersion, state.Base.Version);
@@ -44,7 +44,7 @@ namespace Ray.Core
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void DecrementDoingVersion<K, B>(this IState<K, B> state)
-            where B : IStateBase<K>, new()
+            where B : ISnapshot<K>, new()
         {
             state.Base.DoingVersion -= 1;
         }

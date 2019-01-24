@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
@@ -12,6 +13,7 @@ using Ray.Core.Configuration;
 using Ray.Core.Event;
 using Ray.Core.EventBus;
 using Ray.Core.Exceptions;
+using Ray.Core.IGrains;
 using Ray.Core.Logging;
 using Ray.Core.Serialization;
 using Ray.Core.State;
@@ -23,7 +25,7 @@ namespace Ray.Core
     public abstract class RayGrain<K, E, S, B, W> : Grain
         where E : IEventBase<K>
         where S : class, IState<K, B>, new()
-        where B : IStateBase<K>, new()
+        where B : ISnapshot<K>, new()
         where W : IBytesWrapper, new()
     {
         public RayGrain(ILogger logger)
@@ -31,8 +33,8 @@ namespace Ray.Core
             Logger = logger;
             GrainType = GetType();
         }
-        protected BaseOptions ConfigOptions { get; private set; }
-        protected OverEventClearOptions OverEventClearOptions { get; private set; }
+        protected BaseOptions BaseOptions { get; private set; }
+        protected OverOptions OverOptions { get; private set; }
         protected ILogger Logger { get; private set; }
         protected IProducerContainer ProducerContainer { get; private set; }
         protected IStorageFactory StorageFactory { get; private set; }
@@ -41,19 +43,27 @@ namespace Ray.Core
         protected S State { get; set; }
         protected IEventHandler<K, E, S, B> EventHandler { get; private set; }
         protected IFollowUnit<K> FollowUnit { get; private set; }
+        /// <summary>
+        /// 归档存储器
+        /// </summary>
+        protected IArchiveStorage<K, S, B> ArchiveStorage { get; private set; }
+        protected ArchiveOptions ArchiveOptions { get; private set; }
+        protected List<ArchiveBrief> BriefArchiveList { get; private set; }
+        protected ArchiveBrief LastArchive { get; private set; }
+        protected ArchiveBrief NewArchive { get; private set; }
         public abstract K GrainId { get; }
         /// <summary>
         /// 快照
         /// </summary>
-        protected virtual StateStorageProcessor StateStorageProcessor => StateStorageProcessor.Master;
+        protected virtual SnapshotProcessor SnapshotProcessor => SnapshotProcessor.Master;
         /// <summary>
         /// 保存快照的事件Version间隔
         /// </summary>
-        protected virtual int SnapshotIntervalVersion => ConfigOptions.SnapshotIntervalVersion;
+        protected virtual int SnapshotIntervalVersion => BaseOptions.SnapshotIntervalVersion;
         /// <summary>
         /// 分批次批量读取事件的时候每次读取的数据量
         /// </summary>
-        protected virtual int NumberOfEventsPerRead => ConfigOptions.NumberOfEventsPerRead;
+        protected virtual int NumberOfEventsPerRead => BaseOptions.NumberOfEventsPerRead;
         /// <summary>
         /// 快照的事件版本号
         /// </summary>
@@ -61,7 +71,7 @@ namespace Ray.Core
         /// <summary>
         /// 失活的时候保存快照的最小事件Version间隔
         /// </summary>
-        protected virtual int MinSnapshotIntervaVersionl => ConfigOptions.MinSnapshotIntervalVersion;
+        protected virtual int MinSnapshotIntervaVersionl => BaseOptions.MinSnapshotIntervalVersion;
         /// <summary>
         /// 是否支持异步follow，true代表事件会广播，false事件不会进行广播
         /// </summary>
@@ -75,24 +85,30 @@ namespace Ray.Core
         /// </summary>
         protected async virtual ValueTask DependencyInjection()
         {
-            ConfigOptions = ServiceProvider.GetService<IOptions<BaseOptions>>().Value;
-            OverEventClearOptions = ServiceProvider.GetService<IOptions<OverEventClearOptions>>().Value;
+            BaseOptions = ServiceProvider.GetService<IOptions<BaseOptions>>().Value;
+            OverOptions = ServiceProvider.GetService<IOptions<OverOptions>>().Value;
             StorageFactory = ServiceProvider.GetService<IStorageFactoryContainer>().CreateFactory(GrainType);
             ProducerContainer = ServiceProvider.GetService<IProducerContainer>();
             Serializer = ServiceProvider.GetService<ISerializer>();
             JsonSerializer = ServiceProvider.GetService<IJsonSerializer>();
             EventHandler = ServiceProvider.GetService<IEventHandler<K, E, S, B>>();
             FollowUnit = ServiceProvider.GetService<IFollowUnitContainer>().GetUnit<K>(GrainType);
+            ArchiveOptions = ServiceProvider.GetService<IOptions<ArchiveOptions>>().Value;
+            //创建事件存储器
+            var archiveStorageTask = StorageFactory.CreateArchiveStorage<K, S, B>(this, GrainId);
+            if (!archiveStorageTask.IsCompleted)
+                await archiveStorageTask;
+            ArchiveStorage = archiveStorageTask.Result;
             //创建事件存储器
             var eventStorageTask = StorageFactory.CreateEventStorage<K, E>(this, GrainId);
             if (!eventStorageTask.IsCompleted)
                 await eventStorageTask;
             EventStorage = eventStorageTask.Result;
             //创建状态存储器
-            var stateStorageTask = StorageFactory.CreateStateStorage<K, S, B>(this, GrainId);
+            var stateStorageTask = StorageFactory.CreateSnapshotStorage<K, S, B>(this, GrainId);
             if (!stateStorageTask.IsCompleted)
                 await stateStorageTask;
-            StateStorage = stateStorageTask.Result;
+            SnapshotStorage = stateStorageTask.Result;
             //创建事件发布器
             var producerTask = ProducerContainer.GetProducer(this);
             if (!producerTask.IsCompleted)
@@ -116,6 +132,34 @@ namespace Ray.Core
                 var onActivatedTask = OnBaseActivated();
                 if (!onActivatedTask.IsCompleted)
                     await onActivatedTask;
+                if (ArchiveOptions.On)
+                {
+                    //加载归档信息
+                    BriefArchiveList = await ArchiveStorage.GetBriefList(State.Base.StateId);
+                    LastArchive = BriefArchiveList.LastOrDefault();
+                    if (LastArchive != default && !IsCompletedArchive(LastArchive))
+                    {
+                        await ArchiveStorage.Delete(LastArchive.Id, State.Base.StateId);
+                        BriefArchiveList.Remove(LastArchive);
+                        NewArchive = LastArchive;
+                        LastArchive = BriefArchiveList.LastOrDefault();
+                    }
+                    if (NewArchive != default && NewArchive.EndVersion < State.Base.Version)
+                    {
+                        //归档恢复
+                        while (true)
+                        {
+                            var eventList = await EventStorage.GetList(GrainId, NewArchive.EndVersion, NewArchive.EndVersion + NumberOfEventsPerRead);
+                            foreach (var @event in eventList)
+                            {
+                                var task = EventArchive(@event);
+                                if (!task.IsCompleted)
+                                    await task;
+                            }
+                            if (NewArchive.EndVersion == State.Base.Version) break;
+                        };
+                    }
+                }
                 if (Logger.IsEnabled(LogLevel.Trace))
                     Logger.LogTrace(LogEventIds.GrainActivateId, "Grain activation completed with id = {0}", GrainId.ToString());
             }
@@ -125,8 +169,17 @@ namespace Ray.Core
                 ExceptionDispatchInfo.Capture(ex).Throw();
             }
         }
+        private bool IsCompletedArchive(ArchiveBrief briefArchive)
+        {
+            var intervalMilliseconds = briefArchive.EndTimestamp - briefArchive.StartTimestamp;
+            var intervalVersiion = briefArchive.EndVersion - briefArchive.StartVersion;
+            return (intervalMilliseconds > ArchiveOptions.IntervalMilliseconds &&
+                intervalVersiion > ArchiveOptions.IntervalVersion) ||
+                intervalMilliseconds > ArchiveOptions.MaxIntervalMilliSeconds ||
+                intervalVersiion > ArchiveOptions.MaxIntervalVersion;
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual ValueTask OnBaseActivated() => new ValueTask();
+        protected virtual ValueTask OnBaseActivated() => Consts.ValueTaskDone;
         protected virtual async Task RecoveryState()
         {
             if (Logger.IsEnabled(LogLevel.Trace))
@@ -172,6 +225,15 @@ namespace Ray.Core
                     if (!onDeactivatedTask.IsCompleted)
                         await onDeactivatedTask;
                 }
+                if (ArchiveOptions.On)
+                {
+                    if (NewArchive.EndVersion - NewArchive.StartVersion >= ArchiveOptions.MinIntervalVersion)
+                    {
+                        var archiveTask = Archive();
+                        if (!archiveTask.IsCompleted)
+                            await archiveTask;
+                    }
+                }
                 if (Logger.IsEnabled(LogLevel.Trace))
                     Logger.LogTrace(LogEventIds.GrainDeactivateId, "Grain has been deactivated with id= {0} ,{1}", GrainId.ToString(), needSaveSnap ? "updated snapshot" : "no update snapshot");
             }
@@ -194,7 +256,7 @@ namespace Ray.Core
                 Logger.LogTrace(LogEventIds.GrainSnapshot, "Start read snapshot  with Id = {0} ,state version = {1}", GrainId.ToString(), State.Base.Version);
             try
             {
-                State = await StateStorage.Get(GrainId);
+                State = await SnapshotStorage.Get(GrainId);
                 if (State == default)
                 {
                     NoSnapshot = true;
@@ -219,26 +281,26 @@ namespace Ray.Core
             if (State.Base.Version != State.Base.DoingVersion)
                 throw new StateInsecurityException(State.Base.StateId.ToString(), GrainType, State.Base.DoingVersion, State.Base.Version);
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.GrainSnapshot, "Start save snapshot  with Id = {0} ,state version = {1},save type = {2}", GrainId.ToString(), State.Base.Version, StateStorageProcessor.ToString());
-            if (StateStorageProcessor == StateStorageProcessor.Master)
+                Logger.LogTrace(LogEventIds.GrainSnapshot, "Start save snapshot  with Id = {0} ,state version = {1},save type = {2}", GrainId.ToString(), State.Base.Version, SnapshotProcessor.ToString());
+            if (SnapshotProcessor == SnapshotProcessor.Master)
             {
                 //如果版本号差超过设置则更新快照
                 if (force || (State.Base.Version - SnapshotEventVersion >= SnapshotIntervalVersion))
                 {
                     try
                     {
-                        var onSaveSnapshotTask = OnSaveSnapshot();
+                        var onSaveSnapshotTask = OnStartSaveSnapshot();
                         if (!onSaveSnapshotTask.IsCompleted)
                             await onSaveSnapshotTask;
                         if (NoSnapshot)
                         {
-                            await StateStorage.Insert(State);
+                            await SnapshotStorage.Insert(State);
                             SnapshotEventVersion = State.Base.Version;
                             NoSnapshot = false;
                         }
                         else
                         {
-                            await StateStorage.Update(State);
+                            await SnapshotStorage.Update(State);
                             SnapshotEventVersion = State.Base.Version;
                         }
                         if (Logger.IsEnabled(LogLevel.Trace))
@@ -274,19 +336,14 @@ namespace Ray.Core
             }
             else
             {
-                await StateStorage.Over(State.Base.StateId);
+                await SnapshotStorage.Over(State.Base.StateId);
             }
-            if (OverEventClearOptions.On)
+            if (OverOptions.ClearEvent)
             {
-                await ClearEvents(State.Base.Version);
+                await EventStorage.Delete(State.Base.StateId, State.Base.Version);
             }
         }
-        protected virtual async Task ClearEvents(long endVersion)
-        {
-            await EventStorage.Delete(State.Base.StateId, endVersion);
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual ValueTask OnSaveSnapshot() => Consts.ValueTaskDone;
+        protected virtual ValueTask OnStartSaveSnapshot() => Consts.ValueTaskDone;
         /// <summary>
         /// 初始化状态，必须实现
         /// </summary>
@@ -308,10 +365,11 @@ namespace Ray.Core
         /// <returns></returns>
         protected async ValueTask DeleteState()
         {
-            //TODO 需要判定快照是不是已经被清理，如果被清理则不允许删除快照
+            if (State.Base.IsOver)
+                throw new StateIsOverException(State.Base.StateId.ToString(), GrainType);
             if (SnapshotEventVersion > 0)
             {
-                await StateStorage.Delete(GrainId);
+                await SnapshotStorage.Delete(GrainId);
                 SnapshotEventVersion = 0;
             }
         }
@@ -322,7 +380,7 @@ namespace Ray.Core
         /// <summary>
         /// 状态存储器
         /// </summary>
-        protected IStateStorage<K, S, B> StateStorage { get; private set; }
+        protected ISnapshotStorage<K, S, B> SnapshotStorage { get; private set; }
         /// <summary>
         /// 事件发布器
         /// </summary>
@@ -342,7 +400,9 @@ namespace Ray.Core
                     @event.Base.Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 else
                     @event.Base.Timestamp = uniqueId.Timestamp;
-
+                var startTask = OnRaiseStart(@event);
+                if (!startTask.IsCompleted)
+                    await startTask;
                 State.IncrementDoingVersion(GrainType);//标记将要处理的Version
                 using (var ms = new PooledMemoryStream())
                 {
@@ -409,17 +469,128 @@ namespace Ray.Core
             }
             return false;
         }
+
+        protected virtual async ValueTask OnRaiseStart(IEvent<K, E> @event)
+        {
+            if (ArchiveOptions.EventClearOptions.On)
+            {
+                foreach (var archive in BriefArchiveList.OrderByDescending(v => v.Index).ToList())
+                {
+                    if (@event.Base.Timestamp < archive.EndTimestamp)
+                    {
+                        if (archive.EventIsCleared)
+                            throw new EventIsClearedException(@event.GetType().FullName, JsonSerializer.Serialize(@event), archive.Index);
+                        await ArchiveStorage.Delete(archive.Id, State.Base.StateId);
+                        if (NewArchive != default)
+                            NewArchive = CombineArchiveInfo(archive, NewArchive);
+                        else
+                            NewArchive = archive;
+                        BriefArchiveList.Remove(archive);
+                    }
+                }
+            }
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual ValueTask OnRaiseStart(IEvent<K, E> @event) => Consts.ValueTaskDone;
+        protected virtual ValueTask OnRaiseSuccessed(IEvent<K, E> @event, byte[] bytes)
+        {
+            if (ArchiveOptions.On)
+            {
+                return EventArchive(@event);
+            }
+            return Consts.ValueTaskDone;
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual ValueTask OnRaiseSuccessed(IEvent<K, E> @event, byte[] bytes) => Consts.ValueTaskDone;
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual ValueTask OnRaiseFailed(IEvent<K, E> @event) => Consts.ValueTaskDone;
+        protected virtual ValueTask OnRaiseFailed(IEvent<K, E> @event)
+        {
+            if (ArchiveOptions.On)
+            {
+                return Archive();
+            }
+            return Consts.ValueTaskDone;
+        }
         protected virtual void EventApply(S state, IEvent<K, E> evt)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace(LogEventIds.GrainRaiseEvent, "Start apply event, grain Id= {0} and state version is {1}},event type = {2},event = {3}", GrainId.ToString(), State.Base.Version, evt.GetType().FullName, JsonSerializer.Serialize(evt));
             EventHandler.Apply(state, evt);
+        }
+        protected virtual async ValueTask OnArchiveCompleted()
+        {
+            //开始执行事件清理逻辑
+            if (ArchiveOptions.EventClearOptions.On)
+            {
+                var noCleareds = BriefArchiveList.Where(a => !a.EventIsCleared).ToList();
+                if (noCleareds.Count >= ArchiveOptions.EventClearOptions.IntervalArchive)
+                {
+                    var minArchive = noCleareds.FirstOrDefault();
+                    if (minArchive != default)
+                    {
+                        //清理归档对应的事件
+                        await ArchiveStorage.EventIsClear(minArchive.Id);
+                        minArchive.EventIsCleared = true;
+                        //如果快照的版本小于需要清理的最大事件版本号，则保存快照
+                        if (SnapshotEventVersion < minArchive.EndVersion)
+                        {
+                            var saveTask = SaveSnapshotAsync(true);
+                            if (!saveTask.IsCompleted)
+                                await saveTask;
+                        }
+                        await EventStorage.Delete(State.Base.StateId, minArchive.EndVersion);
+                    }
+                }
+            }
+            //只保留配置指定的归档个数
+            while (BriefArchiveList.Count > ArchiveOptions.RetainCount)
+            {
+                var eventClearedList = BriefArchiveList.Where(b => b.EventIsCleared).ToList();
+                if (eventClearedList.Count > 1)
+                {
+                    var first = eventClearedList.First();
+                    await ArchiveStorage.Delete(first.Id, State.Base.StateId);
+                    BriefArchiveList.Remove(first);
+                }
+                else
+                    break;
+            }
+        }
+        protected async ValueTask EventArchive(IEvent<K, E> @event)
+        {
+            if (NewArchive == default)
+            {
+                NewArchive = new ArchiveBrief
+                {
+                    Id = await GrainFactory.GetGrain<IUID>(GrainType.FullName).NewUtcID(),
+                    StartTimestamp = @event.Base.Timestamp,
+                    StartVersion = @event.Base.Version,
+                    Index = LastArchive != default ? LastArchive.Index + 1 : 0,
+                    EndTimestamp = @event.Base.Timestamp,
+                    EndVersion = @event.Base.Version
+                };
+            }
+            else
+            {
+                //判定有没有时间戳小于前一个归档
+                NewArchive.EndTimestamp = @event.Base.Timestamp;
+                NewArchive.EndVersion = @event.Base.Version;
+            }
+            if (ArchiveOptions.On)
+            {
+                var archiveTask = Archive();
+                if (!archiveTask.IsCompleted)
+                    await archiveTask;
+            }
+        }
+        public ArchiveBrief CombineArchiveInfo(ArchiveBrief one, ArchiveBrief two)
+        {
+            if (two.StartTimestamp < one.StartTimestamp)
+                one.StartTimestamp = two.StartTimestamp;
+            if (two.StartVersion < one.StartVersion)
+                one.StartVersion = two.StartVersion;
+            if (two.EndTimestamp > one.EndTimestamp)
+                one.EndTimestamp = two.EndTimestamp;
+            if (two.EndVersion > one.EndVersion)
+                one.EndVersion = two.EndVersion;
+            return one;
         }
         /// <summary>
         /// 发送无状态更改的消息到消息队列
@@ -456,5 +627,34 @@ namespace Ray.Core
                 ExceptionDispatchInfo.Capture(ex).Throw();
             }
         }
+        protected async ValueTask Archive()
+        {
+            if (State.Base.Version != State.Base.DoingVersion)
+                throw new StateInsecurityException(State.Base.StateId.ToString(), GrainType, State.Base.DoingVersion, State.Base.Version);
+            var intervalMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - LastArchive.EndTimestamp;
+            var intervalVersiion = State.Base.Version - LastArchive.EndVersion;
+            if ((intervalMilliseconds > ArchiveOptions.IntervalMilliseconds &&
+                intervalVersiion > ArchiveOptions.IntervalVersion) ||
+                intervalMilliseconds > ArchiveOptions.MaxIntervalMilliSeconds ||
+                intervalVersiion > ArchiveOptions.MaxIntervalVersion
+                )
+            {
+                var task = OnStartArchive();
+                if (!task.IsCompleted)
+                    await task;
+                await ArchiveStorage.Insert(NewArchive, State);
+                BriefArchiveList.Add(NewArchive);
+                LastArchive = NewArchive;
+                NewArchive = default;
+                var onTask = OnArchiveCompleted();
+                if (!onTask.IsCompleted)
+                    await onTask;
+            }
+        }
+        /// <summary>
+        /// 当状态过于复杂，需要自定义归档逻辑的时候使用该方法
+        /// </summary>
+        /// <returns></returns>
+        protected virtual ValueTask OnStartArchive() => Consts.ValueTaskDone;
     }
 }

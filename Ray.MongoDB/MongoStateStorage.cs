@@ -11,9 +11,9 @@ using Ray.Core.Utils;
 
 namespace Ray.Storage.MongoDB
 {
-    public class MongoStateStorage<K, S, B> : IStateStorage<K, S, B>
+    public class MongoStateStorage<K, S, B> : ISnapshotStorage<K, S, B>
         where S : IState<K, B>, new()
-        where B : IStateBase<K>, new()
+        where B : ISnapshot<K>, new()
     {
         readonly StorageConfig grainConfig;
         readonly ISerializer serializer;
