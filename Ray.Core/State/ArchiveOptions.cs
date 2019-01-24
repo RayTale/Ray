@@ -27,7 +27,7 @@
         /// </summary>
         public long MinIntervalVersion { get; set; }
         /// <summary>
-        /// 保留的档案个数
+        /// 保留的归档个数
         /// </summary>
         public int RetainCount { get; set; }
     }

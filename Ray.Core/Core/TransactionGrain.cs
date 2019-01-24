@@ -104,7 +104,7 @@ namespace Ray.Core
                                     var publishTask = EventBusProducer.Publish(ms.ToArray(), @event.HashKey);
                                     if (!publishTask.IsCompleted)
                                         await publishTask;
-                                    OnRaiseSuccess(@event.Evt, @event.Bytes);
+                                    OnRaiseSuccessed(@event.Evt, @event.Bytes);
                                     ms.Position = 0;
                                     ms.SetLength(0);
                                 }
@@ -118,7 +118,7 @@ namespace Ray.Core
                     }
                     else
                     {
-                        EventsInTransactionProcessing.ForEach(evt => OnRaiseSuccess(evt.Evt, evt.Bytes));
+                        EventsInTransactionProcessing.ForEach(evt => OnRaiseSuccessed(evt.Evt, evt.Bytes));
                     }
                     EventsInTransactionProcessing.Clear();
                     var saveSnapshotTask = SaveSnapshotAsync();
@@ -196,7 +196,7 @@ namespace Ray.Core
         /// <param name="event">事件本体</param>
         /// <param name="bytes">事件序列化之后的二进制数据</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected override void OnRaiseSuccess(IEvent<K, E> @event, byte[] bytes)
+        protected override void OnRaiseSuccessed(IEvent<K, E> @event, byte[] bytes)
         {
             using (var dms = new MemoryStream(bytes))
             {
