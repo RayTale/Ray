@@ -32,7 +32,7 @@ namespace Ray.Storage.PostgreSQL
             mpscChannel.ActiveConsumer();
             this.tableInfo = tableInfo;
         }
-        public async Task<IList<IEvent<K, E>>> GetList(K stateId, long startVersion, long endVersion)
+        public async Task<IList<IEvent<K, E>>> GetList(K stateId, long latestTimestamp, long startVersion, long endVersion)
         {
             var originList = new List<EventBytesWrapper>((int)(endVersion - startVersion));
             await Task.Run(async () =>
@@ -44,7 +44,7 @@ namespace Ray.Storage.PostgreSQL
                 using (var conn = tableInfo.CreateConnection() as NpgsqlConnection)
                 {
                     await conn.OpenAsync();
-                    foreach (var table in tableList)
+                    foreach (var table in tableList.Where(t => t.CreateTime >= latestTimestamp))
                     {
                         var sql = $"COPY (SELECT typecode,data from {table.Name} WHERE stateid='{stateId.ToString()}' and version>{startVersion} and version<={endVersion} order by version asc) TO STDOUT (FORMAT BINARY)";
                         using (var reader = conn.BeginBinaryExport(sql))

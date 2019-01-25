@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,7 +15,7 @@ using Ray.Core.Storage;
 
 namespace Ray.Storage.MongoDB
 {
-    public class MongoEventStorage<K, E> : IEventStorage<K,E>
+    public class MongoEventStorage<K, E> : IEventStorage<K, E>
         where E : IEventBase<K>
     {
         readonly StorageConfig grainConfig;
@@ -29,14 +30,14 @@ namespace Ray.Storage.MongoDB
             mpscChannel.BindConsumer(BatchProcessing).ActiveConsumer();
             this.grainConfig = grainConfig;
         }
-        public async Task<IList<IEvent<K, E>>> GetList(K stateId, long startVersion, long endVersion)
+        public async Task<IList<IEvent<K, E>>> GetList(K stateId, long latestTimestamp, long startVersion, long endVersion)
         {
             var collectionListTask = grainConfig.GetCollectionList();
             if (!collectionListTask.IsCompleted)
                 await collectionListTask;
             var list = new List<IEvent<K, E>>();
             long readVersion = 0;
-            foreach (var collection in collectionListTask.Result)
+            foreach (var collection in collectionListTask.Result.Where(c => c.CreateTime >= latestTimestamp))
             {
                 var filterBuilder = Builders<BsonDocument>.Filter;
                 var filter = filterBuilder.Eq("StateId", stateId) & filterBuilder.Lte("Version", endVersion) & filterBuilder.Gt("Version", startVersion);
