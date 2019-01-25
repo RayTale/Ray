@@ -12,6 +12,7 @@ namespace Ray.Core.Storage
         Task Delete(string briefId, K stateId);
         Task EventIsClear(string id);
         Task<S> GetState(string briefId, K stateId);
+        Task UpdateIsLatest(string briefId, K stateId, bool isLatest);
         Task<List<ArchiveBrief>> GetBriefList(K stateId);
     }
 }
