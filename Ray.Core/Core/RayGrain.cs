@@ -205,7 +205,10 @@ namespace Ray.Core
                     }
                     if (eventList.Count < NumberOfEventsPerRead) break;
                 };
-                State.Base.IsLatest = false;
+                if (State.Base.IsLatest)
+                {
+                    State.Base.IsLatest = false;
+                }
                 if (Logger.IsEnabled(LogLevel.Trace))
                     Logger.LogTrace(LogEventIds.GrainStateRecoveryId, "The state of id = {0} recovery has been completed ,state version = {1}", GrainId.ToString(), State.Base.Version);
             }
@@ -264,12 +267,17 @@ namespace Ray.Core
             {
                 //从快照中恢复状态
                 State = await SnapshotStorage.Get(GrainId);
+
                 if (State == default)
                 {
                     //从归档中恢复状态
                     if (ArchiveOptions.On)
                     {
                         State = await ArchiveStorage.GetState(LastArchive.Id, GrainId);
+                        if (State != default && State.Base.IsLatest)
+                        {
+                            await ArchiveStorage.UpdateIsLatest(LastArchive.Id, State.Base.StateId, false);
+                        }
                     }
                     NoSnapshot = true;
                     if (State == default)
@@ -279,6 +287,10 @@ namespace Ray.Core
                         if (!createTask.IsCompleted)
                             await createTask;
                     }
+                }
+                else if (State.Base.IsLatest)
+                {
+                    await SnapshotStorage.UpdateIsLatest(State.Base.StateId, false);
                 }
                 SnapshotEventVersion = State.Base.Version;
                 if (Logger.IsEnabled(LogLevel.Trace))
