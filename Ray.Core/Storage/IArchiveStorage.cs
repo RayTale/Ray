@@ -11,9 +11,7 @@ namespace Ray.Core.Storage
         Task Insert(ArchiveBrief brief, S state);
         Task Delete(string briefId, K stateId);
         Task EventIsClear(string id);
-        Task<ArchiveBrief> GetFirstBrief(K stateId);
-        Task<ArchiveBrief> GetLastBrief(K stateId);
+        Task<S> GetState(string briefId, K stateId);
         Task<List<ArchiveBrief>> GetBriefList(K stateId);
-        Task<SnapshotArchive<K, S, B>> Get(long id);
     }
 }
