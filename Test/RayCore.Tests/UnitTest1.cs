@@ -55,7 +55,7 @@ namespace RayCore.Tests
         public void Configure(ISiloHostBuilder hostBuilder)
         {
             hostBuilder
-                .AddRay()
+                .AddRay<MessageInfo>()
                 .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(Account).Assembly).WithReferences())
                 .ConfigureServices((context, servicecollection) =>
                 {

@@ -4,11 +4,10 @@ using Orleans;
 using Ray.Core.Event;
 using Ray.IGrains.Actors;
 using Ray.IGrains.Events;
-using Ray.IGrains.States;
 
 namespace Ray.Grain
 {
-    public sealed class AccountDb : DbGrain<long, EventBase<long>, FollowState<long>, StateBase<long>>, IAccountDb
+    public sealed class AccountDb : DbGrain<Account, long>, IAccountDb
     {
         public AccountDb(ILogger<AccountDb> logger) : base(logger)
         {
@@ -16,7 +15,7 @@ namespace Ray.Grain
         public override long GrainId => this.GetPrimaryKeyLong();
 
         protected override bool EventConcurrentProcessing => true;
-        protected override async ValueTask Process(IEvent<long, EventBase<long>> @event)
+        protected override async ValueTask Process(IEvent<long> @event)
         {
             switch (@event)
             {

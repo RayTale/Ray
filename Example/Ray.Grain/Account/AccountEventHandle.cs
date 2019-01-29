@@ -1,17 +1,18 @@
 ﻿using Ray.Core.Event;
+using Ray.Core.State;
 using Ray.IGrains.Events;
 using Ray.IGrains.States;
 
 namespace Ray.Grain.EventHandles
 {
-    public class AccountEventHandle : IEventHandler<long, EventBase<long>, AccountState, StateBase<long>>
+    public class AccountEventHandle : IEventHandler<long, AccountState>
     {
-        public void Apply(AccountState state, IEvent<long, EventBase<long>> evt)
+        public void Apply(Snapshot<long, AccountState> state, IEvent<long> evt)
         {
             switch (evt)
             {
-                case AmountAddEvent value: AmountAddEventHandle(state, value); break;
-                case AmountTransferEvent value: AmountTransferEventHandle(state, value); break;
+                case AmountAddEvent value: AmountAddEventHandle(state.State, value); break;
+                case AmountTransferEvent value: AmountTransferEventHandle(state.State, value); break;
                 default: break;
             }
         }

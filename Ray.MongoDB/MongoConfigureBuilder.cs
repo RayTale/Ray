@@ -4,16 +4,16 @@ using Ray.Core.Storage;
 
 namespace Ray.Storage.MongoDB
 {
-    public class MongoConfigureBuilder<K> : ConfigureBuilder<K, StorageConfig, ConfigParameter>
+    public class MongoConfigureBuilder<PrimaryKey> : ConfigureBuilder<PrimaryKey, StorageConfig, ConfigParameter>
     {
         readonly bool staticByType;
-        public MongoConfigureBuilder(Func<Grain, K, ConfigParameter, StorageConfig> generator, bool staticByType = true) : base(generator)
+        public MongoConfigureBuilder(Func<Grain, PrimaryKey, ConfigParameter, StorageConfig> generator, bool staticByType = true) : base(generator)
         {
             this.staticByType = staticByType;
         }
-        public MongoConfigureBuilder<K> BindTo<T>(string snapshotCollection = null)
+        public MongoConfigureBuilder<PrimaryKey> AllotTo<Grain>(string snapshotCollection = null)
         {
-            BindTo<T>(new ConfigParameter(staticByType, snapshotCollection));
+            AllotTo<Grain>(new ConfigParameter(staticByType, snapshotCollection));
             return this;
         }
     }

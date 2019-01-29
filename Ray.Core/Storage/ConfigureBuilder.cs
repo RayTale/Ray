@@ -4,19 +4,19 @@ using Orleans;
 
 namespace Ray.Core.Storage
 {
-    public class ConfigureBuilder<K, C, P> : IConfigureBuilder<K, C, P>
+    public class ConfigureBuilder<PrimaryKey, Config, Parameter> : IConfigureBuilder<PrimaryKey, Config, Parameter>
     {
-        readonly List<(Type type, P parameter)> bindList = new List<(Type type, P parameter)>();
-        readonly Func<Grain, K, P, C> generator;
+        readonly List<(Type type, Parameter parameter)> bindList = new List<(Type type, Parameter parameter)>();
+        readonly Func<Grain, PrimaryKey, Parameter, Config> generator;
         public ConfigureBuilder(
-            Func<Grain, K, P, C> generator)
+            Func<Grain, PrimaryKey, Parameter, Config> generator)
         {
             this.generator = generator;
         }
 
-        public IConfigureBuilder<K, C, P> BindTo<T>(P parameter = default)
+        public IConfigureBuilder<PrimaryKey, Config, Parameter> AllotTo<Grain>(Parameter parameter = default)
         {
-            bindList.Add((typeof(T), parameter));
+            bindList.Add((typeof(Grain), parameter));
             return this;
         }
 
@@ -24,7 +24,7 @@ namespace Ray.Core.Storage
         {
             foreach (var (type, parameter) in bindList)
             {
-                container.Register(type, new ConfigureBuilderWrapper<K, C, P>(generator, parameter));
+                container.Register(type, new ConfigureBuilderWrapper<PrimaryKey, Config, Parameter>(generator, parameter));
             }
         }
     }

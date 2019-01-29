@@ -4,16 +4,18 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Ray.Core.Serialization;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Ray.Core.EventBus
 {
-    public abstract class Consumer<W> : IConsumer
-        where W : IBytesWrapper
+    public abstract class Consumer : IConsumer
     {
         readonly ISerializer serializer;
         readonly List<Func<byte[], object, Task>> eventHandlers;
-        public Consumer(List<Func<byte[], object, Task>> eventHandlers, ISerializer serializer)
+        readonly Type bytesWrapper;
+        public Consumer(IServiceProvider serviceProvider, List<Func<byte[], object, Task>> eventHandlers, ISerializer serializer)
         {
+            bytesWrapper = serviceProvider.GetService<IBytesWrapper>().GetType();
             this.eventHandlers = eventHandlers;
             this.serializer = serializer;
         }
@@ -21,11 +23,16 @@ namespace Ray.Core.EventBus
         {
             using (var ms = new MemoryStream(bytes))
             {
-                var msg = serializer.Deserialize<W>(ms);
-                using (var ems = new MemoryStream(msg.Bytes))
+                var data = serializer.Deserialize(bytesWrapper, ms);
+                if (data is IBytesWrapper msg)
                 {
-                    return Task.WhenAll(eventHandlers.Select(func => func(bytes, serializer.Deserialize(TypeContainer.GetType(msg.TypeName), ems))));
+                    using (var ems = new MemoryStream(msg.Bytes))
+                    {
+                        var evt = serializer.Deserialize(TypeContainer.GetType(msg.TypeName), ems);
+                        return Task.WhenAll(eventHandlers.Select(func => func(bytes, evt)));
+                    }
                 }
+                return Task.CompletedTask;
             }
         }
     }

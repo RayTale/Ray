@@ -57,7 +57,7 @@ namespace Ray.Client
                 {
                     var builder = new ClientBuilder()
                    .UseLocalhostClustering()
-                   .AddRay()
+                   .AddRay<MessageInfo>()
                    .ConfigureServices((context, servicecollection) =>
                    {
                        servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件

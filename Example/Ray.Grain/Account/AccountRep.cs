@@ -2,15 +2,12 @@
 using Microsoft.Extensions.Logging;
 using Orleans;
 using Ray.Core;
-using Ray.IGrains;
 using Ray.IGrains.Actors;
-using Ray.IGrains.Events;
 using Ray.IGrains.States;
 
 namespace Ray.Grain
 {
-    public sealed class AccountRep : 
-        ReplicaGrain<long, EventBase<long>, AccountState, StateBase<long>, MessageInfo>, IAccountRep
+    public sealed class AccountRep : ReplicaGrain<Account, long, AccountState>, IAccountRep
     {
 
         public AccountRep(ILogger<AccountRep> logger) : base(logger)
@@ -20,7 +17,7 @@ namespace Ray.Grain
 
         public Task<decimal> GetBalance()
         {
-            return Task.FromResult(State.Balance);
+            return Task.FromResult(Snapshot.State.Balance);
         }
     }
 }

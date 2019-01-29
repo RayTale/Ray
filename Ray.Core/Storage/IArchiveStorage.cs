@@ -4,15 +4,17 @@ using Ray.Core.State;
 
 namespace Ray.Core.Storage
 {
-    public interface IArchiveStorage<K, S, B>
-        where S : IState<K, B>
-        where B : ISnapshot<K>, new()
+    public interface IArchiveStorage<K, S>
+        where S : class, new()
     {
-        Task Insert(ArchiveBrief brief, S state);
-        Task Delete(string briefId, K stateId);
-        Task EventIsClear(string id);
-        Task<S> GetState(string briefId, K stateId);
-        Task UpdateIsLatest(string briefId, K stateId, bool isLatest);
+        Task Insert(ArchiveBrief brief, Snapshot<K, S> state);
+        Task Delete(string briefId);
+        Task DeleteAll(K stateId);
+        Task EventIsClear(string briefId);
+        Task<Snapshot<K, S>> GetState(string briefId);
+        Task UpdateIsLatest(string briefId, bool isLatest);
+        Task Over(K stateId, bool isOver);
         Task<List<ArchiveBrief>> GetBriefList(K stateId);
+        Task<ArchiveBrief> GetLatestBrief(K stateId);
     }
 }

@@ -10,27 +10,25 @@ using Microsoft.Extensions.Options;
 using Orleans;
 using Ray.Core.EventBus;
 using Ray.Core.IGrains;
-using Ray.Core.Serialization;
 using Ray.Core.Utils;
 
 namespace Ray.EventBus.RabbitMQ
 {
-    public class ConsumerManager<W> : IConsumerManager
-        where W : IBytesWrapper
+    public class ConsumerManager : IConsumerManager
     {
-        readonly ILogger<ConsumerManager<W>> logger;
+        readonly ILogger<ConsumerManager> logger;
         readonly IRabbitMQClient client;
-        readonly IRabbitEventBusContainer<W> rabbitEventBusContainer;
+        readonly IRabbitEventBusContainer rabbitEventBusContainer;
         readonly IServiceProvider provider;
         readonly RabbitEventBusOptions rabbitEventBusOptions;
         readonly IGrainFactory grainFactory;
         public ConsumerManager(
-            ILogger<ConsumerManager<W>> logger,
+            ILogger<ConsumerManager> logger,
             IRabbitMQClient client,
             IGrainFactory grainFactory,
             IServiceProvider provider,
             IOptions<RabbitEventBusOptions> rabbitEventBusOptions,
-            IRabbitEventBusContainer<W> rabbitEventBusContainer)
+            IRabbitEventBusContainer rabbitEventBusContainer)
         {
             this.provider = provider;
             this.client = client;
@@ -39,7 +37,7 @@ namespace Ray.EventBus.RabbitMQ
             this.rabbitEventBusContainer = rabbitEventBusContainer;
             this.grainFactory = grainFactory;
         }
-        private ConcurrentDictionary<string, List<ConsumerRunner<W>>> NodeRunnerDict { get; } = new ConcurrentDictionary<string, List<ConsumerRunner<W>>>();
+        private ConcurrentDictionary<string, List<ConsumerRunner>> NodeRunnerDict { get; } = new ConcurrentDictionary<string, List<ConsumerRunner>>();
         private ConcurrentDictionary<string, long> LockDict { get; } = new ConcurrentDictionary<string, long>();
         private Timer HeathCheckTimer { get; set; }
         private Timer DistributedMonitorTime { get; set; }
@@ -131,11 +129,11 @@ namespace Ray.EventBus.RabbitMQ
         {
             var consumers = rabbitEventBusContainer.GetConsumers();
             var hash = nodeList == null || nodeList.Length == 0 ? null : new ConsistentHash(nodeList);
-            var consumerList = new SortedList<int, ConsumerRunner<W>>();
+            var consumerList = new SortedList<int, ConsumerRunner>();
             var rd = new Random((int)DateTimeOffset.UtcNow.Ticks);
             foreach (var consumer in consumers)
             {
-                if (consumer is RabbitConsumer<W> value)
+                if (consumer is RabbitConsumer value)
                 {
                     for (int i = 0; i < value.QueueList.Count(); i++)
                     {
@@ -143,14 +141,14 @@ namespace Ray.EventBus.RabbitMQ
                         var hashNode = hash != null && nodeList.Length > 1 ? hash.GetNode(queue.Queue) : node;
                         if (node == hashNode)
                         {
-                            consumerList.Add(rd.Next(), new ConsumerRunner<W>(client, provider.GetService<ILogger<ConsumerRunner<W>>>(), value, queue));
+                            consumerList.Add(rd.Next(), new ConsumerRunner(client, provider.GetService<ILogger<ConsumerRunner>>(), value, queue));
                         }
                     }
                 }
             }
             await Work(node, consumerList.Values.ToList());
         }
-        private async Task Work(string node, List<ConsumerRunner<W>> consumerRunners)
+        private async Task Work(string node, List<ConsumerRunner> consumerRunners)
         {
             if (consumerRunners != default)
             {

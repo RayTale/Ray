@@ -2,12 +2,14 @@
 {
     public class ConfigParameter
     {
-        public ConfigParameter(bool staticByType, string snapshotTable)
+        public ConfigParameter(bool singleton, bool isFollow, string followName = null)
         {
-            StaticByType = staticByType;
-            SnapshotTable = snapshotTable;
+            Singleton = singleton;
+            IsFollow = isFollow;
+            FollowName = followName;
         }
-        public bool StaticByType { get; }
-        public string SnapshotTable { get; }
+        public bool Singleton { get; }
+        public bool IsFollow { get; }
+        public string FollowName { get; set; }
     }
 }

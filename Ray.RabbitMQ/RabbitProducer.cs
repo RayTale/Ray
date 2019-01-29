@@ -2,18 +2,16 @@
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using Ray.Core.EventBus;
-using Ray.Core.Serialization;
 
 namespace Ray.EventBus.RabbitMQ
 {
-    public class RabbitProducer<W> : IProducer
-        where W : IBytesWrapper
+    public class RabbitProducer : IProducer
     {
-        readonly RabbitEventBus<W> publisher;
+        readonly RabbitEventBus publisher;
         readonly IRabbitMQClient rabbitMQClient;
         public RabbitProducer(
             IRabbitMQClient rabbitMQClient,
-            RabbitEventBus<W> publisher,
+            RabbitEventBus publisher,
             Type grainType)
         {
             GrainType = grainType;

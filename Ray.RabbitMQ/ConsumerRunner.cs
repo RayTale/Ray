@@ -5,17 +5,15 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
-using Ray.Core.Serialization;
 
 namespace Ray.EventBus.RabbitMQ
 {
-    public class ConsumerRunner<W>
-           where W : IBytesWrapper
+    public class ConsumerRunner
     {
         public ConsumerRunner(
             IRabbitMQClient client,
-            ILogger<ConsumerRunner<W>> logger,
-            RabbitConsumer<W> consumer,
+            ILogger<ConsumerRunner> logger,
+            RabbitConsumer consumer,
             QueueInfo queue)
         {
             Client = client;
@@ -23,9 +21,9 @@ namespace Ray.EventBus.RabbitMQ
             Consumer = consumer;
             Queue = queue;
         }
-        public ILogger<ConsumerRunner<W>> Logger { get; }
+        public ILogger<ConsumerRunner> Logger { get; }
         public IRabbitMQClient Client { get; }
-        public RabbitConsumer<W> Consumer { get; }
+        public RabbitConsumer Consumer { get; }
         public QueueInfo Queue { get; }
         public ushort NowQos { get; set; }
         public List<ConsumerRunnerSlice> Slices { get; set; } = new List<ConsumerRunnerSlice>();

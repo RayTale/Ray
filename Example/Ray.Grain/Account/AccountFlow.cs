@@ -3,22 +3,19 @@ using Microsoft.Extensions.Logging;
 using Orleans;
 using Ray.Core;
 using Ray.Core.Event;
-using Ray.IGrains;
 using Ray.IGrains.Actors;
 using Ray.IGrains.Events;
-using Ray.IGrains.States;
 
 namespace Ray.Grain
 {
-    public sealed class AccountFlow :
-        ConcurrentFollowGrain<long, EventBase<long>, FollowState<long>, StateBase<long>, MessageInfo>, IAccountFlow
+    public sealed class AccountFlow :ConcurrentFollowGrain<Account, long>, IAccountFlow
     {
         public AccountFlow(ILogger<AccountFlow> logger) : base(logger)
         {
         }
         public override long GrainId => this.GetPrimaryKeyLong();
         protected override bool EventConcurrentProcessing => true;
-        protected override async ValueTask OnEventDelivered(IEvent<long, EventBase<long>> @event)
+        protected override async ValueTask OnEventDelivered(IEvent<long> @event)
         {
             switch (@event)
             {

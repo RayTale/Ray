@@ -1,85 +1,130 @@
-﻿using System.IO;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Dapper;
 using Ray.Core.Serialization;
 using Ray.Core.State;
 using Ray.Core.Storage;
-using Ray.Core.Utils;
 
 namespace Ray.Storage.PostgreSQL
 {
-    public class SqlStateStorage<K, S, B> : ISnapshotStorage<K, S, B>
-        where S : class, IState<K, B>
-        where B : ISnapshot<K>, new()
+    public class SqlStateStorage<K, S> : ISnapshotStorage<K, S>
+        where S : class, new()
     {
         readonly StorageConfig tableInfo;
         private readonly string deleteSql;
         private readonly string getByIdSql;
         private readonly string insertSql;
         private readonly string updateSql;
-        readonly ISerializer serializer;
-        public SqlStateStorage(ISerializer serializer, StorageConfig table)
+        private readonly string updateOverSql;
+        private readonly string updateIsLatestSql;
+        private readonly string updateLatestTimestampSql;
+        readonly IJsonSerializer serializer;
+        public SqlStateStorage(IJsonSerializer serializer, StorageConfig table)
         {
             this.serializer = serializer;
             tableInfo = table;
             deleteSql = $"DELETE FROM {tableInfo.SnapshotTable} where stateid=@StateId";
-            getByIdSql = $"select data FROM {tableInfo.SnapshotTable} where stateid=@StateId";
-            insertSql = $"INSERT into {tableInfo.SnapshotTable}(stateid,data,version)VALUES(@StateId,@Data,@Version)";
-            updateSql = $"update {tableInfo.SnapshotTable} set data=@Data,version=@Version where stateid=@StateId";
+            getByIdSql = $"select * FROM {tableInfo.SnapshotTable} where stateid=@StateId";
+            insertSql = $"INSERT into {tableInfo.SnapshotTable}(stateid,data,version,LatestMinEventTimestamp,IsLatest,IsOver)VALUES(@StateId,(@Data)::jsonb,@Version,@LatestMinEventTimestamp,@IsLatest,@IsOver)";
+            updateSql = $"update {tableInfo.SnapshotTable} set data=(@Data)::jsonb,version=@Version,LatestMinEventTimestamp=@LatestMinEventTimestamp,IsLatest=@IsLatest,IsOver=@IsOver where stateid=@StateId";
+            updateOverSql = $"update {tableInfo.SnapshotTable} set IsOver=@IsOver where stateid=@StateId";
+            updateIsLatestSql = $"update {tableInfo.SnapshotTable} set IsLatest=@IsLatest where stateid=@StateId";
+            updateLatestTimestampSql = $"update {tableInfo.SnapshotTable} set LatestMinEventTimestamp=@LatestMinEventTimestamp where stateid=@StateId";
         }
         public async Task Delete(K id)
         {
             using (var conn = tableInfo.CreateConnection())
             {
-                await conn.ExecuteAsync(deleteSql, new { StateId = id.ToString() });
+                await conn.ExecuteAsync(deleteSql, new
+                {
+                    StateId = id.ToString()
+                });
+            }
+        }
+        public async Task Insert(Snapshot<K, S> data)
+        {
+            using (var connection = tableInfo.CreateConnection())
+            {
+                await connection.ExecuteAsync(insertSql, new
+                {
+                    StateId = data.Base.StateId.ToString(),
+                    Data = serializer.Serialize(data.State),
+                    data.Base.Version,
+                    data.Base.DoingVersion,
+                    data.Base.LatestMinEventTimestamp,
+                    data.Base.IsLatest,
+                    data.Base.IsOver
+                });
+            }
+        }
+        public async Task Update(Snapshot<K, S> data)
+        {
+            using (var connection = tableInfo.CreateConnection())
+            {
+                await connection.ExecuteAsync(updateSql, new
+                {
+                    StateId = data.Base.StateId.ToString(),
+                    Data = serializer.Serialize(data.State),
+                    data.Base.Version,
+                    data.Base.LatestMinEventTimestamp,
+                    data.Base.IsLatest,
+                    data.Base.IsOver
+                });
+            }
+        }
+        public async Task Over(K id, bool isOver)
+        {
+            using (var connection = tableInfo.CreateConnection())
+            {
+                await connection.ExecuteAsync(updateOverSql, new { StateId = id, IsOver = isOver });
+            }
+        }
+        public async Task UpdateIsLatest(K id, bool isLatest)
+        {
+            using (var connection = tableInfo.CreateConnection())
+            {
+                await connection.ExecuteAsync(updateIsLatestSql, new
+                {
+                    StateId = id.ToString(),
+                    IsLatest = isLatest
+                });
             }
         }
 
-        public async Task<S> Get(K id)
+        public async Task UpdateLatestMinEventTimestamp(K id, long timestamp)
         {
-            byte[] state;
+            using (var connection = tableInfo.CreateConnection())
+            {
+                await connection.ExecuteAsync(updateLatestTimestampSql, new
+                {
+                    StateId = id.ToString(),
+                    LatestMinEventTimestamp = timestamp
+                });
+            }
+        }
+
+        public async Task<Snapshot<K, S>> Get(K id)
+        {
             using (var conn = tableInfo.CreateConnection())
             {
-                state = await conn.ExecuteScalarAsync<byte[]>(getByIdSql, new { StateId = id.ToString() });
-            }
-            if (state != null)
-            {
-                using (var ms = new MemoryStream(state))
+                var data = await conn.QuerySingleOrDefaultAsync<StateModel>(getByIdSql, new { StateId = id.ToString() });
+                if (data != default)
                 {
-                    return serializer.Deserialize<S>(ms);
+                    return new Snapshot<K, S>()
+                    {
+                        Base = new SnapshotBase<K>
+                        {
+                            StateId = serializer.Deserialize<K>(data.StateId),
+                            Version = data.Version,
+                            DoingVersion = data.Version,
+                            IsLatest = data.IsLatest,
+                            IsOver = data.IsOver,
+                            LatestMinEventTimestamp = data.LatestMinEventTimestamp
+                        },
+                        State = serializer.Deserialize<S>(data.Data)
+                    };
                 }
             }
-            return null;
-        }
-
-        public async Task Insert(S data)
-        {
-            using (var ms = new PooledMemoryStream())
-            {
-                serializer.Serialize(ms, data);
-                using (var connection = tableInfo.CreateConnection())
-                {
-                    await connection.ExecuteAsync(insertSql, new { StateId = data.Base.StateId.ToString(), Data = ms.ToArray(), data.Base.Version });
-                }
-            }
-        }
-
-        public Task Over(K id)
-        {
-            //TODO
-            throw new System.NotImplementedException();
-        }
-
-        public async Task Update(S data)
-        {
-            using (var ms = new PooledMemoryStream())
-            {
-                serializer.Serialize(ms, data);
-                using (var connection = tableInfo.CreateConnection())
-                {
-                    await connection.ExecuteAsync(updateSql, new { StateId = data.Base.StateId.ToString(), Data = ms.ToArray(), data.Base.Version });
-                }
-            }
+            return default;
         }
     }
 }

@@ -1,13 +1,12 @@
 ﻿using System.Threading.Tasks;
 using Ray.Core.EventBus;
-using Ray.Core.Serialization;
 
 namespace Ray.EventBus.RabbitMQ
 {
-    public interface IRabbitEventBusContainer<W> : IConsumerContainer
-        where W : IBytesWrapper
+    public interface IRabbitEventBusContainer : IConsumerContainer
     {
-        RabbitEventBus<W> CreateEventBus<K>(string exchange, string queue, int queueCount = 1);
-        Task Work(RabbitEventBus<W> bus);
+        RabbitEventBus CreateEventBus(string exchange, string queue, int queueCount = 1);
+        RabbitEventBus CreateEventBus<MainGrain>(string exchange, string queue, int queueCount = 1);
+        Task Work(RabbitEventBus bus);
     }
 }
