@@ -1,6 +1,6 @@
 ﻿namespace Ray.Core.Configuration
 {
-    public class BaseOptions
+    public class CoreOptions<GrainState>
     {
         /// <summary>
         /// Grain事务超时的时间(s)
@@ -30,5 +30,9 @@
         /// 事件异步处理的超时时间
         /// </summary>
         public int EventAsyncProcessTimeoutSeconds { get; set; } = 30;
+        /// <summary>
+        /// 当Grain Over时是否清理事件
+        /// </summary>
+        public bool ClearEventWhenOver { get; set; } = true;
     }
 }

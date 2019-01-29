@@ -1,8 +1,8 @@
 ﻿namespace Ray.Core.Storage
 {
-    public interface IConfigureBuilder<K, C, P>
+    public interface IConfigureBuilder<PrimaryKey, Config, Parameter>
     {
-        IConfigureBuilder<K, C, P> BindTo<T>(P parameter);
+        IConfigureBuilder<PrimaryKey, Config, Parameter> AllotTo<Grain>(Parameter parameter);
         void Complete(IConfigureBuilderContainer container = default);
     }
 }

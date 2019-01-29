@@ -51,7 +51,7 @@ namespace Ray.MongoHost
             var builder = new SiloHostBuilder()
                 .UseLocalhostClustering()
                 .UseDashboard()
-                .AddRay()
+                .AddRay<MessageInfo>()
                 .Configure<EndpointOptions>(options => options.AdvertisedIPAddress = IPAddress.Loopback)
                 .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(Account).Assembly).WithReferences())
                 .ConfigureServices((context, servicecollection) =>

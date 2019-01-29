@@ -9,56 +9,80 @@ namespace Ray.Core
     public static class StateWithEventExtensions
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void UpdateVersion<K, B, E>(this IState<K, B> state, IEvent<K, E> @event, Type grainType)
-            where E : IEventBase<K>
-            where B : ISnapshot<K>, new()
+        public static void UpdateVersion<K>(this ISnapshot<K> snapshot, IEvent<K> @event, Type grainType)
         {
-            if (state.Base.Version + 1 != @event.Base.Version)
-                throw new EventVersionNotMatchStateException(state.Base.StateId.ToString(), grainType, @event.Base.Version, state.Base.Version);
-            state.Base.Version = @event.Base.Version;
+            var eventBase = @event.GetBase();
+            if (snapshot.Version + 1 != eventBase.Version)
+                throw new EventVersionNotMatchStateException(snapshot.StateId.ToString(), grainType, eventBase.Version, snapshot.Version);
+            snapshot.Version = eventBase.Version;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void FullUpdateVersion<K, B, E>(this IState<K, B> state, IEvent<K, E> @event, Type grainType)
-            where E : IEventBase<K>
-            where B : ISnapshot<K>, new()
+        public static void FullUpdateVersion<K>(this ISnapshot<K> snapshot, IEvent<K> @event, Type grainType)
         {
-            if (state.Base.Version + 1 != @event.Base.Version)
-                throw new EventVersionNotMatchStateException(state.Base.StateId.ToString(), grainType, @event.Base.Version, state.Base.Version);
-            state.Base.DoingVersion = @event.Base.Version;
-            state.Base.Version = @event.Base.Version;
+            var eventBase = @event.GetBase();
+            if (snapshot.Version + 1 != eventBase.Version)
+                throw new EventVersionNotMatchStateException(snapshot.StateId.ToString(), grainType, eventBase.Version, snapshot.Version);
+            snapshot.DoingVersion = eventBase.Version;
+            snapshot.Version = eventBase.Version;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void UnsafeUpdateVersion<K, B>(this IState<K, B> state, long version, long timestamp)
-            where B : ISnapshot<K>, new()
+        public static void UnsafeUpdateVersion<K>(this ISnapshot<K> snapshot, long version)
         {
-            state.Base.DoingVersion = version;
-            state.Base.Version = version;
+            snapshot.DoingVersion = version;
+            snapshot.Version = version;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void IncrementDoingVersion<K, B>(this IState<K, B> state, Type grainType)
-            where B : ISnapshot<K>, new()
+        public static void IncrementDoingVersion<K>(this ISnapshot<K> snapshot, Type grainType)
         {
-            if (state.Base.DoingVersion != state.Base.Version)
-                throw new StateInsecurityException(state.Base.StateId.ToString(), grainType, state.Base.DoingVersion, state.Base.Version);
-            state.Base.DoingVersion += 1;
+            if (snapshot.DoingVersion != snapshot.Version)
+                throw new StateInsecurityException(snapshot.StateId.ToString(), grainType, snapshot.DoingVersion, snapshot.Version);
+            snapshot.DoingVersion += 1;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void DecrementDoingVersion<K, B>(this IState<K, B> state)
-            where B : ISnapshot<K>, new()
+        public static void DecrementDoingVersion<K>(this ISnapshot<K> snapshot)
         {
-            state.Base.DoingVersion -= 1;
+            snapshot.DoingVersion -= 1;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string GetEventId<K, E>(this IEvent<K, E> @event)
-            where E : IEventBase<K>, new()
+        public static string GetEventId<K>(this IEvent<K> @event)
         {
-            return $"{@event.Base.StateId.ToString()}_{@event.Base.Version.ToString()}";
+            var eventBase = @event.GetBase();
+            return $"{eventBase.StateId.ToString()}_{eventBase.Version.ToString()}";
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static EventUID GetNextUID<K, E>(this IEvent<K, E> @event)
-            where E : IEventBase<K>, new()
+        public static EventUID GetNextUID<K>(this IEvent<K> @event)
         {
-            return new EventUID(@event.GetEventId(), @event.Base.Timestamp);
+            return new EventUID(@event.GetEventId(), @event.GetBase().Timestamp);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void UnsafeUpdateVersion<K>(this IFollowSnapshot<K> state, long version)
+        {
+            state.DoingVersion = version;
+            state.Version = version;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void IncrementDoingVersion<K>(this IFollowSnapshot<K> state, Type grainType)
+        {
+            if (state.DoingVersion != state.Version)
+                throw new StateInsecurityException(state.StateId.ToString(), grainType, state.DoingVersion, state.Version);
+            state.DoingVersion += 1;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void UpdateVersion<K>(this IFollowSnapshot<K> state, IEvent<K> @event, Type grainType)
+        {
+            var eventBase = @event.GetBase();
+            if (state.Version + 1 != eventBase.Version)
+                throw new EventVersionNotMatchStateException(state.StateId.ToString(), grainType, eventBase.Version, state.Version);
+            state.Version = eventBase.Version;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void FullUpdateVersion<K>(this IFollowSnapshot<K> state, IEvent<K> @event, Type grainType)
+        {
+            var eventBase = @event.GetBase();
+            if (state.Version + 1 != eventBase.Version)
+                throw new EventVersionNotMatchStateException(state.StateId.ToString(), grainType, eventBase.Version, state.Version);
+            state.DoingVersion = eventBase.Version;
+            state.Version = eventBase.Version;
         }
     }
 }

@@ -3,15 +3,14 @@ using Ray.Core.State;
 
 namespace Ray.Core.Storage
 {
-    public interface ISnapshotStorage<K, S, B>
-        where S : IState<K, B>
-        where B : ISnapshot<K>, new()
+    public interface ISnapshotStorage<K, S>
+        where S : class, new()
     {
-        Task<S> Get(K id);
+        Task<Snapshot<K, S>> Get(K id);
 
-        Task Insert(S data);
+        Task Insert(Snapshot<K, S> data);
 
-        Task Update(S data);
+        Task Update(Snapshot<K, S> data);
         Task UpdateLatestMinEventTimestamp(K id, long timestamp);
         Task UpdateIsLatest(K id, bool isLatest);
 
@@ -21,6 +20,6 @@ namespace Ray.Core.Storage
         /// </summary>
         /// <param name="id"></param>
         /// <returns></returns>
-        Task Over(K id);
+        Task Over(K id, bool isOver);
     }
 }

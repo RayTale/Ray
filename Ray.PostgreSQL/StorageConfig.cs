@@ -1,11 +1,9 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Dapper;
 
 namespace Ray.Storage.PostgreSQL
 {
@@ -14,18 +12,35 @@ namespace Ray.Storage.PostgreSQL
         public string Connection { get; set; }
         public string EventTable { get; set; }
         public string SnapshotTable { get; set; }
-        private List<TableInfo> AllSplitTableList { get; set; }
+        public string FollowName { get; set; }
+        public bool IsFollow { get; set; }
+        public string ArchiveStateTable
+        {
+            get
+            {
+                return $"{SnapshotTable}_Archive";
+            }
+        }
+        public List<TableInfo> AllSplitTableList { get; set; }
+        public int StateIdLength { get; }
         readonly bool sharding = false;
-        readonly int shardingMilliseconds;
-        readonly int stateIdLength;
-        public StorageConfig(string conn, string eventTable, string snapshotTable, bool sharding = true, int shardingDays = 40, int stateIdLength = 200)
+        readonly long shardingMilliseconds;
+        public TableRepository TableRepository { get; }
+        public StorageConfig(string conn, string eventTable, string snapshotTable, bool isFollow = false, string followName = null, bool sharding = true, int shardingDays = 40, int stateIdLength = 200)
         {
             Connection = conn;
             EventTable = eventTable;
             SnapshotTable = snapshotTable;
+            FollowName = followName;
             this.sharding = sharding;
+            IsFollow = isFollow;
             shardingMilliseconds = shardingDays * 24 * 60 * 60 * 1000;
-            this.stateIdLength = stateIdLength;
+            StateIdLength = stateIdLength;
+            TableRepository = new TableRepository(this);
+        }
+        public string GetFollowStateTable()
+        {
+            return $"{SnapshotTable}_{FollowName}";
         }
         int isBuilded = 0;
         bool buildedResult = false;
@@ -37,9 +52,17 @@ namespace Ray.Storage.PostgreSQL
                 {
                     try
                     {
-                        await CreateTableListTable();
-                        await CreateStateTable();
-                        AllSplitTableList = await GetTableListFromDb();
+                        if (!IsFollow)
+                        {
+                            await TableRepository.CreateSubRecordTable();
+                            await TableRepository.CreateStateTable();
+                            await TableRepository.CreateArchiveStateTable();
+                        }
+                        else if (!string.IsNullOrEmpty(FollowName))
+                        {
+                            await TableRepository.CreateFollowStateTable();
+                        }
+                        AllSplitTableList = await TableRepository.GetTableListFromDb();
                         buildedResult = true;
                     }
                     finally
@@ -49,6 +72,19 @@ namespace Ray.Storage.PostgreSQL
                 }
                 await Task.Delay(50);
             }
+        }
+        public DbConnection CreateConnection()
+        {
+            return SqlFactory.CreateConnection(Connection);
+        }
+        public int GetVersion(long eventTimestamp)
+        {
+            var firstTable = AllSplitTableList.FirstOrDefault();
+            //如果不需要分表，直接返回
+            if (firstTable != null && !sharding) return 0;
+            var nowUtcTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var subMilliseconds = eventTimestamp - (firstTable != null ? firstTable.CreateTime : nowUtcTime);
+            return subMilliseconds > 0 ? (int)(subMilliseconds / shardingMilliseconds) : 0;
         }
         public async ValueTask<TableInfo> GetTable(long eventTimestamp)
         {
@@ -70,13 +106,13 @@ namespace Ray.Storage.PostgreSQL
                 };
                 try
                 {
-                    await CreateEventTable(table);
+                    await TableRepository.CreateEventTable(table);
                     AllSplitTableList.Add(table);
                     resultTable = table;
                 }
                 catch (Exception ex)
                 {
-                    AllSplitTableList = await GetTableListFromDb();
+                    AllSplitTableList = await TableRepository.GetTableListFromDb();
                     if (ex is Npgsql.PostgresException e && e.SqlState != "42P07" && e.SqlState != "23505")
                     {
                         throw;
@@ -85,195 +121,6 @@ namespace Ray.Storage.PostgreSQL
                 }
             }
             return resultTable;
-        }
-        public async Task<List<TableInfo>> GetTableListFromDb()
-        {
-            const string sql = "SELECT * FROM ray_tablelist where prefix=@Table order by version asc";
-            using (var connection = SqlFactory.CreateConnection(Connection))
-            {
-                return (await connection.QueryAsync<TableInfo>(sql, new { Table = EventTable })).AsList();
-            }
-        }
-        public DbConnection CreateConnection()
-        {
-            return SqlFactory.CreateConnection(Connection);
-        }
-        static readonly ConcurrentDictionary<string, bool> createEventTableListDict = new ConcurrentDictionary<string, bool>();
-        static readonly ConcurrentQueue<TaskCompletionSource<bool>> createEventTableListTaskList = new ConcurrentQueue<TaskCompletionSource<bool>>();
-        private async Task CreateEventTable(TableInfo table)
-        {
-            const string sql = @"
-                    create table {0} (
-                            StateId varchar({1}) not null,
-                            UniqueId varchar(250)  null,
-                            TypeCode varchar(100)  not null,
-                            Data bytea not null,
-                            Version int8 not null,
-                            constraint {0}_id_unique unique(StateId,TypeCode,UniqueId)
-                            ) WITH (OIDS=FALSE);
-                            CREATE UNIQUE INDEX {0}_Event_State_Version ON {0} USING btree(StateId, Version);";
-            const string insertSql = "INSERT into ray_tablelist  VALUES(@Prefix,@Name,@Version,@CreateTime)";
-            var key = $"{Connection}-{table.Name}-{stateIdLength}";
-            if (createEventTableListDict.TryAdd(key, true))
-            {
-                using (var connection = SqlFactory.CreateConnection(Connection))
-                {
-                    await connection.OpenAsync();
-                    using (var trans = connection.BeginTransaction())
-                    {
-                        try
-                        {
-                            await connection.ExecuteAsync(string.Format(sql, table.Name, stateIdLength), transaction: trans);
-                            await connection.ExecuteAsync(insertSql, table, trans);
-                            trans.Commit();
-                            createEventTableListDict[key] = true;
-                        }
-                        catch (Exception e)
-                        {
-                            trans.Rollback();
-                            if (e is Npgsql.PostgresException ne && ne.ErrorCode == -2147467259)
-                                return;
-                            else
-                            {
-                                createEventTableListDict.TryRemove(key, out var v);
-                                throw;
-                            }
-                        }
-                    }
-                }
-                while (true)
-                {
-                    if (createEventTableListTaskList.TryDequeue(out var task))
-                    {
-                        task.TrySetResult(true);
-                    }
-                    else
-                        break;
-                }
-            }
-            else if (createEventTableListDict[key] == false)
-            {
-                var task = new TaskCompletionSource<bool>();
-                createEventTableListTaskList.Enqueue(task);
-                try
-                {
-                    await task.Task;
-                }
-                catch
-                {
-                    await CreateEventTable(table);
-                }
-            }
-        }
-        static readonly ConcurrentDictionary<string, bool> createStateTableDict = new ConcurrentDictionary<string, bool>();
-        private static readonly ConcurrentQueue<TaskCompletionSource<bool>> createStateTableTaskList = new ConcurrentQueue<TaskCompletionSource<bool>>();
-        private async Task CreateStateTable()
-        {
-            const string sql = @"
-                    CREATE TABLE if not exists {0}(
-                     StateId varchar({1}) not null PRIMARY KEY,
-                     Data bytea not null,
-                     Version int8 not null)";
-            var key = $"{Connection}-{SnapshotTable}-{stateIdLength}";
-            if (createStateTableDict.TryAdd(key, false))
-            {
-                using (var connection = SqlFactory.CreateConnection(Connection))
-                {
-                    try
-                    {
-                        await connection.ExecuteAsync(string.Format(sql, SnapshotTable, stateIdLength));
-                        createStateTableDict[key] = true;
-                    }
-                    catch (Exception e)
-                    {
-                        if (e is Npgsql.PostgresException ne && ne.ErrorCode == -2147467259)
-                            return;
-                        else
-                        {
-                            createStateTableDict.TryRemove(key, out var v);
-                            throw;
-                        }
-                    }
-                }
-                while (true)
-                {
-                    if (createStateTableTaskList.TryDequeue(out var task))
-                    {
-                        task.TrySetResult(true);
-                    }
-                    else
-                        break;
-                }
-            }
-            else if (createStateTableDict[key] == false)
-            {
-                var task = new TaskCompletionSource<bool>();
-                createStateTableTaskList.Enqueue(task);
-                try
-                {
-                    await task.Task;
-                }
-                catch
-                {
-                    await CreateStateTable();
-                }
-            }
-        }
-        readonly static ConcurrentDictionary<string, bool> createTableListDict = new ConcurrentDictionary<string, bool>();
-        readonly static ConcurrentQueue<TaskCompletionSource<bool>> createTableListTaskList = new ConcurrentQueue<TaskCompletionSource<bool>>();
-        private async Task CreateTableListTable()
-        {
-            const string sql = @"
-                    CREATE TABLE IF Not EXISTS ray_tablelist(
-                        Prefix varchar(255) not null,
-                        Name varchar(255) not null,
-                        Version int4,
-                        Createtime int8
-                    )WITH (OIDS=FALSE);
-                    CREATE UNIQUE INDEX IF NOT EXISTS table_version ON ray_tablelist USING btree(Prefix, Version)";
-            if (createTableListDict.TryAdd(Connection, true))
-            {
-                using (var connection = SqlFactory.CreateConnection(Connection))
-                {
-                    try
-                    {
-                        await connection.ExecuteAsync(sql);
-                        createTableListDict[Connection] = true;
-                    }
-                    catch (Exception e)
-                    {
-                        if (e is Npgsql.PostgresException ne && ne.ErrorCode == -2147467259)
-                            return;
-                        else
-                        {
-                            createTableListDict.TryRemove(Connection, out var v);
-                            throw;
-                        }
-                    }
-                }
-                while (true)
-                {
-                    if (createTableListTaskList.TryDequeue(out var task))
-                    {
-                        task.TrySetResult(true);
-                    }
-                    else
-                        break;
-                }
-            }
-            else if (createTableListDict[Connection] == false)
-            {
-                var task = new TaskCompletionSource<bool>();
-                createTableListTaskList.Enqueue(task);
-                try
-                {
-                    await task.Task;
-                }
-                catch
-                {
-                    await CreateTableListTable();
-                }
-            }
         }
     }
 }

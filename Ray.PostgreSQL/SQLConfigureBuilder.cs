@@ -4,16 +4,21 @@ using Ray.Core.Storage;
 
 namespace Ray.Storage.PostgreSQL
 {
-    public class SQLConfigureBuilder<K> : ConfigureBuilder<K, StorageConfig, ConfigParameter>
+    public class SQLConfigureBuilder<PrimaryKey> : ConfigureBuilder<PrimaryKey, StorageConfig, ConfigParameter>
     {
-        readonly bool staticByType;
-        public SQLConfigureBuilder(Func<Grain, K, ConfigParameter, StorageConfig> generator, bool staticByType = true) : base(generator)
+        readonly bool singleton;
+        public SQLConfigureBuilder(Func<Grain, PrimaryKey, ConfigParameter, StorageConfig> generator, bool singleton = true) : base(generator)
         {
-            this.staticByType = staticByType;
+            this.singleton = singleton;
         }
-        public SQLConfigureBuilder<K> BindTo<T>(string snapshotTable = null)
+        public SQLConfigureBuilder<PrimaryKey> Bind<Grain>()
         {
-            BindTo<T>(new ConfigParameter(staticByType, snapshotTable));
+            AllotTo<Grain>(new ConfigParameter(singleton, false));
+            return this;
+        }
+        public SQLConfigureBuilder<PrimaryKey> Follow<Grain>(string followName = null)
+        {
+            AllotTo<Grain>(new ConfigParameter(singleton, true, followName));
             return this;
         }
     }

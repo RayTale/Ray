@@ -11,7 +11,7 @@ namespace Ray.Grain
         public Task Configure(IConfigureBuilderContainer container)
         {
             new MongoConfigureBuilder<long>((grain, id, parameter) => new StorageConfig(mongoStorage, "Ray", "account_event", parameter != default && !string.IsNullOrEmpty(parameter.SnapshotCollection) ? parameter.SnapshotCollection : "account_state")).
-                BindTo<Account>().BindTo<AccountRep>().BindTo<AccountDb>("account_db_state").BindTo<AccountFlow>("account_flow_state").Complete(container);
+                AllotTo<Account>().AllotTo<AccountRep>().AllotTo<AccountDb>("account_db_state").AllotTo<AccountFlow>("account_flow_state").Complete(container);
 
             return Task.CompletedTask;
         }

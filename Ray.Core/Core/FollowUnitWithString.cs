@@ -44,8 +44,8 @@ namespace Ray.Core
         {
             eventHandlers.Add((byte[] bytes, object evt) =>
             {
-                if (evt is IEvent<string, E> value)
-                    return serviceProvider.GetService<IClusterClient>().GetGrain<F>(value.Base.StateId).ConcurrentTell(bytes);
+                if (evt is IEvent<string> value)
+                    return serviceProvider.GetService<IClusterClient>().GetGrain<F>(value.GetBase().StateId).ConcurrentTell(bytes);
                 else
                     return Task.CompletedTask;
             });
@@ -58,8 +58,8 @@ namespace Ray.Core
         {
             eventHandlers.Add((byte[] bytes, object evt) =>
             {
-                if (evt is IEvent<string, E> value)
-                    return serviceProvider.GetService<IClusterClient>().GetGrain<F>(value.Base.StateId).ConcurrentTell(bytes);
+                if (evt is IEvent<string> value)
+                    return serviceProvider.GetService<IClusterClient>().GetGrain<F>(value.GetBase().StateId).ConcurrentTell(bytes);
                 else
                     return Task.CompletedTask;
             });

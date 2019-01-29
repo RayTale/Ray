@@ -3,14 +3,13 @@ using Microsoft.Extensions.Logging;
 using Orleans;
 using Ray.Core;
 using Ray.Core.Event;
-using Ray.IGrains;
 using Ray.IGrains.Actors;
 using Ray.IGrains.Events;
 using Ray.IGrains.States;
 
 namespace Ray.Grain
 {
-    public sealed class Account : ConcurrentGrain<long, EventBase<long>, AccountState, StateBase<long>, MessageInfo>, IAccount
+    public sealed class Account : ConcurrentGrain<Account, long, AccountState>, IAccount
     {
         public Account(ILogger<Account> logger) : base(logger)
         {
@@ -18,7 +17,7 @@ namespace Ray.Grain
         public override long GrainId => this.GetPrimaryKeyLong();
         public Task Transfer(long toAccountId, decimal amount)
         {
-            var evt = new AmountTransferEvent(toAccountId, amount, this.State.Balance - amount);
+            var evt = new AmountTransferEvent(toAccountId, amount, Snapshot.State.Balance - amount);
             return RaiseEvent(evt);
         }
         public async Task<bool> AddAmount(decimal amount, EventUID uniqueId = null)
@@ -26,7 +25,7 @@ namespace Ray.Grain
             var taskSource = new TaskCompletionSource<bool>();
             var task = ConcurrentRaiseEvent(async (state, eventFunc) =>
             {
-                var evt = new AmountAddEvent(amount, State.Balance + amount);
+                var evt = new AmountAddEvent(amount, Snapshot.State.Balance + amount);
                 await eventFunc(evt, uniqueId);
             }, isOk =>
             {
@@ -42,7 +41,7 @@ namespace Ray.Grain
         }
         public Task<decimal> GetBalance()
         {
-            return Task.FromResult(State.Balance);
+            return Task.FromResult(Snapshot.State.Balance);
         }
     }
 }

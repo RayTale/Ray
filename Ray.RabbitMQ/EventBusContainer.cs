@@ -4,15 +4,13 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using RabbitMQ.Client;
 using Ray.Core.EventBus;
-using Ray.Core.Serialization;
 
 namespace Ray.EventBus.RabbitMQ
 {
-    public class EventBusContainer<W> : IRabbitEventBusContainer<W>, IProducerContainer
-        where W : IBytesWrapper
+    public class EventBusContainer : IRabbitEventBusContainer, IProducerContainer
     {
-        private readonly ConcurrentDictionary<Type, RabbitEventBus<W>> eventBusDictionary = new ConcurrentDictionary<Type, RabbitEventBus<W>>();
-        private readonly List<RabbitEventBus<W>> eventBusList = new List<RabbitEventBus<W>>();
+        private readonly ConcurrentDictionary<Type, RabbitEventBus> eventBusDictionary = new ConcurrentDictionary<Type, RabbitEventBus>();
+        private readonly List<RabbitEventBus> eventBusList = new List<RabbitEventBus>();
         readonly IRabbitMQClient rabbitMQClient;
         readonly IServiceProvider serviceProvider;
         public EventBusContainer(
@@ -22,7 +20,7 @@ namespace Ray.EventBus.RabbitMQ
             this.serviceProvider = serviceProvider;
             this.rabbitMQClient = rabbitMQClient;
         }
-        public RabbitEventBus<W> CreateEventBus<K>(string exchange, string queue, int queueCount = 1)
+        public RabbitEventBus CreateEventBus(string exchange, string queue, int queueCount = 1)
         {
             if (string.IsNullOrEmpty(exchange))
                 throw new ArgumentNullException(nameof(exchange));
@@ -30,9 +28,13 @@ namespace Ray.EventBus.RabbitMQ
                 throw new ArgumentNullException(nameof(queue));
             if (queueCount < 1)
                 throw new ArgumentOutOfRangeException($"{nameof(queueCount)} must be greater than 1");
-            return new RabbitEventBus<W>(serviceProvider, this, exchange, queue, queueCount);
+            return new RabbitEventBus(serviceProvider, this, exchange, queue, queueCount);
         }
-        public async Task Work(RabbitEventBus<W> bus)
+        public RabbitEventBus CreateEventBus<MainGrain>(string exchange, string queue, int queueCount = 1)
+        {
+            return CreateEventBus(exchange, queue, queueCount).BindProducer<MainGrain>();
+        }
+        public async Task Work(RabbitEventBus bus)
         {
             eventBusDictionary.TryAdd(bus.ProducerType, bus);
             eventBusList.Add(bus);
@@ -50,7 +52,7 @@ namespace Ray.EventBus.RabbitMQ
             {
                 return new ValueTask<IProducer>(producerDict.GetOrAdd(type, key =>
                 {
-                    return new RabbitProducer<W>(rabbitMQClient, eventBus, type);
+                    return new RabbitProducer(rabbitMQClient, eventBus, type);
                 }));
             }
             else

@@ -1,21 +1,17 @@
-﻿using System.Threading.Tasks;
+﻿using System.Runtime.ExceptionServices;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Ray.Core;
 using Ray.Core.Event;
-using Ray.Core.State;
-using Ray.IGrains;
 
 namespace Ray.Grain
 {
-    public abstract class DbGrain<K, E, S, B> : ConcurrentFollowGrain<K, E, S, B, MessageInfo>
-        where E : IEventBase<K>
-        where S : class, IState<K, B>, new()
-        where B : ISnapshot<K>, new()
+    public abstract class DbGrain<Main, K> : ConcurrentFollowGrain<Main, K>
     {
         public DbGrain(ILogger logger) : base(logger)
         {
         }
-        protected override async ValueTask OnEventDelivered(IEvent<K, E> @event)
+        protected override async ValueTask OnEventDelivered(IEvent<K> @event)
         {
             var task = Process(@event);
             if (!task.IsCompleted)
@@ -26,12 +22,12 @@ namespace Ray.Grain
                     {
                         if (!(t.Exception.InnerException is Npgsql.PostgresException e && e.SqlState == "23505"))
                         {
-                            throw t.Exception;
+                            ExceptionDispatchInfo.Capture(t.Exception).Throw();
                         }
                     }
                 });
             }
         }
-        protected abstract ValueTask Process(IEvent<K, E> @event);
+        protected abstract ValueTask Process(IEvent<K> @event);
     }
 }

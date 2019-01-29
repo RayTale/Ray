@@ -23,8 +23,7 @@ namespace Ray.Storage.MongoDB
             this.configureContainer = configureContainer;
         }
         readonly ConcurrentDictionary<string, object> eventStorageDict = new ConcurrentDictionary<string, object>();
-        public async ValueTask<IEventStorage<K, E>> CreateEventStorage<K, E>(Grain grain, K grainId)
-            where E : IEventBase<K>
+        public async ValueTask<IEventStorage<K>> CreateEventStorage<K>(Grain grain, K grainId)
         {
             var grainType = grain.GetType();
             if (configureContainer.TryGetValue(grainType, out var value) &&
@@ -43,9 +42,9 @@ namespace Ray.Storage.MongoDB
                     await configTask;
                 var storage = eventStorageDict.GetOrAdd(dictKey, key =>
                  {
-                     return new MongoEventStorage<K, E>(serviceProvider, configTask.Result);
+                     return new MongoEventStorage<K>(serviceProvider, configTask.Result);
                  });
-                return storage as MongoEventStorage<K, E>;
+                return storage as MongoEventStorage<K>;
             }
             else
             {
@@ -53,9 +52,8 @@ namespace Ray.Storage.MongoDB
             }
         }
         readonly ConcurrentDictionary<string, object> stateStorageDict = new ConcurrentDictionary<string, object>();
-        public async ValueTask<ISnapshotStorage<K, S, B>> CreateSnapshotStorage<K, S, B>(Grain grain, K grainId)
-            where S : class, IState<K, B>, new()
-            where B : ISnapshot<K>, new()
+        public async ValueTask<ISnapshotStorage<K, S>> CreateSnapshotStorage<K, S>(Grain grain, K grainId)
+            where S : class, new()
         {
             var grainType = grain.GetType();
             if (configureContainer.TryGetValue(grainType, out var value) &&
@@ -74,9 +72,9 @@ namespace Ray.Storage.MongoDB
                     await configTask;
                 var storage = stateStorageDict.GetOrAdd(dictKey, key =>
                {
-                   return new MongoStateStorage<K, S, B>(serviceProvider.GetService<ISerializer>(), configTask.Result);
+                   return new MongoStateStorage<K, S>(serviceProvider.GetService<ISerializer>(), configTask.Result);
                });
-                return storage as MongoStateStorage<K, S, B>;
+                return storage as MongoStateStorage<K, S>;
             }
             else
             {
@@ -84,9 +82,15 @@ namespace Ray.Storage.MongoDB
             }
         }
 
-        ValueTask<IArchiveStorage<K, S, B>> IStorageFactory.CreateArchiveStorage<K, S, B>(Grain grain, K grainId)
+        public ValueTask<IArchiveStorage<K, S>> CreateArchiveStorage<K, S>(Grain grain, K grainId)
+            where S : class, new()
         {
             //TODO 
+            throw new NotImplementedException();
+        }
+
+        public ValueTask<IFollowSnapshotStorage<PrimaryKey>> CreateFollowSnapshotStorage<PrimaryKey>(Grain grain, PrimaryKey grainId)
+        {
             throw new NotImplementedException();
         }
     }

@@ -9,12 +9,12 @@ using Ray.Core.Utils;
 
 namespace Ray.EventBus.RabbitMQ
 {
-    public class RabbitEventBus<W> where W : IBytesWrapper
+    public class RabbitEventBus
     {
         private readonly ConsistentHash _CHash;
         public RabbitEventBus(
             IServiceProvider serviceProvider,
-            IRabbitEventBusContainer<W> eventBusContainer,
+            IRabbitEventBusContainer eventBusContainer,
             string exchange, string routePrefix, int lBCount = 1)
         {
             if (string.IsNullOrEmpty(exchange))
@@ -43,18 +43,18 @@ namespace Ray.EventBus.RabbitMQ
             _CHash = new ConsistentHash(RouteList, lBCount * 10);
         }
         public IServiceProvider ServiceProvider { get; }
-        public IRabbitEventBusContainer<W> Container { get; }
+        public IRabbitEventBusContainer Container { get; }
         public string Exchange { get; }
         public string RoutePrefix { get; }
         public int LBCount { get; }
         public List<string> RouteList { get; }
         public Type ProducerType { get; set; }
-        public List<RabbitConsumer<W>> Consumers { get; set; } = new List<RabbitConsumer<W>>();
+        public List<RabbitConsumer> Consumers { get; set; } = new List<RabbitConsumer>();
         public string GetRoute(string key)
         {
             return LBCount == 1 ? RoutePrefix : _CHash.GetNode(key); ;
         }
-        public RabbitEventBus<W> BindProducer<T>()
+        public RabbitEventBus BindProducer<T>()
         {
             if (ProducerType == null)
                 ProducerType = typeof(T);
@@ -62,9 +62,9 @@ namespace Ray.EventBus.RabbitMQ
                 throw new EventBusMultiplebindingProducerException(typeof(T).FullName);
             return this;
         }
-        public RabbitEventBus<W> CreateConsumer<K>(string prefix = null, ushort minQos = 100, ushort incQos = 100, ushort maxQos = 300, bool autoAck = false, bool errorReject = false)
+        public RabbitEventBus CreateConsumer<K>(string prefix = null, ushort minQos = 100, ushort incQos = 100, ushort maxQos = 300, bool autoAck = false, bool errorReject = false)
         {
-            var consumer = new RabbitConsumer<W>(ServiceProvider.GetService<IFollowUnitContainer>().GetUnit<K>(ProducerType).GetEventHandlers(), ServiceProvider.GetService<ISerializer>())
+            var consumer = new RabbitConsumer(ServiceProvider, ServiceProvider.GetService<IFollowUnitContainer>().GetUnit<K>(ProducerType).GetEventHandlers(), ServiceProvider.GetService<ISerializer>())
             {
                 EventBus = this,
                 QueueList = new List<QueueInfo>(),
@@ -84,6 +84,10 @@ namespace Ray.EventBus.RabbitMQ
         public Task Enable()
         {
             return Container.Work(this);
+        }
+        public Task DefaultConsumer<K>()
+        {
+            return CreateConsumer<K>(DefaultPrefix.primary).CreateConsumer<K>(DefaultPrefix.secondary).Enable();
         }
     }
 }

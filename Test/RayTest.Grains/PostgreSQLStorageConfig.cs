@@ -14,8 +14,8 @@ namespace RayTest.Grains
         }
         public Task Configure(IConfigureBuilderContainer container)
         {
-            new SQLConfigureBuilder<long>((grain, id, parameter) => new StorageConfig(options.Value.ConnectionDict["core_event"], "account_event", parameter != default && !string.IsNullOrEmpty(parameter.SnapshotTable) ? parameter.SnapshotTable : "account_state")).
-                BindTo<Account>();
+            new SQLConfigureBuilder<long>((grain, id, parameter) => new StorageConfig(options.Value.ConnectionDict["core_event"], "account_event", "account_state")).
+                AllotTo<Account>();
 
             return Task.CompletedTask;
         }

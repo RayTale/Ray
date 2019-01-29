@@ -6,13 +6,16 @@ using Ray.Core.Serialization;
 
 namespace Ray.EventBus.RabbitMQ
 {
-    public class RabbitConsumer<W> : Consumer<W>
-            where W : IBytesWrapper
+    public class RabbitConsumer : Consumer
     {
-        public RabbitConsumer(List<Func<byte[], object, Task>> eventHandlers, ISerializer serializer) : base(eventHandlers, serializer)
+        public RabbitConsumer(
+            IServiceProvider serviceProvider,
+            List<Func<byte[], object, Task>> eventHandlers,
+            ISerializer serializer) :
+            base(serviceProvider, eventHandlers, serializer)
         {
         }
-        public RabbitEventBus<W> EventBus { get; set; }
+        public RabbitEventBus EventBus { get; set; }
         public List<QueueInfo> QueueList { get; set; }
         public ushort MinQos { get; set; }
         public ushort IncQos { get; set; }
