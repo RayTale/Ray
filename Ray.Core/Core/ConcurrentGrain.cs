@@ -33,7 +33,7 @@ namespace Ray.Core
         protected async ValueTask ConcurrentRaiseEvent(Func<Snapshot<PrimaryKey, State>, Func<IEvent<PrimaryKey>, EventUID, Task>, Task> handler, Func<bool, ValueTask> completedHandler, Action<Exception> exceptionHandler)
         {
             var writeTask = ConcurrentChannel.WriteAsync(new EventReentryWrapper<PrimaryKey, Snapshot<PrimaryKey, State>>(handler, completedHandler, exceptionHandler));
-            if (!writeTask.IsCompleted)
+            if (!writeTask.IsCompletedSuccessfully)
                 await writeTask;
             if (!writeTask.Result)
             {
@@ -65,20 +65,17 @@ namespace Ray.Core
             {
                 taskSource.TrySetException(ex);
             });
-            if (!task.IsCompleted)
+            if (!task.IsCompletedSuccessfully)
                 await task;
             return await taskSource.Task;
         }
-        protected virtual ValueTask OnBatchInputProcessed()
-        {
-            return new ValueTask();
-        }
+        protected virtual ValueTask OnBatchInputProcessed() => Consts.ValueTaskDone;
         private async Task BatchInputProcessing(List<EventReentryWrapper<PrimaryKey, Snapshot<PrimaryKey, State>>> inputs)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace(LogEventIds.TransactionGrainCurrentProcessing, "Start batch event processing with id = {0},state version = {1},the number of events = {2}", GrainId.ToString(), TransactionStartVersion, inputs.Count.ToString());
             var beginTask = BeginTransaction();
-            if (!beginTask.IsCompleted)
+            if (!beginTask.IsCompletedSuccessfully)
                 await beginTask;
             try
             {
@@ -97,7 +94,7 @@ namespace Ray.Core
                     if (input.Executed)
                     {
                         var completeTask = input.CompletedHandler(true);
-                        if (!completeTask.IsCompleted)
+                        if (!completeTask.IsCompletedSuccessfully)
                             await completeTask;
                     }
                 }
@@ -109,7 +106,7 @@ namespace Ray.Core
                 try
                 {
                     var rollBackTask = RollbackTransaction();
-                    if (!rollBackTask.IsCompleted)
+                    if (!rollBackTask.IsCompletedSuccessfully)
                         await rollBackTask;
                     await ReTry();
                 }
@@ -121,7 +118,7 @@ namespace Ray.Core
                 }
             }
             var onCompletedTask = OnBatchInputProcessed();
-            if (!onCompletedTask.IsCompleted)
+            if (!onCompletedTask.IsCompletedSuccessfully)
                 await onCompletedTask;
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace(LogEventIds.TransactionGrainCurrentProcessing, "Batch events have been processed with id = {0},state version = {1},the number of events = {2}", GrainId.ToString(), TransactionStartVersion, inputs.Count.ToString());
@@ -135,7 +132,7 @@ namespace Ray.Core
                         {
                             var result = await RaiseEvent(evt, uniqueId);
                             var completeTask = input.CompletedHandler(result);
-                            if (!completeTask.IsCompleted)
+                            if (!completeTask.IsCompletedSuccessfully)
                                 await completeTask;
                         });
                     }

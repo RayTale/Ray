@@ -28,12 +28,13 @@ namespace Ray.EventBus.RabbitMQ
             if (!modelDict.TryGetValue(route, out var model))
             {
                 var pullTask = rabbitMQClient.PullModel();
-                if (!pullTask.IsCompleted)
+                if (!pullTask.IsCompletedSuccessfully)
                     await pullTask;
                 if (!modelDict.TryAdd(route, pullTask.Result))
                 {
                     pullTask.Result.Dispose();
                 }
+                model = pullTask.Result;
             }
             else if (model.Model.IsClosed)
             {
@@ -42,7 +43,7 @@ namespace Ray.EventBus.RabbitMQ
                     value.Dispose();
                 }
                 var pullTask = PullModel(route);
-                if (!pullTask.IsCompleted)
+                if (!pullTask.IsCompletedSuccessfully)
                     await pullTask;
                 return pullTask.Result;
             }
@@ -52,7 +53,7 @@ namespace Ray.EventBus.RabbitMQ
         {
             var route = publisher.GetRoute(hashKey);
             var pullTask = PullModel(route);
-            if (!pullTask.IsCompleted)
+            if (!pullTask.IsCompletedSuccessfully)
                 await pullTask;
             pullTask.Result.Publish(bytes, publisher.Exchange, route, false);
         }

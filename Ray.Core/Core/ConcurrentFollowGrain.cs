@@ -51,7 +51,7 @@ namespace Ray.Core
                             if (@event.GetBase().Version > Snapshot.Version)
                             {
                                 var writeTask = ConcurrentChannel.WriteAsync(new DataAsyncWrapper<IEvent<PrimaryKey>, bool>(@event));
-                                if (!writeTask.IsCompleted)
+                                if (!writeTask.IsCompletedSuccessfully)
                                     await writeTask;
                                 if (!writeTask.Result)
                                 {
@@ -122,7 +122,7 @@ namespace Ray.Core
                         var tasks = UnprocessedEventList.Select(@event =>
                         {
                             var task = OnEventDelivered(@event);
-                            if (!task.IsCompleted)
+                            if (!task.IsCompletedSuccessfully)
                                 return task.AsTask();
                             else
                                 return Task.CompletedTask;
@@ -138,7 +138,7 @@ namespace Ray.Core
                                 var lastEvtBase = lastEvt.GetBase();
                                 Snapshot.UnsafeUpdateVersion(lastEvtBase.Version);
                                 var saveTask = SaveSnapshotAsync();
-                                if (!saveTask.IsCompleted)
+                                if (!saveTask.IsCompletedSuccessfully)
                                     await saveTask;
                                 UnprocessedEventList.Clear();
                                 maxRequest?.TrySetResult(true);

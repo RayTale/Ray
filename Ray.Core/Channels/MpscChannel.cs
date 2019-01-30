@@ -39,7 +39,7 @@ namespace Ray.Core.Channels
         public async ValueTask<bool> WriteAsync(T data)
         {
             if (!InConsuming)
-                return false;
+                ActiveConsumer();
             if (!buffer.Post(data))
                 return await buffer.SendAsync(data);
             return true;

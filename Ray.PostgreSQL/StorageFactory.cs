@@ -32,11 +32,11 @@ namespace Ray.Storage.PostgreSQL
                 {
                     var newConfig = builder.Generator(grain, grainId, builder.Parameter);
                     var task = newConfig.Build();
-                    if (!task.IsCompleted)
+                    if (!task.IsCompletedSuccessfully)
                         await task;
                     return newConfig;
                 });
-                if (!configTask.IsCompleted)
+                if (!configTask.IsCompletedSuccessfully)
                     await configTask;
                 var storage = eventStorageDict.GetOrAdd(dictKey, key =>
                  {
@@ -62,11 +62,11 @@ namespace Ray.Storage.PostgreSQL
                 {
                     var newConfig = builder.Generator(grain, grainId, builder.Parameter);
                     var task = newConfig.Build();
-                    if (!task.IsCompleted)
+                    if (!task.IsCompletedSuccessfully)
                         await task;
                     return newConfig;
                 });
-                if (!configTask.IsCompleted)
+                if (!configTask.IsCompletedSuccessfully)
                     await configTask;
                 var storage = stateStorageDict.GetOrAdd(dictKey, key =>
                {
@@ -92,11 +92,11 @@ namespace Ray.Storage.PostgreSQL
                 {
                     var newConfig = builder.Generator(grain, grainId, builder.Parameter);
                     var task = newConfig.Build();
-                    if (!task.IsCompleted)
+                    if (!task.IsCompletedSuccessfully)
                         await task;
                     return newConfig;
                 });
-                if (!configTask.IsCompleted)
+                if (!configTask.IsCompletedSuccessfully)
                     await configTask;
                 var storage = ArchiveStorageDict.GetOrAdd(dictKey, key =>
                 {
@@ -121,11 +121,11 @@ namespace Ray.Storage.PostgreSQL
                 {
                     var newConfig = builder.Generator(grain, grainId, builder.Parameter);
                     var task = newConfig.Build();
-                    if (!task.IsCompleted)
+                    if (!task.IsCompletedSuccessfully)
                         await task;
                     return newConfig;
                 });
-                if (!configTask.IsCompleted)
+                if (!configTask.IsCompletedSuccessfully)
                     await configTask;
                 var storage = FollowSnapshotStorageDict.GetOrAdd(dictKey, key =>
                 {

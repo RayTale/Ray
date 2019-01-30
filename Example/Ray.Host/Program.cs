@@ -8,6 +8,7 @@ using Orleans;
 using Orleans.Configuration;
 using Orleans.Hosting;
 using Ray.Core;
+using Ray.Core.IGrains;
 using Ray.Core.Serialization;
 using Ray.EventBus.RabbitMQ;
 using Ray.Grain;

@@ -78,17 +78,17 @@ namespace Ray.Core
             EventHandler = ServiceProvider.GetService<IEventHandler<PrimaryKey, State>>();
             //创建归档存储器
             var archiveStorageTask = StorageFactory.CreateArchiveStorage<PrimaryKey, State>(this, GrainId);
-            if (!archiveStorageTask.IsCompleted)
+            if (!archiveStorageTask.IsCompletedSuccessfully)
                 await archiveStorageTask;
             ArchiveStorage = archiveStorageTask.Result;
             //创建事件存储器
             var eventStorageTask = StorageFactory.CreateEventStorage(this, GrainId);
-            if (!eventStorageTask.IsCompleted)
+            if (!eventStorageTask.IsCompletedSuccessfully)
                 await eventStorageTask;
             EventStorage = eventStorageTask.Result;
             //创建状态存储器
             var stateStorageTask = StorageFactory.CreateSnapshotStorage<PrimaryKey, State>(this, GrainId);
-            if (!stateStorageTask.IsCompleted)
+            if (!stateStorageTask.IsCompletedSuccessfully)
                 await stateStorageTask;
             SnapshotStorage = stateStorageTask.Result;
         }
@@ -97,7 +97,7 @@ namespace Ray.Core
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace(LogEventIds.GrainActivateId, "Start activation followgrain with id = {0}", GrainId.ToString());
             var dITask = DependencyInjection();
-            if (!dITask.IsCompleted)
+            if (!dITask.IsCompletedSuccessfully)
                 await dITask;
             try
             {
@@ -130,7 +130,7 @@ namespace Ray.Core
                 {
                     Snapshot.Base.IncrementDoingVersion(GrainType);//标记将要处理的Version
                     var task = OnEventDelivered(@event);
-                    if (!task.IsCompleted)
+                    if (!task.IsCompletedSuccessfully)
                         await task;
                     Snapshot.Base.UpdateVersion(@event, GrainType);//更新处理完成的Version
                 }
@@ -156,7 +156,7 @@ namespace Ray.Core
                 {
                     //新建状态
                     var createTask = CreateState();
-                    if (!createTask.IsCompleted)
+                    if (!createTask.IsCompletedSuccessfully)
                         await createTask;
                 }
                 if (Logger.IsEnabled(LogLevel.Trace))
@@ -191,7 +191,7 @@ namespace Ray.Core
                         if (Serializer.Deserialize(TypeContainer.GetType(message.TypeName), ems) is IEvent<PrimaryKey> @event)
                         {
                             var tellTask = Tell(@event);
-                            if (!tellTask.IsCompleted)
+                            if (!tellTask.IsCompletedSuccessfully)
                                 return tellTask.AsTask();
                         }
                         else
@@ -218,7 +218,7 @@ namespace Ray.Core
                 if (eventBase.Version == Snapshot.Base.Version + 1)
                 {
                     var onEventDeliveredTask = OnEventDelivered(@event);
-                    if (!onEventDeliveredTask.IsCompleted)
+                    if (!onEventDeliveredTask.IsCompletedSuccessfully)
                         await onEventDeliveredTask;
                     Snapshot.Base.FullUpdateVersion(@event, GrainType);//更新处理完成的Version
                 }
@@ -228,7 +228,7 @@ namespace Ray.Core
                     foreach (var item in eventList)
                     {
                         var onEventDeliveredTask = OnEventDelivered(item);
-                        if (!onEventDeliveredTask.IsCompleted)
+                        if (!onEventDeliveredTask.IsCompletedSuccessfully)
                             await onEventDeliveredTask;
                         Snapshot.Base.FullUpdateVersion(item, GrainType);//更新处理完成的Version
                     }
@@ -236,7 +236,7 @@ namespace Ray.Core
                 if (eventBase.Version == Snapshot.Base.Version + 1)
                 {
                     var onEventDeliveredTask = OnEventDelivered(@event);
-                    if (!onEventDeliveredTask.IsCompleted)
+                    if (!onEventDeliveredTask.IsCompletedSuccessfully)
                         await onEventDeliveredTask;
                     Snapshot.Base.FullUpdateVersion(@event, GrainType);//更新处理完成的Version
                 }

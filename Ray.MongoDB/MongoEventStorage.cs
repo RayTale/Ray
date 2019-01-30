@@ -32,7 +32,7 @@ namespace Ray.Storage.MongoDB
         public async Task<IList<IEvent<K>>> GetList(K stateId, long latestTimestamp, long startVersion, long endVersion)
         {
             var collectionListTask = grainConfig.GetCollectionList();
-            if (!collectionListTask.IsCompleted)
+            if (!collectionListTask.IsCompletedSuccessfully)
                 await collectionListTask;
             var list = new List<IEvent<K>>();
             long readVersion = 0;
@@ -63,7 +63,7 @@ namespace Ray.Storage.MongoDB
         public async Task<IList<IEvent<K>>> GetListByType(K stateId, string typeCode, long startVersion, int limit)
         {
             var collectionListTask = grainConfig.GetCollectionList();
-            if (!collectionListTask.IsCompleted)
+            if (!collectionListTask.IsCompletedSuccessfully)
                 await collectionListTask;
             var list = new List<IEvent<K>>();
             foreach (var collection in collectionListTask.Result)
@@ -93,7 +93,7 @@ namespace Ray.Storage.MongoDB
             {
                 var wrap = new DataAsyncWrapper<EventSaveWrapper<K>, bool>(new EventSaveWrapper<K>(evt, bytes, uniqueId));
                 var writeTask = mpscChannel.WriteAsync(wrap);
-                if (!writeTask.IsCompleted)
+                if (!writeTask.IsCompletedSuccessfully)
                     await writeTask;
                 return await wrap.TaskSource.Task;
             });
@@ -115,7 +115,7 @@ namespace Ray.Storage.MongoDB
                 });
             }
             var collectionTask = grainConfig.GetCollection(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-            if (!collectionTask.IsCompleted)
+            if (!collectionTask.IsCompletedSuccessfully)
                 await collectionTask;
             var collection = grainConfig.Storage.GetCollection<MongoEvent<K>>(grainConfig.DataBase, collectionTask.Result.Name);
             wrapperList.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
@@ -175,7 +175,7 @@ namespace Ray.Storage.MongoDB
                 inserts.Add(mEvent);
             }
             var collectionTask = grainConfig.GetCollection(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-            if (!collectionTask.IsCompleted)
+            if (!collectionTask.IsCompletedSuccessfully)
                 await collectionTask;
             await grainConfig.Storage.GetCollection<MongoEvent<K>>(grainConfig.DataBase, collectionTask.Result.Name).InsertManyAsync(inserts);
         }

@@ -1,13 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
+using Microsoft.Extensions.DependencyInjection;
 using Ray.Core;
 using Ray.Core.Abstractions;
-using Ray.IGrains.Actors;
-using Microsoft.Extensions.DependencyInjection;
-using Ray.Core.State;
-using Ray.IGrains.States;
 using Ray.Core.Configuration;
+using Ray.IGrains.Actors;
 
 namespace Ray.Grain
 {
@@ -17,11 +13,17 @@ namespace Ray.Grain
         {
             followUnitContainer.Register(FollowUnitWithLong.From<Account>(serviceProvider).BindFlow<IAccountRep>().BindConcurrentFlow<IAccountFlow>().BindConcurrentFlow<IAccountDb>());
         }
+        public static void Configure(this IServiceCollection serviceCollection)
+        {
+            serviceCollection.ConfigureArchive();
+            serviceCollection.ConfigureBase();
+        }
         public static void ConfigureArchive(this IServiceCollection serviceCollection)
         {
             serviceCollection.PostConfigure<ArchiveOptions<Account>>(options =>
             {
-                options.On = false;
+                options.On = true;
+                options.EventClearOn = false;
                 options.IntervalVersion = 500;
             });
         }

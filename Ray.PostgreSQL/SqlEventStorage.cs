@@ -37,7 +37,7 @@ namespace Ray.Storage.PostgreSQL
             await Task.Run(async () =>
             {
                 var getTableListTask = tableInfo.TableRepository.GetTableListFromDb();
-                if (!getTableListTask.IsCompleted)
+                if (!getTableListTask.IsCompletedSuccessfully)
                     await getTableListTask;
                 var tableList = getTableListTask.Result;
                 if (latestTimestamp != 0)
@@ -79,7 +79,7 @@ namespace Ray.Storage.PostgreSQL
             await Task.Run(async () =>
             {
                 var getTableListTask = tableInfo.TableRepository.GetTableListFromDb();
-                if (!getTableListTask.IsCompleted)
+                if (!getTableListTask.IsCompletedSuccessfully)
                     await getTableListTask;
                 var tableList = getTableListTask.Result;
                 using (var conn = tableInfo.CreateConnection() as NpgsqlConnection)
@@ -121,7 +121,7 @@ namespace Ray.Storage.PostgreSQL
             {
                 var wrap = new DataAsyncWrapper<EventSaveWrapper<K>, bool>(new EventSaveWrapper<K>(evt, bytes, uniqueId));
                 var writeTask = mpscChannel.WriteAsync(wrap);
-                if (!writeTask.IsCompleted)
+                if (!writeTask.IsCompletedSuccessfully)
                     await writeTask;
                 return await wrap.TaskSource.Task;
             });
@@ -195,7 +195,7 @@ namespace Ray.Storage.PostgreSQL
         public async Task TransactionBatchAppend(List<EventTransmitWrapper<K>> list)
         {
             var getTableTask = tableInfo.GetTable(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-            if (!getTableTask.IsCompleted)
+            if (!getTableTask.IsCompletedSuccessfully)
                 await getTableTask;
             var saveSql = copySaveSqlDict.GetOrAdd(getTableTask.Result.Name,
                 key => $"copy {key}(stateid,uniqueId,typecode,data,version) FROM STDIN (FORMAT BINARY)");
@@ -227,7 +227,7 @@ namespace Ray.Storage.PostgreSQL
             await Task.Run(async () =>
             {
                 var getTableListTask = tableInfo.TableRepository.GetTableListFromDb();
-                if (!getTableListTask.IsCompleted)
+                if (!getTableListTask.IsCompletedSuccessfully)
                     await getTableListTask;
                 var tableList = getTableListTask.Result;
                 using (var conn = tableInfo.CreateConnection() as NpgsqlConnection)
