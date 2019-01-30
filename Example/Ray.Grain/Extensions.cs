@@ -18,6 +18,7 @@ namespace Ray.Grain
     {
         public static void AddPSqlSiloGrain(this IServiceCollection serviceCollection)
         {
+            serviceCollection.Configure();
             serviceCollection.AddTransient<IBytesWrapper, MessageInfo>();
             serviceCollection.AddMQService();
             serviceCollection.AddPostgreSQLStorage<PostgreSQLStorageConfig>();
@@ -26,6 +27,7 @@ namespace Ray.Grain
         }
         public static void AddMongoDbSiloGrain(this IServiceCollection serviceCollection)
         {
+            serviceCollection.Configure();
             serviceCollection.AddTransient<IBytesWrapper, MessageInfo>();
             serviceCollection.AddMQService();
             serviceCollection.AddMongoDBStorage<MongoDBStorageConfig>();

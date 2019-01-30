@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Runtime.CompilerServices;
-using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Ray.Core.Event;
@@ -44,7 +42,7 @@ namespace Ray.Core
                     if ((DateTimeOffset.UtcNow - BeginTransactionTime).TotalSeconds > CoreOptions.TransactionTimeoutSeconds)
                     {
                         var rollBackTask = RollbackTransaction();//事务阻赛超过一分钟自动回滚
-                        if (!rollBackTask.IsCompleted)
+                        if (!rollBackTask.IsCompletedSuccessfully)
                             await rollBackTask;
                         if (Logger.IsEnabled(LogLevel.Error))
                             Logger.LogError(LogEventIds.TransactionGrainTransactionFlow, "Transaction timeout, automatic rollback,grain id = {1}", GrainId.ToString());
@@ -53,7 +51,7 @@ namespace Ray.Core
                         throw new RepeatedTransactionException(GrainId.ToString(), GetType());
                 }
                 var checkTask = TransactionStateCheck();
-                if (!checkTask.IsCompleted)
+                if (!checkTask.IsCompletedSuccessfully)
                     await checkTask;
                 TransactionPending = true;
                 TransactionStartVersion = Snapshot.Base.Version;
@@ -65,7 +63,7 @@ namespace Ray.Core
             {
                 if (Logger.IsEnabled(LogLevel.Critical))
                     Logger.LogCritical(LogEventIds.TransactionGrainTransactionFlow, ex, "Begin transaction failed, grain Id = {1}", GrainId.ToString());
-                ExceptionDispatchInfo.Capture(ex).Throw();
+                throw;
             }
         }
         protected async Task CommitTransaction()
@@ -99,10 +97,10 @@ namespace Ray.Core
                                     BytesWrapper.Bytes = @event.Bytes;
                                     Serializer.Serialize(ms, BytesWrapper);
                                     var publishTask = EventBusProducer.Publish(ms.ToArray(), @event.HashKey);
-                                    if (!publishTask.IsCompleted)
+                                    if (!publishTask.IsCompletedSuccessfully)
                                         await publishTask;
                                     var task = OnRaiseSuccessed(@event.Evt, @event.Bytes);
-                                    if (!task.IsCompleted)
+                                    if (!task.IsCompletedSuccessfully)
                                         await task;
                                     ms.Position = 0;
                                     ms.SetLength(0);
@@ -120,13 +118,13 @@ namespace Ray.Core
                         foreach (var evtWrapper in EventsInTransactionProcessing)
                         {
                             var task = OnRaiseSuccessed(evtWrapper.Evt, evtWrapper.Bytes);
-                            if (!task.IsCompleted)
+                            if (!task.IsCompletedSuccessfully)
                                 await task;
                         }
                     }
                     EventsInTransactionProcessing.Clear();
                     var saveSnapshotTask = SaveSnapshotAsync();
-                    if (!saveSnapshotTask.IsCompleted)
+                    if (!saveSnapshotTask.IsCompletedSuccessfully)
                         await saveSnapshotTask;
                     if (Logger.IsEnabled(LogLevel.Trace))
                         Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Commit transaction with id {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), EventsInTransactionProcessing.Count.ToString(), TransactionStartVersion.ToString(), Snapshot.Base.Version.ToString());
@@ -135,7 +133,7 @@ namespace Ray.Core
                 {
                     if (Logger.IsEnabled(LogLevel.Error))
                         Logger.LogError(LogEventIds.TransactionGrainTransactionFlow, ex, "Commit transaction failed, grain Id = {1}", GrainId.ToString());
-                    ExceptionDispatchInfo.Capture(ex).Throw();
+                    throw;
                 }
             }
             TransactionPending = false;
@@ -169,11 +167,10 @@ namespace Ray.Core
                 {
                     if (Logger.IsEnabled(LogLevel.Critical))
                         Logger.LogCritical(LogEventIds.TransactionGrainTransactionFlow, ex, "Rollback transaction failed with Id = {1}", GrainId.ToString());
-                    ExceptionDispatchInfo.Capture(ex).Throw();
+                    throw;
                 }
             }
         }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private async ValueTask TransactionStateCheck()
         {
             if (Logger.IsEnabled(LogLevel.Trace))
@@ -194,7 +191,7 @@ namespace Ray.Core
                 throw ex;
             }
             var checkTask = TransactionStateCheck();
-            if (!checkTask.IsCompleted)
+            if (!checkTask.IsCompletedSuccessfully)
                 await checkTask;
             return await base.RaiseEvent(@event, uniqueId);
         }

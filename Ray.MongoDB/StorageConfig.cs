@@ -32,7 +32,7 @@ namespace Ray.Storage.MongoDB
             if (AllSplitCollections == null || AllSplitCollections.Count == 0)
             {
                 var collectionTask = GetCollection(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-                if (!collectionTask.IsCompleted)
+                if (!collectionTask.IsCompletedSuccessfully)
                     await collectionTask;
                 return new List<SplitCollectionInfo>() { collectionTask.Result };
             }

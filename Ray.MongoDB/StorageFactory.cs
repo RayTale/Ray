@@ -34,11 +34,11 @@ namespace Ray.Storage.MongoDB
                 {
                     var newConfig = builder.Generator(grain, grainId, builder.Parameter);
                     var task = newConfig.Build();
-                    if (!task.IsCompleted)
+                    if (!task.IsCompletedSuccessfully)
                         await task;
                     return newConfig;
                 });
-                if (!configTask.IsCompleted)
+                if (!configTask.IsCompletedSuccessfully)
                     await configTask;
                 var storage = eventStorageDict.GetOrAdd(dictKey, key =>
                  {
@@ -64,11 +64,11 @@ namespace Ray.Storage.MongoDB
                 {
                     var newConfig = builder.Generator(grain, grainId, builder.Parameter);
                     var task = newConfig.Build();
-                    if (!task.IsCompleted)
+                    if (!task.IsCompletedSuccessfully)
                         await task;
                     return newConfig;
                 });
-                if (!configTask.IsCompleted)
+                if (!configTask.IsCompletedSuccessfully)
                     await configTask;
                 var storage = stateStorageDict.GetOrAdd(dictKey, key =>
                {

@@ -35,7 +35,7 @@ namespace Ray.Grain
             {
                 taskSource.TrySetException(ex);
             });
-            if (!task.IsCompleted)
+            if (!task.IsCompletedSuccessfully)
                 await task;
             return await taskSource.Task;
         }

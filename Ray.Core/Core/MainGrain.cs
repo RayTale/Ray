@@ -62,6 +62,18 @@ namespace Ray.Core
         protected Type GrainType { get; }
         protected IBytesWrapper BytesWrapper { get; set; }
         /// <summary>
+        /// 事件存储器
+        /// </summary>
+        protected IEventStorage<PrimaryKey> EventStorage { get; private set; }
+        /// <summary>
+        /// 状态存储器
+        /// </summary>
+        protected ISnapshotStorage<PrimaryKey, State> SnapshotStorage { get; private set; }
+        /// <summary>
+        /// 事件发布器
+        /// </summary>
+        protected IProducer EventBusProducer { get; private set; }
+        /// <summary>
         /// 依赖注入统一方法
         /// </summary>
         protected async virtual ValueTask DependencyInjection()
@@ -76,23 +88,26 @@ namespace Ray.Core
             EventHandler = ServiceProvider.GetService<IEventHandler<PrimaryKey, State>>();
             FollowUnit = ServiceProvider.GetService<IFollowUnitContainer>().GetUnit<PrimaryKey>(GrainType);
             //创建归档存储器
-            var archiveStorageTask = StorageFactory.CreateArchiveStorage<PrimaryKey, State>(this, GrainId);
-            if (!archiveStorageTask.IsCompleted)
-                await archiveStorageTask;
-            ArchiveStorage = archiveStorageTask.Result;
+            if (ArchiveOptions.On)
+            {
+                var archiveStorageTask = StorageFactory.CreateArchiveStorage<PrimaryKey, State>(this, GrainId);
+                if (!archiveStorageTask.IsCompletedSuccessfully)
+                    await archiveStorageTask;
+                ArchiveStorage = archiveStorageTask.Result;
+            }
             //创建事件存储器
             var eventStorageTask = StorageFactory.CreateEventStorage<PrimaryKey>(this, GrainId);
-            if (!eventStorageTask.IsCompleted)
+            if (!eventStorageTask.IsCompletedSuccessfully)
                 await eventStorageTask;
             EventStorage = eventStorageTask.Result;
             //创建状态存储器
             var stateStorageTask = StorageFactory.CreateSnapshotStorage<PrimaryKey, State>(this, GrainId);
-            if (!stateStorageTask.IsCompleted)
+            if (!stateStorageTask.IsCompletedSuccessfully)
                 await stateStorageTask;
             SnapshotStorage = stateStorageTask.Result;
             //创建事件发布器
             var producerTask = ProducerContainer.GetProducer(this);
-            if (!producerTask.IsCompleted)
+            if (!producerTask.IsCompletedSuccessfully)
                 await producerTask;
             EventBusProducer = producerTask.Result;
         }
@@ -105,14 +120,14 @@ namespace Ray.Core
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace(LogEventIds.GrainActivateId, "Start activation grain with id = {0}", GrainId.ToString());
             var dITask = DependencyInjection();
-            if (!dITask.IsCompleted)
+            if (!dITask.IsCompletedSuccessfully)
                 await dITask;
             try
             {
                 if (ArchiveOptions.On)
                 {
                     //加载归档信息
-                    BriefArchiveList = await ArchiveStorage.GetBriefList(GrainId);
+                    BriefArchiveList = (await ArchiveStorage.GetBriefList(GrainId)).OrderBy(a => a.Index).ToList();
                     LastArchive = BriefArchiveList.LastOrDefault();
                     if (LastArchive != default && !LastArchive.IsCompletedArchive(ArchiveOptions) && !LastArchive.EventIsCleared)
                     {
@@ -127,24 +142,40 @@ namespace Ray.Core
 
                 if (ArchiveOptions.On)
                 {
-                    if (NewArchive != default && NewArchive.EndVersion < Snapshot.Base.Version)
-                    {
-                        //归档恢复
-                        while (true)
-                        {
-                            var eventList = await EventStorage.GetList(GrainId, NewArchive.EndTimestamp, NewArchive.EndVersion, NewArchive.EndVersion + CoreOptions.NumberOfEventsPerRead);
-                            foreach (var @event in eventList)
-                            {
-                                var task = EventArchive(@event);
-                                if (!task.IsCompleted)
-                                    await task;
-                            }
-                            if (NewArchive.EndVersion == Snapshot.Base.Version) break;
-                        };
-                    }
+                    //if (NewArchive == default)
+                    //{
+                    //    var id = await GrainFactory.GetGrain<IUID>(GrainType.FullName).NewUtcID();
+                    //    NewArchive = new ArchiveBrief
+                    //    {
+                    //        Id = id,
+                    //        StartVersion = 0,
+                    //        StartTimestamp = 0,
+                    //        EndTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                    //        EndVersion = Snapshot.Base.Version,
+                    //        EventIsCleared = false,
+                    //        Index = 0
+                    //    };
+                    //}
+                    //else if (NewArchive.EndVersion < Snapshot.Base.Version)
+                    //{
+                    //    //归档恢复
+                    //    while (true)
+                    //    {
+                    //        var eventList = await EventStorage.GetList(GrainId, NewArchive.EndTimestamp, NewArchive.EndVersion, NewArchive.EndVersion + CoreOptions.NumberOfEventsPerRead);
+                    //        foreach (var @event in eventList)
+                    //        {
+                    //            var task = EventArchive(@event);
+                    //            if (!task.IsCompletedSuccessfully)
+                    //                await task;
+                    //            else
+                    //                task.CheckFaulted();
+                    //        }
+                    //        if (NewArchive.EndVersion == Snapshot.Base.Version) break;
+                    //    };
+                    //}
                 }
                 var onActivatedTask = OnBaseActivated();
-                if (!onActivatedTask.IsCompleted)
+                if (!onActivatedTask.IsCompletedSuccessfully)
                     await onActivatedTask;
                 if (Logger.IsEnabled(LogLevel.Trace))
                     Logger.LogTrace(LogEventIds.GrainActivateId, "Grain activation completed with id = {0}", GrainId.ToString());
@@ -163,9 +194,7 @@ namespace Ray.Core
                 Logger.LogTrace(LogEventIds.GrainStateRecoveryId, "The state of id = {0} begin to recover", GrainType.FullName, GrainId.ToString());
             try
             {
-                var readSnapshotTask = ReadSnapshotAsync();
-                if (!readSnapshotTask.IsCompleted)
-                    await readSnapshotTask;
+                await ReadSnapshotAsync();
                 while (!Snapshot.Base.IsLatest)
                 {
                     var eventList = await EventStorage.GetList(GrainId, Snapshot.Base.LatestMinEventTimestamp, Snapshot.Base.Version, Snapshot.Base.Version + CoreOptions.NumberOfEventsPerRead);
@@ -196,10 +225,10 @@ namespace Ray.Core
                 if (needSaveSnap)
                 {
                     var saveTask = SaveSnapshotAsync(true, true);
-                    if (!saveTask.IsCompleted)
+                    if (!saveTask.IsCompletedSuccessfully)
                         await saveTask;
                     var onDeactivatedTask = OnDeactivated();
-                    if (!onDeactivatedTask.IsCompleted)
+                    if (!onDeactivatedTask.IsCompletedSuccessfully)
                         await onDeactivatedTask;
                 }
                 if (ArchiveOptions.On)
@@ -207,7 +236,7 @@ namespace Ray.Core
                     if (NewArchive.EndVersion - NewArchive.StartVersion >= ArchiveOptions.MinIntervalVersion)
                     {
                         var archiveTask = Archive(true, true);
-                        if (!archiveTask.IsCompleted)
+                        if (!archiveTask.IsCompletedSuccessfully)
                             await archiveTask;
                     }
                 }
@@ -251,7 +280,7 @@ namespace Ray.Core
                     {
                         //新建状态
                         var createTask = CreateState();
-                        if (!createTask.IsCompleted)
+                        if (!createTask.IsCompletedSuccessfully)
                             await createTask;
                     }
                 }
@@ -280,7 +309,7 @@ namespace Ray.Core
                 try
                 {
                     var onSaveSnapshotTask = OnStartSaveSnapshot();
-                    if (!onSaveSnapshotTask.IsCompleted)
+                    if (!onSaveSnapshotTask.IsCompletedSuccessfully)
                         await onSaveSnapshotTask;
                     Snapshot.Base.LatestMinEventTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                     Snapshot.Base.IsLatest = isLatest;
@@ -323,7 +352,7 @@ namespace Ray.Core
             if (SnapshotEventVersion != Snapshot.Base.Version)
             {
                 var saveTask = SaveSnapshotAsync(true, true);
-                if (!saveTask.IsCompleted)
+                if (!saveTask.IsCompletedSuccessfully)
                     await saveTask;
             }
             else
@@ -340,14 +369,14 @@ namespace Ray.Core
         {
             await ArchiveStorage.Delete(briefId);
             var task = OnStartDeleteArchive(briefId);
-            if (!task.IsCompleted)
+            if (!task.IsCompletedSuccessfully)
                 await task;
         }
         private async Task DeleteAllArchive()
         {
             await DeleteAllArchive();
             var task = OnStartDeleteAllArchive();
-            if (!task.IsCompleted)
+            if (!task.IsCompletedSuccessfully)
                 await task;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -379,18 +408,6 @@ namespace Ray.Core
                 SnapshotEventVersion = 0;
             }
         }
-        /// <summary>
-        /// 事件存储器
-        /// </summary>
-        protected IEventStorage<PrimaryKey> EventStorage { get; private set; }
-        /// <summary>
-        /// 状态存储器
-        /// </summary>
-        protected ISnapshotStorage<PrimaryKey, State> SnapshotStorage { get; private set; }
-        /// <summary>
-        /// 事件发布器
-        /// </summary>
-        protected IProducer EventBusProducer { get; private set; }
         protected virtual async Task<bool> RaiseEvent(IEvent<PrimaryKey> @event, EventUID uniqueId = null)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
@@ -408,7 +425,7 @@ namespace Ray.Core
                 else
                     eventBase.Timestamp = uniqueId.Timestamp;
                 var startTask = OnRaiseStart(@event);
-                if (!startTask.IsCompleted)
+                if (!startTask.IsCompletedSuccessfully)
                     await startTask;
                 Snapshot.Base.IncrementDoingVersion(GrainType);//标记将要处理的Version
                 using (var ms = new PooledMemoryStream())
@@ -429,7 +446,7 @@ namespace Ray.Core
                             try
                             {
                                 var publishTask = EventBusProducer.Publish(ms.ToArray(), GrainId.ToString());
-                                if (!publishTask.IsCompleted)
+                                if (!publishTask.IsCompletedSuccessfully)
                                     await publishTask;
                             }
                             catch (Exception ex)
@@ -444,10 +461,10 @@ namespace Ray.Core
                         }
                         Snapshot.Base.UpdateVersion(@event, GrainType);//更新处理完成的Version
                         var saveSnapshotTask = SaveSnapshotAsync();
-                        if (!saveSnapshotTask.IsCompleted)
+                        if (!saveSnapshotTask.IsCompletedSuccessfully)
                             await saveSnapshotTask;
                         var task = OnRaiseSuccessed(@event, bytes);
-                        if (!task.IsCompleted)
+                        if (!task.IsCompletedSuccessfully)
                             await task;
                         if (Logger.IsEnabled(LogLevel.Trace))
                             Logger.LogTrace(LogEventIds.GrainRaiseEvent, "Raise event successfully, grain Id= {0} and state version = {1}}", GrainId.ToString(), Snapshot.Base.Version);
@@ -458,7 +475,7 @@ namespace Ray.Core
                         if (Logger.IsEnabled(LogLevel.Information))
                             Logger.LogInformation(LogEventIds.GrainRaiseEvent, "Raise event failure because of idempotency limitation, grain Id = {0},state version = {1},event type = {2} with version = {3}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, @event.GetBase().Version);
                         var task = OnRaiseFailed(@event);
-                        if (!task.IsCompleted)
+                        if (!task.IsCompletedSuccessfully)
                             await task;
                         Snapshot.Base.DecrementDoingVersion();//还原doing Version
                     }
@@ -494,9 +511,10 @@ namespace Ray.Core
             }
             if (ArchiveOptions.On &&
                 ArchiveOptions.EventClearOn &&
+                LastArchive != default &&
                 eventBase.Timestamp < LastArchive.EndTimestamp)
             {
-                foreach (var archive in BriefArchiveList.OrderByDescending(v => v.Index).ToList())
+                foreach (var archive in BriefArchiveList.OrderByDescending(v => v.Index))
                 {
                     if (eventBase.Timestamp < archive.EndTimestamp)
                     {
@@ -538,7 +556,6 @@ namespace Ray.Core
                 Logger.LogTrace(LogEventIds.GrainRaiseEvent, "Start apply event, grain Id= {0} and state version is {1}},event type = {2},event = {3}", GrainId.ToString(), Snapshot.Base.Version, evt.GetType().FullName, JsonSerializer.Serialize(evt));
             EventHandler.Apply(snapshot, evt);
         }
-
         protected async ValueTask EventArchive(IEvent<PrimaryKey> @event)
         {
             var eventBase = @event.GetBase();
@@ -546,13 +563,14 @@ namespace Ray.Core
             {
                 NewArchive = new ArchiveBrief
                 {
-                    Id = await GrainFactory.GetGrain<IUID>(GrainType.FullName).NewUtcID(),
+                    Id = await ServiceProvider.GetService<IGrainFactory>().GetGrain<IUID>(GrainType.FullName).NewUtcID(),
                     StartTimestamp = eventBase.Timestamp,
                     StartVersion = eventBase.Version,
                     Index = LastArchive != default ? LastArchive.Index + 1 : 0,
                     EndTimestamp = eventBase.Timestamp,
                     EndVersion = eventBase.Version
                 };
+                LastArchive = NewArchive;
             }
             else
             {
@@ -560,12 +578,9 @@ namespace Ray.Core
                 NewArchive.EndTimestamp = eventBase.Timestamp;
                 NewArchive.EndVersion = eventBase.Version;
             }
-            if (ArchiveOptions.On)
-            {
-                var archiveTask = Archive();
-                if (!archiveTask.IsCompleted)
-                    await archiveTask;
-            }
+            var archiveTask = Archive();
+            if (!archiveTask.IsCompletedSuccessfully)
+                await archiveTask;
         }
         private ArchiveBrief CombineArchiveInfo(ArchiveBrief one, ArchiveBrief two)
         {
@@ -586,14 +601,14 @@ namespace Ray.Core
                 throw new StateInsecurityException(Snapshot.Base.StateId.ToString(), GrainType, Snapshot.Base.DoingVersion, Snapshot.Base.Version);
             var intervalMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - LastArchive.EndTimestamp;
             var intervalVersiion = Snapshot.Base.Version - LastArchive.EndVersion;
-            if (force || ((intervalMilliseconds > ArchiveOptions.IntervalMilliSeconds &&
-                intervalVersiion > ArchiveOptions.IntervalVersion) ||
+            if (force || (
+                (intervalMilliseconds > ArchiveOptions.IntervalMilliSeconds && intervalVersiion > ArchiveOptions.IntervalVersion) ||
                 intervalMilliseconds > ArchiveOptions.MaxIntervalMilliSeconds ||
                 intervalVersiion > ArchiveOptions.MaxIntervalVersion
                 ))
             {
                 var task = OnStartArchive();
-                if (!task.IsCompleted)
+                if (!task.IsCompletedSuccessfully)
                     await task;
                 Snapshot.Base.IsLatest = isLatest;
                 await ArchiveStorage.Insert(NewArchive, Snapshot);
@@ -601,7 +616,7 @@ namespace Ray.Core
                 LastArchive = NewArchive;
                 NewArchive = default;
                 var onTask = OnArchiveCompleted();
-                if (!onTask.IsCompleted)
+                if (!onTask.IsCompletedSuccessfully)
                     await onTask;
             }
         }
@@ -621,7 +636,7 @@ namespace Ray.Core
                     if (SnapshotEventVersion < minArchive.EndVersion)
                     {
                         var saveTask = SaveSnapshotAsync(true);
-                        if (!saveTask.IsCompleted)
+                        if (!saveTask.IsCompletedSuccessfully)
                             await saveTask;
                     }
                     await EventStorage.Delete(Snapshot.Base.StateId, minArchive.EndVersion);
@@ -664,7 +679,7 @@ namespace Ray.Core
                     ms.SetLength(0);
                     Serializer.Serialize(ms, BytesWrapper);
                     var pubLishTask = EventBusProducer.Publish(ms.ToArray(), hashKey);
-                    if (!pubLishTask.IsCompleted)
+                    if (!pubLishTask.IsCompletedSuccessfully)
                         await pubLishTask;
                 }
             }

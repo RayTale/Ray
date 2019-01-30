@@ -76,12 +76,12 @@ namespace Ray.Core
             JsonSerializer = ServiceProvider.GetService<IJsonSerializer>();
             //创建事件存储器
             var eventStorageTask = StorageFactory.CreateEventStorage<PrimaryKey>(this, GrainId);
-            if (!eventStorageTask.IsCompleted)
+            if (!eventStorageTask.IsCompletedSuccessfully)
                 await eventStorageTask;
             EventStorage = eventStorageTask.Result;
             //创建状态存储器
             var stateStorageTask = StorageFactory.CreateFollowSnapshotStorage<PrimaryKey>(this, GrainId);
-            if (!stateStorageTask.IsCompleted)
+            if (!stateStorageTask.IsCompletedSuccessfully)
                 await stateStorageTask;
             FollowSnapshotStorage = stateStorageTask.Result;
         }
@@ -90,7 +90,7 @@ namespace Ray.Core
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace(LogEventIds.GrainActivateId, "Start activation followgrain with id = {0}", GrainId.ToString());
             var dITask = DependencyInjection();
-            if (!dITask.IsCompleted)
+            if (!dITask.IsCompletedSuccessfully)
                 await dITask;
             try
             {
@@ -119,7 +119,7 @@ namespace Ray.Core
                     await Task.WhenAll(eventList.Select(@event =>
                     {
                         var task = OnEventDelivered(@event);
-                        if (!task.IsCompleted)
+                        if (!task.IsCompletedSuccessfully)
                             return task.AsTask();
                         else
                             return Task.CompletedTask;
@@ -133,13 +133,13 @@ namespace Ray.Core
                     {
                         Snapshot.IncrementDoingVersion(GrainType);//标记将要处理的Version
                         var task = OnEventDelivered(@event);
-                        if (!task.IsCompleted)
+                        if (!task.IsCompletedSuccessfully)
                             await task;
                         Snapshot.UpdateVersion(@event, GrainType);//更新处理完成的Version
                     }
                 }
                 var saveTask = SaveSnapshotAsync();
-                if (!saveTask.IsCompleted)
+                if (!saveTask.IsCompletedSuccessfully)
                     await saveTask;
                 if (eventList.Count < ConfigOptions.NumberOfEventsPerRead) break;
             };
@@ -169,7 +169,7 @@ namespace Ray.Core
                 {
                     NoSnapshot = true;
                     var createTask = CreateState();
-                    if (!createTask.IsCompleted)
+                    if (!createTask.IsCompletedSuccessfully)
                         await createTask;
                 }
                 SnapshotEventVersion = Snapshot.Version;
@@ -208,7 +208,7 @@ namespace Ray.Core
                         if (Serializer.Deserialize(TypeContainer.GetType(message.TypeName), ems) is IEvent<PrimaryKey> @event)
                         {
                             var tellTask = Tell(@event);
-                            if (!tellTask.IsCompleted)
+                            if (!tellTask.IsCompletedSuccessfully)
                                 return tellTask.AsTask();
                         }
                         else
@@ -235,7 +235,7 @@ namespace Ray.Core
                 if (eventBase.Version == Snapshot.Version + 1)
                 {
                     var onEventDeliveredTask = OnEventDelivered(@event);
-                    if (!onEventDeliveredTask.IsCompleted)
+                    if (!onEventDeliveredTask.IsCompletedSuccessfully)
                         await onEventDeliveredTask;
                     Snapshot.FullUpdateVersion(@event, GrainType);//更新处理完成的Version
                 }
@@ -245,7 +245,7 @@ namespace Ray.Core
                     foreach (var item in eventList)
                     {
                         var onEventDeliveredTask = OnEventDelivered(item);
-                        if (!onEventDeliveredTask.IsCompleted)
+                        if (!onEventDeliveredTask.IsCompletedSuccessfully)
                             await onEventDeliveredTask;
                         Snapshot.FullUpdateVersion(item, GrainType);//更新处理完成的Version
                     }
@@ -253,7 +253,7 @@ namespace Ray.Core
                 if (eventBase.Version == Snapshot.Version + 1)
                 {
                     var onEventDeliveredTask = OnEventDelivered(@event);
-                    if (!onEventDeliveredTask.IsCompleted)
+                    if (!onEventDeliveredTask.IsCompletedSuccessfully)
                         await onEventDeliveredTask;
                     Snapshot.FullUpdateVersion(@event, GrainType);//更新处理完成的Version
                 }
@@ -289,7 +289,7 @@ namespace Ray.Core
                     try
                     {
                         var onSaveSnapshotTask = OnSaveSnapshot();//自定义保存项
-                        if (!onSaveSnapshotTask.IsCompleted)
+                        if (!onSaveSnapshotTask.IsCompletedSuccessfully)
                             await onSaveSnapshotTask;
                         if (NoSnapshot)
                         {
@@ -302,7 +302,7 @@ namespace Ray.Core
                         }
                         SnapshotEventVersion = Snapshot.Version;
                         var onSavedSnapshotTask = OnSavedSnapshot();
-                        if (!onSavedSnapshotTask.IsCompleted)
+                        if (!onSavedSnapshotTask.IsCompletedSuccessfully)
                             await onSavedSnapshotTask;
                         if (Logger.IsEnabled(LogLevel.Trace))
                             Logger.LogTrace(LogEventIds.FollowGrainSaveSnapshot, "State snapshot saved successfully with Id {0} ,state version = {1}", GrainId.ToString(), Snapshot.Version);

@@ -14,7 +14,7 @@ namespace Ray.Grain
         protected override async ValueTask OnEventDelivered(IEvent<K> @event)
         {
             var task = Process(@event);
-            if (!task.IsCompleted)
+            if (!task.IsCompletedSuccessfully)
             {
                 await task.AsTask().ContinueWith(t =>
                 {
