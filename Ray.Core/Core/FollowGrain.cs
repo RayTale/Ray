@@ -227,9 +227,17 @@ namespace Ray.Core
             }
             return Task.CompletedTask;
         }
-        public Task<long> CurrentVersion()
+        public Task<long> GetVersion()
         {
             return Task.FromResult(Snapshot.Version);
+        }
+        public async Task<long> GetAndSaveVersion(long compareVersion)
+        {
+            if (SnapshotEventVersion < compareVersion && Snapshot.Version >= compareVersion)
+            {
+                await SaveSnapshotAsync(true);
+            }
+            return Snapshot.Version;
         }
         protected async ValueTask Tell(IFullyEvent<PrimaryKey> @event)
         {

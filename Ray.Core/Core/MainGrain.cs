@@ -334,13 +334,16 @@ namespace Ray.Core
         {
             if (Snapshot.Base.IsOver)
                 throw new StateIsOverException(Snapshot.Base.StateId.ToString(), GrainType);
-            var versions = await Task.WhenAll(FollowUnit.GetAllVersionsFunc().Select(func => func(Snapshot.Base.StateId)));
-            if (versions.Any(v => v < Snapshot.Base.Version))
-            {
-                throw new FollowNotCompletedException(GrainType.FullName, Snapshot.Base.StateId.ToString());
-            }
             if (Snapshot.Base.Version != Snapshot.Base.DoingVersion)
                 throw new StateInsecurityException(Snapshot.Base.StateId.ToString(), GrainType, Snapshot.Base.DoingVersion, Snapshot.Base.Version);
+            if (CoreOptions.ClearEventWhenOver)
+            {
+                var versions = await Task.WhenAll(FollowUnit.GetAndSaveVersionFuncs().Select(func => func(Snapshot.Base.StateId, Snapshot.Base.Version)));
+                if (versions.Any(v => v < Snapshot.Base.Version))
+                {
+                    throw new FollowNotCompletedException(GrainType.FullName, Snapshot.Base.StateId.ToString());
+                }
+            }
             Snapshot.Base.IsOver = true;
             Snapshot.Base.IsLatest = true;
             if (SnapshotEventVersion != Snapshot.Base.Version)
@@ -623,27 +626,32 @@ namespace Ray.Core
                 var minArchive = noCleareds.FirstOrDefault();
                 if (minArchive != default)
                 {
-                    //清理归档对应的事件
-                    await ArchiveStorage.EventIsClear(minArchive.Id);
-                    minArchive.EventIsCleared = true;
-                    //如果快照的版本小于需要清理的最大事件版本号，则保存快照
-                    if (SnapshotEventVersion < minArchive.EndVersion)
+                    //判断需要清理的event是否都被follow执行过
+                    var versions = await Task.WhenAll(FollowUnit.GetAndSaveVersionFuncs().Select(func => func(Snapshot.Base.StateId, Snapshot.Base.Version)));
+                    if (versions.All(v => v >= minArchive.EndVersion))
                     {
-                        var saveTask = SaveSnapshotAsync(true);
-                        if (!saveTask.IsCompletedSuccessfully)
-                            await saveTask;
+                        //清理归档对应的事件
+                        await ArchiveStorage.EventIsClear(minArchive.Id);
+                        minArchive.EventIsCleared = true;
+                        //如果快照的版本小于需要清理的最大事件版本号，则保存快照
+                        if (SnapshotEventVersion < minArchive.EndVersion)
+                        {
+                            var saveTask = SaveSnapshotAsync(true);
+                            if (!saveTask.IsCompletedSuccessfully)
+                                await saveTask;
+                        }
+                        await EventStorage.Delete(Snapshot.Base.StateId, minArchive.EndVersion);
+                        //只保留一个清理过事件的快照，其它的删除掉
+                        var cleareds = BriefArchiveList.Where(a => a.EventIsCleared).OrderBy(a => a.Index).ToArray();
+                        if (cleareds.Length > 1)
+                        {
+                            for (int i = 0; i < cleareds.Length - 1; i++)
+                            {
+                                await DeleteArchive(cleareds[i].Id);
+                                BriefArchiveList.Remove(cleareds[i]);
+                            }
+                        }
                     }
-                    await EventStorage.Delete(Snapshot.Base.StateId, minArchive.EndVersion);
-                }
-            }
-            //只保留一个清理过事件的快照，其它的删除掉
-            var cleareds = BriefArchiveList.Where(a => a.EventIsCleared).OrderBy(a => a.Index).ToArray();
-            if (cleareds.Length > 1)
-            {
-                for (int i = 0; i < cleareds.Length - 1; i++)
-                {
-                    await DeleteArchive(cleareds[i].Id);
-                    BriefArchiveList.Remove(cleareds[i]);
                 }
             }
         }

@@ -210,7 +210,11 @@ namespace Ray.Core
             }
             return Task.CompletedTask;
         }
-        public Task<long> CurrentVersion()
+        public Task<long> GetVersion()
+        {
+            return Task.FromResult(Snapshot.Base.Version);
+        }
+        public Task<long> GetAndSaveVersion(long compareVersion)
         {
             return Task.FromResult(Snapshot.Base.Version);
         }
