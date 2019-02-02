@@ -4,6 +4,7 @@ namespace Ray.Core
 {
     public interface IVersionGrain
     {
-        Task<long> CurrentVersion();
+        Task<long> GetVersion();
+        Task<long> GetAndSaveVersion(long compareVersion);
     }
 }

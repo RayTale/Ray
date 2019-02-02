@@ -11,7 +11,7 @@ namespace Ray.Core
     {
         readonly IServiceProvider serviceProvider;
         readonly List<Func<byte[], Task>> eventHandlers = new List<Func<byte[], Task>>();
-        readonly List<Func<long, Task<long>>> followVersionHandlers = new List<Func<long, Task<long>>>();
+        readonly List<Func<long, long, Task<long>>> followVersionHandlers = new List<Func<long, long, Task<long>>>();
 
         public Type GrainType { get; }
 
@@ -30,7 +30,7 @@ namespace Ray.Core
             return eventHandlers;
         }
 
-        public List<Func<long, Task<long>>> GetAllVersionsFunc()
+        public List<Func<long, long, Task<long>>> GetAndSaveVersionFuncs()
         {
             return followVersionHandlers;
         }
@@ -52,7 +52,7 @@ namespace Ray.Core
                 }
                 return Task.CompletedTask;
             });
-            followVersionHandlers.Add(stateId => serviceProvider.GetService<IClusterClient>().GetGrain<F>(stateId).CurrentVersion());
+            followVersionHandlers.Add((stateId, version) => serviceProvider.GetService<IClusterClient>().GetGrain<F>(stateId).GetAndSaveVersion(version));
             return this;
         }
 
@@ -68,7 +68,7 @@ namespace Ray.Core
                 }
                 return Task.CompletedTask;
             });
-            followVersionHandlers.Add(stateId => serviceProvider.GetService<IClusterClient>().GetGrain<F>(stateId).CurrentVersion());
+            followVersionHandlers.Add((stateId, version) => serviceProvider.GetService<IClusterClient>().GetGrain<F>(stateId).GetAndSaveVersion(version));
             return this;
         }
     }
