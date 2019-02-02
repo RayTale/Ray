@@ -8,6 +8,7 @@ using Orleans;
 using Orleans.Configuration;
 using Orleans.Hosting;
 using Ray.Core;
+using Ray.Core.Event;
 using Ray.Core.IGrains;
 using Ray.Core.Serialization;
 using Ray.EventBus.RabbitMQ;
@@ -52,7 +53,7 @@ namespace Ray.MongoHost
             var builder = new SiloHostBuilder()
                 .UseLocalhostClustering()
                 .UseDashboard()
-                .AddRay<MessageInfo>()
+                .AddRay()
                 .Configure<EndpointOptions>(options => options.AdvertisedIPAddress = IPAddress.Loopback)
                 .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(Account).Assembly).WithReferences())
                 .ConfigureServices((context, servicecollection) =>

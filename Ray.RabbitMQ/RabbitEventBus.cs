@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Ray.Core.Abstractions;
 using Ray.Core.Exceptions;
-using Ray.Core.Serialization;
 using Ray.Core.Utils;
 
 namespace Ray.EventBus.RabbitMQ
@@ -64,7 +63,7 @@ namespace Ray.EventBus.RabbitMQ
         }
         public RabbitEventBus CreateConsumer<K>(string prefix = null, ushort minQos = 100, ushort incQos = 100, ushort maxQos = 300, bool autoAck = false, bool errorReject = false)
         {
-            var consumer = new RabbitConsumer(ServiceProvider, ServiceProvider.GetService<IFollowUnitContainer>().GetUnit<K>(ProducerType).GetEventHandlers(), ServiceProvider.GetService<ISerializer>())
+            var consumer = new RabbitConsumer(ServiceProvider.GetService<IFollowUnitContainer>().GetUnit<K>(ProducerType).GetEventHandlers())
             {
                 EventBus = this,
                 QueueList = new List<QueueInfo>(),

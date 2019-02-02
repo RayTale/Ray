@@ -10,7 +10,7 @@ namespace Ray.Core
     public class FollowUnitWithLong : IFollowUnit<long>
     {
         readonly IServiceProvider serviceProvider;
-        readonly List<Func<byte[], object, Task>> eventHandlers = new List<Func<byte[], object, Task>>();
+        readonly List<Func<byte[], Task>> eventHandlers = new List<Func<byte[], Task>>();
         readonly List<Func<long, Task<long>>> followVersionHandlers = new List<Func<long, Task<long>>>();
 
         public Type GrainType { get; }
@@ -25,7 +25,7 @@ namespace Ray.Core
         {
             return new FollowUnitWithLong(serviceProvider, typeof(Grain));
         }
-        public List<Func<byte[], object, Task>> GetEventHandlers()
+        public List<Func<byte[], Task>> GetEventHandlers()
         {
             return eventHandlers;
         }
@@ -34,7 +34,7 @@ namespace Ray.Core
         {
             return followVersionHandlers;
         }
-        public FollowUnitWithLong BindEventHandler(Func<byte[], object, Task> handler)
+        public FollowUnitWithLong BindEventHandler(Func<byte[], Task> handler)
         {
             eventHandlers.Add(handler);
             return this;
@@ -43,12 +43,14 @@ namespace Ray.Core
             where F : IFollow, IGrainWithIntegerKey
 
         {
-            eventHandlers.Add((byte[] bytes, object evt) =>
+            eventHandlers.Add((byte[] bytes) =>
             {
-                if (evt is IEvent<long> value)
-                    return serviceProvider.GetService<IClusterClient>().GetGrain<F>(value.GetBase().StateId).Tell(bytes);
-                else
-                    return Task.CompletedTask;
+                var (success, actorId) = BytesTransport.GetActorIdWithLong(bytes);
+                if (success)
+                {
+                    return serviceProvider.GetService<IClusterClient>().GetGrain<F>(actorId).Tell(bytes);
+                }
+                return Task.CompletedTask;
             });
             followVersionHandlers.Add(stateId => serviceProvider.GetService<IClusterClient>().GetGrain<F>(stateId).CurrentVersion());
             return this;
@@ -57,12 +59,14 @@ namespace Ray.Core
         public FollowUnitWithLong BindConcurrentFlow<F>()
             where F : IConcurrentFollow, IGrainWithIntegerKey
         {
-            eventHandlers.Add((byte[] bytes, object evt) =>
+            eventHandlers.Add((byte[] bytes) =>
             {
-                if (evt is IEvent<long> value)
-                    return serviceProvider.GetService<IClusterClient>().GetGrain<F>(value.GetBase().StateId).ConcurrentTell(bytes);
-                else
-                    return Task.CompletedTask;
+                var (success, actorId) = BytesTransport.GetActorIdWithLong(bytes);
+                if (success)
+                {
+                    return serviceProvider.GetService<IClusterClient>().GetGrain<F>(actorId).ConcurrentTell(bytes);
+                }
+                return Task.CompletedTask;
             });
             followVersionHandlers.Add(stateId => serviceProvider.GetService<IClusterClient>().GetGrain<F>(stateId).CurrentVersion());
             return this;

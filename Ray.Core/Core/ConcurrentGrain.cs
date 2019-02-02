@@ -17,12 +17,12 @@ namespace Ray.Core
         public ConcurrentGrain(ILogger logger) : base(logger)
         {
         }
-        protected IMpscChannel<EventReentryWrapper<PrimaryKey, Snapshot<PrimaryKey, State>>> ConcurrentChannel { get; private set; }
+        protected IMpscChannel<ConcurrentTransport<Snapshot<PrimaryKey, State>>> ConcurrentChannel { get; private set; }
 
         public override async Task OnActivateAsync()
         {
             await base.OnActivateAsync();
-            ConcurrentChannel = ServiceProvider.GetService<IMpscChannel<EventReentryWrapper<PrimaryKey, Snapshot<PrimaryKey, State>>>>();
+            ConcurrentChannel = ServiceProvider.GetService<IMpscChannel<ConcurrentTransport<Snapshot<PrimaryKey, State>>>>();
             ConcurrentChannel.BindConsumer(BatchInputProcessing).ActiveConsumer();
         }
         public override async Task OnDeactivateAsync()
@@ -30,9 +30,12 @@ namespace Ray.Core
             await base.OnDeactivateAsync();
             ConcurrentChannel.Complete();
         }
-        protected async ValueTask ConcurrentRaiseEvent(Func<Snapshot<PrimaryKey, State>, Func<IEvent<PrimaryKey>, EventUID, Task>, Task> handler, Func<bool, ValueTask> completedHandler, Action<Exception> exceptionHandler)
+        protected async ValueTask ConcurrentRaiseEvent(
+            Func<Snapshot<PrimaryKey, State>,
+            Func<IEvent, EventUID, Task>, Task> handler,
+            Func<bool, ValueTask> completedHandler, Action<Exception> exceptionHandler)
         {
-            var writeTask = ConcurrentChannel.WriteAsync(new EventReentryWrapper<PrimaryKey, Snapshot<PrimaryKey, State>>(handler, completedHandler, exceptionHandler));
+            var writeTask = ConcurrentChannel.WriteAsync(new ConcurrentTransport<Snapshot<PrimaryKey, State>>(handler, completedHandler, exceptionHandler));
             if (!writeTask.IsCompletedSuccessfully)
                 await writeTask;
             if (!writeTask.Result)
@@ -45,13 +48,13 @@ namespace Ray.Core
         }
         /// <summary>
         /// 不依赖当前状态的的事件的并发处理
-        /// 如果事件的产生依赖当前状态，请使用<see cref="ConcurrentRaiseEvent(Func{State, Func{IEvent{PrimaryKey,E}, string, string, Task}, Task}, Func{bool, ValueTask}, Action{Exception})"/>
+        /// 如果事件的产生依赖当前状态，请使用<see cref="ConcurrentRaiseEvent(Func{State, Func{IFullyEvent{PrimaryKey,E}, string, string, Task}, Task}, Func{bool, ValueTask}, Action{Exception})"/>
         /// </summary>
         /// <param name="event">不依赖当前状态的事件</param>
         /// <param name="uniqueId">幂等性判定值</param>
         /// <param name="hashKey">消息异步分发的唯一hash的key</param>
         /// <returns></returns>
-        protected async Task<bool> ConcurrentRaiseEvent(IEvent<PrimaryKey> @event, EventUID uniqueId = null)
+        protected async Task<bool> ConcurrentRaiseEvent(IEvent @event, EventUID uniqueId = null)
         {
             var taskSource = new TaskCompletionSource<bool>();
             var task = ConcurrentRaiseEvent(async (state, eventFunc) =>
@@ -70,7 +73,7 @@ namespace Ray.Core
             return await taskSource.Task;
         }
         protected virtual ValueTask OnBatchInputProcessed() => Consts.ValueTaskDone;
-        private async Task BatchInputProcessing(List<EventReentryWrapper<PrimaryKey, Snapshot<PrimaryKey, State>>> inputs)
+        private async Task BatchInputProcessing(List<ConcurrentTransport<Snapshot<PrimaryKey, State>>> inputs)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace(LogEventIds.TransactionGrainCurrentProcessing, "Start batch event processing with id = {0},state version = {1},the number of events = {2}", GrainId.ToString(), TransactionStartVersion, inputs.Count.ToString());

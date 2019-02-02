@@ -5,7 +5,6 @@
     {
         public Snapshot()
         {
-
         }
         public Snapshot(K stateId)
         {

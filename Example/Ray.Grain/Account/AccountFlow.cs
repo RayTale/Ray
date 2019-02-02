@@ -15,7 +15,7 @@ namespace Ray.Grain
         }
         public override long GrainId => this.GetPrimaryKeyLong();
         protected override bool EventConcurrentProcessing => true;
-        protected override async ValueTask OnEventDelivered(IEvent<long> @event)
+        protected override async ValueTask OnEventDelivered(IFullyEvent<long> @event)
         {
             switch (@event)
             {

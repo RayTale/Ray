@@ -24,7 +24,7 @@ namespace Ray.Storage.PostgreSQL
             tableInfo = table;
             deleteSql = $"DELETE FROM {tableInfo.SnapshotTable} where stateid=@StateId";
             getByIdSql = $"select * FROM {tableInfo.SnapshotTable} where stateid=@StateId";
-            insertSql = $"INSERT into {tableInfo.SnapshotTable}(stateid,data,version,LatestMinEventTimestamp,IsLatest,IsOver)VALUES(@StateId,(@Data)::jsonb,@Version,@LatestMinEventTimestamp,@IsLatest,@IsOver)";
+            insertSql = $"INSERT into {tableInfo.SnapshotTable}(stateid,data,version,StartTimestamp,LatestMinEventTimestamp,IsLatest,IsOver)VALUES(@StateId,(@Data)::jsonb,@Version,@StartTimestamp,@LatestMinEventTimestamp,@IsLatest,@IsOver)";
             updateSql = $"update {tableInfo.SnapshotTable} set data=(@Data)::jsonb,version=@Version,LatestMinEventTimestamp=@LatestMinEventTimestamp,IsLatest=@IsLatest,IsOver=@IsOver where stateid=@StateId";
             updateOverSql = $"update {tableInfo.SnapshotTable} set IsOver=@IsOver where stateid=@StateId";
             updateIsLatestSql = $"update {tableInfo.SnapshotTable} set IsLatest=@IsLatest where stateid=@StateId";
@@ -50,6 +50,7 @@ namespace Ray.Storage.PostgreSQL
                     Data = serializer.Serialize(data.State),
                     data.Base.Version,
                     data.Base.DoingVersion,
+                    data.Base.StartTimestamp,
                     data.Base.LatestMinEventTimestamp,
                     data.Base.IsLatest,
                     data.Base.IsOver
@@ -118,6 +119,7 @@ namespace Ray.Storage.PostgreSQL
                             DoingVersion = data.Version,
                             IsLatest = data.IsLatest,
                             IsOver = data.IsOver,
+                            StartTimestamp = data.StartTimestamp,
                             LatestMinEventTimestamp = data.LatestMinEventTimestamp
                         },
                         State = serializer.Deserialize<S>(data.Data)

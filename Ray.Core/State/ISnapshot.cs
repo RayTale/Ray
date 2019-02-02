@@ -11,6 +11,10 @@
         /// </summary>
         long Version { get; set; }
         /// <summary>
+        /// 第一个事件的时间戳
+        /// </summary>
+        long StartTimestamp { get; set; }
+        /// <summary>
         /// 最新事件的最小时间戳(方便读取后续事件列表)
         /// </summary>
         long LatestMinEventTimestamp { get; set; }

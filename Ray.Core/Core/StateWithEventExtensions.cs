@@ -9,27 +9,23 @@ namespace Ray.Core
     public static class StateWithEventExtensions
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void UpdateVersion<K>(this ISnapshot<K> snapshot, IEvent<K> @event, Type grainType)
+        public static void UpdateVersion<PrimaryKey>(this ISnapshot<PrimaryKey> snapshot, EventBase eventBase, Type grainType)
         {
-            var eventBase = @event.GetBase();
             if (snapshot.Version + 1 != eventBase.Version)
                 throw new EventVersionNotMatchStateException(snapshot.StateId.ToString(), grainType, eventBase.Version, snapshot.Version);
             snapshot.Version = eventBase.Version;
+            if (snapshot.StartTimestamp == 0)
+                snapshot.StartTimestamp = eventBase.Timestamp;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void FullUpdateVersion<K>(this ISnapshot<K> snapshot, IEvent<K> @event, Type grainType)
+        public static void FullUpdateVersion<PrimaryKey>(this ISnapshot<PrimaryKey> snapshot, EventBase eventBase, Type grainType)
         {
-            var eventBase = @event.GetBase();
             if (snapshot.Version + 1 != eventBase.Version)
                 throw new EventVersionNotMatchStateException(snapshot.StateId.ToString(), grainType, eventBase.Version, snapshot.Version);
             snapshot.DoingVersion = eventBase.Version;
             snapshot.Version = eventBase.Version;
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void UnsafeUpdateVersion<K>(this ISnapshot<K> snapshot, long version)
-        {
-            snapshot.DoingVersion = version;
-            snapshot.Version = version;
+            if (snapshot.StartTimestamp == 0)
+                snapshot.StartTimestamp = eventBase.Timestamp;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void IncrementDoingVersion<K>(this ISnapshot<K> snapshot, Type grainType)
@@ -44,21 +40,20 @@ namespace Ray.Core
             snapshot.DoingVersion -= 1;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string GetEventId<K>(this IEvent<K> @event)
+        public static string GetEventId<K>(this IFullyEvent<K> @event)
         {
-            var eventBase = @event.GetBase();
-            return $"{eventBase.StateId.ToString()}_{eventBase.Version.ToString()}";
+            return $"{@event.StateId.ToString()}_{@event.Base.Version.ToString()}";
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static EventUID GetNextUID<K>(this IEvent<K> @event)
+        public static EventUID GetNextUID<K>(this IFullyEvent<K> @event)
         {
-            return new EventUID(@event.GetEventId(), @event.GetBase().Timestamp);
+            return new EventUID(@event.GetEventId(), @event.Base.Timestamp);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void UnsafeUpdateVersion<K>(this IFollowSnapshot<K> state, long version)
+        public static void UnsafeUpdateVersion<PrimaryKey>(this IFollowSnapshot<PrimaryKey> state, EventBase eventBase)
         {
-            state.DoingVersion = version;
-            state.Version = version;
+            state.DoingVersion = eventBase.Version;
+            state.Version = eventBase.Version;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void IncrementDoingVersion<K>(this IFollowSnapshot<K> state, Type grainType)
@@ -68,17 +63,15 @@ namespace Ray.Core
             state.DoingVersion += 1;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void UpdateVersion<K>(this IFollowSnapshot<K> state, IEvent<K> @event, Type grainType)
+        public static void UpdateVersion<PrimaryKey>(this IFollowSnapshot<PrimaryKey> state, EventBase eventBase, Type grainType)
         {
-            var eventBase = @event.GetBase();
             if (state.Version + 1 != eventBase.Version)
                 throw new EventVersionNotMatchStateException(state.StateId.ToString(), grainType, eventBase.Version, state.Version);
             state.Version = eventBase.Version;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void FullUpdateVersion<K>(this IFollowSnapshot<K> state, IEvent<K> @event, Type grainType)
+        public static void FullUpdateVersion<PrimaryKey>(this IFollowSnapshot<PrimaryKey> state, EventBase eventBase, Type grainType)
         {
-            var eventBase = @event.GetBase();
             if (state.Version + 1 != eventBase.Version)
                 throw new EventVersionNotMatchStateException(state.StateId.ToString(), grainType, eventBase.Version, state.Version);
             state.DoingVersion = eventBase.Version;

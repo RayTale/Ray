@@ -55,32 +55,32 @@ namespace RayCore.Tests
         public void Configure(ISiloHostBuilder hostBuilder)
         {
             hostBuilder
-                .AddRay<MessageInfo>()
-                .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(Account).Assembly).WithReferences())
-                .ConfigureServices((context, servicecollection) =>
-                {
-                    servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();
-                    servicecollection.AddPSqlSiloGrain();
-                })
-                .Configure<SqlConfig>(c =>
-                {
-                    c.ConnectionDict = new Dictionary<string, string> {
+            .AddRay()
+            .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(Account).Assembly).WithReferences())
+            .ConfigureServices((context, servicecollection) =>
+            {
+                servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();
+                servicecollection.AddPSqlSiloGrain();
+            })
+            .Configure<SqlConfig>(c =>
+            {
+                c.ConnectionDict = new Dictionary<string, string> {
                              { "core_event","Server=127.0.0.1;Port=5432;Database=Ray;User Id=postgres;Password=extop;Pooling=true;MaxPoolSize=50;Timeout=10;"}
-                    };
-                })
-                .Configure<RabbitConfig>(c =>
-                {
-                    c.UserName = "admin";
-                    c.Password = "admin";
-                    c.Hosts = new[] { "127.0.0.1:5672" };
-                    c.MaxPoolSize = 100;
-                    c.VirtualHost = "/";
-                })
-                .ConfigureLogging(logging =>
-                {
-                    logging.SetMinimumLevel(LogLevel.Error);
-                    logging.AddConsole();
-                }); ;
+                };
+            })
+            .Configure<RabbitConfig>(c =>
+            {
+                c.UserName = "admin";
+                c.Password = "admin";
+                c.Hosts = new[] { "127.0.0.1:5672" };
+                c.MaxPoolSize = 100;
+                c.VirtualHost = "/";
+            })
+            .ConfigureLogging(logging =>
+            {
+                logging.SetMinimumLevel(LogLevel.Error);
+                logging.AddConsole();
+            }); ;
         }
     }
 }

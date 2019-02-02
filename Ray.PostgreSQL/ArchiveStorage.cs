@@ -18,7 +18,6 @@ namespace Ray.Storage.PostgreSQL
         private readonly string getLatestByStateIdSql;
         private readonly string insertSql;
         private readonly string updateOverSql;
-        private readonly string updateIsLatestSql;
         private readonly string updateEventIsClearSql;
         readonly IJsonSerializer serializer;
         public ArchiveStorage(IJsonSerializer serializer, StorageConfig table)
@@ -31,9 +30,8 @@ namespace Ray.Storage.PostgreSQL
             getByIdSql = $"select * FROM {tableName} where id=@Id";
             getListByStateIdSql = $"select Id,StartVersion,EndVersion,StartTimestamp,EndTimestamp,Index,EventIsCleared FROM {tableName} where stateid=@StateId";
             getLatestByStateIdSql = $"select Id,StartVersion,EndVersion,StartTimestamp,EndTimestamp,Index,EventIsCleared FROM {tableName} where stateid=@StateId order by index desc limit 1";
-            insertSql = $"INSERT into {tableName}(Id,stateid,StartVersion,EndVersion,StartTimestamp,EndTimestamp,Index,EventIsCleared,data,IsLatest,IsOver,Version)VALUES(@Id,@StateId,@StartVersion,@EndVersion,@StartTimestamp,@EndTimestamp,@Index,@EventIsCleared,@Data,@IsLatest,@IsOver,@Version)";
+            insertSql = $"INSERT into {tableName}(Id,stateid,StartVersion,EndVersion,StartTimestamp,EndTimestamp,Index,EventIsCleared,data,IsOver,Version)VALUES(@Id,@StateId,@StartVersion,@EndVersion,@StartTimestamp,@EndTimestamp,@Index,@EventIsCleared,(@Data)::jsonb,@IsOver,@Version)";
             updateOverSql = $"update {tableName} set IsOver=@IsOver where stateid=@StateId";
-            updateIsLatestSql = $"update {tableName} set IsLatest=@IsLatest where id=@Id";
             updateEventIsClearSql = $"update {tableName} set EventIsCleared=true where id=@Id";
         }
         public async Task Delete(string briefId)
@@ -88,7 +86,7 @@ namespace Ray.Storage.PostgreSQL
                             StateId = serializer.Deserialize<K>(data.StateId),
                             Version = data.Version,
                             DoingVersion = data.Version,
-                            IsLatest = data.IsLatest,
+                            IsLatest = false,
                             IsOver = data.IsOver,
                             LatestMinEventTimestamp = 0
                         },
@@ -114,18 +112,9 @@ namespace Ray.Storage.PostgreSQL
                     brief.Index,
                     brief.EventIsCleared,
                     Data = serializer.Serialize(state.State),
-                    state.Base.IsLatest,
                     state.Base.IsOver,
                     state.Base.Version
                 });
-            }
-        }
-
-        public async Task UpdateIsLatest(string briefId, bool isLatest)
-        {
-            using (var connection = tableInfo.CreateConnection())
-            {
-                await connection.ExecuteAsync(updateIsLatestSql, new { Id = briefId, IsLatest = isLatest });
             }
         }
         public async Task Over(K stateId, bool isOver)

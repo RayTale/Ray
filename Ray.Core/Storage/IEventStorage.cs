@@ -4,12 +4,12 @@ using Ray.Core.Event;
 
 namespace Ray.Core.Storage
 {
-    public interface IEventStorage<K>
+    public interface IEventStorage<PrimaryKey>
     {
-        Task<IList<IEvent<K>>> GetList(K stateId, long latestTimestamp, long startVersion, long endVersion);
-        Task<IList<IEvent<K>>> GetListByType(K stateId, string typeCode, long startVersion, int limit);
-        Task<bool> Append(IEvent<K> data, byte[] bytes, string uniqueId = null);
-        Task Delete(K stateId, long endVersion);
-        Task TransactionBatchAppend(List<EventTransmitWrapper<K>> list);
+        Task<IList<IFullyEvent<PrimaryKey>>> GetList(PrimaryKey stateId, long latestTimestamp, long startVersion, long endVersion);
+        Task<IList<IFullyEvent<PrimaryKey>>> GetListByType(PrimaryKey stateId, string typeCode, long startVersion, int limit);
+        Task<bool> Append(SaveTransport<PrimaryKey> transport);
+        Task Delete(PrimaryKey stateId, long endVersion);
+        Task TransactionBatchAppend(List<TransactionTransport<PrimaryKey>> list);
     }
 }

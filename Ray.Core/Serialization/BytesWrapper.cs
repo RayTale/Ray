@@ -1,0 +1,42 @@
+﻿using System;
+using System.Text;
+using Ray.Core.Utils;
+
+namespace Ray.Core.Serialization
+{
+    public struct BytesWrapper
+    {
+        public BytesWrapper(string typeFullName, byte[] bytes)
+        {
+            TypeFullName = typeFullName;
+            Bytes = bytes;
+        }
+        public string TypeFullName { get; set; }
+        public byte[] Bytes { get; set; }
+        public byte[] GetBytes()
+        {
+            var eventTypeBytes = Encoding.Default.GetBytes(TypeFullName);
+            using (var ms = new PooledMemoryStream())
+            {
+                ms.WriteByte((byte)BytesType.BytesWrapper);
+                ms.Write(BitConverter.GetBytes((ushort)eventTypeBytes.Length));
+                ms.Write(Bytes);
+                return ms.ToArray();
+            }
+        }
+        public static (bool success, BytesWrapper wrapper) FromBytes(byte[] bytes)
+        {
+            if (bytes[0] == (byte)BytesType.BytesWrapper)
+            {
+                var bytesSpan = bytes.AsSpan();
+                var eventTypeLength = BitConverter.ToUInt16(bytesSpan.Slice(1, sizeof(ushort)));
+                return (true, new BytesWrapper
+                {
+                    TypeFullName = Encoding.Default.GetString(bytesSpan.Slice(sizeof(ushort) + 1, eventTypeLength)),
+                    Bytes = bytesSpan.Slice(sizeof(ushort) + 1 + eventTypeLength).ToArray()
+                });
+            }
+            return (false, default);
+        }
+    }
+}

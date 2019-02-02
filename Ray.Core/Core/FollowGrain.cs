@@ -25,7 +25,6 @@ namespace Ray.Core
             GrainType = GetType();
         }
         public abstract PrimaryKey GrainId { get; }
-        protected Type BytesWrapperType { get; set; }
         protected CoreOptions<MainGrain> ConfigOptions { get; private set; }
         protected ILogger Logger { get; private set; }
         protected IJsonSerializer JsonSerializer { get; private set; }
@@ -69,7 +68,6 @@ namespace Ray.Core
         /// </summary>
         protected async virtual ValueTask DependencyInjection()
         {
-            BytesWrapperType = ServiceProvider.GetService<IBytesWrapper>().GetType();
             ConfigOptions = ServiceProvider.GetService<IOptions<CoreOptions<MainGrain>>>().Value;
             StorageFactory = ServiceProvider.GetService<IStorageFactoryContainer>().CreateFactory(GrainType);
             Serializer = ServiceProvider.GetService<ISerializer>();
@@ -125,7 +123,7 @@ namespace Ray.Core
                             return Task.CompletedTask;
                     }));
                     var lastEvt = eventList.Last();
-                    Snapshot.UnsafeUpdateVersion(lastEvt.GetBase().Version);
+                    Snapshot.UnsafeUpdateVersion(lastEvt.Base);
                 }
                 else
                 {
@@ -135,7 +133,7 @@ namespace Ray.Core
                         var task = OnEventDelivered(@event);
                         if (!task.IsCompletedSuccessfully)
                             await task;
-                        Snapshot.UpdateVersion(@event, GrainType);//更新处理完成的Version
+                        Snapshot.UpdateVersion(@event.Base, GrainType);//更新处理完成的Version
                     }
                 }
                 var saveTask = SaveSnapshotAsync();
@@ -198,24 +196,32 @@ namespace Ray.Core
         #endregion
         public Task Tell(byte[] bytes)
         {
-            using (var wms = new MemoryStream(bytes))
+            var (success, transport) = BytesTransport.FromBytesWithNoId(bytes);
+            if (success)
             {
-                var data = Serializer.Deserialize(BytesWrapperType, wms);
-                if (data is IBytesWrapper message)
+                var eventType = TypeContainer.GetType(transport.EventType);
+                using (var ms = new MemoryStream(transport.EventBytes))
                 {
-                    using (var ems = new MemoryStream(message.Bytes))
+                    var data = Serializer.Deserialize(eventType, ms);
+                    if (data is IEvent @event)
                     {
-                        if (Serializer.Deserialize(TypeContainer.GetType(message.TypeName), ems) is IEvent<PrimaryKey> @event)
+                        var eventBase = EventBase.FromBytes(transport.BaseBytes);
+                        if (eventBase.Version > Snapshot.Version)
                         {
-                            var tellTask = Tell(@event);
+                            var tellTask = Tell(new FullyEvent<PrimaryKey>
+                            {
+                                StateId = GrainId,
+                                Base = eventBase,
+                                Event = @event
+                            });
                             if (!tellTask.IsCompletedSuccessfully)
                                 return tellTask.AsTask();
                         }
-                        else
-                        {
-                            if (Logger.IsEnabled(LogLevel.Information))
-                                Logger.LogInformation(LogEventIds.FollowEventProcessing, "Receive non-event messages, grain Id = {0} ,message type = {1}", GrainId.ToString(), message.TypeName);
-                        }
+                    }
+                    else
+                    {
+                        if (Logger.IsEnabled(LogLevel.Information))
+                            Logger.LogInformation(LogEventIds.FollowEventProcessing, "Receive non-event messages, grain Id = {0} ,message type = {1}", GrainId.ToString(), transport.EventType);
                     }
                 }
             }
@@ -225,41 +231,40 @@ namespace Ray.Core
         {
             return Task.FromResult(Snapshot.Version);
         }
-        protected async ValueTask Tell(IEvent<PrimaryKey> @event)
+        protected async ValueTask Tell(IFullyEvent<PrimaryKey> @event)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace(LogEventIds.FollowEventProcessing, "Start event handling, grain Id = {0} and state version = {1},event type = {2} ,event = {3}", GrainId.ToString(), Snapshot.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event));
             try
             {
-                var eventBase = @event.GetBase();
-                if (eventBase.Version == Snapshot.Version + 1)
+                if (@event.Base.Version == Snapshot.Version + 1)
                 {
                     var onEventDeliveredTask = OnEventDelivered(@event);
                     if (!onEventDeliveredTask.IsCompletedSuccessfully)
                         await onEventDeliveredTask;
-                    Snapshot.FullUpdateVersion(@event, GrainType);//更新处理完成的Version
+                    Snapshot.FullUpdateVersion(@event.Base, GrainType);//更新处理完成的Version
                 }
-                else if (eventBase.Version > Snapshot.Version)
+                else if (@event.Base.Version > Snapshot.Version)
                 {
-                    var eventList = await EventStorage.GetList(GrainId, 0, Snapshot.Version, eventBase.Version);
-                    foreach (var item in eventList)
+                    var eventList = await EventStorage.GetList(GrainId, 0, Snapshot.Version, @event.Base.Version);
+                    foreach (var evt in eventList)
                     {
-                        var onEventDeliveredTask = OnEventDelivered(item);
+                        var onEventDeliveredTask = OnEventDelivered(evt);
                         if (!onEventDeliveredTask.IsCompletedSuccessfully)
                             await onEventDeliveredTask;
-                        Snapshot.FullUpdateVersion(item, GrainType);//更新处理完成的Version
+                        Snapshot.FullUpdateVersion(evt.Base, GrainType);//更新处理完成的Version
                     }
                 }
-                if (eventBase.Version == Snapshot.Version + 1)
+                if (@event.Base.Version == Snapshot.Version + 1)
                 {
                     var onEventDeliveredTask = OnEventDelivered(@event);
                     if (!onEventDeliveredTask.IsCompletedSuccessfully)
                         await onEventDeliveredTask;
-                    Snapshot.FullUpdateVersion(@event, GrainType);//更新处理完成的Version
+                    Snapshot.FullUpdateVersion(@event.Base, GrainType);//更新处理完成的Version
                 }
-                if (eventBase.Version > Snapshot.Version)
+                if (@event.Base.Version > Snapshot.Version)
                 {
-                    throw new EventVersionNotMatchStateException(GrainId.ToString(), GrainType, eventBase.Version, Snapshot.Version);
+                    throw new EventVersionNotMatchStateException(GrainId.ToString(), GrainType, @event.Base.Version, Snapshot.Version);
                 }
                 await SaveSnapshotAsync();
                 if (Logger.IsEnabled(LogLevel.Trace))
@@ -273,7 +278,7 @@ namespace Ray.Core
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual ValueTask OnEventDelivered(IEvent<PrimaryKey> @event) => Consts.ValueTaskDone;
+        protected virtual ValueTask OnEventDelivered(IFullyEvent<PrimaryKey> @event) => Consts.ValueTaskDone;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask OnSaveSnapshot() => Consts.ValueTaskDone;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
