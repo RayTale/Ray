@@ -1,11 +1,11 @@
 ﻿using ProtoBuf;
+using Ray.Core.Event;
 
 namespace RayTest.IGrains.Events
 {
     [ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
-    public class AmountAddEvent : BaseEvent<long>
+    public class AmountAddEvent : IEvent
     {
-        public override EventBase<long> Base { get; set; } = new EventBase<long>();
         public decimal Amount { get; set; }
         public decimal Balance { get; set; }
         public AmountAddEvent() { }

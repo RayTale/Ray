@@ -2,17 +2,12 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Ray.Core.EventBus;
-using Ray.Core.Serialization;
 
 namespace Ray.EventBus.RabbitMQ
 {
     public class RabbitConsumer : Consumer
     {
-        public RabbitConsumer(
-            IServiceProvider serviceProvider,
-            List<Func<byte[], object, Task>> eventHandlers,
-            ISerializer serializer) :
-            base(serviceProvider, eventHandlers, serializer)
+        public RabbitConsumer(List<Func<byte[], Task>> eventHandlers) : base(eventHandlers)
         {
         }
         public RabbitEventBus EventBus { get; set; }

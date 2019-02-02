@@ -15,26 +15,26 @@ using Ray.Core.Storage;
 
 namespace Ray.Storage.MongoDB
 {
-    public class MongoEventStorage<K> : IEventStorage<K>
+    public class MongoEventStorage<PrimaryKey> : IEventStorage<PrimaryKey>
     {
         readonly StorageConfig grainConfig;
-        readonly IMpscChannel<DataAsyncWrapper<EventSaveWrapper<K>, bool>> mpscChannel;
-        readonly ILogger<MongoEventStorage<K>> logger;
+        readonly IMpscChannel<DataAsyncWrapper<SaveTransport<PrimaryKey>, bool>> mpscChannel;
+        readonly ILogger<MongoEventStorage<PrimaryKey>> logger;
         readonly ISerializer serializer;
         public MongoEventStorage(IServiceProvider serviceProvider, StorageConfig grainConfig)
         {
             serializer = serviceProvider.GetService<ISerializer>();
-            logger = serviceProvider.GetService<ILogger<MongoEventStorage<K>>>();
-            mpscChannel = serviceProvider.GetService<IMpscChannel<DataAsyncWrapper<EventSaveWrapper<K>, bool>>>();
+            logger = serviceProvider.GetService<ILogger<MongoEventStorage<PrimaryKey>>>();
+            mpscChannel = serviceProvider.GetService<IMpscChannel<DataAsyncWrapper<SaveTransport<PrimaryKey>, bool>>>();
             mpscChannel.BindConsumer(BatchProcessing).ActiveConsumer();
             this.grainConfig = grainConfig;
         }
-        public async Task<IList<IEvent<K>>> GetList(K stateId, long latestTimestamp, long startVersion, long endVersion)
+        public async Task<IList<IFullyEvent<PrimaryKey>>> GetList(PrimaryKey stateId, long latestTimestamp, long startVersion, long endVersion)
         {
             var collectionListTask = grainConfig.GetCollectionList();
             if (!collectionListTask.IsCompletedSuccessfully)
                 await collectionListTask;
-            var list = new List<IEvent<K>>();
+            var list = new List<IFullyEvent<PrimaryKey>>();
             long readVersion = 0;
             foreach (var collection in collectionListTask.Result.Where(c => c.CreateTime >= latestTimestamp))
             {
@@ -45,13 +45,33 @@ namespace Ray.Storage.MongoDB
                 {
                     var typeCode = document["TypeCode"].AsString;
                     var data = document["Data"].AsByteArray;
-                    using (var ms = new MemoryStream(data))
+                    var timestamp = document["Timestamp"].AsInt64;
+                    readVersion = document["Version"].AsInt64;
+                    if (readVersion <= endVersion)
                     {
-                        if (serializer.Deserialize(TypeContainer.GetType(typeCode), ms) is IEvent<K> evt)
+                        using (var ms = new MemoryStream(data))
                         {
-                            readVersion = evt.GetBase().Version;
-                            if (readVersion <= endVersion)
-                                list.Add(evt);
+                            if (serializer.Deserialize(TypeContainer.GetType(typeCode), ms) is IEvent evt)
+                            {
+                                if (typeof(PrimaryKey) == typeof(long) && document["StateId"].AsInt64 is PrimaryKey actorIdWithLong)
+                                {
+                                    list.Add(new FullyEvent<PrimaryKey>
+                                    {
+                                        StateId = actorIdWithLong,
+                                        Event = evt,
+                                        Base = new EventBase(readVersion, timestamp)
+                                    });
+                                }
+                                else if (document["StateId"].AsString is PrimaryKey actorIdWithString)
+                                {
+                                    list.Add(new FullyEvent<PrimaryKey>
+                                    {
+                                        StateId = actorIdWithString,
+                                        Event = evt,
+                                        Base = new EventBase(readVersion, timestamp)
+                                    });
+                                }
+                            }
                         }
                     }
                 }
@@ -60,12 +80,12 @@ namespace Ray.Storage.MongoDB
             }
             return list;
         }
-        public async Task<IList<IEvent<K>>> GetListByType(K stateId, string typeCode, long startVersion, int limit)
+        public async Task<IList<IFullyEvent<PrimaryKey>>> GetListByType(PrimaryKey stateId, string typeCode, long startVersion, int limit)
         {
             var collectionListTask = grainConfig.GetCollectionList();
             if (!collectionListTask.IsCompletedSuccessfully)
                 await collectionListTask;
-            var list = new List<IEvent<K>>();
+            var list = new List<IFullyEvent<PrimaryKey>>();
             foreach (var collection in collectionListTask.Result)
             {
                 var filterBuilder = Builders<BsonDocument>.Filter;
@@ -76,7 +96,7 @@ namespace Ray.Storage.MongoDB
                     var data = document["Data"].AsByteArray;
                     using (var ms = new MemoryStream(data))
                     {
-                        if (serializer.Deserialize(TypeContainer.GetType(typeCode), ms) is IEvent<K> evt)
+                        if (serializer.Deserialize(TypeContainer.GetType(typeCode), ms) is IFullyEvent<PrimaryKey> evt)
                         {
                             list.Add(evt);
                         }
@@ -87,37 +107,37 @@ namespace Ray.Storage.MongoDB
             }
             return list;
         }
-        public Task<bool> Append(IEvent<K> evt, byte[] bytes, string uniqueId = null)
+        public Task<bool> Append(SaveTransport<PrimaryKey> saveTransport)
         {
             return Task.Run(async () =>
             {
-                var wrap = new DataAsyncWrapper<EventSaveWrapper<K>, bool>(new EventSaveWrapper<K>(evt, bytes, uniqueId));
+                var wrap = new DataAsyncWrapper<SaveTransport<PrimaryKey>, bool>(saveTransport);
                 var writeTask = mpscChannel.WriteAsync(wrap);
                 if (!writeTask.IsCompletedSuccessfully)
                     await writeTask;
                 return await wrap.TaskSource.Task;
             });
         }
-        private async Task BatchProcessing(List<DataAsyncWrapper<EventSaveWrapper<K>, bool>> wrapperList)
+        private async Task BatchProcessing(List<DataAsyncWrapper<SaveTransport<PrimaryKey>, bool>> wrapperList)
         {
-            var documents = new List<MongoEvent<K>>();
-            foreach (var wrap in wrapperList)
+            var documents = new List<MongoEvent<PrimaryKey>>();
+            foreach (var wrapper in wrapperList)
             {
-                var eventBase = wrap.Value.Event.GetBase();
-                documents.Add(new MongoEvent<K>
+                documents.Add(new MongoEvent<PrimaryKey>
                 {
                     Id = new ObjectId(),
-                    StateId = eventBase.StateId,
-                    Version = eventBase.Version,
-                    TypeCode = wrap.Value.GetType().FullName,
-                    Data = wrap.Value.Bytes,
-                    UniqueId = string.IsNullOrEmpty(wrap.Value.UniqueId) ? eventBase.Version.ToString() : wrap.Value.UniqueId
+                    StateId = wrapper.Value.Event.StateId,
+                    Version = wrapper.Value.Event.Base.Version,
+                    Timestamp = wrapper.Value.Event.Base.Timestamp,
+                    TypeCode = wrapper.Value.Event.Event.GetType().FullName,
+                    Data = wrapper.Value.BytesTransport.EventBytes,
+                    UniqueId = string.IsNullOrEmpty(wrapper.Value.UniqueId) ? wrapper.Value.Event.Base.Version.ToString() : wrapper.Value.UniqueId
                 });
             }
             var collectionTask = grainConfig.GetCollection(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
             if (!collectionTask.IsCompletedSuccessfully)
                 await collectionTask;
-            var collection = grainConfig.Storage.GetCollection<MongoEvent<K>>(grainConfig.DataBase, collectionTask.Result.Name);
+            var collection = grainConfig.Storage.GetCollection<MongoEvent<PrimaryKey>>(grainConfig.DataBase, collectionTask.Result.Name);
             wrapperList.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
             try
             {
@@ -130,15 +150,15 @@ namespace Ray.Storage.MongoDB
                 {
                     try
                     {
-                        var eventBase = wrapper.Value.Event.GetBase();
-                        await collection.InsertOneAsync(new MongoEvent<K>
+                        await collection.InsertOneAsync(new MongoEvent<PrimaryKey>
                         {
                             Id = new ObjectId(),
-                            StateId = eventBase.StateId,
-                            Version = eventBase.Version,
-                            TypeCode = wrapper.Value.GetType().FullName,
-                            Data = wrapper.Value.Bytes,
-                            UniqueId = string.IsNullOrEmpty(wrapper.Value.UniqueId) ? eventBase.Version.ToString() : wrapper.Value.UniqueId
+                            StateId = wrapper.Value.Event.StateId,
+                            Version = wrapper.Value.Event.Base.Version,
+                            Timestamp = wrapper.Value.Event.Base.Timestamp,
+                            TypeCode = wrapper.Value.Event.Event.GetType().FullName,
+                            Data = wrapper.Value.BytesTransport.EventBytes,
+                            UniqueId = string.IsNullOrEmpty(wrapper.Value.UniqueId) ? wrapper.Value.Event.Base.Version.ToString() : wrapper.Value.UniqueId
                         });
                         wrapper.TaskSource.TrySetResult(true);
                     }
@@ -157,30 +177,30 @@ namespace Ray.Storage.MongoDB
             }
         }
 
-        public async Task TransactionBatchAppend(List<EventTransmitWrapper<K>> list)
+        public async Task TransactionBatchAppend(List<TransactionTransport<PrimaryKey>> list)
         {
-            var inserts = new List<MongoEvent<K>>();
+            var inserts = new List<MongoEvent<PrimaryKey>>();
             foreach (var data in list)
             {
-                var eventBase = data.Evt.GetBase();
-                var mEvent = new MongoEvent<K>
+                var mEvent = new MongoEvent<PrimaryKey>
                 {
                     Id = new ObjectId(),
-                    StateId = eventBase.StateId,
-                    Version = eventBase.Version,
-                    TypeCode = data.Evt.GetType().FullName,
-                    Data = data.Bytes,
-                    UniqueId = string.IsNullOrEmpty(data.UniqueId) ? eventBase.Version.ToString() : data.UniqueId
+                    StateId = data.FullyEvent.StateId,
+                    Version = data.FullyEvent.Base.Version,
+                    Timestamp = data.FullyEvent.Base.Timestamp,
+                    TypeCode = data.FullyEvent.Event.GetType().FullName,
+                    Data = data.BytesTransport.EventBytes,
+                    UniqueId = string.IsNullOrEmpty(data.UniqueId) ? data.FullyEvent.Base.Version.ToString() : data.UniqueId
                 };
                 inserts.Add(mEvent);
             }
             var collectionTask = grainConfig.GetCollection(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
             if (!collectionTask.IsCompletedSuccessfully)
                 await collectionTask;
-            await grainConfig.Storage.GetCollection<MongoEvent<K>>(grainConfig.DataBase, collectionTask.Result.Name).InsertManyAsync(inserts);
+            await grainConfig.Storage.GetCollection<MongoEvent<PrimaryKey>>(grainConfig.DataBase, collectionTask.Result.Name).InsertManyAsync(inserts);
         }
 
-        public Task Delete(K stateId, long endVersion)
+        public Task Delete(PrimaryKey stateId, long endVersion)
         {
             //TODO 实现Delete
             throw new NotImplementedException();

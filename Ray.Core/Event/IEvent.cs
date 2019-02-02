@@ -1,7 +1,6 @@
 ﻿namespace Ray.Core.Event
 {
-    public interface IEvent<K>
+    public interface IEvent
     {
-        IEventBase<K> GetBase();
     }
 }

@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging;
 using Orleans;
 using Ray.Core;
 using Ray.Core.Event;
-using RayTest.IGrains;
 using RayTest.IGrains.Actors;
 using RayTest.IGrains.Events;
 using RayTest.IGrains.States;
@@ -11,7 +10,7 @@ using RayTest.IGrains.States;
 namespace RayTest.Grains
 {
     public sealed class Account :
-        TransactionGrain<long, EventBase<long>, AccountState, StateBase<long>, MessageInfo>, IAccount
+        TransactionGrain<Account, long, AccountState>, IAccount
     {
         public Account(ILogger<Account> logger) : base(logger)
         {
@@ -24,17 +23,17 @@ namespace RayTest.Grains
         }
         public Task Transfer(long toAccountId, decimal amount)
         {
-            var evt = new AmountTransferEvent(toAccountId, amount, this.State.Balance - amount);
+            var evt = new AmountTransferEvent(toAccountId, amount, Snapshot.State.Balance - amount);
             return RaiseEvent(evt);
         }
         public Task<bool> AddAmount(decimal amount, EventUID uniqueId = null)
         {
-            var evt = new AmountAddEvent(amount, State.Balance + amount);
+            var evt = new AmountAddEvent(amount, Snapshot.State.Balance + amount);
             return RaiseEvent(evt, uniqueId);
         }
         public Task<decimal> GetBalance()
         {
-            return Task.FromResult(State.Balance);
+            return Task.FromResult(Snapshot.State.Balance);
         }
     }
 }

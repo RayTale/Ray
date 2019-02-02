@@ -24,6 +24,7 @@ namespace Ray.Grain
             {
                 options.On = true;
                 options.EventClearOn = false;
+                options.MaxIntervalMilliSeconds = 60 * 1000;
                 options.IntervalVersion = 500;
             });
         }

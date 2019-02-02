@@ -3,10 +3,10 @@ using System.Threading.Tasks;
 
 namespace Ray.Core.Event
 {
-    public class EventReentryWrapper<K, S>
+    public class ConcurrentTransport<Snapshot>
     {
-        public EventReentryWrapper(
-            Func<S, Func<IEvent<K>, EventUID, Task>, Task> handler,
+        public ConcurrentTransport(
+            Func<Snapshot, Func<IEvent, EventUID, Task>, Task> handler,
             Func<bool, ValueTask> completedHandler,
             Action<Exception> exceptionHandler)
         {
@@ -15,7 +15,7 @@ namespace Ray.Core.Event
             CompletedHandler = completedHandler;
         }
         public bool Executed { get; set; }
-        public Func<S, Func<IEvent<K>, EventUID, Task>, Task> Handler { get; }
+        public Func<Snapshot, Func<IEvent, EventUID, Task>, Task> Handler { get; }
         public Func<bool, ValueTask> CompletedHandler { get; }
         public Action<Exception> ExceptionHandler { get; }
     }

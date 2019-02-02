@@ -1,17 +1,18 @@
 ﻿using Ray.Core.Event;
+using Ray.Core.State;
 using RayTest.IGrains.Events;
 using RayTest.IGrains.States;
 
 namespace RayTest.Grains.EventHandles
 {
-    public class AccountEventHandle : IEventHandler<long, EventBase<long>, AccountState, StateBase<long>>
+    public class AccountEventHandle : IEventHandler<long, AccountState>
     {
-        public void Apply(AccountState state, IEvent<long, EventBase<long>> evt)
+        public void Apply(Snapshot<long, AccountState> state, IFullyEvent<long> evt)
         {
-            switch (evt)
+            switch (evt.Event)
             {
-                case AmountAddEvent value: AmountAddEventHandle(state, value); break;
-                case AmountTransferEvent value: AmountTransferEventHandle(state, value); break;
+                case AmountAddEvent value: AmountAddEventHandle(state.State, value); break;
+                case AmountTransferEvent value: AmountTransferEventHandle(state.State, value); break;
                 default: break;
             }
         }

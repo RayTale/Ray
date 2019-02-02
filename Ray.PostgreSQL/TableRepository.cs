@@ -32,6 +32,7 @@ namespace Ray.Storage.PostgreSQL
                             TypeCode varchar(100)  not null,
                             Data bytea not null,
                             Version int8 not null,
+                            Timestamp int8 not null,
                             constraint {0}_id_unique unique(StateId,TypeCode,UniqueId)
                             ) WITH (OIDS=FALSE);
                             CREATE UNIQUE INDEX {0}_Version ON {0} USING btree(StateId, Version);";
@@ -97,6 +98,7 @@ namespace Ray.Storage.PostgreSQL
                      StateId varchar({1}) not null PRIMARY KEY,
                      Data jsonb not null,
                      Version int8 not null,
+                     StartTimestamp int8 not null,
                      LatestMinEventTimestamp int8 not null,
                      IsLatest bool not null,
                      IsOver bool not null)";
@@ -214,7 +216,6 @@ namespace Ray.Storage.PostgreSQL
                      Index int4 not null,
                      EventIsCleared bool not null,
                      Data jsonb not null,
-                     IsLatest bool not null,
                      IsOver bool not null,
                      Version int8 not null)WITH (OIDS=FALSE);
                      CREATE INDEX {0}_Archive ON {0} USING btree(StateId)";
@@ -286,7 +287,7 @@ namespace Ray.Storage.PostgreSQL
                     }
                     catch (Exception e)
                     {
-                        if (e is Npgsql.PostgresException ne && ne.ErrorCode == -2147467259)
+                        if (e is Npgsql.PostgresException pe && pe.ErrorCode == -2147467259)
                             return;
                         else
                         {

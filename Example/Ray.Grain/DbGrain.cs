@@ -11,7 +11,7 @@ namespace Ray.Grain
         public DbGrain(ILogger logger) : base(logger)
         {
         }
-        protected override async ValueTask OnEventDelivered(IEvent<K> @event)
+        protected override async ValueTask OnEventDelivered(IFullyEvent<K> @event)
         {
             var task = Process(@event);
             if (!task.IsCompletedSuccessfully)
@@ -28,6 +28,6 @@ namespace Ray.Grain
                 });
             }
         }
-        protected abstract ValueTask Process(IEvent<K> @event);
+        protected abstract ValueTask Process(IFullyEvent<K> @event);
     }
 }
