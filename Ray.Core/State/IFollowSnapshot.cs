@@ -10,5 +10,9 @@
         /// 状态的版本号
         /// </summary>
         long Version { get; set; }
+        /// <summary>
+        /// 状态的开始时间
+        /// </summary>
+        long StartTimestamp { get; set; }
     }
 }

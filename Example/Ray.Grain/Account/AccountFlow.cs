@@ -8,16 +8,16 @@ using Ray.IGrains.Events;
 
 namespace Ray.Grain
 {
-    public sealed class AccountFlow :ConcurrentFollowGrain<Account, long>, IAccountFlow
+    public sealed class AccountFlow : ConcurrentFollowGrain<Account, long>, IAccountFlow
     {
         public AccountFlow(ILogger<AccountFlow> logger) : base(logger)
         {
         }
         public override long GrainId => this.GetPrimaryKeyLong();
         protected override bool EventConcurrentProcessing => true;
-        protected override async ValueTask OnEventDelivered(IFullyEvent<long> @event)
+        protected override async ValueTask OnEventDelivered(IFullyEvent<long> fully)
         {
-            switch (@event)
+            switch (fully.Event)
             {
                 case AmountTransferEvent value: await AmountAddEventHandler(value); break;
             }

@@ -179,7 +179,7 @@ namespace Ray.Core
             catch (Exception ex)
             {
                 Logger.LogCritical(LogEventIds.GrainActivateId, ex, "Grain activation failed with Id = {0}", GrainId.ToString());
-                ExceptionDispatchInfo.Capture(ex).Throw();
+                throw;
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
