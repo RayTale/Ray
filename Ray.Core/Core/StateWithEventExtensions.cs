@@ -50,10 +50,12 @@ namespace Ray.Core
             return new EventUID(@event.GetEventId(), @event.Base.Timestamp);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void UnsafeUpdateVersion<PrimaryKey>(this IFollowSnapshot<PrimaryKey> state, EventBase eventBase)
+        public static void UnsafeUpdateVersion<PrimaryKey>(this IFollowSnapshot<PrimaryKey> snapshot, EventBase eventBase)
         {
-            state.DoingVersion = eventBase.Version;
-            state.Version = eventBase.Version;
+            snapshot.DoingVersion = eventBase.Version;
+            snapshot.Version = eventBase.Version;
+            if (snapshot.StartTimestamp == 0)
+                snapshot.StartTimestamp = eventBase.Timestamp;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void IncrementDoingVersion<K>(this IFollowSnapshot<K> state, Type grainType)
@@ -63,19 +65,23 @@ namespace Ray.Core
             state.DoingVersion += 1;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void UpdateVersion<PrimaryKey>(this IFollowSnapshot<PrimaryKey> state, EventBase eventBase, Type grainType)
+        public static void UpdateVersion<PrimaryKey>(this IFollowSnapshot<PrimaryKey> snapshot, EventBase eventBase, Type grainType)
         {
-            if (state.Version + 1 != eventBase.Version)
-                throw new EventVersionNotMatchStateException(state.StateId.ToString(), grainType, eventBase.Version, state.Version);
-            state.Version = eventBase.Version;
+            if (snapshot.Version + 1 != eventBase.Version)
+                throw new EventVersionNotMatchStateException(snapshot.StateId.ToString(), grainType, eventBase.Version, snapshot.Version);
+            snapshot.Version = eventBase.Version;
+            if (snapshot.StartTimestamp == 0)
+                snapshot.StartTimestamp = eventBase.Timestamp;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void FullUpdateVersion<PrimaryKey>(this IFollowSnapshot<PrimaryKey> state, EventBase eventBase, Type grainType)
+        public static void FullUpdateVersion<PrimaryKey>(this IFollowSnapshot<PrimaryKey> snapshot, EventBase eventBase, Type grainType)
         {
-            if (state.Version + 1 != eventBase.Version)
-                throw new EventVersionNotMatchStateException(state.StateId.ToString(), grainType, eventBase.Version, state.Version);
-            state.DoingVersion = eventBase.Version;
-            state.Version = eventBase.Version;
+            if (snapshot.Version + 1 != eventBase.Version)
+                throw new EventVersionNotMatchStateException(snapshot.StateId.ToString(), grainType, eventBase.Version, snapshot.Version);
+            snapshot.DoingVersion = eventBase.Version;
+            snapshot.Version = eventBase.Version;
+            if (snapshot.StartTimestamp == 0)
+                snapshot.StartTimestamp = eventBase.Timestamp;
         }
     }
 }
