@@ -12,6 +12,7 @@ namespace Ray.Storage.PostgreSQL
         private readonly string getByIdSql;
         private readonly string insertSql;
         private readonly string updateSql;
+        private readonly string updateStartTimestampSql;
         public FollowSnapshotStorage(StorageConfig table)
         {
             tableInfo = table;
@@ -20,6 +21,7 @@ namespace Ray.Storage.PostgreSQL
             getByIdSql = $"select * FROM {followStateTable} where stateid=@StateId";
             insertSql = $"INSERT into {followStateTable}(stateid,version,StartTimestamp)VALUES(@StateId,@Version,@StartTimestamp)";
             updateSql = $"update {followStateTable} set version=@Version,StartTimestamp=@StartTimestamp where stateid=@StateId";
+            updateStartTimestampSql = $"update {followStateTable} set StartTimestamp=@StartTimestamp where stateid=@StateId";
         }
         public async Task<FollowSnapshot<K>> Get(K id)
         {
@@ -74,6 +76,18 @@ namespace Ray.Storage.PostgreSQL
             using (var conn = tableInfo.CreateConnection())
             {
                 await conn.ExecuteAsync(deleteSql, new { StateId = id.ToString() });
+            }
+        }
+
+        public async Task UpdateStartTimestamp(K id, long timestamp)
+        {
+            using (var connection = tableInfo.CreateConnection())
+            {
+                await connection.ExecuteAsync(updateStartTimestampSql, new
+                {
+                    StateId = id.ToString(),
+                    StartTimestamp = timestamp
+                });
             }
         }
     }

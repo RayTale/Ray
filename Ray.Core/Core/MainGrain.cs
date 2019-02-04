@@ -46,6 +46,7 @@ namespace Ray.Core
         protected List<ArchiveBrief> BriefArchiveList { get; private set; }
         protected ArchiveBrief LastArchive { get; private set; }
         protected ArchiveBrief NewArchive { get; private set; }
+        protected ArchiveBrief ClearedArchive { get; private set; }
         public abstract PrimaryKey GrainId { get; }
         /// <summary>
         /// 快照的事件版本号
@@ -126,6 +127,7 @@ namespace Ray.Core
                     //加载归档信息
                     BriefArchiveList = (await ArchiveStorage.GetBriefList(GrainId)).OrderBy(a => a.Index).ToList();
                     LastArchive = BriefArchiveList.LastOrDefault();
+                    ClearedArchive = BriefArchiveList.Where(a => a.EventIsCleared).OrderByDescending(a => a.Index).FirstOrDefault();
                     if (LastArchive != default && !LastArchive.IsCompletedArchive(ArchiveOptions) && !LastArchive.EventIsCleared)
                     {
                         await DeleteArchive(LastArchive.Id);
@@ -247,10 +249,6 @@ namespace Ray.Core
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask OnDeactivated() => Consts.ValueTaskDone;
-        /// <summary>
-        ///  true:当前状态无快照,false:当前状态已经存在快照
-        /// </summary>
-        protected bool NoSnapshot { get; private set; }
         protected virtual async Task ReadSnapshotAsync()
         {
             if (Logger.IsEnabled(LogLevel.Trace))
@@ -268,7 +266,6 @@ namespace Ray.Core
                         Snapshot = await ArchiveStorage.GetState(LastArchive.Id);
                         await SaveSnapshotAsync(true, false);
                     }
-                    NoSnapshot = true;
                     if (Snapshot == default)
                     {
                         //新建状态
@@ -306,11 +303,10 @@ namespace Ray.Core
                         await onSaveSnapshotTask;
                     Snapshot.Base.LatestMinEventTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                     Snapshot.Base.IsLatest = isLatest;
-                    if (NoSnapshot)
+                    if (SnapshotEventVersion == 0)
                     {
                         await SnapshotStorage.Insert(Snapshot);
                         SnapshotEventVersion = Snapshot.Base.Version;
-                        NoSnapshot = false;
                     }
                     else
                     {
@@ -498,27 +494,36 @@ namespace Ray.Core
 
         protected virtual async ValueTask OnRaiseStart(IFullyEvent<PrimaryKey> @event)
         {
+            if (Snapshot.Base.Version == 0)
+                return;
             if (Snapshot.Base.IsLatest)
             {
                 await SnapshotStorage.UpdateIsLatest(Snapshot.Base.StateId, false);
                 Snapshot.Base.IsLatest = false;
             }
-            if (@event.Base.Timestamp < Snapshot.Base.LatestMinEventTimestamp)
+            if (@event.Base.Timestamp < ClearedArchive.StartTimestamp)
             {
-                await SnapshotStorage.UpdateLatestMinEventTimestamp(Snapshot.Base.StateId, @event.Base.Timestamp);
-                Snapshot.Base.LatestMinEventTimestamp = @event.Base.Timestamp;
+                throw new EventIsClearedException(@event.GetType().FullName, JsonSerializer.Serialize(@event), ClearedArchive.Index);
+            }
+            if (SnapshotEventVersion > 0)
+            {
+                if (@event.Base.Timestamp < Snapshot.Base.LatestMinEventTimestamp)
+                {
+                    await SnapshotStorage.UpdateLatestMinEventTimestamp(Snapshot.Base.StateId, @event.Base.Timestamp);
+                }
+                if (@event.Base.Timestamp < Snapshot.Base.StartTimestamp)
+                {
+                    await SnapshotStorage.UpdateStartTimestamp(Snapshot.Base.StateId, @event.Base.Timestamp);
+                }
             }
             if (ArchiveOptions.On &&
-                ArchiveOptions.EventClearOn &&
                 LastArchive != default &&
                 @event.Base.Timestamp < LastArchive.EndTimestamp)
             {
-                foreach (var archive in BriefArchiveList.OrderByDescending(v => v.Index))
+                foreach (var archive in BriefArchiveList.Where(a => @event.Base.Timestamp < a.EndTimestamp && !a.EventIsCleared).OrderByDescending(v => v.Index))
                 {
                     if (@event.Base.Timestamp < archive.EndTimestamp)
                     {
-                        if (archive.EventIsCleared)
-                            throw new EventIsClearedException(@event.GetType().FullName, JsonSerializer.Serialize(@event), archive.Index);
                         await DeleteArchive(archive.Id);
                         if (NewArchive != default)
                             NewArchive = CombineArchiveInfo(archive, NewArchive);
@@ -526,11 +531,8 @@ namespace Ray.Core
                             NewArchive = archive;
                         BriefArchiveList.Remove(archive);
                     }
-                    else
-                    {
-                        break;
-                    }
                 }
+                LastArchive = BriefArchiveList.LastOrDefault();
             }
         }
         protected virtual ValueTask OnRaiseSuccessed(IFullyEvent<PrimaryKey> @event, BytesTransport bytesTransport)
@@ -643,6 +645,7 @@ namespace Ray.Core
                                 await saveTask;
                         }
                         await EventStorage.Delete(Snapshot.Base.StateId, minArchive.EndVersion);
+                        ClearedArchive = minArchive;
                         //只保留一个清理过事件的快照，其它的删除掉
                         var cleareds = BriefArchiveList.Where(a => a.EventIsCleared).OrderBy(a => a.Index).ToArray();
                         if (cleareds.Length > 1)

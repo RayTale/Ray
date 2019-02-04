@@ -88,7 +88,8 @@ namespace Ray.Storage.PostgreSQL
                             DoingVersion = data.Version,
                             IsLatest = false,
                             IsOver = data.IsOver,
-                            LatestMinEventTimestamp = 0
+                            StartTimestamp = data.StartTimestamp,
+                            LatestMinEventTimestamp = data.StartTimestamp
                         },
                         State = serializer.Deserialize<S>(data.Data)
                     };
