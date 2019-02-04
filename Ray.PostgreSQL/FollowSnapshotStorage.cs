@@ -1,6 +1,5 @@
 ﻿using System.Threading.Tasks;
 using Dapper;
-using Ray.Core.Serialization;
 using Ray.Core.State;
 using Ray.Core.Storage;
 
@@ -13,16 +12,14 @@ namespace Ray.Storage.PostgreSQL
         private readonly string getByIdSql;
         private readonly string insertSql;
         private readonly string updateSql;
-        readonly IJsonSerializer serializer;
-        public FollowSnapshotStorage(IJsonSerializer serializer, StorageConfig table)
+        public FollowSnapshotStorage(StorageConfig table)
         {
-            this.serializer = serializer;
             tableInfo = table;
             var followStateTable = table.GetFollowStateTable();
             deleteSql = $"DELETE FROM {followStateTable} where stateid=@StateId";
             getByIdSql = $"select * FROM {followStateTable} where stateid=@StateId";
-            insertSql = $"INSERT into {followStateTable}(stateid,version,doingversion)VALUES(@StateId,@Version,@DoingVersion)";
-            updateSql = $"update {followStateTable} set version=@Version,doingversion=@DoingVersion where stateid=@StateId";
+            insertSql = $"INSERT into {followStateTable}(stateid,version,StartTimestamp)VALUES(@StateId,@Version,@StartTimestamp)";
+            updateSql = $"update {followStateTable} set version=@Version,StartTimestamp=@StartTimestamp where stateid=@StateId";
         }
         public async Task<FollowSnapshot<K>> Get(K id)
         {
@@ -31,11 +28,17 @@ namespace Ray.Storage.PostgreSQL
                 var data = await conn.QuerySingleOrDefaultAsync<FollowStateModel>(getByIdSql, new { StateId = id.ToString() });
                 if (data != default)
                 {
+                    K stateId = default;
+                    if (typeof(K) == typeof(long) && long.Parse(data.StateId) is K longValue)
+                        stateId = longValue;
+                    else if (data.StateId is K stringValue)
+                        stateId = stringValue;
                     return new FollowSnapshot<K>()
                     {
-                        StateId = serializer.Deserialize<K>(data.StateId),
+                        StateId = stateId,
                         Version = data.Version,
-                        DoingVersion = data.DoingVersion
+                        DoingVersion = data.Version,
+                        StartTimestamp = data.StartTimestamp
                     };
                 }
             }
@@ -45,7 +48,12 @@ namespace Ray.Storage.PostgreSQL
         {
             using (var connection = tableInfo.CreateConnection())
             {
-                await connection.ExecuteAsync(insertSql, new { StateId = data.StateId.ToString(), data.Version, data.DoingVersion });
+                await connection.ExecuteAsync(insertSql, new
+                {
+                    StateId = data.StateId.ToString(),
+                    data.Version,
+                    data.StartTimestamp
+                });
             }
         }
 
@@ -53,7 +61,12 @@ namespace Ray.Storage.PostgreSQL
         {
             using (var connection = tableInfo.CreateConnection())
             {
-                await connection.ExecuteAsync(updateSql, new { StateId = data.StateId.ToString(), data.Version, data.DoingVersion });
+                await connection.ExecuteAsync(updateSql, new
+                {
+                    StateId = data.StateId.ToString(),
+                    data.Version,
+                    data.StartTimestamp
+                });
             }
         }
         public async Task Delete(K id)
