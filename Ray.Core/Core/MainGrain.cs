@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -140,33 +139,33 @@ namespace Ray.Core
 
                 if (ArchiveOptions.On)
                 {
-                    if (NewArchive == default)
-                    {
-                        //需要从事件库中恢复
-                        NewArchive = new ArchiveBrief
-                        {
-                            Id = await GrainFactory.GetGrain<IUID>(GrainType.FullName).NewUtcID(),
-                            StartVersion = 0,
-                            StartTimestamp = Snapshot.Base.StartTimestamp,
-                            EndTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                            EndVersion = Snapshot.Base.Version,
-                            EventIsCleared = false,
-                            Index = 0
-                        };
-                    }
-                    if (NewArchive != default && NewArchive.EndVersion < Snapshot.Base.Version)
+                    if (Snapshot.Base.Version != 0 &&
+                        (LastArchive == default || LastArchive.EndVersion < Snapshot.Base.Version) &&
+                        (NewArchive == default || NewArchive.EndVersion < Snapshot.Base.Version))
                     {
                         //归档恢复
                         while (true)
                         {
-                            var eventList = await EventStorage.GetList(GrainId, NewArchive.EndTimestamp, NewArchive.EndVersion, NewArchive.EndVersion + CoreOptions.NumberOfEventsPerRead);
+                            var startTimestamp = Snapshot.Base.StartTimestamp;
+                            long startVersion = 0;
+                            if (NewArchive != default)
+                            {
+                                startVersion = NewArchive.EndVersion;
+                                startTimestamp = NewArchive.StartTimestamp;
+                            }
+                            else if (NewArchive == default && LastArchive != default)
+                            {
+                                startVersion = LastArchive.EndVersion;
+                                startTimestamp = LastArchive.EndTimestamp;
+                            }
+                            var eventList = await EventStorage.GetList(GrainId, startTimestamp, startVersion, startVersion + CoreOptions.NumberOfEventsPerRead);
                             foreach (var @event in eventList)
                             {
                                 var task = EventArchive(@event);
                                 if (!task.IsCompletedSuccessfully)
                                     await task;
                             }
-                            if (NewArchive.EndVersion == Snapshot.Base.Version) break;
+                            if (eventList.Count < CoreOptions.NumberOfEventsPerRead) break;
                         };
                     }
                 }
@@ -227,7 +226,7 @@ namespace Ray.Core
                     if (!onDeactivatedTask.IsCompletedSuccessfully)
                         await onDeactivatedTask;
                 }
-                if (ArchiveOptions.On)
+                if (ArchiveOptions.On && NewArchive != default)
                 {
                     if (NewArchive.EndVersion - NewArchive.StartVersion >= ArchiveOptions.MinIntervalVersion)
                     {
@@ -544,7 +543,7 @@ namespace Ray.Core
         }
         protected virtual ValueTask OnRaiseFailed(IFullyEvent<PrimaryKey> @event)
         {
-            if (ArchiveOptions.On)
+            if (ArchiveOptions.On && NewArchive != default)
             {
                 return Archive();
             }
@@ -573,32 +572,35 @@ namespace Ray.Core
             else
             {
                 //判定有没有时间戳小于前一个归档
-                NewArchive.EndTimestamp = @event.Base.Timestamp;
+                if (NewArchive.StartTimestamp == 0 || @event.Base.Timestamp < NewArchive.StartTimestamp)
+                    NewArchive.StartTimestamp = @event.Base.Timestamp;
+                if (@event.Base.Timestamp > NewArchive.StartTimestamp)
+                    NewArchive.EndTimestamp = @event.Base.Timestamp;
                 NewArchive.EndVersion = @event.Base.Version;
             }
             var archiveTask = Archive();
             if (!archiveTask.IsCompletedSuccessfully)
                 await archiveTask;
         }
-        private ArchiveBrief CombineArchiveInfo(ArchiveBrief one, ArchiveBrief two)
+        private ArchiveBrief CombineArchiveInfo(ArchiveBrief main, ArchiveBrief merge)
         {
-            if (two.StartTimestamp < one.StartTimestamp)
-                one.StartTimestamp = two.StartTimestamp;
-            if (two.StartVersion < one.StartVersion)
-                one.StartVersion = two.StartVersion;
-            if (two.EndTimestamp > one.EndTimestamp)
-                one.EndTimestamp = two.EndTimestamp;
-            if (two.EndVersion > one.EndVersion)
-                one.EndVersion = two.EndVersion;
-            return one;
+            if (merge.StartTimestamp < main.StartTimestamp)
+                main.StartTimestamp = merge.StartTimestamp;
+            if (merge.StartVersion < main.StartVersion)
+                main.StartVersion = merge.StartVersion;
+            if (merge.EndTimestamp > main.EndTimestamp)
+                main.EndTimestamp = merge.EndTimestamp;
+            if (merge.EndVersion > main.EndVersion)
+                main.EndVersion = merge.EndVersion;
+            return main;
         }
 
         protected async ValueTask Archive(bool force = false)
         {
             if (Snapshot.Base.Version != Snapshot.Base.DoingVersion)
                 throw new StateInsecurityException(Snapshot.Base.StateId.ToString(), GrainType, Snapshot.Base.DoingVersion, Snapshot.Base.Version);
-            var intervalMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - (LastArchive == default ? 0 : LastArchive.EndTimestamp);
-            var intervalVersiion = Snapshot.Base.Version - (LastArchive == default ? 0 : LastArchive.EndVersion);
+            var intervalMilliseconds = LastArchive == default ? 0 : NewArchive.EndTimestamp - LastArchive.EndTimestamp;
+            var intervalVersiion = NewArchive.EndVersion - NewArchive.StartVersion;
             if (force || (
                 (intervalMilliseconds > ArchiveOptions.IntervalMilliSeconds && intervalVersiion > ArchiveOptions.IntervalVersion) ||
                 intervalMilliseconds > ArchiveOptions.MaxIntervalMilliSeconds ||
