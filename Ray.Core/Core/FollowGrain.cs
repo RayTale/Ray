@@ -194,10 +194,9 @@ namespace Ray.Core
             var (success, transport) = BytesTransport.FromBytesWithNoId(bytes);
             if (success)
             {
-                var eventType = TypeContainer.GetType(transport.EventType);
                 using (var ms = new MemoryStream(transport.EventBytes))
                 {
-                    var data = Serializer.Deserialize(eventType, ms);
+                    var data = Serializer.Deserialize(TypeContainer.GetType(transport.EventType), ms);
                     if (data is IEvent @event)
                     {
                         var eventBase = EventBase.FromBytes(transport.BaseBytes);

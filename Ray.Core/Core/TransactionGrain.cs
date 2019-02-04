@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Ray.Core.Event;
@@ -100,25 +101,25 @@ namespace Ray.Core
                                 var publishTask = EventBusProducer.Publish(transport.BytesTransport.GetBytes(), transport.HashKey);
                                 if (!publishTask.IsCompletedSuccessfully)
                                     await publishTask;
-                                var task = OnRaiseSuccessed(transport.FullyEvent, transport.BytesTransport);
-                                if (!task.IsCompletedSuccessfully)
-                                    await task;
                             }
                         }
                         catch (Exception ex)
                         {
                             if (Logger.IsEnabled(LogLevel.Error))
                                 Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
+                            var funcs = FollowUnit.GetEventHandlers();
+                            foreach (var transport in EventsInTransactionProcessing)
+                            {
+                                //当消息队列出现问题的时候同步推送
+                                await Task.WhenAll(funcs.Select(func => func(transport.BytesTransport.GetBytes())));
+                            }
                         }
                     }
-                    else
+                    foreach (var transport in EventsInTransactionProcessing)
                     {
-                        foreach (var transport in EventsInTransactionProcessing)
-                        {
-                            var task = OnRaiseSuccessed(transport.FullyEvent, transport.BytesTransport);
-                            if (!task.IsCompletedSuccessfully)
-                                await task;
-                        }
+                        var task = OnRaiseSuccessed(transport.FullyEvent, transport.BytesTransport);
+                        if (!task.IsCompletedSuccessfully)
+                            await task;
                     }
                     EventsInTransactionProcessing.Clear();
                     var saveSnapshotTask = SaveSnapshotAsync();
@@ -202,21 +203,21 @@ namespace Ray.Core
         {
             using (var ms = new MemoryStream(bytesTransport.EventBytes))
             {
-                var newEvent = new FullyEvent<PrimaryKey>
+                var copiedEvent = new FullyEvent<PrimaryKey>
                 {
                     Event = Serializer.Deserialize(fullyEvent.Event.GetType(), ms) as IEvent,
                     Base = EventBase.FromBytes(bytesTransport.BaseBytes)
                 };
-                EventApply(BackupSnapshot, newEvent);
-                BackupSnapshot.Base.FullUpdateVersion(newEvent.Base, GrainType);//更新处理完成的Version
+                EventHandler.Apply(BackupSnapshot, copiedEvent);
+                BackupSnapshot.Base.FullUpdateVersion(copiedEvent.Base, GrainType);//更新处理完成的Version
             }
             //父级涉及状态归档
             return base.OnRaiseSuccessed(fullyEvent, bytesTransport);
         }
-        protected void TransactionRaiseEvent(IEvent @event, EventUID uniqueId = null, string hashKey = null)
+        protected void TransactionRaiseEvent(IEvent @event, EventUID uniqueId = null)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.GrainSnapshot, "Start raise event by transaction, grain Id ={0} and state version = {1},event type = {2} ,event = {3},uniqueueId = {4},hashkey = {5}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event), uniqueId, hashKey);
+                Logger.LogTrace(LogEventIds.GrainSnapshot, "Start raise event by transaction, grain Id ={0} and state version = {1},event type = {2} ,event = {3},uniqueueId = {4}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event), uniqueId);
             if (!TransactionPending)
             {
                 var ex = new UnopenTransactionException(GrainId.ToString(), GrainType, nameof(TransactionRaiseEvent));
@@ -229,18 +230,20 @@ namespace Ray.Core
                 Snapshot.Base.IncrementDoingVersion(GrainType);//标记将要处理的Version
                 var fullyEvent = new FullyEvent<PrimaryKey>
                 {
+                    StateId = GrainId,
                     Event = @event,
-                    Base = new EventBase()
+                    Base = new EventBase
+                    {
+                        Version = Snapshot.Base.Version + 1
+                    }
                 };
-                fullyEvent.StateId = GrainId;
-                fullyEvent.Base.Version = Snapshot.Base.Version + 1;
                 if (uniqueId == default) uniqueId = EventUID.Empty;
                 if (string.IsNullOrEmpty(uniqueId.UID))
                     fullyEvent.Base.Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 else
                     fullyEvent.Base.Timestamp = uniqueId.Timestamp;
-                EventsInTransactionProcessing.Add(new TransactionTransport<PrimaryKey>(fullyEvent, uniqueId.UID, string.IsNullOrEmpty(hashKey) ? GrainId.ToString() : hashKey));
-                EventApply(Snapshot, fullyEvent);
+                EventsInTransactionProcessing.Add(new TransactionTransport<PrimaryKey>(fullyEvent, uniqueId.UID, fullyEvent.StateId.ToString()));
+                EventHandler.Apply(Snapshot, fullyEvent);
                 Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
                 if (Logger.IsEnabled(LogLevel.Trace))
                     Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Raise event successfully, grain Id= {0} and state version is {1}}", GrainId.ToString(), Snapshot.Base.Version);

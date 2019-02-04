@@ -12,35 +12,40 @@ namespace Ray.Core.Event
         public object ActorId { get; set; }
         public byte[] BaseBytes { get; set; }
         public byte[] EventBytes { get; set; }
+        private byte[] allBytes;
         public byte[] GetBytes()
         {
-            var eventTypeBytes = Encoding.Default.GetBytes(EventType);
-            byte[] actorIdBytes;
-            if (ActorId is long id)
+            if (allBytes == default)
             {
-                actorIdBytes = BitConverter.GetBytes(id);
+                var eventTypeBytes = Encoding.Default.GetBytes(EventType);
+                byte[] actorIdBytes;
+                if (ActorId is long id)
+                {
+                    actorIdBytes = BitConverter.GetBytes(id);
+                }
+                else if (ActorId is string strId)
+                {
+                    actorIdBytes = Encoding.Default.GetBytes(strId);
+                }
+                else
+                {
+                    throw new PrimaryKeyTypeException(EventType);
+                }
+                using (var ms = new PooledMemoryStream())
+                {
+                    ms.WriteByte((byte)BytesType.Event);
+                    ms.Write(BitConverter.GetBytes((ushort)eventTypeBytes.Length));
+                    ms.Write(BitConverter.GetBytes((ushort)actorIdBytes.Length));
+                    ms.Write(BitConverter.GetBytes((ushort)BaseBytes.Length));
+                    ms.Write(BitConverter.GetBytes(EventBytes.Length));
+                    ms.Write(eventTypeBytes);
+                    ms.Write(actorIdBytes);
+                    ms.Write(BaseBytes);
+                    ms.Write(EventBytes);
+                    allBytes = ms.ToArray();
+                }
             }
-            else if (ActorId is string strId)
-            {
-                actorIdBytes = Encoding.Default.GetBytes(strId);
-            }
-            else
-            {
-                throw new PrimaryKeyTypeException(EventType);
-            }
-            using (var ms = new PooledMemoryStream())
-            {
-                ms.WriteByte((byte)BytesType.Event);
-                ms.Write(BitConverter.GetBytes((ushort)eventTypeBytes.Length));
-                ms.Write(BitConverter.GetBytes((ushort)actorIdBytes.Length));
-                ms.Write(BitConverter.GetBytes((ushort)BaseBytes.Length));
-                ms.Write(BitConverter.GetBytes(EventBytes.Length));
-                ms.Write(eventTypeBytes);
-                ms.Write(actorIdBytes);
-                ms.Write(BaseBytes);
-                ms.Write(EventBytes);
-                return ms.ToArray();
-            }
+            return allBytes;
         }
         public static (bool success, long actorId) GetActorIdWithLong(byte[] bytes)
         {

@@ -31,9 +31,9 @@ namespace Ray.Core
             ConcurrentChannel.Complete();
         }
         protected async ValueTask ConcurrentRaiseEvent(
-            Func<Snapshot<PrimaryKey, State>,
-            Func<IEvent, EventUID, Task>, Task> handler,
-            Func<bool, ValueTask> completedHandler, Action<Exception> exceptionHandler)
+            Func<Snapshot<PrimaryKey, State>, Func<IEvent, EventUID, Task>, Task> handler,
+            Func<bool, ValueTask> completedHandler,
+            Action<Exception> exceptionHandler)
         {
             var writeTask = ConcurrentChannel.WriteAsync(new ConcurrentTransport<Snapshot<PrimaryKey, State>>(handler, completedHandler, exceptionHandler));
             if (!writeTask.IsCompletedSuccessfully)

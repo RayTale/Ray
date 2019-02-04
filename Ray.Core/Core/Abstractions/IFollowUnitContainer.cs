@@ -4,7 +4,7 @@ namespace Ray.Core.Abstractions
 {
     public interface IFollowUnitContainer
     {
-        IFollowUnit<K> GetUnit<K>(Type grainType);
+        IFollowUnit<PrimaryKey> GetUnit<PrimaryKey>(Type grainType);
         void Register(IGrainID followUnit);
     }
 }
