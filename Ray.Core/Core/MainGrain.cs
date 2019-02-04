@@ -53,10 +53,6 @@ namespace Ray.Core
         /// </summary>
         protected long SnapshotEventVersion { get; private set; }
         /// <summary>
-        /// 是否支持异步follow，true代表事件会广播，false事件不会进行广播
-        /// </summary>
-        protected virtual bool SupportFollow => true;
-        /// <summary>
         /// 当前Grain的真实Type
         /// </summary>
         protected Type GrainType { get; }
@@ -403,7 +399,7 @@ namespace Ray.Core
                 SnapshotEventVersion = 0;
             }
         }
-        protected virtual async Task<bool> RaiseEvent(IEvent @event, EventUID uniqueId = null)
+        protected virtual async Task<bool> RaiseEvent(IEvent @event, EventUID uniqueId = null, bool syncEventStream = false)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace(LogEventIds.GrainSnapshot, "Start raise event, grain Id ={0} and state version = {1},event type = {2} ,event ={3},uniqueueId= {4}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event), uniqueId);
@@ -443,26 +439,54 @@ namespace Ray.Core
                     {
                         EventHandler.Apply(Snapshot, fullyEvent);
                         Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
-                        var saveSnapshotTask = SaveSnapshotAsync();
-                        if (!saveSnapshotTask.IsCompletedSuccessfully)
-                            await saveSnapshotTask;
                         var task = OnRaiseSuccessed(fullyEvent, bytesTransport);
                         if (!task.IsCompletedSuccessfully)
                             await task;
-                        if (SupportFollow)
+                        var saveSnapshotTask = SaveSnapshotAsync();
+                        if (!saveSnapshotTask.IsCompletedSuccessfully)
+                            await saveSnapshotTask;
+                        var handlers = FollowUnit.GetEventHandlers();
+                        if (handlers.Count > 0)
                         {
                             try
                             {
-                                var publishTask = EventBusProducer.Publish(bytesTransport.GetBytes(), GrainId.ToString());
-                                if (!publishTask.IsCompletedSuccessfully)
-                                    await publishTask;
+                                if (CoreOptions.PriorityAsyncEventBus && !syncEventStream)
+                                {
+                                    try
+                                    {
+                                        var publishTask = EventBusProducer.Publish(bytesTransport.GetBytes(), GrainId.ToString());
+                                        if (!publishTask.IsCompletedSuccessfully)
+                                            await publishTask;
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        if (Logger.IsEnabled(LogLevel.Error))
+                                            Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
+                                        //当消息队列出现问题的时候同步推送
+                                        await Task.WhenAll(handlers.Select(func => func(bytesTransport.GetBytes())));
+                                    }
+                                }
+                                else
+                                {
+                                    try
+                                    {
+                                        await Task.WhenAll(handlers.Select(func => func(bytesTransport.GetBytes())));
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        if (Logger.IsEnabled(LogLevel.Error))
+                                            Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
+                                        //当消息队列出现问题的时候异步推送
+                                        var publishTask = EventBusProducer.Publish(bytesTransport.GetBytes(), GrainId.ToString());
+                                        if (!publishTask.IsCompletedSuccessfully)
+                                            await publishTask;
+                                    }
+                                }
                             }
                             catch (Exception ex)
                             {
                                 if (Logger.IsEnabled(LogLevel.Error))
                                     Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
-                                //当消息队列出现问题的时候同步推送
-                                await Task.WhenAll(FollowUnit.GetEventHandlers().Select(func => func(bytesTransport.GetBytes())));
                             }
                         }
                         if (Logger.IsEnabled(LogLevel.Trace))

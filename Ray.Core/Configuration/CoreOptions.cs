@@ -34,5 +34,9 @@
         /// 当Grain Over时是否清理事件
         /// </summary>
         public bool ClearEventWhenOver { get; set; } = true;
+        /// <summary>
+        /// 优先异步事件流
+        /// </summary>
+        public bool PriorityAsyncEventBus { get; set; } = true;
     }
 }

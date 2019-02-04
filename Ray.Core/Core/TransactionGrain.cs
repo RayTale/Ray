@@ -92,39 +92,63 @@ namespace Ray.Core
                         }
                     }
                     await EventStorage.TransactionBatchAppend(EventsInTransactionProcessing);
-                    if (SupportFollow)
-                    {
-                        try
-                        {
-                            foreach (var transport in EventsInTransactionProcessing)
-                            {
-                                var publishTask = EventBusProducer.Publish(transport.BytesTransport.GetBytes(), transport.HashKey);
-                                if (!publishTask.IsCompletedSuccessfully)
-                                    await publishTask;
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            if (Logger.IsEnabled(LogLevel.Error))
-                                Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
-                            var funcs = FollowUnit.GetEventHandlers();
-                            foreach (var transport in EventsInTransactionProcessing)
-                            {
-                                //当消息队列出现问题的时候同步推送
-                                await Task.WhenAll(funcs.Select(func => func(transport.BytesTransport.GetBytes())));
-                            }
-                        }
-                    }
                     foreach (var transport in EventsInTransactionProcessing)
                     {
                         var task = OnRaiseSuccessed(transport.FullyEvent, transport.BytesTransport);
                         if (!task.IsCompletedSuccessfully)
                             await task;
                     }
-                    EventsInTransactionProcessing.Clear();
                     var saveSnapshotTask = SaveSnapshotAsync();
                     if (!saveSnapshotTask.IsCompletedSuccessfully)
                         await saveSnapshotTask;
+                    var handlers = FollowUnit.GetEventHandlers();
+                    if (handlers.Count > 0)
+                    {
+                        try
+                        {
+                            foreach (var transport in EventsInTransactionProcessing)
+                            {
+                                if (CoreOptions.PriorityAsyncEventBus && !transport.SyncEventStream)
+                                {
+                                    try
+                                    {
+                                        var publishTask = EventBusProducer.Publish(transport.BytesTransport.GetBytes(), transport.HashKey);
+                                        if (!publishTask.IsCompletedSuccessfully)
+                                            await publishTask;
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        if (Logger.IsEnabled(LogLevel.Error))
+                                            Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
+
+                                        //当消息队列出现问题的时候同步推送
+                                        await Task.WhenAll(handlers.Select(func => func(transport.BytesTransport.GetBytes())));
+                                    }
+                                }
+                                else
+                                {
+                                    try
+                                    {
+                                        await Task.WhenAll(handlers.Select(func => func(transport.BytesTransport.GetBytes())));
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        if (Logger.IsEnabled(LogLevel.Error))
+                                            Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
+                                        //当消息队列出现问题的时候异步推送
+                                        var publishTask = EventBusProducer.Publish(transport.BytesTransport.GetBytes(), transport.HashKey);
+                                        if (!publishTask.IsCompletedSuccessfully)
+                                            await publishTask;
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            if (Logger.IsEnabled(LogLevel.Error))
+                                Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
+                        }
+                    }
                     if (Logger.IsEnabled(LogLevel.Trace))
                         Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Commit transaction with id {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), EventsInTransactionProcessing.Count.ToString(), TransactionStartVersion.ToString(), Snapshot.Base.Version.ToString());
                 }
@@ -134,8 +158,12 @@ namespace Ray.Core
                         Logger.LogError(LogEventIds.TransactionGrainTransactionFlow, ex, "Commit transaction failed, grain Id = {1}", GrainId.ToString());
                     throw;
                 }
+                finally
+                {
+                    EventsInTransactionProcessing.Clear();
+                    TransactionPending = false;
+                }
             }
-            TransactionPending = false;
         }
         protected async ValueTask RollbackTransaction()
         {
@@ -180,7 +208,7 @@ namespace Ray.Core
                 EventsInTransactionProcessing.Clear();
             }
         }
-        protected override async Task<bool> RaiseEvent(IEvent @event, EventUID uniqueId = null)
+        protected override async Task<bool> RaiseEvent(IEvent @event, EventUID uniqueId = null, bool syncEventStream = false)
         {
             if (TransactionPending)
             {
@@ -192,7 +220,7 @@ namespace Ray.Core
             var checkTask = TransactionStateCheck();
             if (!checkTask.IsCompletedSuccessfully)
                 await checkTask;
-            return await base.RaiseEvent(@event, uniqueId);
+            return await base.RaiseEvent(@event, uniqueId, syncEventStream);
         }
         /// <summary>
         /// 防止对象在State和BackupState中互相干扰，所以反序列化一个全新的Event对象给BackupState
@@ -214,7 +242,7 @@ namespace Ray.Core
             //父级涉及状态归档
             return base.OnRaiseSuccessed(fullyEvent, bytesTransport);
         }
-        protected void TransactionRaiseEvent(IEvent @event, EventUID uniqueId = null)
+        protected void TransactionRaiseEvent(IEvent @event, EventUID uniqueId = null, bool syncEventStream = false)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace(LogEventIds.GrainSnapshot, "Start raise event by transaction, grain Id ={0} and state version = {1},event type = {2} ,event = {3},uniqueueId = {4}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event), uniqueId);
@@ -242,7 +270,7 @@ namespace Ray.Core
                     fullyEvent.Base.Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 else
                     fullyEvent.Base.Timestamp = uniqueId.Timestamp;
-                EventsInTransactionProcessing.Add(new TransactionTransport<PrimaryKey>(fullyEvent, uniqueId.UID, fullyEvent.StateId.ToString()));
+                EventsInTransactionProcessing.Add(new TransactionTransport<PrimaryKey>(fullyEvent, uniqueId.UID, fullyEvent.StateId.ToString(), syncEventStream));
                 EventHandler.Apply(Snapshot, fullyEvent);
                 Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
                 if (Logger.IsEnabled(LogLevel.Trace))
