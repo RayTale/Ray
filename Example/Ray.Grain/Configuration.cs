@@ -30,7 +30,11 @@ namespace Ray.Grain
         }
         public static void ConfigureBase(this IServiceCollection serviceCollection)
         {
-            serviceCollection.PostConfigure<CoreOptions<Account>>(options => options.ClearEventWhenOver = true);
+            serviceCollection.PostConfigure<CoreOptions<Account>>(options =>
+            {
+                options.ClearEventWhenOver = true;
+                options.PriorityAsyncEventBus = true;
+            });
         }
     }
 }
