@@ -8,11 +8,11 @@ namespace Ray.Core
     public class FollowUnitContainer : IFollowUnitContainer
     {
         readonly ConcurrentDictionary<Type, object> unitDict = new ConcurrentDictionary<Type, object>();
-        public IFollowUnit<K> GetUnit<K>(Type grainType)
+        public IFollowUnit<PrimaryKey> GetUnit<PrimaryKey>(Type grainType)
         {
             if (unitDict.TryGetValue(grainType, out var unit))
             {
-                if (unit is IFollowUnit<K> result)
+                if (unit is IFollowUnit<PrimaryKey> result)
                 {
                     return result;
                 }

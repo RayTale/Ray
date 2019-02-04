@@ -198,7 +198,7 @@ namespace Ray.Core
                     foreach (var @event in eventList)
                     {
                         Snapshot.Base.IncrementDoingVersion(GrainType);//标记将要处理的Version
-                        EventApply(Snapshot, @event);
+                        EventHandler.Apply(Snapshot, @event);
                         Snapshot.Base.UpdateVersion(@event.Base, GrainType);//更新处理完成的Version
                     }
                     if (eventList.Count < CoreOptions.NumberOfEventsPerRead) break;
@@ -306,13 +306,12 @@ namespace Ray.Core
                     if (SnapshotEventVersion == 0)
                     {
                         await SnapshotStorage.Insert(Snapshot);
-                        SnapshotEventVersion = Snapshot.Base.Version;
                     }
                     else
                     {
                         await SnapshotStorage.Update(Snapshot);
-                        SnapshotEventVersion = Snapshot.Base.Version;
                     }
+                    SnapshotEventVersion = Snapshot.Base.Version;
                     if (Logger.IsEnabled(LogLevel.Trace))
                         Logger.LogTrace(LogEventIds.GrainSnapshot, "The snapshot of id={0} save completed ,state version = {1}", GrainId.ToString(), Snapshot.Base.Version);
                 }
@@ -415,10 +414,12 @@ namespace Ray.Core
                 var fullyEvent = new FullyEvent<PrimaryKey>
                 {
                     Event = @event,
-                    Base = new EventBase(),
+                    Base = new EventBase
+                    {
+                        Version = Snapshot.Base.Version + 1
+                    },
                     StateId = Snapshot.Base.StateId
                 };
-                fullyEvent.Base.Version = Snapshot.Base.Version + 1;
                 if (uniqueId == default) uniqueId = EventUID.Empty;
                 if (string.IsNullOrEmpty(uniqueId.UID))
                     fullyEvent.Base.Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -440,10 +441,16 @@ namespace Ray.Core
                     };
                     if (await EventStorage.Append(new SaveTransport<PrimaryKey>(fullyEvent, bytesTransport, uniqueId.UID)))
                     {
+                        EventHandler.Apply(Snapshot, fullyEvent);
+                        Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
+                        var saveSnapshotTask = SaveSnapshotAsync();
+                        if (!saveSnapshotTask.IsCompletedSuccessfully)
+                            await saveSnapshotTask;
+                        var task = OnRaiseSuccessed(fullyEvent, bytesTransport);
+                        if (!task.IsCompletedSuccessfully)
+                            await task;
                         if (SupportFollow)
                         {
-                            //消息写入消息队列，以提供异步服务
-                            EventApply(Snapshot, fullyEvent);
                             try
                             {
                                 var publishTask = EventBusProducer.Publish(bytesTransport.GetBytes(), GrainId.ToString());
@@ -454,19 +461,10 @@ namespace Ray.Core
                             {
                                 if (Logger.IsEnabled(LogLevel.Error))
                                     Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
+                                //当消息队列出现问题的时候同步推送
+                                await Task.WhenAll(FollowUnit.GetEventHandlers().Select(func => func(bytesTransport.GetBytes())));
                             }
                         }
-                        else
-                        {
-                            EventApply(Snapshot, fullyEvent);
-                        }
-                        Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
-                        var saveSnapshotTask = SaveSnapshotAsync();
-                        if (!saveSnapshotTask.IsCompletedSuccessfully)
-                            await saveSnapshotTask;
-                        var task = OnRaiseSuccessed(fullyEvent, bytesTransport);
-                        if (!task.IsCompletedSuccessfully)
-                            await task;
                         if (Logger.IsEnabled(LogLevel.Trace))
                             Logger.LogTrace(LogEventIds.GrainRaiseEvent, "Raise event successfully, grain Id= {0} and state version = {1}}", GrainId.ToString(), Snapshot.Base.Version);
                         return true;
@@ -550,12 +548,6 @@ namespace Ray.Core
                 return Archive();
             }
             return Consts.ValueTaskDone;
-        }
-        protected virtual void EventApply(Snapshot<PrimaryKey, State> snapshot, IFullyEvent<PrimaryKey> evt)
-        {
-            if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.GrainRaiseEvent, "Start apply event, grain Id= {0} and state version is {1}},event type = {2},event = {3}", GrainId.ToString(), Snapshot.Base.Version, evt.GetType().FullName, JsonSerializer.Serialize(evt));
-            EventHandler.Apply(snapshot, evt);
         }
         protected async ValueTask EventArchive(IFullyEvent<PrimaryKey> @event)
         {
