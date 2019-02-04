@@ -10,6 +10,7 @@ namespace Ray.Core.Storage
         Task Insert(FollowSnapshot<K> data);
 
         Task Update(FollowSnapshot<K> data);
+        Task UpdateStartTimestamp(K id, long timestamp);
         Task Delete(K id);
     }
 }

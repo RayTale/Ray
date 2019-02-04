@@ -97,6 +97,11 @@ namespace Ray.Storage.MongoDB
             throw new System.NotImplementedException();
         }
 
+        public Task UpdateStartTimestamp(K id, long timestamp)
+        {
+            throw new System.NotImplementedException();
+        }
+
         Task<Snapshot<K, S>> ISnapshotStorage<K, S>.Get(K id)
         {
             throw new System.NotImplementedException();

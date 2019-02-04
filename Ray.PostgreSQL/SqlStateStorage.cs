@@ -17,6 +17,7 @@ namespace Ray.Storage.PostgreSQL
         private readonly string updateOverSql;
         private readonly string updateIsLatestSql;
         private readonly string updateLatestTimestampSql;
+        private readonly string updateStartTimestampSql;
         readonly IJsonSerializer serializer;
         public SqlStateStorage(IJsonSerializer serializer, StorageConfig table)
         {
@@ -29,6 +30,7 @@ namespace Ray.Storage.PostgreSQL
             updateOverSql = $"update {tableInfo.SnapshotTable} set IsOver=@IsOver where stateid=@StateId";
             updateIsLatestSql = $"update {tableInfo.SnapshotTable} set IsLatest=@IsLatest where stateid=@StateId";
             updateLatestTimestampSql = $"update {tableInfo.SnapshotTable} set LatestMinEventTimestamp=@LatestMinEventTimestamp where stateid=@StateId";
+            updateStartTimestampSql = $"update {tableInfo.SnapshotTable} set StartTimestamp=@StartTimestamp where stateid=@StateId";
         }
         public async Task Delete(K id)
         {
@@ -99,6 +101,17 @@ namespace Ray.Storage.PostgreSQL
                 {
                     StateId = id.ToString(),
                     LatestMinEventTimestamp = timestamp
+                });
+            }
+        }
+        public async Task UpdateStartTimestamp(K id, long timestamp)
+        {
+            using (var connection = tableInfo.CreateConnection())
+            {
+                await connection.ExecuteAsync(updateStartTimestampSql, new
+                {
+                    StateId = id.ToString(),
+                    StartTimestamp = timestamp
                 });
             }
         }

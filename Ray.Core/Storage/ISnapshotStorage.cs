@@ -12,6 +12,7 @@ namespace Ray.Core.Storage
 
         Task Update(Snapshot<K, S> data);
         Task UpdateLatestMinEventTimestamp(K id, long timestamp);
+        Task UpdateStartTimestamp(K id, long timestamp);
         Task UpdateIsLatest(K id, bool isLatest);
 
         Task Delete(K id);

@@ -152,10 +152,6 @@ namespace Ray.Core
             else
                 return Task.CompletedTask;
         }
-        /// <summary>
-        /// true:当前状态无快照,false:当前状态已经存在快照
-        /// </summary>
-        protected bool NoSnapshot { get; private set; }
         protected virtual async Task ReadSnapshotAsync()
         {
             if (Logger.IsEnabled(LogLevel.Trace))
@@ -165,7 +161,6 @@ namespace Ray.Core
                 Snapshot = await FollowSnapshotStorage.Get(GrainId);
                 if (Snapshot == null)
                 {
-                    NoSnapshot = true;
                     var createTask = CreateState();
                     if (!createTask.IsCompletedSuccessfully)
                         await createTask;
@@ -285,8 +280,15 @@ namespace Ray.Core
                 throw;
             }
         }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual ValueTask OnEventDelivered(IFullyEvent<PrimaryKey> @event) => Consts.ValueTaskDone;
+        protected virtual ValueTask OnEventDelivered(IFullyEvent<PrimaryKey> @event)
+        {
+            if (SnapshotEventVersion > 0 && Snapshot.Version > 0 && @event.Base.Timestamp < Snapshot.StartTimestamp)
+            {
+                return new ValueTask(FollowSnapshotStorage.UpdateStartTimestamp(Snapshot.StateId, @event.Base.Timestamp));
+            }
+            else
+                return Consts.ValueTaskDone;
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask OnSaveSnapshot() => Consts.ValueTaskDone;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -304,10 +306,9 @@ namespace Ray.Core
                         var onSaveSnapshotTask = OnSaveSnapshot();//自定义保存项
                         if (!onSaveSnapshotTask.IsCompletedSuccessfully)
                             await onSaveSnapshotTask;
-                        if (NoSnapshot)
+                        if (SnapshotEventVersion == 0)
                         {
                             await FollowSnapshotStorage.Insert(Snapshot);
-                            NoSnapshot = false;
                         }
                         else
                         {

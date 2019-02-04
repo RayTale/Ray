@@ -14,8 +14,10 @@ namespace Ray.Core
             if (snapshot.Version + 1 != eventBase.Version)
                 throw new EventVersionNotMatchStateException(snapshot.StateId.ToString(), grainType, eventBase.Version, snapshot.Version);
             snapshot.Version = eventBase.Version;
-            if (snapshot.StartTimestamp == 0)
+            if (snapshot.StartTimestamp == 0 || eventBase.Timestamp < snapshot.StartTimestamp)
                 snapshot.StartTimestamp = eventBase.Timestamp;
+            if (eventBase.Timestamp < snapshot.LatestMinEventTimestamp)
+                snapshot.LatestMinEventTimestamp = eventBase.Timestamp;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void FullUpdateVersion<PrimaryKey>(this ISnapshot<PrimaryKey> snapshot, EventBase eventBase, Type grainType)
@@ -24,8 +26,10 @@ namespace Ray.Core
                 throw new EventVersionNotMatchStateException(snapshot.StateId.ToString(), grainType, eventBase.Version, snapshot.Version);
             snapshot.DoingVersion = eventBase.Version;
             snapshot.Version = eventBase.Version;
-            if (snapshot.StartTimestamp == 0)
+            if (snapshot.StartTimestamp == 0 || eventBase.Timestamp < snapshot.StartTimestamp)
                 snapshot.StartTimestamp = eventBase.Timestamp;
+            if (eventBase.Timestamp < snapshot.LatestMinEventTimestamp)
+                snapshot.LatestMinEventTimestamp = eventBase.Timestamp;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void IncrementDoingVersion<K>(this ISnapshot<K> snapshot, Type grainType)
@@ -54,7 +58,7 @@ namespace Ray.Core
         {
             snapshot.DoingVersion = eventBase.Version;
             snapshot.Version = eventBase.Version;
-            if (snapshot.StartTimestamp == 0)
+            if (snapshot.StartTimestamp == 0 || eventBase.Timestamp < snapshot.StartTimestamp)
                 snapshot.StartTimestamp = eventBase.Timestamp;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -70,17 +74,17 @@ namespace Ray.Core
             if (snapshot.Version + 1 != eventBase.Version)
                 throw new EventVersionNotMatchStateException(snapshot.StateId.ToString(), grainType, eventBase.Version, snapshot.Version);
             snapshot.Version = eventBase.Version;
-            if (snapshot.StartTimestamp == 0)
+            if (snapshot.StartTimestamp == 0 || eventBase.Timestamp < snapshot.StartTimestamp)
                 snapshot.StartTimestamp = eventBase.Timestamp;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void FullUpdateVersion<PrimaryKey>(this IFollowSnapshot<PrimaryKey> snapshot, EventBase eventBase, Type grainType)
         {
-            if (snapshot.Version + 1 != eventBase.Version)
+            if (snapshot.Version > 0 && snapshot.Version + 1 != eventBase.Version)
                 throw new EventVersionNotMatchStateException(snapshot.StateId.ToString(), grainType, eventBase.Version, snapshot.Version);
             snapshot.DoingVersion = eventBase.Version;
             snapshot.Version = eventBase.Version;
-            if (snapshot.StartTimestamp == 0)
+            if (snapshot.StartTimestamp == 0 || eventBase.Timestamp < snapshot.StartTimestamp)
                 snapshot.StartTimestamp = eventBase.Timestamp;
         }
     }
