@@ -129,7 +129,7 @@ namespace Ray.Storage.PostgreSQL
                     await configTask;
                 var storage = FollowSnapshotStorageDict.GetOrAdd(dictKey, key =>
                 {
-                    return new FollowSnapshotStorage<K>(serviceProvider.GetService<IJsonSerializer>(), configTask.Result);
+                    return new FollowSnapshotStorage<K>(configTask.Result);
                 });
                 return storage as FollowSnapshotStorage<K>;
             }

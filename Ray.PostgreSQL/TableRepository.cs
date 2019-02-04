@@ -154,7 +154,7 @@ namespace Ray.Storage.PostgreSQL
             const string sql = @"
                      CREATE TABLE if not exists {0}(
                      StateId varchar({1}) not null PRIMARY KEY,
-                     DoingVersion int8 not null,
+                     StartTimestamp int8 not null,
                      Version int8 not null)";
             var key = $"{storageConfig.Connection}-{storageConfig.GetFollowStateTable()}-{storageConfig.StateIdLength}";
             if (createFollowStateTableDict.TryAdd(key, false))
