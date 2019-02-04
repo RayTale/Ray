@@ -18,7 +18,7 @@ namespace Ray.Core.State
         {
             var intervalMilliseconds = EndTimestamp - StartTimestamp;
             var intervalVersiion = EndVersion - StartVersion;
-            return (intervalMilliseconds > archiveOptions.IntervalMilliSeconds * 1000 &&
+            return (intervalMilliseconds > archiveOptions.IntervalMilliSeconds &&
                 intervalVersiion > archiveOptions.IntervalVersion) ||
                 intervalMilliseconds > archiveOptions.MaxIntervalMilliSeconds ||
                 intervalVersiion > archiveOptions.MaxIntervalVersion;
