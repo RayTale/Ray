@@ -24,9 +24,5 @@ namespace RayTest.Grains
                 return container.CreateEventBus<long>("Account", "account", 5).BindProducer<Account>().Enable();
             });
         }
-        public static void AddGrainHandler(this IServiceCollection serviceCollection)
-        {
-            serviceCollection.AddSingleton<IEventHandler<long, AccountState>, AccountEventHandle>();
-        }
     }
 }
