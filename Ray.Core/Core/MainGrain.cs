@@ -121,7 +121,8 @@ namespace Ray.Core
                     BriefArchiveList = (await ArchiveStorage.GetBriefList(GrainId)).OrderBy(a => a.Index).ToList();
                     LastArchive = BriefArchiveList.LastOrDefault();
                     ClearedArchive = BriefArchiveList.Where(a => a.EventIsCleared).OrderByDescending(a => a.Index).FirstOrDefault();
-                    if (LastArchive != default && !LastArchive.IsCompletedArchive(ArchiveOptions) && !LastArchive.EventIsCleared)
+                    var secondLastArchive = BriefArchiveList.Count > 1 ? BriefArchiveList.SkipLast(1).Last() : default;
+                    if (LastArchive != default && !LastArchive.IsCompletedArchive(ArchiveOptions, secondLastArchive) && !LastArchive.EventIsCleared)
                     {
                         await DeleteArchive(LastArchive.Id);
                         BriefArchiveList.Remove(LastArchive);
@@ -355,7 +356,7 @@ namespace Ray.Core
         }
         private async Task DeleteArchive(string briefId)
         {
-            await ArchiveStorage.Delete(briefId);
+            await ArchiveStorage.Delete(GrainId, briefId);
             var task = OnStartDeleteArchive(briefId);
             if (!task.IsCompletedSuccessfully)
                 await task;
@@ -610,13 +611,7 @@ namespace Ray.Core
         {
             if (Snapshot.Base.Version != Snapshot.Base.DoingVersion)
                 throw new StateInsecurityException(Snapshot.Base.StateId.ToString(), GrainType, Snapshot.Base.DoingVersion, Snapshot.Base.Version);
-            var intervalMilliseconds = LastArchive == default ? NewArchive.EndTimestamp - NewArchive.StartTimestamp : NewArchive.EndTimestamp - LastArchive.EndTimestamp;
-            var intervalVersiion = NewArchive.EndVersion - NewArchive.StartVersion;
-            if (force || (
-                (intervalMilliseconds > ArchiveOptions.IntervalMilliSeconds && intervalVersiion > ArchiveOptions.IntervalVersion) ||
-                intervalMilliseconds > ArchiveOptions.MaxIntervalMilliSeconds ||
-                intervalVersiion > ArchiveOptions.MaxIntervalVersion
-                ))
+            if (force || NewArchive.IsCompletedArchive(ArchiveOptions, LastArchive))
             {
                 var task = OnStartArchive();
                 if (!task.IsCompletedSuccessfully)
@@ -644,7 +639,7 @@ namespace Ray.Core
                     if (versions.All(v => v >= minArchive.EndVersion))
                     {
                         //清理归档对应的事件
-                        await ArchiveStorage.EventIsClear(minArchive.Id);
+                        await ArchiveStorage.EventIsClear(Snapshot.Base.StateId, minArchive.Id);
                         minArchive.EventIsCleared = true;
                         //如果快照的版本小于需要清理的最大事件版本号，则保存快照
                         if (SnapshotEventVersion < minArchive.EndVersion)

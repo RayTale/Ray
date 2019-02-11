@@ -8,9 +8,9 @@ namespace Ray.Core.Storage
         where Snapshot : class, new()
     {
         Task Insert(ArchiveBrief brief, Snapshot<PrimaryKey, Snapshot> state);
-        Task Delete(string briefId);
+        Task Delete(PrimaryKey stateId, string briefId);
         Task DeleteAll(PrimaryKey stateId);
-        Task EventIsClear(string briefId);
+        Task EventIsClear(PrimaryKey stateId, string briefId);
         Task<Snapshot<PrimaryKey, Snapshot>> GetState(string briefId);
         Task Over(PrimaryKey stateId, bool isOver);
         Task<List<ArchiveBrief>> GetBriefList(PrimaryKey stateId);

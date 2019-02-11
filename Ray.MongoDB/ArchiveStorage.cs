@@ -18,9 +18,9 @@ namespace Ray.Storage.MongoDB
             this.serializer = serializer;
             this.grainConfig = grainConfig;
         }
-        public Task Delete(string briefId)
+        public Task Delete(PrimaryKey stateId, string briefId)
         {
-            var filter = Builders<BsonDocument>.Filter.Eq("id", briefId);
+            var filter = Builders<BsonDocument>.Filter.Eq("StateId", stateId) & Builders<BsonDocument>.Filter.Eq("Id", briefId);
             return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.ArchiveStateTable).DeleteOneAsync(filter);
         }
 
@@ -30,9 +30,9 @@ namespace Ray.Storage.MongoDB
             return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.ArchiveStateTable).DeleteManyAsync(filter);
         }
 
-        public Task EventIsClear(string briefId)
+        public Task EventIsClear(PrimaryKey stateId, string briefId)
         {
-            var filter = Builders<BsonDocument>.Filter.Eq("id", briefId);
+            var filter = Builders<BsonDocument>.Filter.Eq("StateId", stateId) & Builders<BsonDocument>.Filter.Eq("Id", briefId);
             var update = Builders<BsonDocument>.Update.Set("EventIsCleared", true);
             return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.ArchiveStateTable).UpdateOneAsync(filter, update);
         }
