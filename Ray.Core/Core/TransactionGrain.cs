@@ -1,14 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Ray.Core.Event;
 using Ray.Core.Exceptions;
 using Ray.Core.Logging;
+using Ray.Core.Serialization;
 using Ray.Core.State;
-using Ray.Core.Utils;
 
 namespace Ray.Core
 {
@@ -22,7 +21,7 @@ namespace Ray.Core
         protected bool TransactionPending { get; private set; }
         protected long TransactionStartVersion { get; private set; }
         protected DateTimeOffset BeginTransactionTime { get; private set; }
-        private readonly List<TransactionTransport<PrimaryKey>> EventsInTransactionProcessing = new List<TransactionTransport<PrimaryKey>>();
+        private readonly List<TransactionTransport<PrimaryKey>> WaitingForTransactionEvents = new List<TransactionTransport<PrimaryKey>>();
         protected override async Task RecoveryState()
         {
             await base.RecoveryState();
@@ -70,29 +69,23 @@ namespace Ray.Core
         protected async Task CommitTransaction()
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Commit transaction with id = {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), EventsInTransactionProcessing.Count.ToString(), TransactionStartVersion.ToString(), Snapshot.Base.Version.ToString());
-            if (EventsInTransactionProcessing.Count > 0)
+                Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Commit transaction with id = {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), WaitingForTransactionEvents.Count.ToString(), TransactionStartVersion.ToString(), Snapshot.Base.Version.ToString());
+            if (WaitingForTransactionEvents.Count > 0)
             {
                 try
                 {
-                    using (var ms = new PooledMemoryStream())
+                    foreach (var transport in WaitingForTransactionEvents)
                     {
-                        foreach (var transport in EventsInTransactionProcessing)
+                        transport.BytesTransport = new EventBytesTransport
                         {
-                            Serializer.Serialize(ms, transport.FullyEvent.Event);
-                            transport.BytesTransport = new BytesTransport
-                            {
-                                EventType = transport.FullyEvent.Event.GetType().FullName,
-                                ActorId = GrainId,
-                                EventBytes = ms.ToArray(),
-                                BaseBytes = transport.FullyEvent.Base.GetBytes()
-                            };
-                            ms.Position = 0;
-                            ms.SetLength(0);
-                        }
+                            EventType = transport.FullyEvent.Event.GetType().FullName,
+                            ActorId = GrainId,
+                            EventBytes = Serializer.SerializeToBytes(transport.FullyEvent.Event),
+                            BaseBytes = transport.FullyEvent.Base.GetBytes()
+                        };
                     }
-                    await EventStorage.TransactionBatchAppend(EventsInTransactionProcessing);
-                    foreach (var transport in EventsInTransactionProcessing)
+                    await EventStorage.TransactionBatchAppend(WaitingForTransactionEvents);
+                    foreach (var transport in WaitingForTransactionEvents)
                     {
                         var task = OnRaiseSuccessed(transport.FullyEvent, transport.BytesTransport);
                         if (!task.IsCompletedSuccessfully)
@@ -106,9 +99,9 @@ namespace Ray.Core
                     {
                         try
                         {
-                            foreach (var transport in EventsInTransactionProcessing)
+                            foreach (var transport in WaitingForTransactionEvents)
                             {
-                                if (CoreOptions.PriorityAsyncEventBus && !transport.SyncEventStream)
+                                if (CoreOptions.PriorityAsyncEventBus)
                                 {
                                     try
                                     {
@@ -150,7 +143,7 @@ namespace Ray.Core
                         }
                     }
                     if (Logger.IsEnabled(LogLevel.Trace))
-                        Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Commit transaction with id {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), EventsInTransactionProcessing.Count.ToString(), TransactionStartVersion.ToString(), Snapshot.Base.Version.ToString());
+                        Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Commit transaction with id {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), WaitingForTransactionEvents.Count.ToString(), TransactionStartVersion.ToString(), Snapshot.Base.Version.ToString());
                 }
                 catch (Exception ex)
                 {
@@ -160,7 +153,7 @@ namespace Ray.Core
                 }
                 finally
                 {
-                    EventsInTransactionProcessing.Clear();
+                    WaitingForTransactionEvents.Clear();
                     TransactionPending = false;
                 }
             }
@@ -170,7 +163,7 @@ namespace Ray.Core
             if (TransactionPending)
             {
                 if (Logger.IsEnabled(LogLevel.Trace))
-                    Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Rollback transaction successfully with id = {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), EventsInTransactionProcessing.Count.ToString(), TransactionStartVersion.ToString(), Snapshot.Base.Version.ToString());
+                    Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Rollback transaction successfully with id = {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), WaitingForTransactionEvents.Count.ToString(), TransactionStartVersion.ToString(), Snapshot.Base.Version.ToString());
                 try
                 {
                     if (BackupSnapshot.Base.Version == TransactionStartVersion)
@@ -185,7 +178,7 @@ namespace Ray.Core
                     {
                         await RecoveryState();
                     }
-                    EventsInTransactionProcessing.Clear();
+                    WaitingForTransactionEvents.Clear();
                     TransactionPending = false;
                     if (Logger.IsEnabled(LogLevel.Trace))
                         Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Rollback transaction successfully with id = {0},state version = {1}", GrainId.ToString(), Snapshot.Base.Version.ToString());
@@ -205,10 +198,10 @@ namespace Ray.Core
             if (BackupSnapshot.Base.Version != Snapshot.Base.Version)
             {
                 await RecoveryState();
-                EventsInTransactionProcessing.Clear();
+                WaitingForTransactionEvents.Clear();
             }
         }
-        protected override async Task<bool> RaiseEvent(IEvent @event, EventUID uniqueId = null, bool syncEventStream = false)
+        protected override async Task<bool> RaiseEvent(IEvent @event, EventUID uniqueId = null)
         {
             if (TransactionPending)
             {
@@ -220,32 +213,29 @@ namespace Ray.Core
             var checkTask = TransactionStateCheck();
             if (!checkTask.IsCompletedSuccessfully)
                 await checkTask;
-            return await base.RaiseEvent(@event, uniqueId, syncEventStream);
+            return await base.RaiseEvent(@event, uniqueId);
         }
         /// <summary>
         /// 防止对象在State和BackupState中互相干扰，所以反序列化一个全新的Event对象给BackupState
         /// </summary>
         /// <param name="fullyEvent">事件本体</param>
         /// <param name="bytes">事件序列化之后的二进制数据</param>
-        protected override ValueTask OnRaiseSuccessed(IFullyEvent<PrimaryKey> fullyEvent, BytesTransport bytesTransport)
+        protected override ValueTask OnRaiseSuccessed(IFullyEvent<PrimaryKey> fullyEvent, EventBytesTransport bytesTransport)
         {
-            using (var ms = new MemoryStream(bytesTransport.EventBytes))
+            var copiedEvent = new FullyEvent<PrimaryKey>
             {
-                var copiedEvent = new FullyEvent<PrimaryKey>
-                {
-                    Event = Serializer.Deserialize(fullyEvent.Event.GetType(), ms) as IEvent,
-                    Base = EventBase.FromBytes(bytesTransport.BaseBytes)
-                };
-                EventHandler.Apply(BackupSnapshot, copiedEvent);
-                BackupSnapshot.Base.FullUpdateVersion(copiedEvent.Base, GrainType);//更新处理完成的Version
-            }
+                Event = Serializer.Deserialize(fullyEvent.Event.GetType(), bytesTransport.EventBytes) as IEvent,
+                Base = EventBase.FromBytes(bytesTransport.BaseBytes)
+            };
+            EventHandler.Apply(BackupSnapshot, copiedEvent);
+            BackupSnapshot.Base.FullUpdateVersion(copiedEvent.Base, GrainType);//更新处理完成的Version
             //父级涉及状态归档
             return base.OnRaiseSuccessed(fullyEvent, bytesTransport);
         }
-        protected void TransactionRaiseEvent(IEvent @event, EventUID uniqueId = null, bool syncEventStream = false)
+        protected void TransactionRaiseEvent(IEvent @event, EventUID uniqueId = null)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.GrainSnapshot, "Start raise event by transaction, grain Id ={0} and state version = {1},event type = {2} ,event = {3},uniqueueId = {4}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event), uniqueId);
+                Logger.LogTrace(LogEventIds.GrainSnapshot, "Start raise event by transaction, grain Id ={0} and state version = {1},event type = {2} ,event = {3},uniqueueId = {4}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, Serializer.SerializeToString(@event), uniqueId);
             if (!TransactionPending)
             {
                 var ex = new UnopenTransactionException(GrainId.ToString(), GrainType, nameof(TransactionRaiseEvent));
@@ -270,7 +260,7 @@ namespace Ray.Core
                     fullyEvent.Base.Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 else
                     fullyEvent.Base.Timestamp = uniqueId.Timestamp;
-                EventsInTransactionProcessing.Add(new TransactionTransport<PrimaryKey>(fullyEvent, uniqueId.UID, fullyEvent.StateId.ToString(), syncEventStream));
+                WaitingForTransactionEvents.Add(new TransactionTransport<PrimaryKey>(fullyEvent, uniqueId.UID, fullyEvent.StateId.ToString()));
                 EventHandler.Apply(Snapshot, fullyEvent);
                 Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
                 if (Logger.IsEnabled(LogLevel.Trace))
@@ -279,7 +269,7 @@ namespace Ray.Core
             catch (Exception ex)
             {
                 if (Logger.IsEnabled(LogLevel.Critical))
-                    Logger.LogCritical(LogEventIds.TransactionGrainTransactionFlow, ex, "Grain Id = {0},event type = {1} and event = {2}", GrainId.ToString(), @event.GetType().FullName, JsonSerializer.Serialize(@event));
+                    Logger.LogCritical(LogEventIds.TransactionGrainTransactionFlow, ex, "Grain Id = {0},event type = {1} and event = {2}", GrainId.ToString(), @event.GetType().FullName, Serializer.SerializeToString(@event));
                 Snapshot.Base.DecrementDoingVersion();//还原doing Version
                 throw;
             }

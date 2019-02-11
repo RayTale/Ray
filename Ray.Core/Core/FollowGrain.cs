@@ -1,5 +1,4 @@
 ﻿using System;
-using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
@@ -27,7 +26,6 @@ namespace Ray.Core
         public abstract PrimaryKey GrainId { get; }
         protected CoreOptions<MainGrain> ConfigOptions { get; private set; }
         protected ILogger Logger { get; private set; }
-        protected IJsonSerializer JsonSerializer { get; private set; }
         protected ISerializer Serializer { get; private set; }
         protected IStorageFactory StorageFactory { get; private set; }
         /// <summary>
@@ -71,7 +69,6 @@ namespace Ray.Core
             ConfigOptions = ServiceProvider.GetService<IOptions<CoreOptions<MainGrain>>>().Value;
             StorageFactory = ServiceProvider.GetService<IStorageFactoryContainer>().CreateFactory(GrainType);
             Serializer = ServiceProvider.GetService<ISerializer>();
-            JsonSerializer = ServiceProvider.GetService<IJsonSerializer>();
             //创建事件存储器
             var eventStorageTask = StorageFactory.CreateEventStorage<PrimaryKey>(this, GrainId);
             if (!eventStorageTask.IsCompletedSuccessfully)
@@ -191,32 +188,29 @@ namespace Ray.Core
         #endregion
         public Task Tell(byte[] bytes)
         {
-            var (success, transport) = BytesTransport.FromBytesWithNoId(bytes);
+            var (success, transport) = EventBytesTransport.FromBytesWithNoId(bytes);
             if (success)
             {
-                using (var ms = new MemoryStream(transport.EventBytes))
+                var data = Serializer.Deserialize(TypeContainer.GetType(transport.EventType), transport.EventBytes);
+                if (data is IEvent @event)
                 {
-                    var data = Serializer.Deserialize(TypeContainer.GetType(transport.EventType), ms);
-                    if (data is IEvent @event)
+                    var eventBase = EventBase.FromBytes(transport.BaseBytes);
+                    if (eventBase.Version > Snapshot.Version)
                     {
-                        var eventBase = EventBase.FromBytes(transport.BaseBytes);
-                        if (eventBase.Version > Snapshot.Version)
+                        var tellTask = Tell(new FullyEvent<PrimaryKey>
                         {
-                            var tellTask = Tell(new FullyEvent<PrimaryKey>
-                            {
-                                StateId = GrainId,
-                                Base = eventBase,
-                                Event = @event
-                            });
-                            if (!tellTask.IsCompletedSuccessfully)
-                                return tellTask.AsTask();
-                        }
+                            StateId = GrainId,
+                            Base = eventBase,
+                            Event = @event
+                        });
+                        if (!tellTask.IsCompletedSuccessfully)
+                            return tellTask.AsTask();
                     }
-                    else
-                    {
-                        if (Logger.IsEnabled(LogLevel.Information))
-                            Logger.LogInformation(LogEventIds.FollowEventProcessing, "Receive non-event messages, grain Id = {0} ,message type = {1}", GrainId.ToString(), transport.EventType);
-                    }
+                }
+                else
+                {
+                    if (Logger.IsEnabled(LogLevel.Information))
+                        Logger.LogInformation(LogEventIds.FollowEventProcessing, "Receive non-event messages, grain Id = {0} ,message type = {1}", GrainId.ToString(), transport.EventType);
                 }
             }
             return Task.CompletedTask;
@@ -236,7 +230,7 @@ namespace Ray.Core
         protected async ValueTask Tell(IFullyEvent<PrimaryKey> @event)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.FollowEventProcessing, "Start event handling, grain Id = {0} and state version = {1},event type = {2} ,event = {3}", GrainId.ToString(), Snapshot.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event));
+                Logger.LogTrace(LogEventIds.FollowEventProcessing, "Start event handling, grain Id = {0} and state version = {1},event type = {2} ,event = {3}", GrainId.ToString(), Snapshot.Version, @event.GetType().FullName, Serializer.SerializeToString(@event));
             try
             {
                 if (@event.Base.Version == Snapshot.Version + 1)
@@ -275,7 +269,7 @@ namespace Ray.Core
             catch (Exception ex)
             {
                 if (Logger.IsEnabled(LogLevel.Critical))
-                    Logger.LogCritical(LogEventIds.FollowEventProcessing, ex, "FollowGrain Event handling failed with Id = {0},event = {1}", GrainId.ToString(), JsonSerializer.Serialize(@event));
+                    Logger.LogCritical(LogEventIds.FollowEventProcessing, ex, "FollowGrain Event handling failed with Id = {0},event = {1}", GrainId.ToString(), Serializer.SerializeToString(@event));
                 throw;
             }
         }

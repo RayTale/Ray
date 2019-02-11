@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Orleans;
 using Ray.Core.Event;
+using Ray.Core.Serialization;
 
 namespace Ray.Core
 {
@@ -43,7 +44,7 @@ namespace Ray.Core
         {
             eventHandlers.Add((byte[] bytes) =>
             {
-                var (success, actorId) = BytesTransport.GetActorIdWithString(bytes);
+                var (success, actorId) = EventBytesTransport.GetActorIdWithString(bytes);
                 if (success)
                 {
                     return serviceProvider.GetService<IClusterClient>().GetGrain<F>(actorId).Tell(bytes);
@@ -59,7 +60,7 @@ namespace Ray.Core
         {
             eventHandlers.Add((byte[] bytes) =>
             {
-                var (success, actorId) = BytesTransport.GetActorIdWithString(bytes);
+                var (success, actorId) = EventBytesTransport.GetActorIdWithString(bytes);
                 if (success)
                 {
                     return serviceProvider.GetService<IClusterClient>().GetGrain<F>(actorId).ConcurrentTell(bytes);

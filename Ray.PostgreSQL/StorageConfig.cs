@@ -14,13 +14,8 @@ namespace Ray.Storage.PostgreSQL
         public string SnapshotTable { get; set; }
         public string FollowName { get; set; }
         public bool IsFollow { get; set; }
-        public string ArchiveStateTable
-        {
-            get
-            {
-                return $"{SnapshotTable}_Archive";
-            }
-        }
+        public string ArchiveStateTable => $"{SnapshotTable}_Archive";
+        public string FollowStateTable => $"{SnapshotTable}_{FollowName}";
         public List<TableInfo> AllSplitTableList { get; set; }
         public int StateIdLength { get; }
         readonly bool sharding = false;
@@ -37,10 +32,6 @@ namespace Ray.Storage.PostgreSQL
             shardingMilliseconds = shardingDays * 24 * 60 * 60 * 1000;
             StateIdLength = stateIdLength;
             TableRepository = new TableRepository(this);
-        }
-        public string GetFollowStateTable()
-        {
-            return $"{SnapshotTable}_{FollowName}";
         }
         int isBuilded = 0;
         bool buildedResult = false;

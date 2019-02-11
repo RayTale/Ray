@@ -1,13 +1,13 @@
 ﻿using System;
-using System.IO;
-using System.Threading.Tasks;
 
 namespace Ray.Core.Serialization
 {
     public interface ISerializer
     {
-        object Deserialize(Type type, Stream source);
-        T Deserialize<T>(Stream source);
-        void Serialize<T>(Stream destination, T instance);
+        object Deserialize(Type type, byte[] bytes);
+        T Deserialize<T>(byte[] bytes);
+        T Deserialize<T>(string json);
+        string SerializeToString<T>(T data);
+        byte[] SerializeToBytes<T>(T data);
     }
 }

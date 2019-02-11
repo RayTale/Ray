@@ -17,7 +17,6 @@ using Ray.Core.Logging;
 using Ray.Core.Serialization;
 using Ray.Core.State;
 using Ray.Core.Storage;
-using Ray.Core.Utils;
 
 namespace Ray.Core
 {
@@ -34,7 +33,6 @@ namespace Ray.Core
         protected ILogger Logger { get; private set; }
         protected IProducerContainer ProducerContainer { get; private set; }
         protected IStorageFactory StorageFactory { get; private set; }
-        protected IJsonSerializer JsonSerializer { get; private set; }
         protected ISerializer Serializer { get; private set; }
         protected Snapshot<PrimaryKey, State> Snapshot { get; set; }
         protected IEventHandler<PrimaryKey, State> EventHandler { get; private set; }
@@ -78,7 +76,6 @@ namespace Ray.Core
             StorageFactory = ServiceProvider.GetService<IStorageFactoryContainer>().CreateFactory(GrainType);
             ProducerContainer = ServiceProvider.GetService<IProducerContainer>();
             Serializer = ServiceProvider.GetService<ISerializer>();
-            JsonSerializer = ServiceProvider.GetService<IJsonSerializer>();
             EventHandler = ServiceProvider.GetService<IEventHandler<PrimaryKey, State>>();
             FollowUnit = ServiceProvider.GetService<IFollowUnitContainer>().GetUnit<PrimaryKey>(GrainType);
             //创建归档存储器
@@ -349,7 +346,7 @@ namespace Ray.Core
             if (CoreOptions.ClearEventWhenOver)
             {
                 await ArchiveStorage.DeleteAll(Snapshot.Base.StateId);
-                await EventStorage.Delete(Snapshot.Base.StateId, Snapshot.Base.Version);
+                await EventStorage.Delete(Snapshot.Base.StateId, Snapshot.Base.Version, Snapshot.Base.StartTimestamp);
             }
             else
             {
@@ -399,10 +396,10 @@ namespace Ray.Core
                 SnapshotEventVersion = 0;
             }
         }
-        protected virtual async Task<bool> RaiseEvent(IEvent @event, EventUID uniqueId = null, bool syncEventStream = false)
+        protected virtual async Task<bool> RaiseEvent(IEvent @event, EventUID uniqueId = null)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.GrainSnapshot, "Start raise event, grain Id ={0} and state version = {1},event type = {2} ,event ={3},uniqueueId= {4}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event), uniqueId);
+                Logger.LogTrace(LogEventIds.GrainSnapshot, "Start raise event, grain Id ={0} and state version = {1},event type = {2} ,event ={3},uniqueueId= {4}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, Serializer.SerializeToString(@event), uniqueId);
             if (Snapshot.Base.IsOver)
                 throw new StateIsOverException(Snapshot.Base.StateId.ToString(), GrainType);
             try
@@ -425,89 +422,85 @@ namespace Ray.Core
                 if (!startTask.IsCompletedSuccessfully)
                     await startTask;
                 Snapshot.Base.IncrementDoingVersion(GrainType);//标记将要处理的Version
-                using (var ms = new PooledMemoryStream())
+                var bytesTransport = new EventBytesTransport
                 {
-                    Serializer.Serialize(ms, @event);
-                    var bytesTransport = new BytesTransport
+                    EventType = @event.GetType().FullName,
+                    ActorId = Snapshot.Base.StateId,
+                    EventBytes = Serializer.SerializeToBytes(@event),
+                    BaseBytes = fullyEvent.Base.GetBytes()
+                };
+                if (await EventStorage.Append(new SaveTransport<PrimaryKey>(fullyEvent, bytesTransport, uniqueId.UID)))
+                {
+                    EventHandler.Apply(Snapshot, fullyEvent);
+                    Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
+                    var task = OnRaiseSuccessed(fullyEvent, bytesTransport);
+                    if (!task.IsCompletedSuccessfully)
+                        await task;
+                    var saveSnapshotTask = SaveSnapshotAsync();
+                    if (!saveSnapshotTask.IsCompletedSuccessfully)
+                        await saveSnapshotTask;
+                    var handlers = FollowUnit.GetEventHandlers();
+                    if (handlers.Count > 0)
                     {
-                        EventType = @event.GetType().FullName,
-                        ActorId = Snapshot.Base.StateId,
-                        EventBytes = ms.ToArray(),
-                        BaseBytes = fullyEvent.Base.GetBytes()
-                    };
-                    if (await EventStorage.Append(new SaveTransport<PrimaryKey>(fullyEvent, bytesTransport, uniqueId.UID)))
-                    {
-                        EventHandler.Apply(Snapshot, fullyEvent);
-                        Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
-                        var task = OnRaiseSuccessed(fullyEvent, bytesTransport);
-                        if (!task.IsCompletedSuccessfully)
-                            await task;
-                        var saveSnapshotTask = SaveSnapshotAsync();
-                        if (!saveSnapshotTask.IsCompletedSuccessfully)
-                            await saveSnapshotTask;
-                        var handlers = FollowUnit.GetEventHandlers();
-                        if (handlers.Count > 0)
+                        try
                         {
-                            try
+                            if (CoreOptions.PriorityAsyncEventBus)
                             {
-                                if (CoreOptions.PriorityAsyncEventBus && !syncEventStream)
+                                try
                                 {
-                                    try
-                                    {
-                                        var publishTask = EventBusProducer.Publish(bytesTransport.GetBytes(), GrainId.ToString());
-                                        if (!publishTask.IsCompletedSuccessfully)
-                                            await publishTask;
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        if (Logger.IsEnabled(LogLevel.Error))
-                                            Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
-                                        //当消息队列出现问题的时候同步推送
-                                        await Task.WhenAll(handlers.Select(func => func(bytesTransport.GetBytes())));
-                                    }
+                                    var publishTask = EventBusProducer.Publish(bytesTransport.GetBytes(), GrainId.ToString());
+                                    if (!publishTask.IsCompletedSuccessfully)
+                                        await publishTask;
                                 }
-                                else
+                                catch (Exception ex)
                                 {
-                                    try
-                                    {
-                                        await Task.WhenAll(handlers.Select(func => func(bytesTransport.GetBytes())));
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        if (Logger.IsEnabled(LogLevel.Error))
-                                            Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
-                                        //当消息队列出现问题的时候异步推送
-                                        var publishTask = EventBusProducer.Publish(bytesTransport.GetBytes(), GrainId.ToString());
-                                        if (!publishTask.IsCompletedSuccessfully)
-                                            await publishTask;
-                                    }
+                                    if (Logger.IsEnabled(LogLevel.Error))
+                                        Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
+                                    //当消息队列出现问题的时候同步推送
+                                    await Task.WhenAll(handlers.Select(func => func(bytesTransport.GetBytes())));
                                 }
                             }
-                            catch (Exception ex)
+                            else
                             {
-                                if (Logger.IsEnabled(LogLevel.Error))
-                                    Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
+                                try
+                                {
+                                    await Task.WhenAll(handlers.Select(func => func(bytesTransport.GetBytes())));
+                                }
+                                catch (Exception ex)
+                                {
+                                    if (Logger.IsEnabled(LogLevel.Error))
+                                        Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
+                                    //当消息队列出现问题的时候异步推送
+                                    var publishTask = EventBusProducer.Publish(bytesTransport.GetBytes(), GrainId.ToString());
+                                    if (!publishTask.IsCompletedSuccessfully)
+                                        await publishTask;
+                                }
                             }
                         }
-                        if (Logger.IsEnabled(LogLevel.Trace))
-                            Logger.LogTrace(LogEventIds.GrainRaiseEvent, "Raise event successfully, grain Id= {0} and state version = {1}}", GrainId.ToString(), Snapshot.Base.Version);
-                        return true;
+                        catch (Exception ex)
+                        {
+                            if (Logger.IsEnabled(LogLevel.Error))
+                                Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
+                        }
                     }
-                    else
-                    {
-                        if (Logger.IsEnabled(LogLevel.Information))
-                            Logger.LogInformation(LogEventIds.GrainRaiseEvent, "Raise event failure because of idempotency limitation, grain Id = {0},state version = {1},event type = {2} with version = {3}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, fullyEvent.Base.Version);
-                        var task = OnRaiseFailed(fullyEvent);
-                        if (!task.IsCompletedSuccessfully)
-                            await task;
-                        Snapshot.Base.DecrementDoingVersion();//还原doing Version
-                    }
+                    if (Logger.IsEnabled(LogLevel.Trace))
+                        Logger.LogTrace(LogEventIds.GrainRaiseEvent, "Raise event successfully, grain Id= {0} and state version = {1}}", GrainId.ToString(), Snapshot.Base.Version);
+                    return true;
+                }
+                else
+                {
+                    if (Logger.IsEnabled(LogLevel.Information))
+                        Logger.LogInformation(LogEventIds.GrainRaiseEvent, "Raise event failure because of idempotency limitation, grain Id = {0},state version = {1},event type = {2} with version = {3}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, fullyEvent.Base.Version);
+                    var task = OnRaiseFailed(fullyEvent);
+                    if (!task.IsCompletedSuccessfully)
+                        await task;
+                    Snapshot.Base.DecrementDoingVersion();//还原doing Version
                 }
             }
             catch (Exception ex)
             {
                 if (Logger.IsEnabled(LogLevel.Error))
-                    Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "Raise event produces errors, state Id = {0}, version ={1},event type = {2},event = {3}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, JsonSerializer.Serialize(@event));
+                    Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "Raise event produces errors, state Id = {0}, version ={1},event type = {2},event = {3}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, Serializer.SerializeToString(@event));
                 await RecoveryState();//还原状态
                 throw;
             }
@@ -525,7 +518,7 @@ namespace Ray.Core
             }
             if (@event.Base.Timestamp < ClearedArchive.StartTimestamp)
             {
-                throw new EventIsClearedException(@event.GetType().FullName, JsonSerializer.Serialize(@event), ClearedArchive.Index);
+                throw new EventIsClearedException(@event.GetType().FullName, Serializer.SerializeToString(@event), ClearedArchive.Index);
             }
             if (SnapshotEventVersion > 0)
             {
@@ -557,7 +550,7 @@ namespace Ray.Core
                 LastArchive = BriefArchiveList.LastOrDefault();
             }
         }
-        protected virtual ValueTask OnRaiseSuccessed(IFullyEvent<PrimaryKey> @event, BytesTransport bytesTransport)
+        protected virtual ValueTask OnRaiseSuccessed(IFullyEvent<PrimaryKey> @event, EventBytesTransport bytesTransport)
         {
             if (ArchiveOptions.On)
             {
@@ -660,7 +653,7 @@ namespace Ray.Core
                             if (!saveTask.IsCompletedSuccessfully)
                                 await saveTask;
                         }
-                        await EventStorage.Delete(Snapshot.Base.StateId, minArchive.EndVersion);
+                        await EventStorage.Delete(Snapshot.Base.StateId, minArchive.EndVersion, Snapshot.Base.StartTimestamp);
                         ClearedArchive = minArchive;
                         //只保留一个清理过事件的快照，其它的删除掉
                         var cleareds = BriefArchiveList.Where(a => a.EventIsCleared).OrderBy(a => a.Index).ToArray();
@@ -688,25 +681,20 @@ namespace Ray.Core
         protected async ValueTask Publish<T>(T msg, string hashKey = null)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.MessagePublish, "Start publishing, grain Id= {0}, message type = {1},message = {2},hashkey={3}", GrainId.ToString(), msg.GetType().FullName, JsonSerializer.Serialize(msg), hashKey);
+                Logger.LogTrace(LogEventIds.MessagePublish, "Start publishing, grain Id= {0}, message type = {1},message = {2},hashkey={3}", GrainId.ToString(), msg.GetType().FullName, Serializer.SerializeToString(msg), hashKey);
             if (string.IsNullOrEmpty(hashKey))
                 hashKey = GrainId.ToString();
             try
             {
-                using (var ms = new PooledMemoryStream())
-                {
-                    Serializer.Serialize(ms, msg);
-                    var wrapper = new BytesWrapper(msg.GetType().FullName, ms.ToArray());
-                    var pubLishTask = EventBusProducer.Publish(wrapper.GetBytes(), hashKey);
-                    if (!pubLishTask.IsCompletedSuccessfully)
-                        await pubLishTask;
-                }
-
+                var wrapper = new CommonTransport(msg.GetType().FullName, Serializer.SerializeToBytes(msg));
+                var pubLishTask = EventBusProducer.Publish(wrapper.GetBytes(), hashKey);
+                if (!pubLishTask.IsCompletedSuccessfully)
+                    await pubLishTask;
             }
             catch (Exception ex)
             {
                 if (Logger.IsEnabled(LogLevel.Error))
-                    Logger.LogError(LogEventIds.MessagePublish, ex, "Publish message errors, grain Id= {0}, message type = {1},message = {2},hashkey={3}", GrainId.ToString(), msg.GetType().FullName, JsonSerializer.Serialize(msg), hashKey);
+                    Logger.LogError(LogEventIds.MessagePublish, ex, "Publish message errors, grain Id= {0}, message type = {1},message = {2},hashkey={3}", GrainId.ToString(), msg.GetType().FullName, Serializer.SerializeToString(msg), hashKey);
                 throw;
             }
         }

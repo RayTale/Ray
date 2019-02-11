@@ -3,14 +3,14 @@ using Ray.Core.State;
 
 namespace Ray.Core.Storage
 {
-    public interface IFollowSnapshotStorage<K>
+    public interface IFollowSnapshotStorage<PrimaryKey>
     {
-        Task<FollowSnapshot<K>> Get(K id);
+        Task<FollowSnapshot<PrimaryKey>> Get(PrimaryKey id);
 
-        Task Insert(FollowSnapshot<K> data);
+        Task Insert(FollowSnapshot<PrimaryKey> data);
 
-        Task Update(FollowSnapshot<K> data);
-        Task UpdateStartTimestamp(K id, long timestamp);
-        Task Delete(K id);
+        Task Update(FollowSnapshot<PrimaryKey> data);
+        Task UpdateStartTimestamp(PrimaryKey id, long timestamp);
+        Task Delete(PrimaryKey id);
     }
 }

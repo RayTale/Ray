@@ -13,18 +13,29 @@ namespace Ray.Storage.MongoDB
         public string DataBase { get; set; }
         public string EventCollection { get; set; }
         public string SnapshotCollection { get; set; }
+        public string FollowName { get; set; }
+        public bool IsFollow { get; set; }
+        public string ArchiveStateTable
+        {
+            get
+            {
+                return $"{SnapshotCollection}_Archive";
+            }
+        }
         private List<SplitCollectionInfo> AllSplitCollections { get; set; }
         public IMongoStorage Storage { get; }
         const string SplitCollectionName = "SplitCollections";
         readonly bool sharding = false;
         readonly int shardingMilliseconds;
-        public StorageConfig(IMongoStorage storage, string database, string eventCollection, string snapshotCollection, bool sharding = false, int shardingDays = 90)
+        public StorageConfig(IMongoStorage storage, string database, string eventCollection, string snapshotCollection, bool isFollow = false, string followName = null, bool sharding = false, int shardingDays = 90)
         {
             DataBase = database;
             EventCollection = eventCollection;
             SnapshotCollection = snapshotCollection;
             Storage = storage;
+            FollowName = followName;
             this.sharding = sharding;
+            IsFollow = isFollow;
             shardingMilliseconds = shardingDays * 24 * 60 * 60 * 1000;
         }
         public async ValueTask<List<SplitCollectionInfo>> GetCollectionList()
@@ -38,6 +49,10 @@ namespace Ray.Storage.MongoDB
             }
             return AllSplitCollections;
         }
+        public string GetFollowStateTable()
+        {
+            return $"{SnapshotCollection}_{FollowName}";
+        }
         int isBuilded = 0;
         bool buildedResult = false;
         public async ValueTask Build()
@@ -48,7 +63,16 @@ namespace Ray.Storage.MongoDB
                 {
                     try
                     {
-                        await CreateIndex();
+                        if (!IsFollow)
+                        {
+                            await CreateSnapshotIndex();
+                            await CreateArchiveSnapshotIndex();
+                        }
+                        else if (!string.IsNullOrEmpty(FollowName))
+                        {
+                            await CreateFollowSnapshotIndex();
+                        }
+                        await CreateSnapshotIndex();
                         AllSplitCollections = await (await Storage.GetCollection<SplitCollectionInfo>(DataBase, SplitCollectionName).FindAsync(c => c.Type == EventCollection)).ToListAsync();
                         buildedResult = true;
                     }
@@ -60,7 +84,7 @@ namespace Ray.Storage.MongoDB
                 await Task.Delay(50);
             }
         }
-        private async Task CreateIndex()
+        private async Task CreateSnapshotIndex()
         {
             var stateCollection = Storage.GetCollection<BsonDocument>(DataBase, SnapshotCollection);
             var stateIndex = await stateCollection.Indexes.ListAsync();
@@ -77,6 +101,26 @@ namespace Ray.Storage.MongoDB
                 await collection.Indexes.CreateOneAsync(new CreateIndexModel<BsonDocument>("{'Name':1}", new CreateIndexOptions { Name = "Name", Unique = true }));
             }
         }
+        private async Task CreateFollowSnapshotIndex()
+        {
+            var stateCollection = Storage.GetCollection<BsonDocument>(DataBase, GetFollowStateTable());
+            var stateIndex = await stateCollection.Indexes.ListAsync();
+            var stateIndexList = await stateIndex.ToListAsync();
+            if (!stateIndexList.Exists(p => p["name"] == "State"))
+            {
+                await stateCollection.Indexes.CreateOneAsync(new CreateIndexModel<BsonDocument>("{'StateId':1}", new CreateIndexOptions { Name = "State", Unique = false }));
+            }
+        }
+        private async Task CreateArchiveSnapshotIndex()
+        {
+            var stateCollection = Storage.GetCollection<BsonDocument>(DataBase, ArchiveStateTable);
+            var stateIndex = await stateCollection.Indexes.ListAsync();
+            var stateIndexList = await stateIndex.ToListAsync();
+            if (!stateIndexList.Exists(p => p["name"] == "State"))
+            {
+                await stateCollection.Indexes.CreateOneAsync(new CreateIndexModel<BsonDocument>("{'StateId':1}", new CreateIndexOptions { Name = "State", Unique = false }));
+            }
+        }
         private async Task CreateEventIndex(string collectionName)
         {
             var collectionService = Storage.GetCollection<BsonDocument>(DataBase, collectionName);
@@ -90,33 +134,40 @@ namespace Ray.Storage.MongoDB
                       );
             }
         }
-
+        public int GetVersion(long eventTimestamp)
+        {
+            var firstTable = AllSplitCollections.FirstOrDefault();
+            //如果不需要分表，直接返回
+            if (firstTable != null && !sharding) return 0;
+            var nowUtcTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var subMilliseconds = eventTimestamp - (firstTable != null ? firstTable.CreateTime : nowUtcTime);
+            return subMilliseconds > 0 ? (int)(subMilliseconds / shardingMilliseconds) : 0;
+        }
         public async ValueTask<SplitCollectionInfo> GetCollection(long eventTimestamp)
         {
-            var lastCollection = AllSplitCollections.LastOrDefault();
-            //如果不需要分表，直接返回
-            if (lastCollection != null && !sharding) return lastCollection;
-
             var firstCollection = AllSplitCollections.FirstOrDefault();
+            //如果不需要分表，直接返回
+            if (firstCollection != null && !sharding) return firstCollection;
+
             var nowUtcTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             var subMilliseconds = eventTimestamp - (firstCollection != null ? firstCollection.CreateTime : nowUtcTime);
-            var newVersion = subMilliseconds > 0 ? Convert.ToInt32((subMilliseconds / shardingMilliseconds)) : 0;
-
-            if (lastCollection == null || newVersion > lastCollection.Version)
+            var version = subMilliseconds > 0 ? Convert.ToInt32((subMilliseconds / shardingMilliseconds)) : 0;
+            var resultTable = AllSplitCollections.FirstOrDefault(t => t.Version == version);
+            if (resultTable == default)
             {
                 var collection = new SplitCollectionInfo
                 {
                     Id = ObjectId.GenerateNewId().ToString(),
-                    Version = newVersion,
+                    Version = version,
                     Type = EventCollection,
                     CreateTime = nowUtcTime,
-                    Name = EventCollection + "_" + newVersion
+                    Name = EventCollection + "_" + version
                 };
                 try
                 {
                     await Storage.GetCollection<SplitCollectionInfo>(DataBase, SplitCollectionName).InsertOneAsync(collection);
                     AllSplitCollections.Add(collection);
-                    lastCollection = collection;
+                    resultTable = collection;
                     await CreateEventIndex(collection.Name);
                 }
                 catch (MongoWriteException ex)
@@ -126,9 +177,10 @@ namespace Ray.Storage.MongoDB
                         AllSplitCollections = await (await Storage.GetCollection<SplitCollectionInfo>(DataBase, SplitCollectionName).FindAsync(c => c.Type == EventCollection)).ToListAsync();
                         return await GetCollection(eventTimestamp);
                     }
+                    resultTable = AllSplitCollections.First(t => t.Version == version);
                 }
             }
-            return lastCollection;
+            return resultTable;
         }
     }
 }

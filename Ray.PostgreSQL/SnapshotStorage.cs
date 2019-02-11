@@ -6,7 +6,7 @@ using Ray.Core.Storage;
 
 namespace Ray.Storage.PostgreSQL
 {
-    public class SqlStateStorage<K, S> : ISnapshotStorage<K, S>
+    public class SnapshotStorage<K, S> : ISnapshotStorage<K, S>
         where S : class, new()
     {
         readonly StorageConfig tableInfo;
@@ -18,8 +18,8 @@ namespace Ray.Storage.PostgreSQL
         private readonly string updateIsLatestSql;
         private readonly string updateLatestTimestampSql;
         private readonly string updateStartTimestampSql;
-        readonly IJsonSerializer serializer;
-        public SqlStateStorage(IJsonSerializer serializer, StorageConfig table)
+        readonly ISerializer serializer;
+        public SnapshotStorage(ISerializer serializer, StorageConfig table)
         {
             this.serializer = serializer;
             tableInfo = table;
@@ -49,9 +49,8 @@ namespace Ray.Storage.PostgreSQL
                 await connection.ExecuteAsync(insertSql, new
                 {
                     StateId = data.Base.StateId.ToString(),
-                    Data = serializer.Serialize(data.State),
+                    Data = serializer.SerializeToString(data.State),
                     data.Base.Version,
-                    data.Base.DoingVersion,
                     data.Base.StartTimestamp,
                     data.Base.LatestMinEventTimestamp,
                     data.Base.IsLatest,
@@ -66,7 +65,7 @@ namespace Ray.Storage.PostgreSQL
                 await connection.ExecuteAsync(updateSql, new
                 {
                     StateId = data.Base.StateId.ToString(),
-                    Data = serializer.Serialize(data.State),
+                    Data = serializer.SerializeToString(data.State),
                     data.Base.Version,
                     data.Base.LatestMinEventTimestamp,
                     data.Base.IsLatest,

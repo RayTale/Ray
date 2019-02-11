@@ -46,20 +46,35 @@ namespace Ray.Core
                 throw ex;
             }
         }
+        protected async Task<bool> ConcurrentRaiseEvent(Func<Snapshot<PrimaryKey, State>, Func<IEvent, EventUID, Task>, Task> handler)
+        {
+            var taskSource = new TaskCompletionSource<bool>();
+            var task = ConcurrentRaiseEvent(handler, isOk =>
+            {
+                taskSource.TrySetResult(isOk);
+                return new ValueTask();
+            }, ex =>
+            {
+                taskSource.TrySetException(ex);
+            });
+            if (!task.IsCompletedSuccessfully)
+                await task;
+            return await taskSource.Task;
+        }
         /// <summary>
         /// 不依赖当前状态的的事件的并发处理
-        /// 如果事件的产生依赖当前状态，请使用<see cref="ConcurrentRaiseEvent(Func{State, Func{IFullyEvent{PrimaryKey,E}, string, string, Task}, Task}, Func{bool, ValueTask}, Action{Exception})"/>
+        /// 如果事件的产生依赖当前状态，请使用<see cref="ConcurrentRaiseEvent(Func{Snapshot{PrimaryKey, State}, Func{IEvent, EventUID, Task}, Task}, Func{bool, ValueTask}, Action{Exception})"/>
         /// </summary>
         /// <param name="event">不依赖当前状态的事件</param>
         /// <param name="uniqueId">幂等性判定值</param>
         /// <param name="hashKey">消息异步分发的唯一hash的key</param>
         /// <returns></returns>
-        protected async Task<bool> ConcurrentRaiseEvent(IEvent @event, EventUID uniqueId = null)
+        protected async Task<bool> ConcurrentRaiseEvent(IEvent evt, EventUID uniqueId = null)
         {
             var taskSource = new TaskCompletionSource<bool>();
             var task = ConcurrentRaiseEvent(async (state, eventFunc) =>
             {
-                await eventFunc(@event, uniqueId);
+                await eventFunc(evt, uniqueId);
             }, isOk =>
             {
                 taskSource.TrySetResult(isOk);

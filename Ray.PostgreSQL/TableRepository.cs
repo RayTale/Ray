@@ -30,7 +30,7 @@ namespace Ray.Storage.PostgreSQL
                             StateId varchar({1}) not null,
                             UniqueId varchar(250)  null,
                             TypeCode varchar(100)  not null,
-                            Data bytea not null,
+                            Data jsonb not null,
                             Version int8 not null,
                             Timestamp int8 not null,
                             constraint {0}_id_unique unique(StateId,TypeCode,UniqueId)
@@ -156,7 +156,7 @@ namespace Ray.Storage.PostgreSQL
                      StateId varchar({1}) not null PRIMARY KEY,
                      StartTimestamp int8 not null,
                      Version int8 not null)";
-            var key = $"{storageConfig.Connection}-{storageConfig.GetFollowStateTable()}-{storageConfig.StateIdLength}";
+            var key = $"{storageConfig.Connection}-{storageConfig.FollowStateTable}-{storageConfig.StateIdLength}";
             if (createFollowStateTableDict.TryAdd(key, false))
             {
                 using (var connection = SqlFactory.CreateConnection(storageConfig.Connection))
