@@ -34,7 +34,7 @@ namespace Ray.Storage.PostgreSQL
             updateOverSql = $"update {tableName} set IsOver=@IsOver where stateid=@StateId";
             updateEventIsClearSql = $"update {tableName} set EventIsCleared=true where id=@Id";
         }
-        public async Task Delete(string briefId)
+        public async Task Delete(PrimaryKey stateId, string briefId)
         {
             using (var conn = tableInfo.CreateConnection())
             {
@@ -48,7 +48,7 @@ namespace Ray.Storage.PostgreSQL
                 await conn.ExecuteAsync(deleteAllSql, new { StateId = stateId.ToString() });
             }
         }
-        public async Task EventIsClear(string briefId)
+        public async Task EventIsClear(PrimaryKey stateId, string briefId)
         {
             using (var connection = tableInfo.CreateConnection())
             {

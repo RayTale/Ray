@@ -14,12 +14,11 @@ namespace Ray.Core.State
         /// 事件是否已经清理
         /// </summary>
         public bool EventIsCleared { get; set; }
-        public bool IsCompletedArchive<GrainState>(ArchiveOptions<GrainState> archiveOptions)
+        public bool IsCompletedArchive<GrainState>(ArchiveOptions<GrainState> archiveOptions, ArchiveBrief preArchive = default)
         {
-            var intervalMilliseconds = EndTimestamp - StartTimestamp;
+            var intervalMilliseconds = preArchive == default ? EndTimestamp - StartTimestamp : EndTimestamp - preArchive.EndTimestamp;
             var intervalVersiion = EndVersion - StartVersion;
-            return (intervalMilliseconds > archiveOptions.IntervalMilliSeconds &&
-                intervalVersiion > archiveOptions.IntervalVersion) ||
+            return (intervalMilliseconds > archiveOptions.IntervalMilliSeconds && intervalVersiion > archiveOptions.IntervalVersion) ||
                 intervalMilliseconds > archiveOptions.MaxIntervalMilliSeconds ||
                 intervalVersiion > archiveOptions.MaxIntervalVersion;
         }
