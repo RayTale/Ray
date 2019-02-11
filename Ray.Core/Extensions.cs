@@ -3,6 +3,7 @@ using Orleans;
 using Orleans.Hosting;
 using Ray.Core.Abstractions;
 using Ray.Core.Channels;
+using Ray.Core.Event;
 using Ray.Core.Serialization;
 using Ray.Core.Storage;
 
@@ -12,6 +13,7 @@ namespace Ray.Core
     {
         private static void AddRay(this IServiceCollection serviceCollection)
         {
+            serviceCollection.AddEventHandler();
             serviceCollection.AddTransient(typeof(IMpscChannel<>), typeof(MpscChannel<>));
             serviceCollection.AddSingleton<ISerializer, DefaultJsonSerializer>();
             serviceCollection.AddSingleton<IConfigureBuilderContainer, ConfigureBuilderContainer>();
@@ -20,7 +22,6 @@ namespace Ray.Core
         }
         public static IClientBuilder AddRay(this IClientBuilder clientBuilder)
         {
-
             clientBuilder.ConfigureServices((context, servicecollection) => servicecollection.AddRay());
             return clientBuilder;
         }

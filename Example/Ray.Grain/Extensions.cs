@@ -21,7 +21,6 @@ namespace Ray.Grain
             serviceCollection.Configure();
             serviceCollection.AddMQService();
             serviceCollection.AddPostgreSQLStorage<PostgreSQLStorageConfig>();
-            serviceCollection.AddGrainHandler();
             FollowUnitRegister();
         }
         public static void AddMongoDbSiloGrain(this IServiceCollection serviceCollection)
@@ -29,12 +28,7 @@ namespace Ray.Grain
             serviceCollection.Configure();
             serviceCollection.AddMQService();
             serviceCollection.AddMongoDBStorage<MongoDBStorageConfig>();
-            serviceCollection.AddGrainHandler();
             FollowUnitRegister();
-        }
-        public static void AddGrainHandler(this IServiceCollection serviceCollection)
-        {
-            serviceCollection.AddSingleton<IEventHandler<long, AccountState>, AccountEventHandle>();
         }
         public static void FollowUnitRegister()
         {
