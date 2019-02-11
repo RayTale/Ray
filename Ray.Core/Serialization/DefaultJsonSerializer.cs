@@ -1,17 +1,34 @@
-﻿using Newtonsoft.Json;
+﻿using System;
+using System.Text;
+using SpanJson;
 
 namespace Ray.Core.Serialization
 {
-    public class DefaultJsonSerializer : IJsonSerializer
+    public class DefaultJsonSerializer : ISerializer
     {
         public T Deserialize<T>(string json)
         {
-            return JsonConvert.DeserializeObject<T>(json);
+            return JsonSerializer.Generic.Utf8.Deserialize<T>(Encoding.Default.GetBytes(json));
         }
 
-        public string Serialize<T>(T data)
+        public object Deserialize(Type type, byte[] bytes)
         {
-            return JsonConvert.SerializeObject(data);
+            return JsonSerializer.NonGeneric.Utf8.Deserialize(bytes, type);
+        }
+
+        public string SerializeToString<T>(T data)
+        {
+            return Encoding.Default.GetString(JsonSerializer.Generic.Utf8.SerializeToArrayPool(data));
+        }
+
+        public byte[] SerializeToBytes<T>(T data)
+        {
+            return JsonSerializer.NonGeneric.Utf8.Serialize(data);
+        }
+
+        public T Deserialize<T>(byte[] bytes)
+        {
+            return JsonSerializer.Generic.Utf8.Deserialize<T>(bytes);
         }
     }
 }

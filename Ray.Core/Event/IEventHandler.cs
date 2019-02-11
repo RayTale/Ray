@@ -2,9 +2,9 @@
 
 namespace Ray.Core.Event
 {
-    public interface IEventHandler<K, S>
-        where S : class, new()
+    public interface IEventHandler<PrimaryKey, Snapshot>
+        where Snapshot : class, new()
     {
-        void Apply(Snapshot<K, S> state, IFullyEvent<K> evt);
+        void Apply(Snapshot<PrimaryKey, Snapshot> state, IFullyEvent<PrimaryKey> evt);
     }
 }

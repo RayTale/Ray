@@ -29,7 +29,7 @@ namespace Ray.Storage.MongoDB
             if (configureContainer.TryGetValue(grainType, out var value) &&
                 value is ConfigureBuilderWrapper<K, StorageConfig, ConfigParameter> builder)
             {
-                var dictKey = builder.Parameter.StaticByType ? grainType.FullName : $"{grainType.FullName}-{grainId.ToString()}";
+                var dictKey = builder.Parameter.Singleton ? grainType.FullName : $"{grainType.FullName}-{grainId.ToString()}";
                 var configTask = grainConfigDict.GetOrAdd(dictKey, async key =>
                 {
                     var newConfig = builder.Generator(grain, grainId, builder.Parameter);
@@ -42,9 +42,9 @@ namespace Ray.Storage.MongoDB
                     await configTask;
                 var storage = eventStorageDict.GetOrAdd(dictKey, key =>
                  {
-                     return new MongoEventStorage<K>(serviceProvider, configTask.Result);
+                     return new EventStorage<K>(serviceProvider, configTask.Result);
                  });
-                return storage as MongoEventStorage<K>;
+                return storage as EventStorage<K>;
             }
             else
             {
@@ -59,7 +59,7 @@ namespace Ray.Storage.MongoDB
             if (configureContainer.TryGetValue(grainType, out var value) &&
                 value is ConfigureBuilderWrapper<K, StorageConfig, ConfigParameter> builder)
             {
-                var dictKey = builder.Parameter.StaticByType ? grainType.FullName : $"{grainType.FullName}-{grainId.ToString()}";
+                var dictKey = builder.Parameter.Singleton ? grainType.FullName : $"{grainType.FullName}-{grainId.ToString()}";
                 var configTask = grainConfigDict.GetOrAdd(dictKey, async key =>
                 {
                     var newConfig = builder.Generator(grain, grainId, builder.Parameter);
@@ -72,9 +72,9 @@ namespace Ray.Storage.MongoDB
                     await configTask;
                 var storage = stateStorageDict.GetOrAdd(dictKey, key =>
                {
-                   return new MongoStateStorage<K, S>(serviceProvider.GetService<ISerializer>(), configTask.Result);
+                   return new SnapshotStorage<K, S>(serviceProvider.GetService<ISerializer>(), configTask.Result);
                });
-                return storage as MongoStateStorage<K, S>;
+                return storage as SnapshotStorage<K, S>;
             }
             else
             {
@@ -82,16 +82,65 @@ namespace Ray.Storage.MongoDB
             }
         }
 
-        public ValueTask<IArchiveStorage<K, S>> CreateArchiveStorage<K, S>(Grain grain, K grainId)
-            where S : class, new()
+        readonly ConcurrentDictionary<string, object> ArchiveStorageDict = new ConcurrentDictionary<string, object>();
+        public async ValueTask<IArchiveStorage<K, S>> CreateArchiveStorage<K, S>(Grain grain, K grainId)
+             where S : class, new()
         {
-            //TODO 
-            throw new NotImplementedException();
+            var grainType = grain.GetType();
+            if (configureContainer.TryGetValue(grainType, out var value) &&
+                value is ConfigureBuilderWrapper<K, StorageConfig, ConfigParameter> builder)
+            {
+                var dictKey = builder.Parameter.Singleton ? grainType.FullName : $"{grainType.FullName}-{grainId.ToString()}";
+                var configTask = grainConfigDict.GetOrAdd(dictKey, async key =>
+                {
+                    var newConfig = builder.Generator(grain, grainId, builder.Parameter);
+                    var task = newConfig.Build();
+                    if (!task.IsCompletedSuccessfully)
+                        await task;
+                    return newConfig;
+                });
+                if (!configTask.IsCompletedSuccessfully)
+                    await configTask;
+                var storage = ArchiveStorageDict.GetOrAdd(dictKey, key =>
+                {
+                    return new ArchiveStorage<K, S>(serviceProvider.GetService<ISerializer>(), configTask.Result);
+                });
+                return storage as IArchiveStorage<K, S>;
+            }
+            else
+            {
+                throw new NotImplementedException($"{nameof(ConfigureBuilderWrapper<K, StorageConfig, ConfigParameter>)} of {grainType.FullName}");
+            }
         }
 
-        public ValueTask<IFollowSnapshotStorage<PrimaryKey>> CreateFollowSnapshotStorage<PrimaryKey>(Grain grain, PrimaryKey grainId)
+        readonly ConcurrentDictionary<string, object> FollowSnapshotStorageDict = new ConcurrentDictionary<string, object>();
+        public async ValueTask<IFollowSnapshotStorage<K>> CreateFollowSnapshotStorage<K>(Grain grain, K grainId)
         {
-            throw new NotImplementedException();
+            var grainType = grain.GetType();
+            if (configureContainer.TryGetValue(grainType, out var value) &&
+                value is ConfigureBuilderWrapper<K, StorageConfig, ConfigParameter> builder)
+            {
+                var dictKey = builder.Parameter.Singleton ? grainType.FullName : $"{grainType.FullName}-{grainId.ToString()}";
+                var configTask = grainConfigDict.GetOrAdd(dictKey, async key =>
+                {
+                    var newConfig = builder.Generator(grain, grainId, builder.Parameter);
+                    var task = newConfig.Build();
+                    if (!task.IsCompletedSuccessfully)
+                        await task;
+                    return newConfig;
+                });
+                if (!configTask.IsCompletedSuccessfully)
+                    await configTask;
+                var storage = FollowSnapshotStorageDict.GetOrAdd(dictKey, key =>
+                {
+                    return new FollowSnapshotStorage<K>(configTask.Result);
+                });
+                return storage as FollowSnapshotStorage<K>;
+            }
+            else
+            {
+                throw new NotImplementedException($"{nameof(ConfigureBuilderWrapper<K, StorageConfig, ConfigParameter>)} of {grainType.FullName}");
+            }
         }
     }
 }

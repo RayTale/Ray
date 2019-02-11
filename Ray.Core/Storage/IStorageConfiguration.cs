@@ -2,7 +2,7 @@
 
 namespace Ray.Core.Storage
 {
-    public interface IStorageConfiguration<C, P>
+    public interface IStorageConfiguration<Config, Parameter>
     {
         Task Configure(IConfigureBuilderContainer container);
     }

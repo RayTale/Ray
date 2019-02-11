@@ -7,8 +7,8 @@ using Ray.Core.Storage;
 
 namespace Ray.Storage.PostgreSQL
 {
-    public class ArchiveStorage<K, S> : IArchiveStorage<K, S>
-          where S : class, new()
+    public class ArchiveStorage<PrimaryKey, Snapshot> : IArchiveStorage<PrimaryKey, Snapshot>
+          where Snapshot : class, new()
     {
         readonly StorageConfig tableInfo;
         private readonly string deleteSql;
@@ -19,8 +19,8 @@ namespace Ray.Storage.PostgreSQL
         private readonly string insertSql;
         private readonly string updateOverSql;
         private readonly string updateEventIsClearSql;
-        readonly IJsonSerializer serializer;
-        public ArchiveStorage(IJsonSerializer serializer, StorageConfig table)
+        readonly ISerializer serializer;
+        public ArchiveStorage(ISerializer serializer, StorageConfig table)
         {
             this.serializer = serializer;
             tableInfo = table;
@@ -41,7 +41,7 @@ namespace Ray.Storage.PostgreSQL
                 await conn.ExecuteAsync(deleteSql, new { Id = briefId });
             }
         }
-        public async Task DeleteAll(K stateId)
+        public async Task DeleteAll(PrimaryKey stateId)
         {
             using (var conn = tableInfo.CreateConnection())
             {
@@ -56,7 +56,7 @@ namespace Ray.Storage.PostgreSQL
             }
         }
 
-        public async Task<List<ArchiveBrief>> GetBriefList(K stateId)
+        public async Task<List<ArchiveBrief>> GetBriefList(PrimaryKey stateId)
         {
             using (var connection = tableInfo.CreateConnection())
             {
@@ -64,7 +64,7 @@ namespace Ray.Storage.PostgreSQL
             }
         }
 
-        public async Task<ArchiveBrief> GetLatestBrief(K stateId)
+        public async Task<ArchiveBrief> GetLatestBrief(PrimaryKey stateId)
         {
             using (var connection = tableInfo.CreateConnection())
             {
@@ -72,18 +72,18 @@ namespace Ray.Storage.PostgreSQL
             }
         }
 
-        public async Task<Snapshot<K, S>> GetState(string briefId)
+        public async Task<Snapshot<PrimaryKey, Snapshot>> GetState(string briefId)
         {
             using (var connection = tableInfo.CreateConnection())
             {
                 var data = await connection.QuerySingleOrDefaultAsync<StateModel>(getByIdSql, new { Id = briefId });
                 if (data != default)
                 {
-                    return new Snapshot<K, S>()
+                    return new Snapshot<PrimaryKey, Snapshot>()
                     {
-                        Base = new SnapshotBase<K>
+                        Base = new SnapshotBase<PrimaryKey>
                         {
-                            StateId = serializer.Deserialize<K>(data.StateId),
+                            StateId = serializer.Deserialize<PrimaryKey>(data.StateId),
                             Version = data.Version,
                             DoingVersion = data.Version,
                             IsLatest = false,
@@ -91,14 +91,14 @@ namespace Ray.Storage.PostgreSQL
                             StartTimestamp = data.StartTimestamp,
                             LatestMinEventTimestamp = data.StartTimestamp
                         },
-                        State = serializer.Deserialize<S>(data.Data)
+                        State = serializer.Deserialize<Snapshot>(data.Data)
                     };
                 }
             }
             return default;
         }
 
-        public async Task Insert(ArchiveBrief brief, Snapshot<K, S> state)
+        public async Task Insert(ArchiveBrief brief, Snapshot<PrimaryKey, Snapshot> state)
         {
             using (var connection = tableInfo.CreateConnection())
             {
@@ -112,13 +112,13 @@ namespace Ray.Storage.PostgreSQL
                     brief.EndTimestamp,
                     brief.Index,
                     brief.EventIsCleared,
-                    Data = serializer.Serialize(state.State),
+                    Data = serializer.SerializeToString(state.State),
                     state.Base.IsOver,
                     state.Base.Version
                 });
             }
         }
-        public async Task Over(K stateId, bool isOver)
+        public async Task Over(PrimaryKey stateId, bool isOver)
         {
             using (var connection = tableInfo.CreateConnection())
             {

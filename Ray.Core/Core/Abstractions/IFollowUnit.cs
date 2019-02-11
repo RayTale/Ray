@@ -5,9 +5,9 @@ using Ray.Core.Abstractions;
 
 namespace Ray.Core
 {
-    public interface IFollowUnit<K> : IGrainID
+    public interface IFollowUnit<PrimaryKey> : IGrainID
     {
-        List<Func<K, long, Task<long>>> GetAndSaveVersionFuncs();
+        List<Func<PrimaryKey, long, Task<long>>> GetAndSaveVersionFuncs();
         List<Func<byte[], Task>> GetEventHandlers();
     }
 }

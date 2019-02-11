@@ -11,7 +11,7 @@ namespace Ray.Grain
     {
         public static void ConfigureFollowUnit(IServiceProvider serviceProvider, IFollowUnitContainer followUnitContainer)
         {
-            followUnitContainer.Register(FollowUnitWithLong.From<Account>(serviceProvider).BindFlow<IAccountRep>().BindConcurrentFlow<IAccountFlow>().BindConcurrentFlow<IAccountDb>());
+            followUnitContainer.Register(FollowUnitWithLong.From<Account>(serviceProvider).Flow<IAccountRep>().ConcurrentFlow<IAccountFlow>().ConcurrentFlow<IAccountDb>());
         }
         public static void Configure(this IServiceCollection serviceCollection)
         {

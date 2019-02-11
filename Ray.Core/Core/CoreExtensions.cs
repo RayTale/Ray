@@ -6,7 +6,7 @@ using Ray.Core.State;
 
 namespace Ray.Core
 {
-    public static class StateWithEventExtensions
+    public static class CoreExtensions
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void UpdateVersion<PrimaryKey>(this ISnapshot<PrimaryKey> snapshot, EventBase eventBase, Type grainType)

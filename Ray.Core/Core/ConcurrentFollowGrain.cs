@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -38,40 +37,36 @@ namespace Ray.Core
         }
         public async Task ConcurrentTell(byte[] bytes)
         {
-            var (success, transport) = BytesTransport.FromBytesWithNoId(bytes);
+            var (success, transport) = EventBytesTransport.FromBytesWithNoId(bytes);
             if (success)
             {
-                var eventType = TypeContainer.GetType(transport.EventType);
-                using (var ms = new MemoryStream(transport.EventBytes))
+                var data = Serializer.Deserialize(TypeContainer.GetType(transport.EventType), transport.EventBytes);
+                if (data is IEvent @event)
                 {
-                    var data = Serializer.Deserialize(eventType, ms);
-                    if (data is IEvent @event)
+                    var eventBase = EventBase.FromBytes(transport.BaseBytes);
+                    if (eventBase.Version > Snapshot.Version)
                     {
-                        var eventBase = EventBase.FromBytes(transport.BaseBytes);
-                        if (eventBase.Version > Snapshot.Version)
+                        var writeTask = ConcurrentChannel.WriteAsync(new DataAsyncWrapper<IFullyEvent<PrimaryKey>, bool>(new FullyEvent<PrimaryKey>
                         {
-                            var writeTask = ConcurrentChannel.WriteAsync(new DataAsyncWrapper<IFullyEvent<PrimaryKey>, bool>(new FullyEvent<PrimaryKey>
-                            {
-                                StateId = GrainId,
-                                Base = eventBase,
-                                Event = @event
-                            }));
-                            if (!writeTask.IsCompletedSuccessfully)
-                                await writeTask;
-                            if (!writeTask.Result)
-                            {
-                                var ex = new ChannelUnavailabilityException(GrainId.ToString(), GrainType);
-                                if (Logger.IsEnabled(LogLevel.Error))
-                                    Logger.LogError(LogEventIds.TransactionGrainCurrentInput, ex, ex.Message);
-                                throw ex;
-                            }
+                            StateId = GrainId,
+                            Base = eventBase,
+                            Event = @event
+                        }));
+                        if (!writeTask.IsCompletedSuccessfully)
+                            await writeTask;
+                        if (!writeTask.Result)
+                        {
+                            var ex = new ChannelUnavailabilityException(GrainId.ToString(), GrainType);
+                            if (Logger.IsEnabled(LogLevel.Error))
+                                Logger.LogError(LogEventIds.TransactionGrainCurrentInput, ex, ex.Message);
+                            throw ex;
                         }
                     }
-                    else
-                    {
-                        if (Logger.IsEnabled(LogLevel.Information))
-                            Logger.LogInformation(LogEventIds.FollowEventProcessing, "Receive non-event messages, grain Id = {0} ,message type = {1}", GrainId.ToString(), transport.EventType);
-                    }
+                }
+                else
+                {
+                    if (Logger.IsEnabled(LogLevel.Information))
+                        Logger.LogInformation(LogEventIds.FollowEventProcessing, "Receive non-event messages, grain Id = {0} ,message type = {1}", GrainId.ToString(), transport.EventType);
                 }
             }
         }
@@ -127,19 +122,18 @@ namespace Ray.Core
                 {
                     using (var tokenSource = new CancellationTokenSource())
                     {
-                        var tasks = UnprocessedEventList.Select(@event =>
+                        var allTask = Task.WhenAll(UnprocessedEventList.Select(@event =>
                         {
                             var task = OnEventDelivered(@event);
                             if (!task.IsCompletedSuccessfully)
                                 return task.AsTask();
                             else
                                 return Task.CompletedTask;
-                        });
-                        var taskOne = Task.WhenAll(tasks);
-                        using (var taskTwo = Task.Delay(ConfigOptions.EventAsyncProcessTimeoutSeconds, tokenSource.Token))
+                        }));
+                        using (var delayTask = Task.Delay(ConfigOptions.EventAsyncProcessTimeoutSeconds, tokenSource.Token))
                         {
-                            await Task.WhenAny(taskOne, taskTwo);
-                            if (taskOne.Status == TaskStatus.RanToCompletion)
+                            await Task.WhenAny(allTask, delayTask);
+                            if (allTask.Status == TaskStatus.RanToCompletion)
                             {
                                 tokenSource.Cancel();
                                 var lastEvt = UnprocessedEventList.Last();

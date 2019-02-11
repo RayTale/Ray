@@ -5,7 +5,7 @@ using Ray.Core.Storage;
 
 namespace Ray.Storage.PostgreSQL
 {
-    public class FollowSnapshotStorage<K> : IFollowSnapshotStorage<K>
+    public class FollowSnapshotStorage<PrimaryKey> : IFollowSnapshotStorage<PrimaryKey>
     {
         readonly StorageConfig tableInfo;
         private readonly string deleteSql;
@@ -16,28 +16,23 @@ namespace Ray.Storage.PostgreSQL
         public FollowSnapshotStorage(StorageConfig table)
         {
             tableInfo = table;
-            var followStateTable = table.GetFollowStateTable();
+            var followStateTable = table.FollowStateTable;
             deleteSql = $"DELETE FROM {followStateTable} where stateid=@StateId";
             getByIdSql = $"select * FROM {followStateTable} where stateid=@StateId";
             insertSql = $"INSERT into {followStateTable}(stateid,version,StartTimestamp)VALUES(@StateId,@Version,@StartTimestamp)";
             updateSql = $"update {followStateTable} set version=@Version,StartTimestamp=@StartTimestamp where stateid=@StateId";
             updateStartTimestampSql = $"update {followStateTable} set StartTimestamp=@StartTimestamp where stateid=@StateId";
         }
-        public async Task<FollowSnapshot<K>> Get(K id)
+        public async Task<FollowSnapshot<PrimaryKey>> Get(PrimaryKey id)
         {
             using (var conn = tableInfo.CreateConnection())
             {
                 var data = await conn.QuerySingleOrDefaultAsync<FollowStateModel>(getByIdSql, new { StateId = id.ToString() });
                 if (data != default)
                 {
-                    K stateId = default;
-                    if (typeof(K) == typeof(long) && long.Parse(data.StateId) is K longValue)
-                        stateId = longValue;
-                    else if (data.StateId is K stringValue)
-                        stateId = stringValue;
-                    return new FollowSnapshot<K>()
+                    return new FollowSnapshot<PrimaryKey>()
                     {
-                        StateId = stateId,
+                        StateId = id,
                         Version = data.Version,
                         DoingVersion = data.Version,
                         StartTimestamp = data.StartTimestamp
@@ -46,7 +41,7 @@ namespace Ray.Storage.PostgreSQL
             }
             return default;
         }
-        public async Task Insert(FollowSnapshot<K> data)
+        public async Task Insert(FollowSnapshot<PrimaryKey> data)
         {
             using (var connection = tableInfo.CreateConnection())
             {
@@ -59,7 +54,7 @@ namespace Ray.Storage.PostgreSQL
             }
         }
 
-        public async Task Update(FollowSnapshot<K> data)
+        public async Task Update(FollowSnapshot<PrimaryKey> data)
         {
             using (var connection = tableInfo.CreateConnection())
             {
@@ -71,7 +66,7 @@ namespace Ray.Storage.PostgreSQL
                 });
             }
         }
-        public async Task Delete(K id)
+        public async Task Delete(PrimaryKey id)
         {
             using (var conn = tableInfo.CreateConnection())
             {
@@ -79,7 +74,7 @@ namespace Ray.Storage.PostgreSQL
             }
         }
 
-        public async Task UpdateStartTimestamp(K id, long timestamp)
+        public async Task UpdateStartTimestamp(PrimaryKey id, long timestamp)
         {
             using (var connection = tableInfo.CreateConnection())
             {

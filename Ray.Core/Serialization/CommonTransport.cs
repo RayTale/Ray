@@ -4,9 +4,9 @@ using Ray.Core.Utils;
 
 namespace Ray.Core.Serialization
 {
-    public struct BytesWrapper
+    public struct CommonTransport
     {
-        public BytesWrapper(string typeFullName, byte[] bytes)
+        public CommonTransport(string typeFullName, byte[] bytes)
         {
             TypeFullName = typeFullName;
             Bytes = bytes;
@@ -18,19 +18,19 @@ namespace Ray.Core.Serialization
             var eventTypeBytes = Encoding.Default.GetBytes(TypeFullName);
             using (var ms = new PooledMemoryStream())
             {
-                ms.WriteByte((byte)BytesType.BytesWrapper);
+                ms.WriteByte((byte)TransportType.Common);
                 ms.Write(BitConverter.GetBytes((ushort)eventTypeBytes.Length));
                 ms.Write(Bytes);
                 return ms.ToArray();
             }
         }
-        public static (bool success, BytesWrapper wrapper) FromBytes(byte[] bytes)
+        public static (bool success, CommonTransport wrapper) FromBytes(byte[] bytes)
         {
-            if (bytes[0] == (byte)BytesType.BytesWrapper)
+            if (bytes[0] == (byte)TransportType.Common)
             {
                 var bytesSpan = bytes.AsSpan();
                 var eventTypeLength = BitConverter.ToUInt16(bytesSpan.Slice(1, sizeof(ushort)));
-                return (true, new BytesWrapper
+                return (true, new CommonTransport
                 {
                     TypeFullName = Encoding.Default.GetString(bytesSpan.Slice(sizeof(ushort) + 1, eventTypeLength)),
                     Bytes = bytesSpan.Slice(sizeof(ushort) + 1 + eventTypeLength).ToArray()

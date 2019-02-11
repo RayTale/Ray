@@ -21,11 +21,11 @@ namespace Ray.Storage.PostgreSQL
             this.configureContainer = configureContainer;
         }
         readonly ConcurrentDictionary<string, object> eventStorageDict = new ConcurrentDictionary<string, object>();
-        public async ValueTask<IEventStorage<K>> CreateEventStorage<K>(Grain grain, K grainId)
+        public async ValueTask<IEventStorage<PrimaryKey>> CreateEventStorage<PrimaryKey>(Grain grain, PrimaryKey grainId)
         {
             var grainType = grain.GetType();
             if (configureContainer.TryGetValue(grainType, out var value) &&
-                value is ConfigureBuilderWrapper<K, StorageConfig, ConfigParameter> builder)
+                value is ConfigureBuilderWrapper<PrimaryKey, StorageConfig, ConfigParameter> builder)
             {
                 var dictKey = builder.Parameter.Singleton ? grainType.FullName : $"{grainType.FullName}-{grainId.ToString()}";
                 var configTask = grainConfigDict.GetOrAdd(dictKey, async key =>
@@ -40,22 +40,22 @@ namespace Ray.Storage.PostgreSQL
                     await configTask;
                 var storage = eventStorageDict.GetOrAdd(dictKey, key =>
                  {
-                     return new SqlEventStorage<K>(serviceProvider, configTask.Result);
+                     return new EventStorage<PrimaryKey>(serviceProvider, configTask.Result);
                  });
-                return storage as SqlEventStorage<K>;
+                return storage as EventStorage<PrimaryKey>;
             }
             else
             {
-                throw new NotImplementedException($"{nameof(ConfigureBuilderWrapper<K, StorageConfig, ConfigParameter>)} of {grainType.FullName}");
+                throw new NotImplementedException($"{nameof(ConfigureBuilderWrapper<PrimaryKey, StorageConfig, ConfigParameter>)} of {grainType.FullName}");
             }
         }
         readonly ConcurrentDictionary<string, object> stateStorageDict = new ConcurrentDictionary<string, object>();
-        public async ValueTask<ISnapshotStorage<K, S>> CreateSnapshotStorage<K, S>(Grain grain, K grainId)
-            where S : class, new()
+        public async ValueTask<ISnapshotStorage<PrimaryKey, State>> CreateSnapshotStorage<PrimaryKey, State>(Grain grain, PrimaryKey grainId)
+            where State : class, new()
         {
             var grainType = grain.GetType();
             if (configureContainer.TryGetValue(grainType, out var value) &&
-                value is ConfigureBuilderWrapper<K, StorageConfig, ConfigParameter> builder)
+                value is ConfigureBuilderWrapper<PrimaryKey, StorageConfig, ConfigParameter> builder)
             {
                 var dictKey = builder.Parameter.Singleton ? grainType.FullName : $"{grainType.FullName}-{grainId.ToString()}";
                 var configTask = grainConfigDict.GetOrAdd(dictKey, async key =>
@@ -70,22 +70,22 @@ namespace Ray.Storage.PostgreSQL
                     await configTask;
                 var storage = stateStorageDict.GetOrAdd(dictKey, key =>
                {
-                   return new SqlStateStorage<K, S>(serviceProvider.GetService<IJsonSerializer>(), configTask.Result);
+                   return new SnapshotStorage<PrimaryKey, State>(serviceProvider.GetService<ISerializer>(), configTask.Result);
                });
-                return storage as ISnapshotStorage<K, S>;
+                return storage as ISnapshotStorage<PrimaryKey, State>;
             }
             else
             {
-                throw new NotImplementedException($"{nameof(ConfigureBuilderWrapper<K, StorageConfig, ConfigParameter>)} of {grainType.FullName}");
+                throw new NotImplementedException($"{nameof(ConfigureBuilderWrapper<PrimaryKey, StorageConfig, ConfigParameter>)} of {grainType.FullName}");
             }
         }
         readonly ConcurrentDictionary<string, object> ArchiveStorageDict = new ConcurrentDictionary<string, object>();
-        public async ValueTask<IArchiveStorage<K, S>> CreateArchiveStorage<K, S>(Grain grain, K grainId)
-             where S : class, new()
+        public async ValueTask<IArchiveStorage<PrimaryKey, State>> CreateArchiveStorage<PrimaryKey, State>(Grain grain, PrimaryKey grainId)
+             where State : class, new()
         {
             var grainType = grain.GetType();
             if (configureContainer.TryGetValue(grainType, out var value) &&
-                value is ConfigureBuilderWrapper<K, StorageConfig, ConfigParameter> builder)
+                value is ConfigureBuilderWrapper<PrimaryKey, StorageConfig, ConfigParameter> builder)
             {
                 var dictKey = builder.Parameter.Singleton ? grainType.FullName : $"{grainType.FullName}-{grainId.ToString()}";
                 var configTask = grainConfigDict.GetOrAdd(dictKey, async key =>
@@ -100,21 +100,21 @@ namespace Ray.Storage.PostgreSQL
                     await configTask;
                 var storage = ArchiveStorageDict.GetOrAdd(dictKey, key =>
                 {
-                    return new ArchiveStorage<K, S>(serviceProvider.GetService<IJsonSerializer>(), configTask.Result);
+                    return new ArchiveStorage<PrimaryKey, State>(serviceProvider.GetService<ISerializer>(), configTask.Result);
                 });
-                return storage as IArchiveStorage<K, S>;
+                return storage as IArchiveStorage<PrimaryKey, State>;
             }
             else
             {
-                throw new NotImplementedException($"{nameof(ConfigureBuilderWrapper<K, StorageConfig, ConfigParameter>)} of {grainType.FullName}");
+                throw new NotImplementedException($"{nameof(ConfigureBuilderWrapper<PrimaryKey, StorageConfig, ConfigParameter>)} of {grainType.FullName}");
             }
         }
         readonly ConcurrentDictionary<string, object> FollowSnapshotStorageDict = new ConcurrentDictionary<string, object>();
-        public async ValueTask<IFollowSnapshotStorage<K>> CreateFollowSnapshotStorage<K>(Grain grain, K grainId)
+        public async ValueTask<IFollowSnapshotStorage<PrimaryKey>> CreateFollowSnapshotStorage<PrimaryKey>(Grain grain, PrimaryKey grainId)
         {
             var grainType = grain.GetType();
             if (configureContainer.TryGetValue(grainType, out var value) &&
-                value is ConfigureBuilderWrapper<K, StorageConfig, ConfigParameter> builder)
+                value is ConfigureBuilderWrapper<PrimaryKey, StorageConfig, ConfigParameter> builder)
             {
                 var dictKey = builder.Parameter.Singleton ? grainType.FullName : $"{grainType.FullName}-{grainId.ToString()}";
                 var configTask = grainConfigDict.GetOrAdd(dictKey, async key =>
@@ -129,13 +129,13 @@ namespace Ray.Storage.PostgreSQL
                     await configTask;
                 var storage = FollowSnapshotStorageDict.GetOrAdd(dictKey, key =>
                 {
-                    return new FollowSnapshotStorage<K>(configTask.Result);
+                    return new FollowSnapshotStorage<PrimaryKey>(configTask.Result);
                 });
-                return storage as FollowSnapshotStorage<K>;
+                return storage as FollowSnapshotStorage<PrimaryKey>;
             }
             else
             {
-                throw new NotImplementedException($"{nameof(ConfigureBuilderWrapper<K, StorageConfig, ConfigParameter>)} of {grainType.FullName}");
+                throw new NotImplementedException($"{nameof(ConfigureBuilderWrapper<PrimaryKey, StorageConfig, ConfigParameter>)} of {grainType.FullName}");
             }
         }
     }
