@@ -35,45 +35,30 @@ namespace Ray.Storage.MongoDB
             if (!collectionListTask.IsCompletedSuccessfully)
                 await collectionListTask;
             var list = new List<IFullyEvent<PrimaryKey>>();
-            long readVersion = 0;
-            foreach (var collection in collectionListTask.Result.Where(c => c.CreateTime >= latestTimestamp))
+            foreach (var collection in collectionListTask.Result.Where(c => c.Version >= grainConfig.GetVersion(latestTimestamp)))
             {
                 var filterBuilder = Builders<BsonDocument>.Filter;
-                var filter = filterBuilder.Eq("StateId", stateId) & filterBuilder.Lte("Version", endVersion) & filterBuilder.Gt("Version", startVersion);
+                var filter = filterBuilder.Eq("StateId", stateId) & filterBuilder.Lte("Version", endVersion) & filterBuilder.Gte("Version", startVersion);
                 var cursor = await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, collection.Name).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(10000).Token);
                 foreach (var document in cursor.ToEnumerable())
                 {
                     var typeCode = document["TypeCode"].AsString;
                     var data = document["Data"].AsString;
                     var timestamp = document["Timestamp"].AsInt64;
-                    readVersion = document["Version"].AsInt64;
-                    if (readVersion <= endVersion)
+                    var version = document["Version"].AsInt64;
+                    if (version <= endVersion && version >= startVersion)
                     {
                         if (serializer.Deserialize(TypeContainer.GetType(typeCode), Encoding.Default.GetBytes(data)) is IEvent evt)
                         {
-                            if (typeof(PrimaryKey) == typeof(long) && document["StateId"].AsInt64 is PrimaryKey actorIdWithLong)
+                            list.Add(new FullyEvent<PrimaryKey>
                             {
-                                list.Add(new FullyEvent<PrimaryKey>
-                                {
-                                    StateId = actorIdWithLong,
-                                    Event = evt,
-                                    Base = new EventBase(readVersion, timestamp)
-                                });
-                            }
-                            else if (document["StateId"].AsString is PrimaryKey actorIdWithString)
-                            {
-                                list.Add(new FullyEvent<PrimaryKey>
-                                {
-                                    StateId = actorIdWithString,
-                                    Event = evt,
-                                    Base = new EventBase(readVersion, timestamp)
-                                });
-                            }
+                                StateId = stateId,
+                                Event = evt,
+                                Base = new EventBase(version, timestamp)
+                            });
                         }
                     }
                 }
-                if (readVersion >= endVersion)
-                    break;
             }
             return list;
         }
@@ -86,33 +71,21 @@ namespace Ray.Storage.MongoDB
             foreach (var collection in collectionListTask.Result)
             {
                 var filterBuilder = Builders<BsonDocument>.Filter;
-                var filter = filterBuilder.Eq("StateId", stateId) & filterBuilder.Eq("TypeCode", typeCode) & filterBuilder.Gt("Version", startVersion);
+                var filter = filterBuilder.Eq("StateId", stateId) & filterBuilder.Eq("TypeCode", typeCode) & filterBuilder.Gte("Version", startVersion);
                 var cursor = await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, collection.Name).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(10000).Token);
                 foreach (var document in cursor.ToEnumerable())
                 {
                     var data = document["Data"].AsString;
                     var timestamp = document["Timestamp"].AsInt64;
                     var version = document["Version"].AsInt64;
-                    if (serializer.Deserialize(TypeContainer.GetType(typeCode), Encoding.Default.GetBytes(data)) is IEvent evt)
+                    if (version >= startVersion && serializer.Deserialize(TypeContainer.GetType(typeCode), Encoding.Default.GetBytes(data)) is IEvent evt)
                     {
-                        if (typeof(PrimaryKey) == typeof(long) && document["StateId"].AsInt64 is PrimaryKey actorIdWithLong)
+                        list.Add(new FullyEvent<PrimaryKey>
                         {
-                            list.Add(new FullyEvent<PrimaryKey>
-                            {
-                                StateId = actorIdWithLong,
-                                Event = evt,
-                                Base = new EventBase(version, timestamp)
-                            });
-                        }
-                        else if (document["StateId"].AsString is PrimaryKey actorIdWithString)
-                        {
-                            list.Add(new FullyEvent<PrimaryKey>
-                            {
-                                StateId = actorIdWithString,
-                                Event = evt,
-                                Base = new EventBase(version, timestamp)
-                            });
-                        }
+                            StateId = stateId,
+                            Event = evt,
+                            Base = new EventBase(version, timestamp)
+                        });
                     }
                 }
                 if (list.Count >= limit)

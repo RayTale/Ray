@@ -34,7 +34,7 @@ namespace Ray.Storage.MongoDB
                 {
                     Base = new SnapshotBase<PrimaryKey>
                     {
-                        StateId = serializer.Deserialize<PrimaryKey>(document["StateId"].AsString),
+                        StateId = id,
                         Version = document["Version"].AsInt64,
                         DoingVersion = document["Version"].AsInt64,
                         IsLatest = document["IsLatest"].AsBoolean,
