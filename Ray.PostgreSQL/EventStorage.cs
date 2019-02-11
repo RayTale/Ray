@@ -47,7 +47,7 @@ namespace Ray.Storage.PostgreSQL
                     await conn.OpenAsync();
                     foreach (var table in tableList)
                     {
-                        var sql = $"COPY (SELECT typecode,data,version,timestamp from {table.Name} WHERE stateid='{stateId.ToString()}' and version>{startVersion} and version<={endVersion} order by version asc) TO STDOUT (FORMAT BINARY)";
+                        var sql = $"COPY (SELECT typecode,data,version,timestamp from {table.Name} WHERE stateid='{stateId.ToString()}' and version>={startVersion} and version<={endVersion} order by version asc) TO STDOUT (FORMAT BINARY)";
                         using (var reader = conn.BeginBinaryExport(sql))
                         {
                             while (reader.StartRow() != -1)
@@ -56,14 +56,17 @@ namespace Ray.Storage.PostgreSQL
                                 var data = reader.Read<string>(NpgsqlDbType.Jsonb);
                                 var version = reader.Read<long>(NpgsqlDbType.Bigint);
                                 var timestamp = reader.Read<long>(NpgsqlDbType.Bigint);
-                                if (serializer.Deserialize(TypeContainer.GetType(typeCode), Encoding.Default.GetBytes(data)) is IEvent evt)
+                                if (version <= endVersion && version >= startVersion)
                                 {
-                                    list.Add(new FullyEvent<PrimaryKey>
+                                    if (serializer.Deserialize(TypeContainer.GetType(typeCode), Encoding.Default.GetBytes(data)) is IEvent evt)
                                     {
-                                        StateId = stateId,
-                                        Event = evt,
-                                        Base = new EventBase(version, timestamp)
-                                    });
+                                        list.Add(new FullyEvent<PrimaryKey>
+                                        {
+                                            StateId = stateId,
+                                            Event = evt,
+                                            Base = new EventBase(version, timestamp)
+                                        });
+                                    }
                                 }
                             }
                         }
@@ -87,7 +90,7 @@ namespace Ray.Storage.PostgreSQL
                     await conn.OpenAsync();
                     foreach (var table in tableList)
                     {
-                        var sql = $"COPY (SELECT data,version,timestamp from {table.Name} WHERE stateid='{stateId.ToString()}' and typecode='{typeCode}' and version>{startVersion} order by version asc limit {limit}) TO STDOUT (FORMAT BINARY)";
+                        var sql = $"COPY (SELECT data,version,timestamp from {table.Name} WHERE stateid='{stateId.ToString()}' and typecode='{typeCode}' and version>={startVersion} order by version asc limit {limit}) TO STDOUT (FORMAT BINARY)";
                         using (var reader = conn.BeginBinaryExport(sql))
                         {
                             while (reader.StartRow() != -1)
@@ -95,7 +98,7 @@ namespace Ray.Storage.PostgreSQL
                                 var data = reader.Read<string>(NpgsqlDbType.Jsonb);
                                 var version = reader.Read<long>(NpgsqlDbType.Bigint);
                                 var timestamp = reader.Read<long>(NpgsqlDbType.Bigint);
-                                if (serializer.Deserialize(type, Encoding.Default.GetBytes(data)) is IEvent evt)
+                                if (version >= startVersion && serializer.Deserialize(type, Encoding.Default.GetBytes(data)) is IEvent evt)
                                 {
                                     list.Add(new FullyEvent<PrimaryKey>
                                     {

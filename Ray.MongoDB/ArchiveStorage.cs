@@ -119,7 +119,7 @@ namespace Ray.Storage.MongoDB
                 { "IsOver", state.Base.IsOver },
                 { "Version", state.Base.Version }
             };
-            return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotCollection).InsertOneAsync(doc);
+            return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.ArchiveStateTable).InsertOneAsync(doc);
         }
 
         public Task Over(PrimaryKey stateId, bool isOver)

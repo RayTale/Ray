@@ -120,7 +120,7 @@ namespace Ray.Core
         {
             while (true)
             {
-                var eventList = await EventStorage.GetList(GrainId, Snapshot.Base.StartTimestamp, Snapshot.Base.Version, Snapshot.Base.Version + NumberOfEventsPerRead);
+                var eventList = await EventStorage.GetList(GrainId, Snapshot.Base.StartTimestamp, Snapshot.Base.Version + 1, Snapshot.Base.Version + NumberOfEventsPerRead);
                 foreach (var @event in eventList)
                 {
                     Snapshot.Base.IncrementDoingVersion(GrainType);//标记将要处理的Version
@@ -227,7 +227,7 @@ namespace Ray.Core
                 }
                 else if (@event.Base.Version > Snapshot.Base.Version)
                 {
-                    var eventList = await EventStorage.GetList(GrainId, Snapshot.Base.StartTimestamp, Snapshot.Base.Version, @event.Base.Version);
+                    var eventList = await EventStorage.GetList(GrainId, Snapshot.Base.StartTimestamp, Snapshot.Base.Version + 1, @event.Base.Version - 1);
                     foreach (var evt in eventList)
                     {
                         var onEventDeliveredTask = OnEventDelivered(evt);

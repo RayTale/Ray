@@ -108,7 +108,7 @@ namespace Ray.Core
         {
             while (true)
             {
-                var eventList = await EventStorage.GetList(GrainId, Snapshot.StartTimestamp, Snapshot.Version, Snapshot.Version + ConfigOptions.NumberOfEventsPerRead);
+                var eventList = await EventStorage.GetList(GrainId, Snapshot.StartTimestamp, Snapshot.Version + 1, Snapshot.Version + ConfigOptions.NumberOfEventsPerRead);
                 if (EventConcurrentProcessing)
                 {
                     await Task.WhenAll(eventList.Select(@event =>
@@ -242,7 +242,7 @@ namespace Ray.Core
                 }
                 else if (@event.Base.Version > Snapshot.Version)
                 {
-                    var eventList = await EventStorage.GetList(GrainId, Snapshot.StartTimestamp, Snapshot.Version, @event.Base.Version);
+                    var eventList = await EventStorage.GetList(GrainId, Snapshot.StartTimestamp, Snapshot.Version + 1, @event.Base.Version - 1);
                     foreach (var evt in eventList)
                     {
                         var onEventDeliveredTask = OnEventDelivered(evt);

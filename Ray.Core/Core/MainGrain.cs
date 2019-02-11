@@ -153,7 +153,7 @@ namespace Ray.Core
                                 startVersion = LastArchive.EndVersion;
                                 startTimestamp = LastArchive.EndTimestamp;
                             }
-                            var eventList = await EventStorage.GetList(GrainId, startTimestamp, startVersion, startVersion + CoreOptions.NumberOfEventsPerRead);
+                            var eventList = await EventStorage.GetList(GrainId, startTimestamp, startVersion + 1, startVersion + CoreOptions.NumberOfEventsPerRead);
                             foreach (var @event in eventList)
                             {
                                 var task = EventArchive(@event);
@@ -187,7 +187,7 @@ namespace Ray.Core
                 await ReadSnapshotAsync();
                 while (!Snapshot.Base.IsLatest)
                 {
-                    var eventList = await EventStorage.GetList(GrainId, Snapshot.Base.LatestMinEventTimestamp, Snapshot.Base.Version, Snapshot.Base.Version + CoreOptions.NumberOfEventsPerRead);
+                    var eventList = await EventStorage.GetList(GrainId, Snapshot.Base.LatestMinEventTimestamp, Snapshot.Base.Version + 1, Snapshot.Base.Version + CoreOptions.NumberOfEventsPerRead);
                     foreach (var @event in eventList)
                     {
                         Snapshot.Base.IncrementDoingVersion(GrainType);//标记将要处理的Version
@@ -516,7 +516,7 @@ namespace Ray.Core
                 await SnapshotStorage.UpdateIsLatest(Snapshot.Base.StateId, false);
                 Snapshot.Base.IsLatest = false;
             }
-            if (@event.Base.Timestamp < ClearedArchive.StartTimestamp)
+            if (ClearedArchive != default && @event.Base.Timestamp < ClearedArchive.StartTimestamp)
             {
                 throw new EventIsClearedException(@event.GetType().FullName, Serializer.SerializeToString(@event), ClearedArchive.Index);
             }
@@ -610,7 +610,7 @@ namespace Ray.Core
         {
             if (Snapshot.Base.Version != Snapshot.Base.DoingVersion)
                 throw new StateInsecurityException(Snapshot.Base.StateId.ToString(), GrainType, Snapshot.Base.DoingVersion, Snapshot.Base.Version);
-            var intervalMilliseconds = LastArchive == default ? 0 : NewArchive.EndTimestamp - LastArchive.EndTimestamp;
+            var intervalMilliseconds = LastArchive == default ? NewArchive.EndTimestamp - NewArchive.StartTimestamp : NewArchive.EndTimestamp - LastArchive.EndTimestamp;
             var intervalVersiion = NewArchive.EndVersion - NewArchive.StartVersion;
             if (force || (
                 (intervalMilliseconds > ArchiveOptions.IntervalMilliSeconds && intervalVersiion > ArchiveOptions.IntervalVersion) ||

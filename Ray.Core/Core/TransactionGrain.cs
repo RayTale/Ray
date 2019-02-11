@@ -76,6 +76,9 @@ namespace Ray.Core
                 {
                     foreach (var transport in WaitingForTransactionEvents)
                     {
+                        var startTask = OnRaiseStart(transport.FullyEvent);
+                        if (!startTask.IsCompletedSuccessfully)
+                            await startTask;
                         transport.BytesTransport = new EventBytesTransport
                         {
                             EventType = transport.FullyEvent.Event.GetType().FullName,
