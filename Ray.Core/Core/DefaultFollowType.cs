@@ -1,6 +1,6 @@
-﻿namespace Ray.EventBus.RabbitMQ
+﻿namespace Ray.Core
 {
-    public class DefaultPrefix
+    public static class DefaultFollowType
     {
         public const string primary = "primary";
         public const string secondary = "secondary";

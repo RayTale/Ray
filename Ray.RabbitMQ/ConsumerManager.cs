@@ -150,6 +150,7 @@ namespace Ray.EventBus.RabbitMQ
         }
         private async Task Work(string node, List<ConsumerRunner> consumerRunners)
         {
+
             if (consumerRunners != default)
             {
                 if (NodeRunnerDict.TryAdd(node, consumerRunners))

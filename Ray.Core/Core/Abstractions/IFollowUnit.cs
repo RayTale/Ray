@@ -8,6 +8,7 @@ namespace Ray.Core
     public interface IFollowUnit<PrimaryKey> : IGrainID
     {
         List<Func<PrimaryKey, long, Task<long>>> GetAndSaveVersionFuncs();
-        List<Func<byte[], Task>> GetEventHandlers();
+        List<Func<byte[], Task>> GetEventHandlers(string followType);
+        List<Func<byte[], Task>> GetAllEventHandlers();
     }
 }
