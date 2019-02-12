@@ -97,7 +97,7 @@ namespace Ray.Core
                     var saveSnapshotTask = SaveSnapshotAsync();
                     if (!saveSnapshotTask.IsCompletedSuccessfully)
                         await saveSnapshotTask;
-                    var handlers = FollowUnit.GetEventHandlers();
+                    var handlers = FollowUnit.GetAllEventHandlers();
                     if (handlers.Count > 0)
                     {
                         try

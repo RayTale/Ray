@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using Ray.Core;
 using Ray.Core.Abstractions;
 using Ray.Core.Exceptions;
 using Ray.Core.Utils;
@@ -61,9 +62,9 @@ namespace Ray.EventBus.RabbitMQ
                 throw new EventBusMultiplebindingProducerException(typeof(T).FullName);
             return this;
         }
-        public RabbitEventBus CreateConsumer<K>(string prefix = null, ushort minQos = 100, ushort incQos = 100, ushort maxQos = 300, bool autoAck = false, bool errorReject = false)
+        public RabbitEventBus CreateConsumer<K>(string followType, ushort minQos = 100, ushort incQos = 100, ushort maxQos = 300, bool autoAck = false, bool errorReject = false)
         {
-            var consumer = new RabbitConsumer(ServiceProvider.GetService<IFollowUnitContainer>().GetUnit<K>(ProducerType).GetEventHandlers())
+            var consumer = new RabbitConsumer(ServiceProvider.GetService<IFollowUnitContainer>().GetUnit<K>(ProducerType).GetEventHandlers(followType))
             {
                 EventBus = this,
                 QueueList = new List<QueueInfo>(),
@@ -75,7 +76,7 @@ namespace Ray.EventBus.RabbitMQ
             };
             foreach (var route in RouteList)
             {
-                consumer.QueueList.Add(new QueueInfo { RoutingKey = route, Queue = $"{prefix}_{route}" });
+                consumer.QueueList.Add(new QueueInfo { RoutingKey = route, Queue = $"{followType}_{route}" });
             }
             Consumers.Add(consumer);
             return this;
@@ -86,7 +87,7 @@ namespace Ray.EventBus.RabbitMQ
         }
         public Task DefaultConsumer<K>()
         {
-            return CreateConsumer<K>(DefaultPrefix.primary).CreateConsumer<K>(DefaultPrefix.secondary).Enable();
+            return CreateConsumer<K>(DefaultFollowType.primary).CreateConsumer<K>(DefaultFollowType.secondary).Enable();
         }
     }
 }

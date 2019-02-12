@@ -59,9 +59,9 @@ namespace Ray.MongoHost
                 .ConfigureServices((context, servicecollection) =>
                 {
                     //注册postgresql为事件存储库
-                   // servicecollection.AddPSqlSiloGrain();
+                    servicecollection.AddPSqlSiloGrain();
                     //注册mongodb为事件存储库
-                    servicecollection.AddMongoDbSiloGrain();
+                    //servicecollection.AddMongoDbSiloGrain();
                 })
                  .Configure<GrainCollectionOptions>(options =>
                  {
