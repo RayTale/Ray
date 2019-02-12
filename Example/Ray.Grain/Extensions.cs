@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Ray.Core;
 using Ray.Core.Abstractions;
@@ -10,17 +11,17 @@ namespace Ray.Grain
 {
     public static class Extensions
     {
-        public static void AddPSqlSiloGrain(this IServiceCollection serviceCollection)
+        public static void AddPSqlSiloGrain(this IServiceCollection serviceCollection, Action<SqlConfig> configAction)
         {
+            serviceCollection.Configure<SqlConfig>(config => configAction(config));
             serviceCollection.Configure();
-            serviceCollection.AddMQService();
             serviceCollection.AddPostgreSQLStorage<PostgreSQLStorageConfig>();
             FollowUnitRegister();
         }
-        public static void AddMongoDbSiloGrain(this IServiceCollection serviceCollection)
+        public static void AddMongoDbSiloGrain(this IServiceCollection serviceCollection, Action<MongoConfig> configAction)
         {
+            serviceCollection.Configure<MongoConfig>(config => configAction(config));
             serviceCollection.Configure();
-            serviceCollection.AddMQService();
             serviceCollection.AddMongoDBStorage<MongoDBStorageConfig>();
             FollowUnitRegister();
         }
@@ -32,8 +33,9 @@ namespace Ray.Grain
                 return Task.CompletedTask;
             }, -1);
         }
-        private static void AddMQService(this IServiceCollection serviceCollection)
+        public static void AddRabbitMQService(this IServiceCollection serviceCollection, Action<RabbitConfig> configAction)
         {
+            serviceCollection.Configure<RabbitConfig>(config => configAction(config));
             serviceCollection.AddRabbitMQ(async container =>
             {
                 await container.CreateEventBus<Account>("Account", "account", 5).DefaultConsumer<long>();

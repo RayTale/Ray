@@ -1,10 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
-using Ray.Core.Event;
 using Ray.Core.Storage;
 using Ray.EventBus.RabbitMQ;
 using Ray.Storage.PostgreSQL;
-using RayTest.Grains.EventHandles;
-using RayTest.IGrains.States;
 
 namespace RayTest.Grains
 {

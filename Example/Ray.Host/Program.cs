@@ -8,14 +8,7 @@ using Orleans;
 using Orleans.Configuration;
 using Orleans.Hosting;
 using Ray.Core;
-using Ray.Core.Event;
-using Ray.Core.IGrains;
-using Ray.Core.Serialization;
-using Ray.EventBus.RabbitMQ;
 using Ray.Grain;
-using Ray.IGrains;
-using Ray.Storage.MongoDB;
-using Ray.Storage.PostgreSQL;
 
 namespace Ray.MongoHost
 {
@@ -59,32 +52,28 @@ namespace Ray.MongoHost
                 .ConfigureServices((context, servicecollection) =>
                 {
                     //注册postgresql为事件存储库
-                    servicecollection.AddPSqlSiloGrain();
+                    servicecollection.AddPSqlSiloGrain(config =>
+                    {
+                        config.ConnectionDict = new Dictionary<string, string>
+                        {
+                            { "core_event","Server=127.0.0.1;Port=5432;Database=Ray;User Id=postgres;Password=admin;Pooling=true;MaxPoolSize=20;"}
+                        };
+                    });
                     //注册mongodb为事件存储库
-                    //servicecollection.AddMongoDbSiloGrain();
+                    // servicecollection.AddMongoDbSiloGrain(config => { config.Connection = "mongodb://127.0.0.1:27017"; });
+                    servicecollection.AddRabbitMQService(config =>
+                    {
+                        config.UserName = "admin";
+                        config.Password = "admin";
+                        config.Hosts = new[] { "127.0.0.1:5672" };
+                        config.MaxPoolSize = 100;
+                        config.VirtualHost = "/";
+                    });
                 })
                  .Configure<GrainCollectionOptions>(options =>
                  {
                      options.CollectionAge = TimeSpan.FromMinutes(5);
                  })
-                .Configure<SqlConfig>(c =>
-                {
-                    c.ConnectionDict = new Dictionary<string, string> {
-                        { "core_event","Server=127.0.0.1;Port=5432;Database=Ray;User Id=postgres;Password=admin;Pooling=true;MaxPoolSize=20;"}
-                    };
-                })
-                .Configure<MongoConfig>(c =>
-                {
-                    c.Connection = "mongodb://127.0.0.1:27017";
-                })
-                .Configure<RabbitConfig>(c =>
-                {
-                    c.UserName = "admin";
-                    c.Password = "admin";
-                    c.Hosts = new[] { "127.0.0.1:5672" };
-                    c.MaxPoolSize = 100;
-                    c.VirtualHost = "/";
-                })
                 .ConfigureLogging(logging =>
                 {
                     logging.SetMinimumLevel(LogLevel.Information);
