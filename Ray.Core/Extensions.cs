@@ -11,8 +11,12 @@ namespace Ray.Core
 {
     public static class Extensions
     {
-        private static void AddRay(this IServiceCollection serviceCollection)
+        private static void AddRay<StartupConfig>(this IServiceCollection serviceCollection)
+            where StartupConfig : IStartupConfig, new()
         {
+            var startupConfig = new StartupConfig();
+            startupConfig.Configure(serviceCollection);
+            serviceCollection.AddSingleton<IStartupConfig>(startupConfig);
             serviceCollection.AddEventHandler();
             serviceCollection.AddTransient(typeof(IMpscChannel<>), typeof(MpscChannel<>));
             serviceCollection.AddSingleton<ISerializer, DefaultJsonSerializer>();
@@ -20,14 +24,10 @@ namespace Ray.Core
             serviceCollection.AddSingleton<IStorageFactoryContainer, StorageFactoryContainer>();
             serviceCollection.AddSingleton<IFollowUnitContainer, FollowUnitContainer>();
         }
-        public static IClientBuilder AddRay(this IClientBuilder clientBuilder)
+        public static ISiloHostBuilder AddRay<StartupConfig>(this ISiloHostBuilder siloHostBuilder)
+            where StartupConfig : IStartupConfig, new()
         {
-            clientBuilder.ConfigureServices((context, servicecollection) => servicecollection.AddRay());
-            return clientBuilder;
-        }
-        public static ISiloHostBuilder AddRay(this ISiloHostBuilder siloHostBuilder)
-        {
-            siloHostBuilder.ConfigureServices((context, servicecollection) => servicecollection.AddRay());
+            siloHostBuilder.ConfigureServices((context, servicecollection) => servicecollection.AddRay<StartupConfig>());
             siloHostBuilder.AddStartupTask<SiloStartupTask>();
             return siloHostBuilder;
         }

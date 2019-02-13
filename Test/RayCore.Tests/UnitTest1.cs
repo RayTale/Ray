@@ -1,17 +1,14 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Orleans;
 using Orleans.Hosting;
 using Orleans.TestingHost;
 using Ray.Core;
-using Ray.Core.Serialization;
 using Ray.EventBus.RabbitMQ;
 using Ray.Storage.PostgreSQL;
 using RayTest.Grains;
-using RayTest.IGrains;
 using RayTest.IGrains.Actors;
 using Xunit;
 
@@ -55,25 +52,29 @@ namespace RayCore.Tests
         public void Configure(ISiloHostBuilder hostBuilder)
         {
             hostBuilder
-            .AddRay()
+            .AddRay<Configuration>()
             .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(Account).Assembly).WithReferences())
             .ConfigureServices((context, servicecollection) =>
             {
-                servicecollection.AddPSqlSiloGrain();
-            })
-            .Configure<SqlConfig>(c =>
-            {
-                c.ConnectionDict = new Dictionary<string, string> {
-                             { "core_event","Server=127.0.0.1;Port=5432;Database=Ray;User Id=postgres;Password=extop;Pooling=true;MaxPoolSize=50;Timeout=10;"}
-                };
-            })
-            .Configure<RabbitConfig>(c =>
-            {
-                c.UserName = "admin";
-                c.Password = "admin";
-                c.Hosts = new[] { "127.0.0.1:5672" };
-                c.MaxPoolSize = 100;
-                c.VirtualHost = "/";
+                //×¢²ápostgresqlÎªÊÂ¼þ´æ´¢¿â
+                servicecollection.AddPostgreSQLStorage<PostgreSQLStorageConfig>(config =>
+                {
+                    config.ConnectionDict = new Dictionary<string, string>
+                        {
+                            { "core_event","Server=127.0.0.1;Port=5432;Database=Ray;User Id=postgres;Password=admin;Pooling=true;MaxPoolSize=20;"}
+                        };
+                });
+                servicecollection.AddRabbitMQ(config =>
+                {
+                    config.UserName = "admin";
+                    config.Password = "admin";
+                    config.Hosts = new[] { "127.0.0.1:5672" };
+                    config.MaxPoolSize = 100;
+                    config.VirtualHost = "/";
+                }, async container =>
+                {
+                    await container.CreateEventBus<Account>("Account", "account", 5).DefaultConsumer<long>();
+                });
             })
             .ConfigureLogging(logging =>
             {

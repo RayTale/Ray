@@ -10,15 +10,17 @@ namespace Ray.EventBus.RabbitMQ
     {
         public static void AddRabbitMQ(
             this IServiceCollection serviceCollection,
-            Func<IRabbitEventBusContainer, Task> configure)
+            Action<RabbitConfig> rabbitConfigAction,
+            Func<IRabbitEventBusContainer, Task> eventBusConfigFunc)
         {
+            serviceCollection.Configure<RabbitConfig>(config => rabbitConfigAction(config));
             serviceCollection.AddSingleton<IRabbitMQClient, RabbitMQClient>();
             serviceCollection.AddSingleton<IConsumerManager, ConsumerManager>();
             serviceCollection.AddSingleton<IRabbitEventBusContainer, EventBusContainer>();
             serviceCollection.AddSingleton(serviceProvider => serviceProvider.GetService<IRabbitEventBusContainer>() as IProducerContainer);
             Startup.Register(serviceProvider =>
             {
-                return configure(serviceProvider.GetService<IRabbitEventBusContainer>());
+                return eventBusConfigFunc(serviceProvider.GetService<IRabbitEventBusContainer>());
             });
         }
     }

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Ray.Core;
 using Ray.Core.Abstractions;
@@ -7,21 +8,22 @@ using Ray.IGrains.Actors;
 
 namespace Ray.Grain
 {
-    public static class Configuration
+    public class Configuration : IStartupConfig
     {
-        public static void ConfigureFollowUnit(IServiceProvider serviceProvider, IFollowUnitContainer followUnitContainer)
+        public Task ConfigureFollowUnit(IServiceProvider serviceProvider, IFollowUnitContainer followUnitContainer)
         {
             followUnitContainer.Register(FollowUnitWithLong.From<Account>(serviceProvider).
                 Flow<IAccountRep>(DefaultFollowType.primary).
                 ConcurrentFlow<IAccountFlow>(DefaultFollowType.primary).
                 ConcurrentFlow<IAccountDb>(DefaultFollowType.secondary));
+            return Task.CompletedTask;
         }
-        public static void Configure(this IServiceCollection serviceCollection)
+        public void Configure(IServiceCollection serviceCollection)
         {
-            serviceCollection.ConfigureArchive();
-            serviceCollection.ConfigureBase();
+            ConfigureArchive(serviceCollection);
+            ConfigureBase(serviceCollection);
         }
-        public static void ConfigureArchive(this IServiceCollection serviceCollection)
+        public void ConfigureArchive(IServiceCollection serviceCollection)
         {
             serviceCollection.PostConfigure<ArchiveOptions<Account>>(options =>
             {
@@ -31,7 +33,7 @@ namespace Ray.Grain
                 options.IntervalVersion = 500;
             });
         }
-        public static void ConfigureBase(this IServiceCollection serviceCollection)
+        public void ConfigureBase(IServiceCollection serviceCollection)
         {
             serviceCollection.PostConfigure<CoreOptions<Account>>(options =>
             {

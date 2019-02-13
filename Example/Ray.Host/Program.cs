@@ -8,7 +8,10 @@ using Orleans;
 using Orleans.Configuration;
 using Orleans.Hosting;
 using Ray.Core;
+using Ray.EventBus.RabbitMQ;
 using Ray.Grain;
+using Ray.Storage.MongoDB;
+using Ray.Storage.PostgreSQL;
 
 namespace Ray.MongoHost
 {
@@ -46,13 +49,13 @@ namespace Ray.MongoHost
             var builder = new SiloHostBuilder()
                 .UseLocalhostClustering()
                 .UseDashboard()
-                .AddRay()
+                .AddRay<Configuration>()
                 .Configure<EndpointOptions>(options => options.AdvertisedIPAddress = IPAddress.Loopback)
                 .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(Account).Assembly).WithReferences())
                 .ConfigureServices((context, servicecollection) =>
                 {
                     //注册postgresql为事件存储库
-                    servicecollection.AddPSqlSiloGrain(config =>
+                    servicecollection.AddPostgreSQLStorage<PostgreSQLStorageConfig>(config =>
                     {
                         config.ConnectionDict = new Dictionary<string, string>
                         {
@@ -60,14 +63,17 @@ namespace Ray.MongoHost
                         };
                     });
                     //注册mongodb为事件存储库
-                    // servicecollection.AddMongoDbSiloGrain(config => { config.Connection = "mongodb://127.0.0.1:27017"; });
-                    servicecollection.AddRabbitMQService(config =>
+                    //servicecollection.AddMongoDBStorage<MongoDBStorageConfig>(config => { config.Connection = "mongodb://127.0.0.1:27017"; });
+                    servicecollection.AddRabbitMQ(config =>
                     {
                         config.UserName = "admin";
                         config.Password = "admin";
                         config.Hosts = new[] { "127.0.0.1:5672" };
                         config.MaxPoolSize = 100;
                         config.VirtualHost = "/";
+                    }, async container =>
+                    {
+                        await container.CreateEventBus<Account>("Account", "account", 5).DefaultConsumer<long>();
                     });
                 })
                  .Configure<GrainCollectionOptions>(options =>

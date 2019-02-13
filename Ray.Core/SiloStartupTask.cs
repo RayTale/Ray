@@ -1,17 +1,25 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Orleans.Runtime;
+using Ray.Core.Abstractions;
 
 namespace Ray.Core
 {
     public class SiloStartupTask : IStartupTask
     {
         readonly IServiceProvider serviceProvider;
-        public SiloStartupTask(IServiceProvider serviceProvider) => this.serviceProvider = serviceProvider;
-        public Task Execute(CancellationToken cancellationToken)
+        readonly IStartupConfig startupConfig;
+        public SiloStartupTask(IServiceProvider serviceProvider, IStartupConfig startupConfig)
         {
-            return Startup.StartRay(serviceProvider);
+            this.serviceProvider = serviceProvider;
+            this.startupConfig = startupConfig;
+        }
+        public async Task Execute(CancellationToken cancellationToken)
+        {
+            await startupConfig.ConfigureFollowUnit(serviceProvider, serviceProvider.GetService<IFollowUnitContainer>());
+            await Startup.StartRay(serviceProvider);
         }
     }
 }
