@@ -57,13 +57,14 @@ namespace RayCore.Tests
             .ConfigureServices((context, servicecollection) =>
             {
                 //×¢²ápostgresqlÎªÊÂ¼þ´æ´¢¿â
-                servicecollection.AddPostgreSQLStorage<PostgreSQLStorageConfig>(config =>
+                servicecollection.AddPostgreSQLStorage(config =>
                 {
                     config.ConnectionDict = new Dictionary<string, string>
                         {
                             { "core_event","Server=127.0.0.1;Port=5432;Database=Ray;User Id=postgres;Password=admin;Pooling=true;MaxPoolSize=20;"}
                         };
                 });
+                servicecollection.PSQLConfigure();
                 servicecollection.AddRabbitMQ(config =>
                 {
                     config.UserName = "admin";

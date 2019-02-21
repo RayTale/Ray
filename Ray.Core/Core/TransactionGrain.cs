@@ -11,7 +11,7 @@ using Ray.Core.State;
 
 namespace Ray.Core
 {
-    public abstract class TransactionGrain<Children, PrimaryKey, State> : MainGrain<Children, PrimaryKey, State>
+    public abstract class TransactionGrain<Grain, PrimaryKey, State> : MainGrain<Grain, PrimaryKey, State>
         where State : class, ICloneable<State>, new()
     {
         public TransactionGrain(ILogger logger) : base(logger)

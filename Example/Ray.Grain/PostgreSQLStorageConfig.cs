@@ -1,19 +1,18 @@
-﻿using System.Threading.Tasks;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Ray.Core.Storage;
 using Ray.Storage.PostgreSQL;
 
 namespace Ray.Grain
 {
-    public class PostgreSQLStorageConfig : IStorageConfiguration<StorageConfig, ConfigParameter>
+    public static class PostgreSQLStorageConfig
     {
-        readonly IOptions<SqlConfig> options;
-        public PostgreSQLStorageConfig(IOptions<SqlConfig> options) => this.options = options;
-        public Task Configure(IConfigureBuilderContainer container)
+        public static IServiceCollection PSQLConfigure(this IServiceCollection serviceCollection)
         {
-            new SQLConfigureBuilder<long>((grain, id, parameter) => new StorageConfig(options.Value.ConnectionDict["core_event"], "account_event", "account_state", parameter.IsFollow, parameter.FollowName)).
-                Bind<Account>().Follow<AccountRep>().Follow<AccountDb>("db").Follow<AccountFlow>("flow").Complete(container);
-            return Task.CompletedTask;
+            serviceCollection.AddSingleton<IConfigureBuilder<long, Account>>(new SQLConfigureBuilder<long, Account>((provider, id, parameter) =>
+            new StorageConfig(provider.GetService<IOptions<SqlConfig>>().Value.ConnectionDict["core_event"], "account_event", "account_state", parameter.IsFollow, parameter.FollowName)).Follow<AccountRep>().Follow<AccountDb>("db").Follow<AccountFlow>("flow"));
+
+            return serviceCollection;
         }
     }
 }

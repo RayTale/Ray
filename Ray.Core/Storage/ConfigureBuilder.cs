@@ -1,30 +1,60 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
-using Orleans;
+using System.Threading.Tasks;
 
 namespace Ray.Core.Storage
 {
-    public class ConfigureBuilder<PrimaryKey, Config, Parameter> : IConfigureBuilder<PrimaryKey, Config, Parameter>
+    public abstract class ConfigureBuilder<PrimaryKey, Grain, Config, Parameter> : IConfigureBuilder<PrimaryKey, Grain>
+         where Config : IStorageConfig
+         where Parameter : IStorageConfigParameter
     {
-        readonly List<(Type type, Parameter parameter)> bindList = new List<(Type type, Parameter parameter)>();
-        readonly Func<Grain, PrimaryKey, Parameter, Config> generator;
-        public ConfigureBuilder(
-            Func<Grain, PrimaryKey, Parameter, Config> generator)
+        protected readonly Dictionary<Type, Parameter> ParameterDict = new Dictionary<Type, Parameter>();
+        readonly Func<IServiceProvider, PrimaryKey, Parameter, Config> generator;
+        readonly ConcurrentDictionary<Type, ValueTask<Config>> ConfigDict = new ConcurrentDictionary<Type, ValueTask<Config>>();
+        public ConfigureBuilder(Func<IServiceProvider, PrimaryKey, Parameter, Config> generator)
         {
             this.generator = generator;
         }
-
-        public IConfigureBuilder<PrimaryKey, Config, Parameter> AllotTo<Grain>(Parameter parameter = default)
+        public abstract Type StorageFactory { get; }
+        public IConfigureBuilder<PrimaryKey, Grain> Bind<T>(Parameter parameter = default)
+            where T : Orleans.Grain
         {
-            bindList.Add((typeof(Grain), parameter));
+            ParameterDict.Add(typeof(T), parameter);
             return this;
         }
-
-        public void Complete(IConfigureBuilderContainer container)
+        public async ValueTask<IStorageConfig> GetConfig(IServiceProvider serviceProvider, Type type, PrimaryKey primaryKey)
         {
-            foreach (var (type, parameter) in bindList)
+            if (ParameterDict.TryGetValue(type, out var parameter))
             {
-                container.Register(type, new ConfigureBuilderWrapper<PrimaryKey, Config, Parameter>(generator, parameter));
+                if (parameter.Singleton)
+                {
+                    var configTask = ConfigDict.GetOrAdd(type, async key =>
+                      {
+                          var newConfig = generator(serviceProvider, primaryKey, parameter);
+                          var InitTask = newConfig.Init();
+                          if (!InitTask.IsCompletedSuccessfully)
+                              await InitTask;
+                          newConfig.Singleton = parameter.Singleton;
+                          return newConfig;
+                      });
+                    if (!configTask.IsCompletedSuccessfully)
+                        await configTask;
+                    return configTask.Result;
+                }
+                else
+                {
+                    var newConfig = generator(serviceProvider, primaryKey, parameter);
+                    var InitTask = newConfig.Init();
+                    if (!InitTask.IsCompletedSuccessfully)
+                        await InitTask;
+                    newConfig.Singleton = parameter.Singleton;
+                    return newConfig;
+                }
+            }
+            else
+            {
+                throw new NotImplementedException(type.FullName);
             }
         }
     }

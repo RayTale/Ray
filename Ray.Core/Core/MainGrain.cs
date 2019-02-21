@@ -20,19 +20,18 @@ using Ray.Core.Storage;
 
 namespace Ray.Core
 {
-    public abstract class MainGrain<Children, PrimaryKey, State> : Grain
+    public abstract class MainGrain<Grain, PrimaryKey, State> : Orleans.Grain
         where State : class, new()
     {
         public MainGrain(ILogger logger)
         {
             Logger = logger;
-            GrainType = typeof(Children);
+            GrainType = typeof(Grain);
         }
-        protected CoreOptions<Children> CoreOptions { get; private set; }
-        protected ArchiveOptions<Children> ArchiveOptions { get; private set; }
+        protected CoreOptions<Grain> CoreOptions { get; private set; }
+        protected ArchiveOptions<Grain> ArchiveOptions { get; private set; }
         protected ILogger Logger { get; private set; }
         protected IProducerContainer ProducerContainer { get; private set; }
-        protected IStorageFactory StorageFactory { get; private set; }
         protected ISerializer Serializer { get; private set; }
         protected Snapshot<PrimaryKey, State> Snapshot { get; set; }
         protected IEventHandler<PrimaryKey, State> EventHandler { get; private set; }
@@ -71,28 +70,33 @@ namespace Ray.Core
         /// </summary>
         protected async virtual ValueTask DependencyInjection()
         {
-            CoreOptions = ServiceProvider.GetService<IOptions<CoreOptions<Children>>>().Value;
-            ArchiveOptions = ServiceProvider.GetService<IOptions<ArchiveOptions<Children>>>().Value;
-            StorageFactory = ServiceProvider.GetService<IStorageFactoryContainer>().CreateFactory(GrainType);
+            CoreOptions = ServiceProvider.GetService<IOptions<CoreOptions<Grain>>>().Value;
+            ArchiveOptions = ServiceProvider.GetService<IOptions<ArchiveOptions<Grain>>>().Value;
+
             ProducerContainer = ServiceProvider.GetService<IProducerContainer>();
             Serializer = ServiceProvider.GetService<ISerializer>();
             EventHandler = ServiceProvider.GetService<IEventHandler<PrimaryKey, State>>();
             FollowUnit = ServiceProvider.GetService<IFollowUnitContainer>().GetUnit<PrimaryKey>(GrainType);
+            var configureBuilder = ServiceProvider.GetService<IConfigureBuilder<PrimaryKey, Grain>>();
+            var storageConfigTask = configureBuilder.GetConfig(ServiceProvider, GrainType, GrainId);
+            if (!storageConfigTask.IsCompletedSuccessfully)
+                await storageConfigTask;
+            var storageFactory = ServiceProvider.GetService(configureBuilder.StorageFactory) as IStorageFactory;
             //创建归档存储器
             if (ArchiveOptions.On)
             {
-                var archiveStorageTask = StorageFactory.CreateArchiveStorage<PrimaryKey, State>(this, GrainId);
+                var archiveStorageTask = storageFactory.CreateArchiveStorage<PrimaryKey, State>(storageConfigTask.Result, GrainId);
                 if (!archiveStorageTask.IsCompletedSuccessfully)
                     await archiveStorageTask;
                 ArchiveStorage = archiveStorageTask.Result;
             }
             //创建事件存储器
-            var eventStorageTask = StorageFactory.CreateEventStorage(this, GrainId);
+            var eventStorageTask = storageFactory.CreateEventStorage(storageConfigTask.Result, GrainId);
             if (!eventStorageTask.IsCompletedSuccessfully)
                 await eventStorageTask;
             EventStorage = eventStorageTask.Result;
             //创建状态存储器
-            var stateStorageTask = StorageFactory.CreateSnapshotStorage<PrimaryKey, State>(this, GrainId);
+            var stateStorageTask = storageFactory.CreateSnapshotStorage<PrimaryKey, State>(storageConfigTask.Result, GrainId);
             if (!stateStorageTask.IsCompletedSuccessfully)
                 await stateStorageTask;
             SnapshotStorage = stateStorageTask.Result;

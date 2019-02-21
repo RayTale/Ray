@@ -1,19 +1,17 @@
-﻿using System.Threading.Tasks;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Ray.Core.Storage;
 using Ray.Storage.MongoDB;
 
 namespace Ray.Grain
 {
-    public class MongoDBStorageConfig : IStorageConfiguration<StorageConfig, ConfigParameter>
+    public static class MongoDBStorageConfig
     {
-        readonly IMongoStorage mongoStorage;
-        public MongoDBStorageConfig(IMongoStorage mongoStorage) => this.mongoStorage = mongoStorage;
-        public Task Configure(IConfigureBuilderContainer container)
+        public static IServiceCollection MongoConfigure(this IServiceCollection serviceCollection)
         {
-            new MongoConfigureBuilder<long>((grain, id, parameter) => new StorageConfig(mongoStorage, "Ray", "account_event", "account_state",parameter.IsFollow,parameter.FollowName)).
-                Bind<Account>().Follow<AccountRep>().Follow<AccountDb>("db").Follow<AccountFlow>("flow").Complete(container);
+            serviceCollection.AddSingleton<IConfigureBuilder<long, Account>>(new MongoConfigureBuilder<long, Account>((provider, id, parameter) => new StorageConfig(provider.GetService<IMongoStorage>(), "Ray", "account_event", "account_state", parameter.IsFollow, parameter.FollowName)).
+                Follow<AccountRep>().Follow<AccountDb>("db").Follow<AccountFlow>("flow"));
 
-            return Task.CompletedTask;
+            return serviceCollection;
         }
     }
 }

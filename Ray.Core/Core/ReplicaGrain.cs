@@ -27,7 +27,6 @@ namespace Ray.Core
         protected ArchiveOptions<Main> ArchiveOptions { get; private set; }
         protected ILogger Logger { get; private set; }
         protected ISerializer Serializer { get; private set; }
-        protected IStorageFactory StorageFactory { get; private set; }
         protected Snapshot<PrimaryKey, State> Snapshot { get; set; }
         public abstract PrimaryKey GrainId { get; }
         /// <summary>
@@ -68,21 +67,25 @@ namespace Ray.Core
         {
             CoreOptions = ServiceProvider.GetService<IOptions<CoreOptions<Main>>>().Value;
             ArchiveOptions = ServiceProvider.GetService<IOptions<ArchiveOptions<Main>>>().Value;
-            StorageFactory = ServiceProvider.GetService<IStorageFactoryContainer>().CreateFactory(GrainType);
             Serializer = ServiceProvider.GetService<ISerializer>();
             EventHandler = ServiceProvider.GetService<IEventHandler<PrimaryKey, State>>();
+            var configureBuilder = ServiceProvider.GetService<IConfigureBuilder<PrimaryKey, Main>>();
+            var storageConfigTask = configureBuilder.GetConfig(ServiceProvider, GrainType, GrainId);
+            if (!storageConfigTask.IsCompletedSuccessfully)
+                await storageConfigTask;
+            var storageFactory = ServiceProvider.GetService(configureBuilder.StorageFactory) as IStorageFactory;
             //创建归档存储器
-            var archiveStorageTask = StorageFactory.CreateArchiveStorage<PrimaryKey, State>(this, GrainId);
+            var archiveStorageTask = storageFactory.CreateArchiveStorage<PrimaryKey, State>(storageConfigTask.Result, GrainId);
             if (!archiveStorageTask.IsCompletedSuccessfully)
                 await archiveStorageTask;
             ArchiveStorage = archiveStorageTask.Result;
             //创建事件存储器
-            var eventStorageTask = StorageFactory.CreateEventStorage(this, GrainId);
+            var eventStorageTask = storageFactory.CreateEventStorage(storageConfigTask.Result, GrainId);
             if (!eventStorageTask.IsCompletedSuccessfully)
                 await eventStorageTask;
             EventStorage = eventStorageTask.Result;
             //创建状态存储器
-            var stateStorageTask = StorageFactory.CreateSnapshotStorage<PrimaryKey, State>(this, GrainId);
+            var stateStorageTask = storageFactory.CreateSnapshotStorage<PrimaryKey, State>(storageConfigTask.Result, GrainId);
             if (!stateStorageTask.IsCompletedSuccessfully)
                 await stateStorageTask;
             SnapshotStorage = stateStorageTask.Result;

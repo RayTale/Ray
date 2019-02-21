@@ -11,7 +11,7 @@ using Ray.Core.State;
 
 namespace Ray.Core
 {
-    public abstract class ConcurrentGrain<Children, PrimaryKey, State> : TransactionGrain<Children, PrimaryKey, State>
+    public abstract class ConcurrentGrain<Grain, PrimaryKey, State> : TransactionGrain<Grain, PrimaryKey, State>
         where State : class, ICloneable<State>, new()
     {
         public ConcurrentGrain(ILogger logger) : base(logger)
@@ -52,7 +52,7 @@ namespace Ray.Core
             var task = ConcurrentRaiseEvent(handler, isOk =>
             {
                 taskSource.TrySetResult(isOk);
-                return new ValueTask();
+                return Consts.ValueTaskDone;
             }, ex =>
             {
                 taskSource.TrySetException(ex);
@@ -78,7 +78,7 @@ namespace Ray.Core
             }, isOk =>
             {
                 taskSource.TrySetResult(isOk);
-                return new ValueTask();
+                return Consts.ValueTaskDone;
             }, ex =>
             {
                 taskSource.TrySetException(ex);

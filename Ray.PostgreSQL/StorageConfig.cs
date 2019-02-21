@@ -2,12 +2,14 @@
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Ray.Core.Storage;
 
 namespace Ray.Storage.PostgreSQL
 {
-    public class StorageConfig
+    public class StorageConfig : IStorageConfig
     {
         public string Connection { get; set; }
         public string EventTable { get; set; }
@@ -19,8 +21,10 @@ namespace Ray.Storage.PostgreSQL
         public List<TableInfo> AllSplitTableList { get; set; }
         public int StateIdLength { get; }
         readonly bool sharding = false;
-        readonly long shardingMilliseconds;
+        readonly long shardingMinutes;
         public TableRepository TableRepository { get; }
+        public bool Singleton { get; set; }
+
         public StorageConfig(string conn, string eventTable, string snapshotTable, bool isFollow = false, string followName = null, bool sharding = true, int shardingDays = 40, int stateIdLength = 200)
         {
             Connection = conn;
@@ -29,13 +33,13 @@ namespace Ray.Storage.PostgreSQL
             FollowName = followName;
             this.sharding = sharding;
             IsFollow = isFollow;
-            shardingMilliseconds = shardingDays * 24 * 60 * 60 * 1000;
+            shardingMinutes = shardingDays * 24 * 60;
             StateIdLength = stateIdLength;
             TableRepository = new TableRepository(this);
         }
         int isBuilded = 0;
         bool buildedResult = false;
-        public async ValueTask Build()
+        public async ValueTask Init()
         {
             while (!buildedResult)
             {
@@ -64,6 +68,7 @@ namespace Ray.Storage.PostgreSQL
                 await Task.Delay(50);
             }
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public DbConnection CreateConnection()
         {
             return SqlFactory.CreateConnection(Connection);
@@ -74,8 +79,8 @@ namespace Ray.Storage.PostgreSQL
             //如果不需要分表，直接返回
             if (firstTable != null && !sharding) return 0;
             var nowUtcTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            var subMilliseconds = eventTimestamp - (firstTable != null ? firstTable.CreateTime : nowUtcTime);
-            return subMilliseconds > 0 ? (int)(subMilliseconds / shardingMilliseconds) : 0;
+            var subMinutes = (eventTimestamp - (firstTable != null ? firstTable.CreateTime : nowUtcTime)) / (1000 * 60);
+            return subMinutes > 0 ? (int)(subMinutes / shardingMinutes) : 0;
         }
         public async ValueTask<TableInfo> GetTable(long eventTimestamp)
         {
@@ -83,8 +88,8 @@ namespace Ray.Storage.PostgreSQL
             //如果不需要分表，直接返回
             if (firstTable != null && !sharding) return firstTable;
             var nowUtcTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            var subMilliseconds = eventTimestamp - (firstTable != null ? firstTable.CreateTime : nowUtcTime);
-            var version = subMilliseconds > 0 ? (int)(subMilliseconds / shardingMilliseconds) : 0;
+            var subMinutes = (eventTimestamp - (firstTable != null ? firstTable.CreateTime : nowUtcTime)) / (60 * 1000);
+            var version = subMinutes > 0 ? (int)(subMinutes / shardingMinutes) : 0;
             var resultTable = AllSplitTableList.FirstOrDefault(t => t.Version == version);
             if (resultTable == default)
             {

@@ -1,8 +1,11 @@
-﻿namespace Ray.Core.Storage
+﻿using System;
+using System.Threading.Tasks;
+
+namespace Ray.Core.Storage
 {
-    public interface IConfigureBuilder<PrimaryKey, Config, Parameter>
+    public interface IConfigureBuilder<PrimaryKey, Grain>
     {
-        IConfigureBuilder<PrimaryKey, Config, Parameter> AllotTo<Grain>(Parameter parameter);
-        void Complete(IConfigureBuilderContainer container = default);
+        Type StorageFactory { get; }
+        ValueTask<IStorageConfig> GetConfig(IServiceProvider serviceProvider, Type type, PrimaryKey primaryKey);
     }
 }

@@ -27,7 +27,6 @@ namespace Ray.Core
         protected CoreOptions<MainGrain> ConfigOptions { get; private set; }
         protected ILogger Logger { get; private set; }
         protected ISerializer Serializer { get; private set; }
-        protected IStorageFactory StorageFactory { get; private set; }
         /// <summary>
         /// Memory state, restored by snapshot + Event play or replay
         /// </summary>
@@ -67,15 +66,19 @@ namespace Ray.Core
         protected async virtual ValueTask DependencyInjection()
         {
             ConfigOptions = ServiceProvider.GetService<IOptions<CoreOptions<MainGrain>>>().Value;
-            StorageFactory = ServiceProvider.GetService<IStorageFactoryContainer>().CreateFactory(GrainType);
             Serializer = ServiceProvider.GetService<ISerializer>();
+            var configureBuilder = ServiceProvider.GetService<IConfigureBuilder<PrimaryKey, MainGrain>>();
+            var storageConfigTask = configureBuilder.GetConfig(ServiceProvider, GrainType, GrainId);
+            if (!storageConfigTask.IsCompletedSuccessfully)
+                await storageConfigTask;
+            var storageFactory = ServiceProvider.GetService(configureBuilder.StorageFactory) as IStorageFactory;
             //创建事件存储器
-            var eventStorageTask = StorageFactory.CreateEventStorage<PrimaryKey>(this, GrainId);
+            var eventStorageTask = storageFactory.CreateEventStorage(storageConfigTask.Result, GrainId);
             if (!eventStorageTask.IsCompletedSuccessfully)
                 await eventStorageTask;
             EventStorage = eventStorageTask.Result;
             //创建状态存储器
-            var stateStorageTask = StorageFactory.CreateFollowSnapshotStorage<PrimaryKey>(this, GrainId);
+            var stateStorageTask = storageFactory.CreateFollowSnapshotStorage(storageConfigTask.Result, GrainId);
             if (!stateStorageTask.IsCompletedSuccessfully)
                 await stateStorageTask;
             FollowSnapshotStorage = stateStorageTask.Result;

@@ -5,10 +5,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using Ray.Core.Storage;
 
 namespace Ray.Storage.MongoDB
 {
-    public class StorageConfig
+    public class StorageConfig : IStorageConfig
     {
         public string DataBase { get; set; }
         public string EventCollection { get; set; }
@@ -24,9 +25,11 @@ namespace Ray.Storage.MongoDB
         }
         private List<SplitCollectionInfo> AllSplitCollections { get; set; }
         public IMongoStorage Storage { get; }
+        public bool Singleton { get; set; }
+
         const string SplitCollectionName = "SplitCollections";
         readonly bool sharding = false;
-        readonly int shardingMilliseconds;
+        readonly int shardingMinutes;
         public StorageConfig(IMongoStorage storage, string database, string eventCollection, string snapshotCollection, bool isFollow = false, string followName = null, bool sharding = false, int shardingDays = 90)
         {
             DataBase = database;
@@ -36,7 +39,7 @@ namespace Ray.Storage.MongoDB
             FollowName = followName;
             this.sharding = sharding;
             IsFollow = isFollow;
-            shardingMilliseconds = shardingDays * 24 * 60 * 60 * 1000;
+            shardingMinutes = shardingDays * 24 * 60;
         }
         public async ValueTask<List<SplitCollectionInfo>> GetCollectionList()
         {
@@ -140,8 +143,8 @@ namespace Ray.Storage.MongoDB
             //如果不需要分表，直接返回
             if (firstTable != null && !sharding) return 0;
             var nowUtcTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            var subMilliseconds = eventTimestamp - (firstTable != null ? firstTable.CreateTime : nowUtcTime);
-            return subMilliseconds > 0 ? (int)(subMilliseconds / shardingMilliseconds) : 0;
+            var subMinutes = (eventTimestamp - (firstTable != null ? firstTable.CreateTime : nowUtcTime)) / (60 * 1000);
+            return subMinutes > 0 ? (int)(subMinutes / shardingMinutes) : 0;
         }
         public async ValueTask<SplitCollectionInfo> GetCollection(long eventTimestamp)
         {
@@ -150,8 +153,8 @@ namespace Ray.Storage.MongoDB
             if (firstCollection != null && !sharding) return firstCollection;
 
             var nowUtcTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            var subMilliseconds = eventTimestamp - (firstCollection != null ? firstCollection.CreateTime : nowUtcTime);
-            var version = subMilliseconds > 0 ? Convert.ToInt32((subMilliseconds / shardingMilliseconds)) : 0;
+            var subMinutes = (eventTimestamp - (firstCollection != null ? firstCollection.CreateTime : nowUtcTime)) / (60 * 1000);
+            var version = subMinutes > 0 ? Convert.ToInt32((subMinutes / shardingMinutes)) : 0;
             var resultTable = AllSplitCollections.FirstOrDefault(t => t.Version == version);
             if (resultTable == default)
             {
@@ -181,6 +184,11 @@ namespace Ray.Storage.MongoDB
                 }
             }
             return resultTable;
+        }
+
+        public ValueTask Init()
+        {
+            throw new NotImplementedException();
         }
     }
 }

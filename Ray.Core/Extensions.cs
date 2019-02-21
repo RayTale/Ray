@@ -20,8 +20,6 @@ namespace Ray.Core
             serviceCollection.AddEventHandler();
             serviceCollection.AddTransient(typeof(IMpscChannel<>), typeof(MpscChannel<>));
             serviceCollection.AddSingleton<ISerializer, DefaultJsonSerializer>();
-            serviceCollection.AddSingleton<IConfigureBuilderContainer, ConfigureBuilderContainer>();
-            serviceCollection.AddSingleton<IStorageFactoryContainer, StorageFactoryContainer>();
             serviceCollection.AddSingleton<IFollowUnitContainer, FollowUnitContainer>();
         }
         public static ISiloHostBuilder AddRay<StartupConfig>(this ISiloHostBuilder siloHostBuilder)
