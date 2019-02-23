@@ -8,7 +8,6 @@ using Microsoft.Extensions.Logging;
 using Ray.Core.Channels;
 using Ray.Core.Event;
 using Ray.Core.Exceptions;
-using Ray.Core.Logging;
 using Ray.Core.Serialization;
 
 namespace Ray.Core
@@ -57,8 +56,7 @@ namespace Ray.Core
                         if (!writeTask.Result)
                         {
                             var ex = new ChannelUnavailabilityException(GrainId.ToString(), GrainType);
-                            if (Logger.IsEnabled(LogLevel.Error))
-                                Logger.LogError(LogEventIds.TransactionGrainCurrentInput, ex, ex.Message);
+                            Logger.LogError(ex, ex.Message);
                             throw ex;
                         }
                     }
@@ -66,7 +64,7 @@ namespace Ray.Core
                 else
                 {
                     if (Logger.IsEnabled(LogLevel.Information))
-                        Logger.LogInformation(LogEventIds.FollowEventProcessing, "Receive non-event messages, grain Id = {0} ,message type = {1}", GrainId.ToString(), transport.EventType);
+                        Logger.LogInformation("Receive non-event messages, grain Id = {0} ,message type = {1}", GrainId.ToString(), transport.EventType);
                 }
             }
         }
@@ -155,8 +153,7 @@ namespace Ray.Core
             }
             catch (Exception ex)
             {
-                if (Logger.IsEnabled(LogLevel.Error))
-                    Logger.LogError(LogEventIds.FollowGrainEventHandling, ex, "FollowGrain event handling failed with Id {1}", GrainId.ToString());
+                Logger.LogError(ex, "FollowGrain event handling failed with Id {1}", GrainId.ToString());
                 maxRequest?.TrySetException(ex);
             }
         }

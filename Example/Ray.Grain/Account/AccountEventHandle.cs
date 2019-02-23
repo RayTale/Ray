@@ -7,12 +7,12 @@ namespace Ray.Grain.EventHandles
 {
     public class AccountEventHandle : IEventHandler<long, AccountState>
     {
-        public void Apply(Snapshot<long, AccountState> state, IFullyEvent<long> fully)
+        public void Apply(Snapshot<long, AccountState> snapshot, IFullyEvent<long> fullyEvent)
         {
-            switch (fully.Event)
+            switch (fullyEvent.Event)
             {
-                case AmountAddEvent value: AmountAddEventHandle(state.State, value); break;
-                case AmountTransferEvent value: AmountTransferEventHandle(state.State, value); break;
+                case AmountAddEvent value: AmountAddEventHandle(snapshot.State, value); break;
+                case AmountTransferEvent value: AmountTransferEventHandle(snapshot.State, value); break;
                 default: break;
             }
         }

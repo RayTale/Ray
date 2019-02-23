@@ -12,9 +12,8 @@ using Ray.Core.Configuration;
 using Ray.Core.Event;
 using Ray.Core.EventBus;
 using Ray.Core.Exceptions;
-using Ray.Core.Services.Abstractions;
-using Ray.Core.Logging;
 using Ray.Core.Serialization;
+using Ray.Core.Services.Abstractions;
 using Ray.Core.Snapshot;
 using Ray.Core.Storage;
 
@@ -113,7 +112,7 @@ namespace Ray.Core
         public override async Task OnActivateAsync()
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.GrainActivateId, "Start activation grain with id = {0}", GrainId.ToString());
+                Logger.LogTrace("Start activation grain with id = {0}", GrainId.ToString());
             var dITask = DependencyInjection();
             if (!dITask.IsCompletedSuccessfully)
                 await dITask;
@@ -173,11 +172,11 @@ namespace Ray.Core
                 if (!onActivatedTask.IsCompletedSuccessfully)
                     await onActivatedTask;
                 if (Logger.IsEnabled(LogLevel.Trace))
-                    Logger.LogTrace(LogEventIds.GrainActivateId, "Grain activation completed with id = {0}", GrainId.ToString());
+                    Logger.LogTrace("Grain activation completed with id = {0}", GrainId.ToString());
             }
             catch (Exception ex)
             {
-                Logger.LogCritical(LogEventIds.GrainActivateId, ex, "Grain activation failed with Id = {0}", GrainId.ToString());
+                Logger.LogCritical(ex, "Grain activation failed with Id = {0}", GrainId.ToString());
                 throw;
             }
         }
@@ -186,7 +185,7 @@ namespace Ray.Core
         protected virtual async Task RecoveryState()
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.GrainStateRecoveryId, "The state of id = {0} begin to recover", GrainType.FullName, GrainId.ToString());
+                Logger.LogTrace("The state of id = {0} begin to recover", GrainType.FullName, GrainId.ToString());
             try
             {
                 await ReadSnapshotAsync();
@@ -202,18 +201,18 @@ namespace Ray.Core
                     if (eventList.Count < CoreOptions.NumberOfEventsPerRead) break;
                 };
                 if (Logger.IsEnabled(LogLevel.Trace))
-                    Logger.LogTrace(LogEventIds.GrainStateRecoveryId, "The state of id = {0} recovery has been completed ,state version = {1}", GrainId.ToString(), Snapshot.Base.Version);
+                    Logger.LogTrace("The state of id = {0} recovery has been completed ,state version = {1}", GrainId.ToString(), Snapshot.Base.Version);
             }
             catch (Exception ex)
             {
-                Logger.LogCritical(LogEventIds.GrainStateRecoveryId, ex, "The state of id = {0} recovery has failed ,state version = {1}", GrainId.ToString(), Snapshot.Base.Version);
+                Logger.LogCritical(ex, "The state of id = {0} recovery has failed ,state version = {1}", GrainId.ToString(), Snapshot.Base.Version);
                 throw;
             }
         }
         public override async Task OnDeactivateAsync()
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.GrainDeactivateId, "Grain start deactivation with id = {0}", GrainId.ToString());
+                Logger.LogTrace("Grain start deactivation with id = {0}", GrainId.ToString());
             var needSaveSnap = Snapshot.Base.Version - SnapshotEventVersion >= CoreOptions.MinSnapshotIntervalVersion;
             try
             {
@@ -236,12 +235,11 @@ namespace Ray.Core
                     }
                 }
                 if (Logger.IsEnabled(LogLevel.Trace))
-                    Logger.LogTrace(LogEventIds.GrainDeactivateId, "Grain has been deactivated with id= {0} ,{1}", GrainId.ToString(), needSaveSnap ? "updated snapshot" : "no update snapshot");
+                    Logger.LogTrace("Grain has been deactivated with id= {0} ,{1}", GrainId.ToString(), needSaveSnap ? "updated snapshot" : "no update snapshot");
             }
             catch (Exception ex)
             {
-                if (Logger.IsEnabled(LogLevel.Error))
-                    Logger.LogError(LogEventIds.GrainActivateId, ex, "Grain Deactivate failed with Id = {0}", GrainType.FullName, GrainId.ToString());
+                Logger.LogError(ex, "Grain Deactivate failed with Id = {0}", GrainType.FullName, GrainId.ToString());
                 throw;
             }
         }
@@ -250,7 +248,7 @@ namespace Ray.Core
         protected virtual async Task ReadSnapshotAsync()
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.GrainSnapshot, "Start read snapshot  with Id = {0} ,state version = {1}", GrainId.ToString(), Snapshot.Base.Version);
+                Logger.LogTrace("Start read snapshot  with Id = {0} ,state version = {1}", GrainId.ToString(), Snapshot.Base.Version);
             try
             {
                 //从快照中恢复状态
@@ -274,12 +272,11 @@ namespace Ray.Core
                 }
                 SnapshotEventVersion = Snapshot.Base.Version;
                 if (Logger.IsEnabled(LogLevel.Trace))
-                    Logger.LogTrace(LogEventIds.GrainSnapshot, "The snapshot of id = {0} read completed, state version = {1}", GrainId.ToString(), Snapshot.Base.Version);
+                    Logger.LogTrace("The snapshot of id = {0} read completed, state version = {1}", GrainId.ToString(), Snapshot.Base.Version);
             }
             catch (Exception ex)
             {
-                if (Logger.IsEnabled(LogLevel.Critical))
-                    Logger.LogCritical(LogEventIds.GrainSnapshot, ex, "The snapshot of id = {0} read failed", GrainId.ToString());
+                Logger.LogCritical(ex, "The snapshot of id = {0} read failed", GrainId.ToString());
                 throw;
             }
         }
@@ -289,7 +286,7 @@ namespace Ray.Core
             if (Snapshot.Base.Version != Snapshot.Base.DoingVersion)
                 throw new StateInsecurityException(Snapshot.Base.StateId.ToString(), GrainType, Snapshot.Base.DoingVersion, Snapshot.Base.Version);
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.GrainSnapshot, "Start save snapshot  with Id = {0} ,state version = {1}", GrainId.ToString(), Snapshot.Base.Version);
+                Logger.LogTrace("Start save snapshot  with Id = {0} ,state version = {1}", GrainId.ToString(), Snapshot.Base.Version);
             //如果版本号差超过设置则更新快照
             if (force || (Snapshot.Base.Version - SnapshotEventVersion >= CoreOptions.SnapshotIntervalVersion))
             {
@@ -311,13 +308,12 @@ namespace Ray.Core
                     }
                     SnapshotEventVersion = Snapshot.Base.Version;
                     if (Logger.IsEnabled(LogLevel.Trace))
-                        Logger.LogTrace(LogEventIds.GrainSnapshot, "The snapshot of id={0} save completed ,state version = {1}", GrainId.ToString(), Snapshot.Base.Version);
+                        Logger.LogTrace("The snapshot of id={0} save completed ,state version = {1}", GrainId.ToString(), Snapshot.Base.Version);
                 }
                 catch (Exception ex)
                 {
                     Snapshot.Base.LatestMinEventTimestamp = oldLatestMinEventTimestamp;
-                    if (Logger.IsEnabled(LogLevel.Critical))
-                        Logger.LogCritical(LogEventIds.GrainSnapshot, ex, "The snapshot of id= {0} save failed", GrainId.ToString());
+                    Logger.LogCritical(ex, "The snapshot of id= {0} save failed", GrainId.ToString());
                     throw;
                 }
             }
@@ -404,7 +400,7 @@ namespace Ray.Core
         protected virtual async Task<bool> RaiseEvent(IEvent @event, EventUID uniqueId = null)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.GrainSnapshot, "Start raise event, grain Id ={0} and state version = {1},event type = {2} ,event ={3},uniqueueId= {4}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, Serializer.SerializeToString(@event), uniqueId);
+                Logger.LogTrace("Start raise event, grain Id ={0} and state version = {1},event type = {2} ,event ={3},uniqueueId= {4}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, Serializer.SerializeToString(@event), uniqueId);
             if (Snapshot.Base.IsOver)
                 throw new StateIsOverException(Snapshot.Base.StateId.ToString(), GrainType);
             try
@@ -459,8 +455,7 @@ namespace Ray.Core
                                 }
                                 catch (Exception ex)
                                 {
-                                    if (Logger.IsEnabled(LogLevel.Error))
-                                        Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
+                                    Logger.LogError(ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
                                     //当消息队列出现问题的时候同步推送
                                     await Task.WhenAll(handlers.Select(func => func(bytesTransport.GetBytes())));
                                 }
@@ -473,8 +468,7 @@ namespace Ray.Core
                                 }
                                 catch (Exception ex)
                                 {
-                                    if (Logger.IsEnabled(LogLevel.Error))
-                                        Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
+                                    Logger.LogError(ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
                                     //当消息队列出现问题的时候异步推送
                                     var publishTask = EventBusProducer.Publish(bytesTransport.GetBytes(), GrainId.ToString());
                                     if (!publishTask.IsCompletedSuccessfully)
@@ -484,18 +478,17 @@ namespace Ray.Core
                         }
                         catch (Exception ex)
                         {
-                            if (Logger.IsEnabled(LogLevel.Error))
-                                Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
+                            Logger.LogError(ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
                         }
                     }
                     if (Logger.IsEnabled(LogLevel.Trace))
-                        Logger.LogTrace(LogEventIds.GrainRaiseEvent, "Raise event successfully, grain Id= {0} and state version = {1}}", GrainId.ToString(), Snapshot.Base.Version);
+                        Logger.LogTrace("Raise event successfully, grain Id= {0} and state version = {1}}", GrainId.ToString(), Snapshot.Base.Version);
                     return true;
                 }
                 else
                 {
                     if (Logger.IsEnabled(LogLevel.Information))
-                        Logger.LogInformation(LogEventIds.GrainRaiseEvent, "Raise event failure because of idempotency limitation, grain Id = {0},state version = {1},event type = {2} with version = {3}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, fullyEvent.Base.Version);
+                        Logger.LogInformation("Raise event failure because of idempotency limitation, grain Id = {0},state version = {1},event type = {2} with version = {3}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, fullyEvent.Base.Version);
                     var task = OnRaiseFailed(fullyEvent);
                     if (!task.IsCompletedSuccessfully)
                         await task;
@@ -505,7 +498,7 @@ namespace Ray.Core
             catch (Exception ex)
             {
                 if (Logger.IsEnabled(LogLevel.Error))
-                    Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "Raise event produces errors, state Id = {0}, version ={1},event type = {2},event = {3}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, Serializer.SerializeToString(@event));
+                    Logger.LogError(ex, "Raise event produces errors, state Id = {0}, version ={1},event type = {2},event = {3}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, Serializer.SerializeToString(@event));
                 await RecoveryState();//还原状态
                 throw;
             }
@@ -680,7 +673,7 @@ namespace Ray.Core
         protected async ValueTask Publish<T>(T msg, string hashKey = null)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.MessagePublish, "Start publishing, grain Id= {0}, message type = {1},message = {2},hashkey={3}", GrainId.ToString(), msg.GetType().FullName, Serializer.SerializeToString(msg), hashKey);
+                Logger.LogTrace("Start publishing, grain Id= {0}, message type = {1},message = {2},hashkey={3}", GrainId.ToString(), msg.GetType().FullName, Serializer.SerializeToString(msg), hashKey);
             if (string.IsNullOrEmpty(hashKey))
                 hashKey = GrainId.ToString();
             try
@@ -692,8 +685,7 @@ namespace Ray.Core
             }
             catch (Exception ex)
             {
-                if (Logger.IsEnabled(LogLevel.Error))
-                    Logger.LogError(LogEventIds.MessagePublish, ex, "Publish message errors, grain Id= {0}, message type = {1},message = {2},hashkey={3}", GrainId.ToString(), msg.GetType().FullName, Serializer.SerializeToString(msg), hashKey);
+                Logger.LogError(ex, "Publish message errors, grain Id= {0}, message type = {1},message = {2},hashkey={3}", GrainId.ToString(), msg.GetType().FullName, Serializer.SerializeToString(msg), hashKey);
                 throw;
             }
         }

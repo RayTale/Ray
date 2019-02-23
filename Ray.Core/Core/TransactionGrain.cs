@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Ray.Core.Event;
 using Ray.Core.Exceptions;
-using Ray.Core.Logging;
 using Ray.Core.Serialization;
 using Ray.Core.Snapshot;
 
@@ -34,7 +33,7 @@ namespace Ray.Core
         protected async ValueTask BeginTransaction()
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Begin transaction with id {0},transaction start state version {1}", GrainId.ToString(), TransactionStartVersion.ToString());
+                Logger.LogTrace("Begin transaction with id {0},transaction start state version {1}", GrainId.ToString(), TransactionStartVersion.ToString());
             try
             {
                 if (TransactionPending)
@@ -44,8 +43,7 @@ namespace Ray.Core
                         var rollBackTask = RollbackTransaction();//事务阻赛超过一分钟自动回滚
                         if (!rollBackTask.IsCompletedSuccessfully)
                             await rollBackTask;
-                        if (Logger.IsEnabled(LogLevel.Error))
-                            Logger.LogError(LogEventIds.TransactionGrainTransactionFlow, "Transaction timeout, automatic rollback,grain id = {1}", GrainId.ToString());
+                        Logger.LogError("Transaction timeout, automatic rollback,grain id = {1}", GrainId.ToString());
                     }
                     else
                         throw new RepeatedTransactionException(GrainId.ToString(), GetType());
@@ -57,19 +55,18 @@ namespace Ray.Core
                 TransactionStartVersion = Snapshot.Base.Version;
                 BeginTransactionTime = DateTimeOffset.UtcNow;
                 if (Logger.IsEnabled(LogLevel.Trace))
-                    Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Begin transaction successfully with id {0},transaction start state version {1}", GrainId.ToString(), TransactionStartVersion.ToString());
+                    Logger.LogTrace("Begin transaction successfully with id {0},transaction start state version {1}", GrainId.ToString(), TransactionStartVersion.ToString());
             }
             catch (Exception ex)
             {
-                if (Logger.IsEnabled(LogLevel.Critical))
-                    Logger.LogCritical(LogEventIds.TransactionGrainTransactionFlow, ex, "Begin transaction failed, grain Id = {1}", GrainId.ToString());
+                Logger.LogCritical(ex, "Begin transaction failed, grain Id = {1}", GrainId.ToString());
                 throw;
             }
         }
         protected async Task CommitTransaction()
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Commit transaction with id = {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), WaitingForTransactionEvents.Count.ToString(), TransactionStartVersion.ToString(), Snapshot.Base.Version.ToString());
+                Logger.LogTrace("Commit transaction with id = {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), WaitingForTransactionEvents.Count.ToString(), TransactionStartVersion.ToString(), Snapshot.Base.Version.ToString());
             if (WaitingForTransactionEvents.Count > 0)
             {
                 try
@@ -114,8 +111,7 @@ namespace Ray.Core
                                     }
                                     catch (Exception ex)
                                     {
-                                        if (Logger.IsEnabled(LogLevel.Error))
-                                            Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
+                                        Logger.LogError(ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
 
                                         //当消息队列出现问题的时候同步推送
                                         await Task.WhenAll(handlers.Select(func => func(transport.BytesTransport.GetBytes())));
@@ -129,8 +125,7 @@ namespace Ray.Core
                                     }
                                     catch (Exception ex)
                                     {
-                                        if (Logger.IsEnabled(LogLevel.Error))
-                                            Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
+                                        Logger.LogError(ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
                                         //当消息队列出现问题的时候异步推送
                                         var publishTask = EventBusProducer.Publish(transport.BytesTransport.GetBytes(), transport.HashKey);
                                         if (!publishTask.IsCompletedSuccessfully)
@@ -141,17 +136,15 @@ namespace Ray.Core
                         }
                         catch (Exception ex)
                         {
-                            if (Logger.IsEnabled(LogLevel.Error))
-                                Logger.LogError(LogEventIds.GrainRaiseEvent, ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
+                            Logger.LogError(ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
                         }
                     }
                     if (Logger.IsEnabled(LogLevel.Trace))
-                        Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Commit transaction with id {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), WaitingForTransactionEvents.Count.ToString(), TransactionStartVersion.ToString(), Snapshot.Base.Version.ToString());
+                        Logger.LogTrace("Commit transaction with id {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), WaitingForTransactionEvents.Count.ToString(), TransactionStartVersion.ToString(), Snapshot.Base.Version.ToString());
                 }
                 catch (Exception ex)
                 {
-                    if (Logger.IsEnabled(LogLevel.Error))
-                        Logger.LogError(LogEventIds.TransactionGrainTransactionFlow, ex, "Commit transaction failed, grain Id = {1}", GrainId.ToString());
+                    Logger.LogError(ex, "Commit transaction failed, grain Id = {1}", GrainId.ToString());
                     throw;
                 }
                 finally
@@ -166,7 +159,7 @@ namespace Ray.Core
             if (TransactionPending)
             {
                 if (Logger.IsEnabled(LogLevel.Trace))
-                    Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Rollback transaction successfully with id = {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), WaitingForTransactionEvents.Count.ToString(), TransactionStartVersion.ToString(), Snapshot.Base.Version.ToString());
+                    Logger.LogTrace("Rollback transaction successfully with id = {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), WaitingForTransactionEvents.Count.ToString(), TransactionStartVersion.ToString(), Snapshot.Base.Version.ToString());
                 try
                 {
                     if (BackupSnapshot.Base.Version == TransactionStartVersion)
@@ -184,12 +177,11 @@ namespace Ray.Core
                     WaitingForTransactionEvents.Clear();
                     TransactionPending = false;
                     if (Logger.IsEnabled(LogLevel.Trace))
-                        Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Rollback transaction successfully with id = {0},state version = {1}", GrainId.ToString(), Snapshot.Base.Version.ToString());
+                        Logger.LogTrace("Rollback transaction successfully with id = {0},state version = {1}", GrainId.ToString(), Snapshot.Base.Version.ToString());
                 }
                 catch (Exception ex)
                 {
-                    if (Logger.IsEnabled(LogLevel.Critical))
-                        Logger.LogCritical(LogEventIds.TransactionGrainTransactionFlow, ex, "Rollback transaction failed with Id = {1}", GrainId.ToString());
+                    Logger.LogCritical(ex, "Rollback transaction failed with Id = {1}", GrainId.ToString());
                     throw;
                 }
             }
@@ -197,7 +189,7 @@ namespace Ray.Core
         private async ValueTask TransactionStateCheck()
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Check transaction with id = {0},backup version = {1},state version = {2}", GrainId.ToString(), BackupSnapshot.Base.Version, Snapshot.Base.Version);
+                Logger.LogTrace("Check transaction with id = {0},backup version = {1},state version = {2}", GrainId.ToString(), BackupSnapshot.Base.Version, Snapshot.Base.Version);
             if (BackupSnapshot.Base.Version != Snapshot.Base.Version)
             {
                 await RecoveryState();
@@ -209,8 +201,7 @@ namespace Ray.Core
             if (TransactionPending)
             {
                 var ex = new TransactionProcessingSubmitEventException(GrainId.ToString(), GrainType);
-                if (Logger.IsEnabled(LogLevel.Error))
-                    Logger.LogError(LogEventIds.TransactionGrainTransactionFlow, ex, ex.Message);
+                Logger.LogError(ex, ex.Message);
                 throw ex;
             }
             var checkTask = TransactionStateCheck();
@@ -238,12 +229,11 @@ namespace Ray.Core
         protected void TransactionRaiseEvent(IEvent @event, EventUID uniqueId = null)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace(LogEventIds.GrainSnapshot, "Start raise event by transaction, grain Id ={0} and state version = {1},event type = {2} ,event = {3},uniqueueId = {4}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, Serializer.SerializeToString(@event), uniqueId);
+                Logger.LogTrace("Start raise event by transaction, grain Id ={0} and state version = {1},event type = {2} ,event = {3},uniqueueId = {4}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, Serializer.SerializeToString(@event), uniqueId);
             if (!TransactionPending)
             {
                 var ex = new UnopenTransactionException(GrainId.ToString(), GrainType, nameof(TransactionRaiseEvent));
-                if (Logger.IsEnabled(LogLevel.Error))
-                    Logger.LogError(LogEventIds.TransactionGrainTransactionFlow, ex, ex.Message);
+                Logger.LogError(ex, ex.Message);
                 throw ex;
             }
             try
@@ -267,12 +257,11 @@ namespace Ray.Core
                 EventHandler.Apply(Snapshot, fullyEvent);
                 Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
                 if (Logger.IsEnabled(LogLevel.Trace))
-                    Logger.LogTrace(LogEventIds.TransactionGrainTransactionFlow, "Raise event successfully, grain Id= {0} and state version is {1}}", GrainId.ToString(), Snapshot.Base.Version);
+                    Logger.LogTrace("Raise event successfully, grain Id= {0} and state version is {1}}", GrainId.ToString(), Snapshot.Base.Version);
             }
             catch (Exception ex)
             {
-                if (Logger.IsEnabled(LogLevel.Critical))
-                    Logger.LogCritical(LogEventIds.TransactionGrainTransactionFlow, ex, "Grain Id = {0},event type = {1} and event = {2}", GrainId.ToString(), @event.GetType().FullName, Serializer.SerializeToString(@event));
+                Logger.LogCritical(ex, "Grain Id = {0},event type = {1} and event = {2}", GrainId.ToString(), @event.GetType().FullName, Serializer.SerializeToString(@event));
                 Snapshot.Base.DecrementDoingVersion();//还原doing Version
                 throw;
             }
