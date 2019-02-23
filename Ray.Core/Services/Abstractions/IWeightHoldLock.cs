@@ -2,7 +2,7 @@
 using Orleans;
 
 
-namespace Ray.Core.IGrains
+namespace Ray.Core.Services.Abstractions
 {
     public interface IWeightHoldLock : IGrainWithStringKey
     {

@@ -11,7 +11,7 @@ using Ray.Core.Event;
 using Ray.Core.Exceptions;
 using Ray.Core.Logging;
 using Ray.Core.Serialization;
-using Ray.Core.State;
+using Ray.Core.Snapshot;
 using Ray.Core.Storage;
 
 namespace Ray.Core

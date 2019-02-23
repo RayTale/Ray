@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Ray.Core.Serialization;
-using Ray.Core.State;
+using Ray.Core.Snapshot;
 using Ray.Core.Storage;
 
 namespace Ray.Storage.MongoDB
@@ -48,17 +48,17 @@ namespace Ray.Storage.MongoDB
             return default;
         }
 
-        public async Task Insert(Snapshot<PrimaryKey, Snapshot> data)
+        public async Task Insert(Snapshot<PrimaryKey, Snapshot> snapshot)
         {
             var doc = new BsonDocument
             {
-                { "StateId", BsonValue.Create(data.Base.StateId) },
-                { "Version", data.Base.Version },
-                { "Data",  serializer.SerializeToString(data.State) },
-                { "StartTimestamp", data.Base.StartTimestamp },
-                { "LatestMinEventTimestamp", data.Base.LatestMinEventTimestamp },
-                { "IsLatest", data.Base.IsLatest },
-                { "IsOver", data.Base.IsOver }
+                { "StateId", BsonValue.Create(snapshot.Base.StateId) },
+                { "Version", snapshot.Base.Version },
+                { "Data",  serializer.SerializeToString(snapshot.State) },
+                { "StartTimestamp", snapshot.Base.StartTimestamp },
+                { "LatestMinEventTimestamp", snapshot.Base.LatestMinEventTimestamp },
+                { "IsLatest", snapshot.Base.IsLatest },
+                { "IsOver", snapshot.Base.IsOver }
             };
             await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotCollection).InsertOneAsync(doc, null, new CancellationTokenSource(3000).Token);
         }
@@ -70,13 +70,13 @@ namespace Ray.Storage.MongoDB
             return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotCollection).UpdateOneAsync(filter, update);
         }
 
-        public async Task Update(Snapshot<PrimaryKey, Snapshot> data)
+        public async Task Update(Snapshot<PrimaryKey, Snapshot> snapshot)
         {
-            var filter = Builders<BsonDocument>.Filter.Eq("StateId", data.Base.StateId);
-            var json = serializer.SerializeToString(data.State);
+            var filter = Builders<BsonDocument>.Filter.Eq("StateId", snapshot.Base.StateId);
+            var json = serializer.SerializeToString(snapshot.State);
             if (!string.IsNullOrEmpty(json))
             {
-                var update = Builders<BsonDocument>.Update.Set("Data", json).Set("Version", data.Base.Version);
+                var update = Builders<BsonDocument>.Update.Set("Data", json).Set("Version", snapshot.Base.Version);
                 await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotCollection).UpdateOneAsync(filter, update, null, new CancellationTokenSource(3000).Token);
             }
         }

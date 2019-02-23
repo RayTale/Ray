@@ -1,7 +1,7 @@
 ﻿using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
-using Ray.Core.State;
+using Ray.Core.Snapshot;
 using Ray.Core.Storage;
 
 namespace Ray.Storage.MongoDB
@@ -37,21 +37,21 @@ namespace Ray.Storage.MongoDB
             return default;
         }
 
-        public Task Insert(FollowSnapshot<PrimaryKey> data)
+        public Task Insert(FollowSnapshot<PrimaryKey> snapshot)
         {
             var doc = new BsonDocument
             {
-                { "StateId", BsonValue.Create(data.StateId) },
-                { "Version", data.Version },
-                { "StartTimestamp", data.StartTimestamp }
+                { "StateId", BsonValue.Create(snapshot.StateId) },
+                { "Version", snapshot.Version },
+                { "StartTimestamp", snapshot.StartTimestamp }
             };
             return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.GetFollowStateTable()).InsertOneAsync(doc);
         }
 
-        public Task Update(FollowSnapshot<PrimaryKey> data)
+        public Task Update(FollowSnapshot<PrimaryKey> snapshot)
         {
-            var filter = Builders<BsonDocument>.Filter.Eq("StateId", data.StateId);
-            var update = Builders<BsonDocument>.Update.Set("Version", data.Version).Set("StartTimestamp", data.StartTimestamp);
+            var filter = Builders<BsonDocument>.Filter.Eq("StateId", snapshot.StateId);
+            var update = Builders<BsonDocument>.Update.Set("Version", snapshot.Version).Set("StartTimestamp", snapshot.StartTimestamp);
             return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.GetFollowStateTable()).UpdateOneAsync(filter, update);
         }
 

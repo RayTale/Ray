@@ -3,10 +3,10 @@ using System.Text;
 using System.Threading.Tasks;
 using Orleans;
 using Orleans.Concurrency;
-using Ray.Core.IGrains;
+using Ray.Core.Services.Abstractions;
 using System.Threading;
 
-namespace Ray.Core.Grains
+namespace Ray.Core.Services
 {
     [Reentrant]
     public class UIDGrain : Grain, IUID

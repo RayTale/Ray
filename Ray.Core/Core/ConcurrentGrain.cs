@@ -7,7 +7,7 @@ using Ray.Core.Channels;
 using Ray.Core.Event;
 using Ray.Core.Exceptions;
 using Ray.Core.Logging;
-using Ray.Core.State;
+using Ray.Core.Snapshot;
 
 namespace Ray.Core
 {

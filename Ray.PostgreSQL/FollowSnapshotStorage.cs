@@ -1,6 +1,6 @@
 ﻿using System.Threading.Tasks;
 using Dapper;
-using Ray.Core.State;
+using Ray.Core.Snapshot;
 using Ray.Core.Storage;
 
 namespace Ray.Storage.PostgreSQL
@@ -41,28 +41,28 @@ namespace Ray.Storage.PostgreSQL
             }
             return default;
         }
-        public async Task Insert(FollowSnapshot<PrimaryKey> data)
+        public async Task Insert(FollowSnapshot<PrimaryKey> snapshot)
         {
             using (var connection = tableInfo.CreateConnection())
             {
                 await connection.ExecuteAsync(insertSql, new
                 {
-                    StateId = data.StateId.ToString(),
-                    data.Version,
-                    data.StartTimestamp
+                    StateId = snapshot.StateId.ToString(),
+                    snapshot.Version,
+                    snapshot.StartTimestamp
                 });
             }
         }
 
-        public async Task Update(FollowSnapshot<PrimaryKey> data)
+        public async Task Update(FollowSnapshot<PrimaryKey> snapshot)
         {
             using (var connection = tableInfo.CreateConnection())
             {
                 await connection.ExecuteAsync(updateSql, new
                 {
-                    StateId = data.StateId.ToString(),
-                    data.Version,
-                    data.StartTimestamp
+                    StateId = snapshot.StateId.ToString(),
+                    snapshot.Version,
+                    snapshot.StartTimestamp
                 });
             }
         }

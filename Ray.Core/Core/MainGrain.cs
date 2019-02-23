@@ -12,10 +12,10 @@ using Ray.Core.Configuration;
 using Ray.Core.Event;
 using Ray.Core.EventBus;
 using Ray.Core.Exceptions;
-using Ray.Core.IGrains;
+using Ray.Core.Services.Abstractions;
 using Ray.Core.Logging;
 using Ray.Core.Serialization;
-using Ray.Core.State;
+using Ray.Core.Snapshot;
 using Ray.Core.Storage;
 
 namespace Ray.Core
@@ -261,7 +261,7 @@ namespace Ray.Core
                     //从归档中恢复状态
                     if (ArchiveOptions.On && LastArchive != default)
                     {
-                        Snapshot = await ArchiveStorage.GetState(LastArchive.Id);
+                        Snapshot = await ArchiveStorage.GetById(LastArchive.Id);
                         await SaveSnapshotAsync(true, false);
                     }
                     if (Snapshot == default)

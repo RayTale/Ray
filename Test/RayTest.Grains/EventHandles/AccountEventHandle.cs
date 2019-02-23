@@ -1,5 +1,5 @@
 ﻿using Ray.Core.Event;
-using Ray.Core.State;
+using Ray.Core.Snapshot;
 using RayTest.IGrains.Events;
 using RayTest.IGrains.States;
 

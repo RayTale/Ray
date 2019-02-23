@@ -1,6 +1,6 @@
 ﻿using Ray.Core.Configuration;
 
-namespace Ray.Core.State
+namespace Ray.Core.Snapshot
 {
     public class ArchiveBrief
     {

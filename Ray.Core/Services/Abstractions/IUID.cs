@@ -2,7 +2,7 @@
 using Orleans;
 using Orleans.Concurrency;
 
-namespace Ray.Core.IGrains
+namespace Ray.Core.Services.Abstractions
 {
     public interface IUID : IGrainWithStringKey
     {

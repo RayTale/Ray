@@ -1,4 +1,4 @@
-﻿namespace Ray.Core.State
+﻿namespace Ray.Core.Snapshot
 {
     public class SnapshotBase<K> : ISnapshot<K>, ICloneable<SnapshotBase<K>>
     {

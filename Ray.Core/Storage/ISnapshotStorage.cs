@@ -1,5 +1,5 @@
 ﻿using System.Threading.Tasks;
-using Ray.Core.State;
+using Ray.Core.Snapshot;
 
 namespace Ray.Core.Storage
 {
@@ -8,9 +8,9 @@ namespace Ray.Core.Storage
     {
         Task<Snapshot<K, S>> Get(K id);
 
-        Task Insert(Snapshot<K, S> data);
+        Task Insert(Snapshot<K, S> snapshot);
 
-        Task Update(Snapshot<K, S> data);
+        Task Update(Snapshot<K, S> snapshot);
         Task UpdateLatestMinEventTimestamp(K id, long timestamp);
         Task UpdateStartTimestamp(K id, long timestamp);
         Task UpdateIsLatest(K id, bool isLatest);

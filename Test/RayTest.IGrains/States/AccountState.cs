@@ -1,5 +1,5 @@
 ﻿using ProtoBuf;
-using Ray.Core.State;
+using Ray.Core.Snapshot;
 
 namespace RayTest.IGrains.States
 {

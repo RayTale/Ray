@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Orleans;
 using Ray.Core.EventBus;
-using Ray.Core.IGrains;
+using Ray.Core.Services.Abstractions;
 using Ray.Core.Utils;
 
 namespace Ray.EventBus.RabbitMQ

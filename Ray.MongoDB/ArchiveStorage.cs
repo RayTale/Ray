@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Ray.Core.Serialization;
-using Ray.Core.State;
+using Ray.Core.Snapshot;
 using Ray.Core.Storage;
 
 namespace Ray.Storage.MongoDB
@@ -79,7 +79,7 @@ namespace Ray.Storage.MongoDB
             return default;
         }
 
-        public async Task<Snapshot<PrimaryKey, Snapshot>> GetState(string briefId)
+        public async Task<Snapshot<PrimaryKey, Snapshot>> GetById(string briefId)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("id", briefId);
             var doc = await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.ArchiveStateTable).Find(filter).SingleOrDefaultAsync();
@@ -103,21 +103,21 @@ namespace Ray.Storage.MongoDB
             return default;
         }
 
-        public Task Insert(ArchiveBrief brief, Snapshot<PrimaryKey, Snapshot> state)
+        public Task Insert(ArchiveBrief brief, Snapshot<PrimaryKey, Snapshot> snapshot)
         {
             var doc = new BsonDocument
             {
                 { "Id", brief.Id },
-                { "StateId", BsonValue.Create(state.Base.StateId) },
+                { "StateId", BsonValue.Create(snapshot.Base.StateId) },
                 { "StartVersion", brief.StartVersion },
                 { "EndVersion", brief.EndVersion },
                 { "StartTimestamp", brief.StartTimestamp },
                 { "EndTimestamp", brief.EndTimestamp },
                 { "Index", brief.Index },
                 { "EventIsCleared", brief.EventIsCleared },
-                { "Data", serializer.SerializeToString(state.State) },
-                { "IsOver", state.Base.IsOver },
-                { "Version", state.Base.Version }
+                { "Data", serializer.SerializeToString(snapshot.State) },
+                { "IsOver", snapshot.Base.IsOver },
+                { "Version", snapshot.Base.Version }
             };
             return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.ArchiveStateTable).InsertOneAsync(doc);
         }

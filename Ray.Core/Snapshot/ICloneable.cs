@@ -1,4 +1,4 @@
-﻿namespace Ray.Core.State
+﻿namespace Ray.Core.Snapshot
 {
     public interface ICloneable<T>
     {

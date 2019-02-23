@@ -1,4 +1,4 @@
-﻿namespace Ray.Core.State
+﻿namespace Ray.Core.Snapshot
 {
     public class Snapshot<K, S>
         where S : class, new()

@@ -2,7 +2,7 @@
 using System.Runtime.CompilerServices;
 using Ray.Core.Event;
 using Ray.Core.Exceptions;
-using Ray.Core.State;
+using Ray.Core.Snapshot;
 
 namespace Ray.Core
 {

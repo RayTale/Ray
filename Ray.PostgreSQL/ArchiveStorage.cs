@@ -2,7 +2,7 @@
 using System.Threading.Tasks;
 using Dapper;
 using Ray.Core.Serialization;
-using Ray.Core.State;
+using Ray.Core.Snapshot;
 using Ray.Core.Storage;
 
 namespace Ray.Storage.PostgreSQL
@@ -72,7 +72,7 @@ namespace Ray.Storage.PostgreSQL
             }
         }
 
-        public async Task<Snapshot<PrimaryKey, Snapshot>> GetState(string briefId)
+        public async Task<Snapshot<PrimaryKey, Snapshot>> GetById(string briefId)
         {
             using (var connection = tableInfo.CreateConnection())
             {
@@ -98,23 +98,23 @@ namespace Ray.Storage.PostgreSQL
             return default;
         }
 
-        public async Task Insert(ArchiveBrief brief, Snapshot<PrimaryKey, Snapshot> state)
+        public async Task Insert(ArchiveBrief brief, Snapshot<PrimaryKey, Snapshot> snapshot)
         {
             using (var connection = tableInfo.CreateConnection())
             {
                 await connection.ExecuteAsync(insertSql, new
                 {
                     brief.Id,
-                    state.Base.StateId,
+                    snapshot.Base.StateId,
                     brief.StartVersion,
                     brief.EndVersion,
                     brief.StartTimestamp,
                     brief.EndTimestamp,
                     brief.Index,
                     brief.EventIsCleared,
-                    Data = serializer.SerializeToString(state.State),
-                    state.Base.IsOver,
-                    state.Base.Version
+                    Data = serializer.SerializeToString(snapshot.State),
+                    snapshot.Base.IsOver,
+                    snapshot.Base.Version
                 });
             }
         }

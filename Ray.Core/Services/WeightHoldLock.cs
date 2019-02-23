@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Threading.Tasks;
 using Orleans;
-using Ray.Core.IGrains;
+using Ray.Core.Services.Abstractions;
 
-namespace Ray.Core.Grains
+namespace Ray.Core.Services
 {
     public class WeightHoldLock : Grain, IWeightHoldLock
     {

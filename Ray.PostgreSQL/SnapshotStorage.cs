@@ -1,7 +1,7 @@
 ﻿using System.Threading.Tasks;
 using Dapper;
 using Ray.Core.Serialization;
-using Ray.Core.State;
+using Ray.Core.Snapshot;
 using Ray.Core.Storage;
 
 namespace Ray.Storage.PostgreSQL
@@ -42,34 +42,34 @@ namespace Ray.Storage.PostgreSQL
                 });
             }
         }
-        public async Task Insert(Snapshot<PrimaryKey, Snapshot> data)
+        public async Task Insert(Snapshot<PrimaryKey, Snapshot> snapshot)
         {
             using (var connection = tableInfo.CreateConnection())
             {
                 await connection.ExecuteAsync(insertSql, new
                 {
-                    StateId = data.Base.StateId.ToString(),
-                    Data = serializer.SerializeToString(data.State),
-                    data.Base.Version,
-                    data.Base.StartTimestamp,
-                    data.Base.LatestMinEventTimestamp,
-                    data.Base.IsLatest,
-                    data.Base.IsOver
+                    StateId = snapshot.Base.StateId.ToString(),
+                    Data = serializer.SerializeToString(snapshot.State),
+                    snapshot.Base.Version,
+                    snapshot.Base.StartTimestamp,
+                    snapshot.Base.LatestMinEventTimestamp,
+                    snapshot.Base.IsLatest,
+                    snapshot.Base.IsOver
                 });
             }
         }
-        public async Task Update(Snapshot<PrimaryKey, Snapshot> data)
+        public async Task Update(Snapshot<PrimaryKey, Snapshot> snapshot)
         {
             using (var connection = tableInfo.CreateConnection())
             {
                 await connection.ExecuteAsync(updateSql, new
                 {
-                    StateId = data.Base.StateId.ToString(),
-                    Data = serializer.SerializeToString(data.State),
-                    data.Base.Version,
-                    data.Base.LatestMinEventTimestamp,
-                    data.Base.IsLatest,
-                    data.Base.IsOver
+                    StateId = snapshot.Base.StateId.ToString(),
+                    Data = serializer.SerializeToString(snapshot.State),
+                    snapshot.Base.Version,
+                    snapshot.Base.LatestMinEventTimestamp,
+                    snapshot.Base.IsLatest,
+                    snapshot.Base.IsOver
                 });
             }
         }
