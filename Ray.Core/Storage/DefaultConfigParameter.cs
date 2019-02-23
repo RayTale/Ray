@@ -1,10 +1,8 @@
-﻿using Ray.Core.Storage;
-
-namespace Ray.Storage.MongoDB
+﻿namespace Ray.Core.Storage
 {
-    public class ConfigParameter : IStorageConfigParameter
+    public class DefaultConfigParameter : IConfigParameter
     {
-        public ConfigParameter(bool singleton, bool isFollow, string followName = null)
+        public DefaultConfigParameter(bool singleton, bool isFollow, string followName = null)
         {
             Singleton = singleton;
             IsFollow = isFollow;

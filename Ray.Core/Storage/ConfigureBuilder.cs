@@ -7,7 +7,7 @@ namespace Ray.Core.Storage
 {
     public abstract class ConfigureBuilder<PrimaryKey, Grain, Config, Parameter> : IConfigureBuilder<PrimaryKey, Grain>
          where Config : IStorageConfig
-         where Parameter : IStorageConfigParameter
+         where Parameter : IConfigParameter
     {
         protected readonly Dictionary<Type, Parameter> ParameterDict = new Dictionary<Type, Parameter>();
         readonly Func<IServiceProvider, PrimaryKey, Parameter, Config> generator;

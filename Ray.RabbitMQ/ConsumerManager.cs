@@ -150,7 +150,6 @@ namespace Ray.EventBus.RabbitMQ
         }
         private async Task Work(string node, List<ConsumerRunner> consumerRunners)
         {
-
             if (consumerRunners != default)
             {
                 if (NodeRunnerDict.TryAdd(node, consumerRunners))
@@ -198,12 +197,9 @@ namespace Ray.EventBus.RabbitMQ
                     }
                 }
             }
-            if (HeathCheckTimer != default)
-                HeathCheckTimer.Dispose();
-            if (DistributedMonitorTime != default)
-                DistributedMonitorTime.Dispose();
-            if (DistributedHoldTimer != default)
-                DistributedHoldTimer.Dispose();
+            HeathCheckTimer?.Dispose();
+            DistributedMonitorTime?.Dispose();
+            DistributedHoldTimer?.Dispose();
         }
     }
 }
