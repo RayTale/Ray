@@ -58,7 +58,7 @@ namespace Ray.Storage.MongoDB
         }
         int isBuilded = 0;
         bool buildedResult = false;
-        public async ValueTask Build()
+        public async ValueTask Init()
         {
             while (!buildedResult)
             {
@@ -184,11 +184,6 @@ namespace Ray.Storage.MongoDB
                 }
             }
             return resultTable;
-        }
-
-        public ValueTask Init()
-        {
-            throw new NotImplementedException();
         }
     }
 }
