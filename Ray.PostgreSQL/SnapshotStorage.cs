@@ -6,8 +6,8 @@ using Ray.Core.Storage;
 
 namespace Ray.Storage.PostgreSQL
 {
-    public class SnapshotStorage<PrimaryKey, Snapshot> : ISnapshotStorage<PrimaryKey, Snapshot>
-        where Snapshot : class, new()
+    public class SnapshotStorage<PrimaryKey, StateType> : ISnapshotStorage<PrimaryKey, StateType>
+        where StateType : class, new()
     {
         readonly StorageConfig tableInfo;
         private readonly string deleteSql;
@@ -42,7 +42,7 @@ namespace Ray.Storage.PostgreSQL
                 });
             }
         }
-        public async Task Insert(Snapshot<PrimaryKey, Snapshot> snapshot)
+        public async Task Insert(Snapshot<PrimaryKey, StateType> snapshot)
         {
             using (var connection = tableInfo.CreateConnection())
             {
@@ -58,7 +58,7 @@ namespace Ray.Storage.PostgreSQL
                 });
             }
         }
-        public async Task Update(Snapshot<PrimaryKey, Snapshot> snapshot)
+        public async Task Update(Snapshot<PrimaryKey, StateType> snapshot)
         {
             using (var connection = tableInfo.CreateConnection())
             {
@@ -115,14 +115,14 @@ namespace Ray.Storage.PostgreSQL
             }
         }
 
-        public async Task<Snapshot<PrimaryKey, Snapshot>> Get(PrimaryKey id)
+        public async Task<Snapshot<PrimaryKey, StateType>> Get(PrimaryKey id)
         {
             using (var conn = tableInfo.CreateConnection())
             {
                 var data = await conn.QuerySingleOrDefaultAsync<StateModel>(getByIdSql, new { StateId = id.ToString() });
                 if (data != default)
                 {
-                    return new Snapshot<PrimaryKey, Snapshot>()
+                    return new Snapshot<PrimaryKey, StateType>()
                     {
                         Base = new SnapshotBase<PrimaryKey>
                         {
@@ -134,7 +134,7 @@ namespace Ray.Storage.PostgreSQL
                             StartTimestamp = data.StartTimestamp,
                             LatestMinEventTimestamp = data.LatestMinEventTimestamp
                         },
-                        State = serializer.Deserialize<Snapshot>(data.Data)
+                        State = serializer.Deserialize<StateType>(data.Data)
                     };
                 }
             }

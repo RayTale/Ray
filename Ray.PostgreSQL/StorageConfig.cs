@@ -16,8 +16,8 @@ namespace Ray.Storage.PostgreSQL
         public string SnapshotTable { get; set; }
         public string FollowName { get; set; }
         public bool IsFollow { get; set; }
-        public string ArchiveStateTable => $"{SnapshotTable}_Archive";
-        public string FollowStateTable => $"{SnapshotTable}_{FollowName}";
+        public string ArchiveSnapshotTable => $"{SnapshotTable}_Archive";
+        public string FollowSnapshotTable => $"{SnapshotTable}_{FollowName}";
         public List<TableInfo> AllSplitTableList { get; set; }
         public int StateIdLength { get; }
         readonly bool sharding = false;

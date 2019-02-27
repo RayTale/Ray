@@ -226,9 +226,9 @@ namespace Ray.Storage.PostgreSQL
             });
         }
 
-        public async Task Delete(PrimaryKey stateId, long endVersion, long startTimestamp)
+        public Task DeleteStart(PrimaryKey stateId, long endVersion, long startTimestamp)
         {
-            await Task.Run(async () =>
+            return Task.Run(async () =>
             {
                 var getTableListTask = tableInfo.TableRepository.GetTableListFromDb();
                 if (!getTableListTask.IsCompletedSuccessfully)
@@ -241,6 +241,26 @@ namespace Ray.Storage.PostgreSQL
                     {
                         var sql = $"delete from {table.Name} WHERE stateid=@StateId and version<=@EndVersion";
                         await conn.ExecuteAsync(sql, new { StateId = stateId.ToString(), EndVersion = endVersion });
+                    }
+                }
+            });
+        }
+
+        public Task DeleteEnd(PrimaryKey stateId, long startVersion, long startTimestamp)
+        {
+            return Task.Run(async () =>
+            {
+                var getTableListTask = tableInfo.TableRepository.GetTableListFromDb();
+                if (!getTableListTask.IsCompletedSuccessfully)
+                    await getTableListTask;
+                var tableList = getTableListTask.Result.Where(t => t.CreateTime >= startTimestamp);
+                using (var conn = tableInfo.CreateConnection() as NpgsqlConnection)
+                {
+                    await conn.OpenAsync();
+                    foreach (var table in tableList)
+                    {
+                        var sql = $"delete from {table.Name} WHERE stateid=@StateId and version>=@StartVersion";
+                        await conn.ExecuteAsync(sql, new { StateId = stateId.ToString(), StartVersion = startVersion });
                     }
                 }
             });

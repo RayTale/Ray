@@ -182,10 +182,23 @@ namespace Ray.Storage.MongoDB
             await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, collectionTask.Result.Name).InsertManyAsync(documents);
         }
 
-        public async Task Delete(PrimaryKey stateId, long endVersion, long startTimestamp)
+        public async Task DeleteStart(PrimaryKey stateId, long endVersion, long startTimestamp)
         {
             var filterBuilder = Builders<BsonDocument>.Filter;
             var filter = filterBuilder.Eq("StateId", stateId) & filterBuilder.Lte("Version", endVersion);
+            var collectionListTask = grainConfig.GetCollectionList();
+            if (!collectionListTask.IsCompletedSuccessfully)
+                await collectionListTask;
+            foreach (var collection in collectionListTask.Result.Where(c => c.CreateTime >= startTimestamp))
+            {
+                await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, collection.Name).DeleteManyAsync(filter);
+            }
+        }
+
+        public async Task DeleteEnd(PrimaryKey stateId, long startVersion, long startTimestamp)
+        {
+            var filterBuilder = Builders<BsonDocument>.Filter;
+            var filter = filterBuilder.Eq("StateId", stateId) & filterBuilder.Gte("Version", startVersion);
             var collectionListTask = grainConfig.GetCollectionList();
             if (!collectionListTask.IsCompletedSuccessfully)
                 await collectionListTask;

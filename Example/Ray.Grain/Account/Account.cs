@@ -1,5 +1,4 @@
 ﻿using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
 using Orleans;
 using Ray.Core;
 using Ray.Core.Event;
@@ -11,7 +10,7 @@ namespace Ray.Grain
 {
     public sealed class Account : ConcurrentGrain<Account, long, AccountState>, IAccount
     {
-        public Account(ILogger<Account> logger) : base(logger)
+        public Account() : base()
         {
         }
         public override long GrainId => this.GetPrimaryKeyLong();

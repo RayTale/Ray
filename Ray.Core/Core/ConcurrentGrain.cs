@@ -10,18 +10,19 @@ using Ray.Core.Snapshot;
 
 namespace Ray.Core
 {
-    public abstract class ConcurrentGrain<Grain, PrimaryKey, State> : TransactionGrain<Grain, PrimaryKey, State>
-        where State : class, ICloneable<State>, new()
+    public abstract class ConcurrentGrain<Grain, PrimaryKey, SnapshotType> : TransactionGrain<Grain, PrimaryKey, SnapshotType>
+        where SnapshotType : class, ICloneable<SnapshotType>, new()
     {
-        public ConcurrentGrain(ILogger logger) : base(logger)
+        public long defaultTransactionId = 0;
+        public ConcurrentGrain() : base()
         {
         }
-        protected IMpscChannel<ConcurrentTransport<Snapshot<PrimaryKey, State>>> ConcurrentChannel { get; private set; }
+        protected IMpscChannel<ConcurrentTransport<Snapshot<PrimaryKey, SnapshotType>>> ConcurrentChannel { get; private set; }
 
         public override async Task OnActivateAsync()
         {
             await base.OnActivateAsync();
-            ConcurrentChannel = ServiceProvider.GetService<IMpscChannel<ConcurrentTransport<Snapshot<PrimaryKey, State>>>>();
+            ConcurrentChannel = ServiceProvider.GetService<IMpscChannel<ConcurrentTransport<Snapshot<PrimaryKey, SnapshotType>>>>();
             ConcurrentChannel.BindConsumer(BatchInputProcessing).ActiveConsumer();
         }
         public override async Task OnDeactivateAsync()
@@ -30,11 +31,11 @@ namespace Ray.Core
             ConcurrentChannel.Complete();
         }
         protected async ValueTask ConcurrentRaiseEvent(
-            Func<Snapshot<PrimaryKey, State>, Func<IEvent, EventUID, Task>, Task> handler,
+            Func<Snapshot<PrimaryKey, SnapshotType>, Func<IEvent, EventUID, Task>, Task> handler,
             Func<bool, ValueTask> completedHandler,
             Action<Exception> exceptionHandler)
         {
-            var writeTask = ConcurrentChannel.WriteAsync(new ConcurrentTransport<Snapshot<PrimaryKey, State>>(handler, completedHandler, exceptionHandler));
+            var writeTask = ConcurrentChannel.WriteAsync(new ConcurrentTransport<Snapshot<PrimaryKey, SnapshotType>>(handler, completedHandler, exceptionHandler));
             if (!writeTask.IsCompletedSuccessfully)
                 await writeTask;
             if (!writeTask.Result)
@@ -44,7 +45,7 @@ namespace Ray.Core
                 throw ex;
             }
         }
-        protected async Task<bool> ConcurrentRaiseEvent(Func<Snapshot<PrimaryKey, State>, Func<IEvent, EventUID, Task>, Task> handler)
+        protected async Task<bool> ConcurrentRaiseEvent(Func<Snapshot<PrimaryKey, SnapshotType>, Func<IEvent, EventUID, Task>, Task> handler)
         {
             var taskSource = new TaskCompletionSource<bool>();
             var task = ConcurrentRaiseEvent(handler, isOk =>
@@ -61,7 +62,7 @@ namespace Ray.Core
         }
         /// <summary>
         /// 不依赖当前状态的的事件的并发处理
-        /// 如果事件的产生依赖当前状态，请使用<see cref="ConcurrentRaiseEvent(Func{Snapshot{PrimaryKey, State}, Func{IEvent, EventUID, Task}, Task}, Func{bool, ValueTask}, Action{Exception})"/>
+        /// 如果事件的产生依赖当前状态，请使用<see cref="ConcurrentRaiseEvent(Func{Snapshot{PrimaryKey, SnapshotType}, Func{IEvent, EventUID, Task}, Task}, Func{bool, ValueTask}, Action{Exception})"/>
         /// </summary>
         /// <param name="event">不依赖当前状态的事件</param>
         /// <param name="uniqueId">幂等性判定值</param>
@@ -86,11 +87,11 @@ namespace Ray.Core
             return await taskSource.Task;
         }
         protected virtual ValueTask OnBatchInputProcessed() => Consts.ValueTaskDone;
-        private async Task BatchInputProcessing(List<ConcurrentTransport<Snapshot<PrimaryKey, State>>> inputs)
+        private async Task BatchInputProcessing(List<ConcurrentTransport<Snapshot<PrimaryKey, SnapshotType>>> inputs)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace("Start batch event processing with id = {0},state version = {1},the number of events = {2}", GrainId.ToString(), TransactionStartVersion, inputs.Count.ToString());
-            var beginTask = BeginTransaction();
+                Logger.LogTrace("Start batch event processing with id = {0},state version = {1},the number of events = {2}", GrainId.ToString(), CurrentTransactionStartVersion, inputs.Count.ToString());
+            var beginTask = BeginTransaction(defaultTransactionId);
             if (!beginTask.IsCompletedSuccessfully)
                 await beginTask;
             try
@@ -104,7 +105,8 @@ namespace Ray.Core
                         return Task.CompletedTask;
                     });
                 }
-                await CommitTransaction();
+                await CommitTransaction(defaultTransactionId);
+                await FinishTransaction(defaultTransactionId);
                 foreach (var input in inputs)
                 {
                     if (input.Executed)
@@ -120,7 +122,7 @@ namespace Ray.Core
                 Logger.LogError(batchEx, batchEx.Message);
                 try
                 {
-                    var rollBackTask = RollbackTransaction();
+                    var rollBackTask = RollbackTransaction(defaultTransactionId);
                     if (!rollBackTask.IsCompletedSuccessfully)
                         await rollBackTask;
                     await ReTry();
@@ -135,7 +137,7 @@ namespace Ray.Core
             if (!onCompletedTask.IsCompletedSuccessfully)
                 await onCompletedTask;
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace("Batch events have been processed with id = {0},state version = {1},the number of events = {2}", GrainId.ToString(), TransactionStartVersion, inputs.Count.ToString());
+                Logger.LogTrace("Batch events have been processed with id = {0},state version = {1},the number of events = {2}", GrainId.ToString(), CurrentTransactionStartVersion, inputs.Count.ToString());
             async Task ReTry()
             {
                 foreach (var input in inputs)

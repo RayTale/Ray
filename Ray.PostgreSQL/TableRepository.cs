@@ -156,7 +156,7 @@ namespace Ray.Storage.PostgreSQL
                      StateId varchar({1}) not null PRIMARY KEY,
                      StartTimestamp int8 not null,
                      Version int8 not null)";
-            var key = $"{storageConfig.Connection}-{storageConfig.FollowStateTable}-{storageConfig.StateIdLength}";
+            var key = $"{storageConfig.Connection}-{storageConfig.FollowSnapshotTable}-{storageConfig.StateIdLength}";
             if (createFollowStateTableDict.TryAdd(key, false))
             {
                 using (var connection = SqlFactory.CreateConnection(storageConfig.Connection))
@@ -226,7 +226,7 @@ namespace Ray.Storage.PostgreSQL
                 {
                     try
                     {
-                        await connection.ExecuteAsync(string.Format(sql, storageConfig.ArchiveStateTable, storageConfig.StateIdLength));
+                        await connection.ExecuteAsync(string.Format(sql, storageConfig.ArchiveSnapshotTable, storageConfig.StateIdLength));
                         createArchiveStateTableDict[key] = true;
                     }
                     catch (Exception e)

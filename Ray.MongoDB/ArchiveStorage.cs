@@ -8,8 +8,8 @@ using Ray.Core.Storage;
 
 namespace Ray.Storage.MongoDB
 {
-    public class ArchiveStorage<PrimaryKey, Snapshot> : IArchiveStorage<PrimaryKey, Snapshot>
-           where Snapshot : class, new()
+    public class ArchiveStorage<PrimaryKey, StateType> : IArchiveStorage<PrimaryKey, StateType>
+           where StateType : class, new()
     {
         readonly StorageConfig grainConfig;
         readonly ISerializer serializer;
@@ -21,26 +21,26 @@ namespace Ray.Storage.MongoDB
         public Task Delete(PrimaryKey stateId, string briefId)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", stateId) & Builders<BsonDocument>.Filter.Eq("Id", briefId);
-            return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.ArchiveStateTable).DeleteOneAsync(filter);
+            return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.ArchiveSnapshotTable).DeleteOneAsync(filter);
         }
 
         public Task DeleteAll(PrimaryKey stateId)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", stateId);
-            return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.ArchiveStateTable).DeleteManyAsync(filter);
+            return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.ArchiveSnapshotTable).DeleteManyAsync(filter);
         }
 
         public Task EventIsClear(PrimaryKey stateId, string briefId)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", stateId) & Builders<BsonDocument>.Filter.Eq("Id", briefId);
             var update = Builders<BsonDocument>.Update.Set("EventIsCleared", true);
-            return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.ArchiveStateTable).UpdateOneAsync(filter, update);
+            return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.ArchiveSnapshotTable).UpdateOneAsync(filter, update);
         }
 
         public async Task<List<ArchiveBrief>> GetBriefList(PrimaryKey stateId)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", stateId);
-            var cursor = await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.ArchiveStateTable).FindAsync<BsonDocument>(filter);
+            var cursor = await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.ArchiveSnapshotTable).FindAsync<BsonDocument>(filter);
             var result = new List<ArchiveBrief>();
             await cursor.ForEachAsync(doc =>
             {
@@ -62,7 +62,7 @@ namespace Ray.Storage.MongoDB
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", stateId);
             var sort = Builders<BsonDocument>.Sort.Descending("Index");
-            var doc = await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.ArchiveStateTable).Find(filter).Sort(sort).FirstOrDefaultAsync();
+            var doc = await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.ArchiveSnapshotTable).Find(filter).Sort(sort).FirstOrDefaultAsync();
             if (doc != default)
             {
                 return new ArchiveBrief
@@ -79,13 +79,13 @@ namespace Ray.Storage.MongoDB
             return default;
         }
 
-        public async Task<Snapshot<PrimaryKey, Snapshot>> GetById(string briefId)
+        public async Task<Snapshot<PrimaryKey, StateType>> GetById(string briefId)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("id", briefId);
-            var doc = await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.ArchiveStateTable).Find(filter).SingleOrDefaultAsync();
+            var doc = await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.ArchiveSnapshotTable).Find(filter).SingleOrDefaultAsync();
             if (doc != default)
             {
-                return new Snapshot<PrimaryKey, Snapshot>()
+                return new Snapshot<PrimaryKey, StateType>()
                 {
                     Base = new SnapshotBase<PrimaryKey>
                     {
@@ -97,13 +97,13 @@ namespace Ray.Storage.MongoDB
                         StartTimestamp = doc["StartTimestamp"].AsInt64,
                         LatestMinEventTimestamp = doc["LatestMinEventTimestamp"].AsInt64
                     },
-                    State = serializer.Deserialize<Snapshot>(doc["Data"].AsString)
+                    State = serializer.Deserialize<StateType>(doc["Data"].AsString)
                 };
             }
             return default;
         }
 
-        public Task Insert(ArchiveBrief brief, Snapshot<PrimaryKey, Snapshot> snapshot)
+        public Task Insert(ArchiveBrief brief, Snapshot<PrimaryKey, StateType> snapshot)
         {
             var doc = new BsonDocument
             {
@@ -119,14 +119,14 @@ namespace Ray.Storage.MongoDB
                 { "IsOver", snapshot.Base.IsOver },
                 { "Version", snapshot.Base.Version }
             };
-            return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.ArchiveStateTable).InsertOneAsync(doc);
+            return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.ArchiveSnapshotTable).InsertOneAsync(doc);
         }
 
         public Task Over(PrimaryKey stateId, bool isOver)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", stateId);
             var update = Builders<BsonDocument>.Update.Set("IsOver", isOver);
-            return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.ArchiveStateTable).UpdateOneAsync(filter, update);
+            return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.ArchiveSnapshotTable).UpdateOneAsync(filter, update);
         }
     }
 }

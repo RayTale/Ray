@@ -3,10 +3,6 @@
     public class CoreOptions<GrainState>
     {
         /// <summary>
-        /// Grain事务超时的时间(s)
-        /// </summary>
-        public int TransactionTimeoutSeconds { get; set; } = 60;
-        /// <summary>
         /// RayGrain保存快照的事件Version间隔
         /// </summary>
         public int SnapshotIntervalVersion { get; set; } = 500;
@@ -29,7 +25,7 @@
         /// <summary>
         /// 事件异步处理的超时时间
         /// </summary>
-        public int EventAsyncProcessTimeoutSeconds { get; set; } = 30;
+        public int EventAsyncProcessSecondsTimeout { get; set; } = 30;
         /// <summary>
         /// 当Grain Over时是否清理事件
         /// </summary>
@@ -38,5 +34,15 @@
         /// 优先异步事件流
         /// </summary>
         public bool PriorityAsyncEventBus { get; set; } = true;
+        /// <summary>
+        /// 事务超时时间(默认为30s)
+        /// </summary>
+        public int TransactionMillisecondsTimeout { get; set; } = 30 * 1000;
+        /// <summary>
+        /// 事务完成时候是否清理事务事件(事务事件只用来处理事务，不会影响状态)
+        /// true:减少事件量，但是会带来额外的性能开销
+        /// 默认为(false)
+        /// </summary>
+        public bool ClearTransactionEvents { get; set; } = false;
     }
 }

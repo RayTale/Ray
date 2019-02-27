@@ -1,18 +1,41 @@
 ﻿namespace Ray.Core.Snapshot
 {
-    public class SnapshotBase<K> : ISnapshot<K>, ICloneable<SnapshotBase<K>>
+    public class SnapshotBase<PrimaryKey> : ISnapshotBase<PrimaryKey>, ICloneable<SnapshotBase<PrimaryKey>>
     {
-        public K StateId { get; set; }
+        public PrimaryKey StateId { get; set; }
         public long DoingVersion { get; set; }
         public long Version { get; set; }
         public long StartTimestamp { get; set; }
         public long LatestMinEventTimestamp { get; set; }
+        /// <summary>
+        /// 当前正在进行中的事务Id(无需持久化)
+        /// 本地事务不会记录该值
+        /// </summary>
+        public long TransactionId { get; set; }
+        /// <summary>
+        /// 事务开始时的版本号(无需持久化)
+        /// 本地事务不会记录该值
+        /// </summary>
+        public long TransactionStartVersion { get; set; } = -1;
+        /// <summary>
+        /// 事务开始时的时间(无需持久化)
+        /// 本地事务不会记录该值
+        /// </summary>
+        public long TransactionStartTimestamp { get; set; }
         public bool IsLatest { get; set; }
         public bool IsOver { get; set; }
-
-        public SnapshotBase<K> Clone()
+        /// <summary>
+        /// 清理事务相关信息
+        /// </summary>
+        public void ClearTransactionInfo()
         {
-            return new SnapshotBase<K>
+            TransactionStartVersion = -1;
+            TransactionId = 0;
+            TransactionStartTimestamp = 0;
+        }
+        public SnapshotBase<PrimaryKey> Clone()
+        {
+            return new SnapshotBase<PrimaryKey>
             {
                 StateId = StateId,
                 DoingVersion = DoingVersion,

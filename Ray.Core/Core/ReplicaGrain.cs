@@ -14,8 +14,8 @@ using Ray.Core.Storage;
 
 namespace Ray.Core
 {
-    public abstract class ReplicaGrain<Main, PrimaryKey, State> : Grain, IFollow
-        where State : class, new()
+    public abstract class ReplicaGrain<Main, PrimaryKey, StateType> : Grain, IFollow
+        where StateType : class, new()
     {
         public ReplicaGrain(ILogger logger)
         {
@@ -26,7 +26,7 @@ namespace Ray.Core
         protected ArchiveOptions<Main> ArchiveOptions { get; private set; }
         protected ILogger Logger { get; private set; }
         protected ISerializer Serializer { get; private set; }
-        protected Snapshot<PrimaryKey, State> Snapshot { get; set; }
+        protected Snapshot<PrimaryKey, StateType> Snapshot { get; set; }
         public abstract PrimaryKey GrainId { get; }
         /// <summary>
         /// 分批次批量读取事件的时候每次读取的数据量
@@ -35,7 +35,7 @@ namespace Ray.Core
         /// <summary>
         /// 事件处理的超时时间
         /// </summary>
-        protected virtual int EventAsyncProcessTimeoutSeconds => CoreOptions.EventAsyncProcessTimeoutSeconds;
+        protected virtual int EventAsyncProcessTimeoutSeconds => CoreOptions.EventAsyncProcessSecondsTimeout;
         /// <summary>
         /// 是否全量激活，true代表启动时会执行大于快照版本的所有事件,false代表更快的启动，后续有事件进入的时候再处理大于快照版本的事件
         /// </summary>
@@ -51,12 +51,12 @@ namespace Ray.Core
         /// <summary>
         /// 状态存储器
         /// </summary>
-        protected ISnapshotStorage<PrimaryKey, State> SnapshotStorage { get; private set; }
+        protected ISnapshotStorage<PrimaryKey, StateType> SnapshotStorage { get; private set; }
         /// <summary>
         /// 归档存储器
         /// </summary>
-        protected IArchiveStorage<PrimaryKey, State> ArchiveStorage { get; private set; }
-        protected IEventHandler<PrimaryKey, State> EventHandler { get; private set; }
+        protected IArchiveStorage<PrimaryKey, StateType> ArchiveStorage { get; private set; }
+        protected IEventHandler<PrimaryKey, StateType> EventHandler { get; private set; }
         protected ArchiveBrief LastArchive { get; private set; }
         #region 初始化数据
         /// <summary>
@@ -67,14 +67,14 @@ namespace Ray.Core
             CoreOptions = ServiceProvider.GetService<IOptions<CoreOptions<Main>>>().Value;
             ArchiveOptions = ServiceProvider.GetService<IOptions<ArchiveOptions<Main>>>().Value;
             Serializer = ServiceProvider.GetService<ISerializer>();
-            EventHandler = ServiceProvider.GetService<IEventHandler<PrimaryKey, State>>();
+            EventHandler = ServiceProvider.GetService<IEventHandler<PrimaryKey, StateType>>();
             var configureBuilder = ServiceProvider.GetService<IConfigureBuilder<PrimaryKey, Main>>();
             var storageConfigTask = configureBuilder.GetConfig(ServiceProvider, GrainType, GrainId);
             if (!storageConfigTask.IsCompletedSuccessfully)
                 await storageConfigTask;
             var storageFactory = ServiceProvider.GetService(configureBuilder.StorageFactory) as IStorageFactory;
             //创建归档存储器
-            var archiveStorageTask = storageFactory.CreateArchiveStorage<PrimaryKey, State>(storageConfigTask.Result, GrainId);
+            var archiveStorageTask = storageFactory.CreateArchiveStorage<PrimaryKey, StateType>(storageConfigTask.Result, GrainId);
             if (!archiveStorageTask.IsCompletedSuccessfully)
                 await archiveStorageTask;
             ArchiveStorage = archiveStorageTask.Result;
@@ -84,7 +84,7 @@ namespace Ray.Core
                 await eventStorageTask;
             EventStorage = eventStorageTask.Result;
             //创建状态存储器
-            var stateStorageTask = storageFactory.CreateSnapshotStorage<PrimaryKey, State>(storageConfigTask.Result, GrainId);
+            var stateStorageTask = storageFactory.CreateSnapshotStorage<PrimaryKey, StateType>(storageConfigTask.Result, GrainId);
             if (!stateStorageTask.IsCompletedSuccessfully)
                 await stateStorageTask;
             SnapshotStorage = stateStorageTask.Result;
@@ -171,7 +171,7 @@ namespace Ray.Core
         /// <returns></returns>
         protected virtual ValueTask CreateState()
         {
-            Snapshot = new Snapshot<PrimaryKey, State>(GrainId);
+            Snapshot = new Snapshot<PrimaryKey, StateType>(GrainId);
             return Consts.ValueTaskDone;
         }
         #endregion
@@ -260,7 +260,7 @@ namespace Ray.Core
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask OnEventDelivered(IFullyEvent<PrimaryKey> @event)
         {
-            EventHandler.Apply(Snapshot, @event);
+            Snapshot.Apply(EventHandler, @event);
             return Consts.ValueTaskDone;
         }
     }

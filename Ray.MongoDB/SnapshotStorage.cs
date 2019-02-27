@@ -8,8 +8,8 @@ using Ray.Core.Storage;
 
 namespace Ray.Storage.MongoDB
 {
-    public class SnapshotStorage<PrimaryKey, Snapshot> : ISnapshotStorage<PrimaryKey, Snapshot>
-        where Snapshot : class, new()
+    public class SnapshotStorage<PrimaryKey, StateType> : ISnapshotStorage<PrimaryKey, StateType>
+        where StateType : class, new()
     {
         readonly StorageConfig grainConfig;
         readonly ISerializer serializer;
@@ -23,14 +23,14 @@ namespace Ray.Storage.MongoDB
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", id);
             return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotCollection).DeleteManyAsync(filter);
         }
-        public async Task<Snapshot<PrimaryKey, Snapshot>> Get(PrimaryKey id)
+        public async Task<Snapshot<PrimaryKey, StateType>> Get(PrimaryKey id)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", id);
             var cursor = await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotCollection).FindAsync<BsonDocument>(filter);
             var document = await cursor.FirstOrDefaultAsync();
             if (document != null)
             {
-                return new Snapshot<PrimaryKey, Snapshot>()
+                return new Snapshot<PrimaryKey, StateType>()
                 {
                     Base = new SnapshotBase<PrimaryKey>
                     {
@@ -42,13 +42,13 @@ namespace Ray.Storage.MongoDB
                         StartTimestamp = document["StartTimestamp"].AsInt64,
                         LatestMinEventTimestamp = document["LatestMinEventTimestamp"].AsInt64
                     },
-                    State = serializer.Deserialize<Snapshot>(document["Data"].AsString)
+                    State = serializer.Deserialize<StateType>(document["Data"].AsString)
                 };
             }
             return default;
         }
 
-        public async Task Insert(Snapshot<PrimaryKey, Snapshot> snapshot)
+        public async Task Insert(Snapshot<PrimaryKey, StateType> snapshot)
         {
             var doc = new BsonDocument
             {
@@ -70,7 +70,7 @@ namespace Ray.Storage.MongoDB
             return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotCollection).UpdateOneAsync(filter, update);
         }
 
-        public async Task Update(Snapshot<PrimaryKey, Snapshot> snapshot)
+        public async Task Update(Snapshot<PrimaryKey, StateType> snapshot)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", snapshot.Base.StateId);
             var json = serializer.SerializeToString(snapshot.State);

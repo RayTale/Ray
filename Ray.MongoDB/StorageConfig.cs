@@ -16,13 +16,7 @@ namespace Ray.Storage.MongoDB
         public string SnapshotCollection { get; set; }
         public string FollowName { get; set; }
         public bool IsFollow { get; set; }
-        public string ArchiveStateTable
-        {
-            get
-            {
-                return $"{SnapshotCollection}_Archive";
-            }
-        }
+        public string ArchiveSnapshotTable => $"{SnapshotCollection}_Archive";
         private List<SplitCollectionInfo> AllSplitCollections { get; set; }
         public IMongoStorage Storage { get; }
         public bool Singleton { get; set; }
@@ -92,9 +86,9 @@ namespace Ray.Storage.MongoDB
             var stateCollection = Storage.GetCollection<BsonDocument>(DataBase, SnapshotCollection);
             var stateIndex = await stateCollection.Indexes.ListAsync();
             var stateIndexList = await stateIndex.ToListAsync();
-            if (!stateIndexList.Exists(p => p["name"] == "State"))
+            if (!stateIndexList.Exists(p => p["name"] == "StateId"))
             {
-                await stateCollection.Indexes.CreateOneAsync(new CreateIndexModel<BsonDocument>("{'StateId':1}", new CreateIndexOptions { Name = "State", Unique = true }));
+                await stateCollection.Indexes.CreateOneAsync(new CreateIndexModel<BsonDocument>("{'StateId':1}", new CreateIndexOptions { Name = "StateId", Unique = true }));
             }
             var collection = Storage.GetCollection<BsonDocument>(DataBase, SplitCollectionName);
             var index = await collection.Indexes.ListAsync();
@@ -116,12 +110,12 @@ namespace Ray.Storage.MongoDB
         }
         private async Task CreateArchiveSnapshotIndex()
         {
-            var stateCollection = Storage.GetCollection<BsonDocument>(DataBase, ArchiveStateTable);
+            var stateCollection = Storage.GetCollection<BsonDocument>(DataBase, ArchiveSnapshotTable);
             var stateIndex = await stateCollection.Indexes.ListAsync();
             var stateIndexList = await stateIndex.ToListAsync();
-            if (!stateIndexList.Exists(p => p["name"] == "State"))
+            if (!stateIndexList.Exists(p => p["name"] == "StateId"))
             {
-                await stateCollection.Indexes.CreateOneAsync(new CreateIndexModel<BsonDocument>("{'StateId':1}", new CreateIndexOptions { Name = "State", Unique = false }));
+                await stateCollection.Indexes.CreateOneAsync(new CreateIndexModel<BsonDocument>("{'StateId':1}", new CreateIndexOptions { Name = "StateId", Unique = false }));
             }
         }
         private async Task CreateEventIndex(string collectionName)

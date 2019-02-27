@@ -1,20 +1,20 @@
 ﻿namespace Ray.Core.Snapshot
 {
-    public class Snapshot<K, S>
-        where S : class, new()
+    public class Snapshot<PrimaryKey, StateType>
+        where StateType : class, new()
     {
         public Snapshot()
         {
         }
-        public Snapshot(K stateId)
+        public Snapshot(PrimaryKey stateId)
         {
-            Base = new SnapshotBase<K>
+            Base = new SnapshotBase<PrimaryKey>
             {
                 StateId = stateId
             };
-            State = new S();
+            State = new StateType();
         }
-        public SnapshotBase<K> Base { get; set; }
-        public S State { get; set; }
+        public SnapshotBase<PrimaryKey> Base { get; set; }
+        public StateType State { get; set; }
     }
 }

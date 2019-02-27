@@ -7,8 +7,8 @@ using Ray.Core.Storage;
 
 namespace Ray.Storage.PostgreSQL
 {
-    public class ArchiveStorage<PrimaryKey, Snapshot> : IArchiveStorage<PrimaryKey, Snapshot>
-          where Snapshot : class, new()
+    public class ArchiveStorage<PrimaryKey, StateType> : IArchiveStorage<PrimaryKey, StateType>
+          where StateType : class, new()
     {
         readonly StorageConfig tableInfo;
         private readonly string deleteSql;
@@ -24,7 +24,7 @@ namespace Ray.Storage.PostgreSQL
         {
             this.serializer = serializer;
             tableInfo = table;
-            var tableName = table.ArchiveStateTable;
+            var tableName = table.ArchiveSnapshotTable;
             deleteSql = $"DELETE FROM {tableName} where id=@Id";
             deleteAllSql = $"DELETE FROM {tableName} where stateid=@StateId";
             getByIdSql = $"select * FROM {tableName} where id=@Id";
@@ -72,14 +72,14 @@ namespace Ray.Storage.PostgreSQL
             }
         }
 
-        public async Task<Snapshot<PrimaryKey, Snapshot>> GetById(string briefId)
+        public async Task<Snapshot<PrimaryKey, StateType>> GetById(string briefId)
         {
             using (var connection = tableInfo.CreateConnection())
             {
                 var data = await connection.QuerySingleOrDefaultAsync<StateModel>(getByIdSql, new { Id = briefId });
                 if (data != default)
                 {
-                    return new Snapshot<PrimaryKey, Snapshot>()
+                    return new Snapshot<PrimaryKey, StateType>()
                     {
                         Base = new SnapshotBase<PrimaryKey>
                         {
@@ -91,14 +91,14 @@ namespace Ray.Storage.PostgreSQL
                             StartTimestamp = data.StartTimestamp,
                             LatestMinEventTimestamp = data.StartTimestamp
                         },
-                        State = serializer.Deserialize<Snapshot>(data.Data)
+                        State = serializer.Deserialize<StateType>(data.Data)
                     };
                 }
             }
             return default;
         }
 
-        public async Task Insert(ArchiveBrief brief, Snapshot<PrimaryKey, Snapshot> snapshot)
+        public async Task Insert(ArchiveBrief brief, Snapshot<PrimaryKey, StateType> snapshot)
         {
             using (var connection = tableInfo.CreateConnection())
             {

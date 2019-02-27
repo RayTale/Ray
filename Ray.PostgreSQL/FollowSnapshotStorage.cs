@@ -16,7 +16,7 @@ namespace Ray.Storage.PostgreSQL
         public FollowSnapshotStorage(StorageConfig table)
         {
             tableInfo = table;
-            var followStateTable = table.FollowStateTable;
+            var followStateTable = table.FollowSnapshotTable;
             deleteSql = $"DELETE FROM {followStateTable} where stateid=@StateId";
             getByIdSql = $"select * FROM {followStateTable} where stateid=@StateId";
             insertSql = $"INSERT into {followStateTable}(stateid,version,StartTimestamp)VALUES(@StateId,@Version,@StartTimestamp)";

@@ -128,7 +128,7 @@ namespace Ray.Core
                             else
                                 return Task.CompletedTask;
                         }));
-                        using (var delayTask = Task.Delay(ConfigOptions.EventAsyncProcessTimeoutSeconds, tokenSource.Token))
+                        using (var delayTask = Task.Delay(ConfigOptions.EventAsyncProcessSecondsTimeout, tokenSource.Token))
                         {
                             await Task.WhenAny(allTask, delayTask);
                             if (allTask.Status == TaskStatus.RanToCompletion)

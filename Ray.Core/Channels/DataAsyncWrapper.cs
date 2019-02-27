@@ -2,14 +2,14 @@
 
 namespace Ray.Core.Channels
 {
-    public class DataAsyncWrapper<T, R>
+    public class DataAsyncWrapper<Input, Output>
     {
-        public DataAsyncWrapper(T data)
+        public DataAsyncWrapper(Input data)
         {
             Value = data;
-            TaskSource = new TaskCompletionSource<R>();
+            TaskSource = new TaskCompletionSource<Output>();
         }
-        public TaskCompletionSource<R> TaskSource { get; private set; }
-        public T Value { get; set; }
+        public TaskCompletionSource<Output> TaskSource { get; private set; }
+        public Input Value { get; set; }
     }
 }
