@@ -7,16 +7,16 @@ namespace Ray.Storage.PostgreSQL
 {
     public class FollowSnapshotStorage<PrimaryKey> : IFollowSnapshotStorage<PrimaryKey>
     {
-        readonly StorageConfig tableInfo;
+        readonly FollowStorageConfig config;
         private readonly string deleteSql;
         private readonly string getByIdSql;
         private readonly string insertSql;
         private readonly string updateSql;
         private readonly string updateStartTimestampSql;
-        public FollowSnapshotStorage(StorageConfig table)
+        public FollowSnapshotStorage(FollowStorageConfig config)
         {
-            tableInfo = table;
-            var followStateTable = table.FollowSnapshotTable;
+            this.config = config;
+            var followStateTable = config.FollowSnapshotTable;
             deleteSql = $"DELETE FROM {followStateTable} where stateid=@StateId";
             getByIdSql = $"select * FROM {followStateTable} where stateid=@StateId";
             insertSql = $"INSERT into {followStateTable}(stateid,version,StartTimestamp)VALUES(@StateId,@Version,@StartTimestamp)";
@@ -25,9 +25,9 @@ namespace Ray.Storage.PostgreSQL
         }
         public async Task<FollowSnapshot<PrimaryKey>> Get(PrimaryKey id)
         {
-            using (var conn = tableInfo.CreateConnection())
+            using (var conn = (config.Config as StorageConfig).CreateConnection())
             {
-                var data = await conn.QuerySingleOrDefaultAsync<FollowStateModel>(getByIdSql, new { StateId = id.ToString() });
+                var data = await conn.QuerySingleOrDefaultAsync<FollowSnapshot>(getByIdSql, new { StateId = id.ToString() });
                 if (data != default)
                 {
                     return new FollowSnapshot<PrimaryKey>()
@@ -43,7 +43,7 @@ namespace Ray.Storage.PostgreSQL
         }
         public async Task Insert(FollowSnapshot<PrimaryKey> snapshot)
         {
-            using (var connection = tableInfo.CreateConnection())
+            using (var connection = (config.Config as StorageConfig).CreateConnection())
             {
                 await connection.ExecuteAsync(insertSql, new
                 {
@@ -56,7 +56,7 @@ namespace Ray.Storage.PostgreSQL
 
         public async Task Update(FollowSnapshot<PrimaryKey> snapshot)
         {
-            using (var connection = tableInfo.CreateConnection())
+            using (var connection = (config.Config as StorageConfig).CreateConnection())
             {
                 await connection.ExecuteAsync(updateSql, new
                 {
@@ -68,7 +68,7 @@ namespace Ray.Storage.PostgreSQL
         }
         public async Task Delete(PrimaryKey id)
         {
-            using (var conn = tableInfo.CreateConnection())
+            using (var conn = (config.Config as StorageConfig).CreateConnection())
             {
                 await conn.ExecuteAsync(deleteSql, new { StateId = id.ToString() });
             }
@@ -76,7 +76,7 @@ namespace Ray.Storage.PostgreSQL
 
         public async Task UpdateStartTimestamp(PrimaryKey id, long timestamp)
         {
-            using (var connection = tableInfo.CreateConnection())
+            using (var connection = (config.Config as StorageConfig).CreateConnection())
             {
                 await connection.ExecuteAsync(updateStartTimestampSql, new
                 {

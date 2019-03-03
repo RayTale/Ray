@@ -15,5 +15,6 @@ namespace Ray.Core.Storage
         Task Over(PrimaryKey stateId, bool isOver);
         Task<List<ArchiveBrief>> GetBriefList(PrimaryKey stateId);
         Task<ArchiveBrief> GetLatestBrief(PrimaryKey stateId);
+        Task EventArichive(PrimaryKey stateId, long endVersion, long startTimestamp);
     }
 }

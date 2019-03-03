@@ -3,26 +3,29 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using Ray.Core.Snapshot;
 using Ray.Core.Storage;
+using Ray.Storage.MongoDB.Configuration;
 
 namespace Ray.Storage.MongoDB
 {
     public class FollowSnapshotStorage<PrimaryKey> : IFollowSnapshotStorage<PrimaryKey>
     {
-        readonly StorageConfig grainConfig;
-        public FollowSnapshotStorage(StorageConfig table)
+        readonly FollowStorageConfig grainConfig;
+        public FollowSnapshotStorage(FollowStorageConfig table)
         {
             grainConfig = table;
         }
         public Task Delete(PrimaryKey id)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", id);
-            return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.GetFollowStateTable()).DeleteManyAsync(filter);
+            var baseConfig = grainConfig.Config as StorageConfig;
+            return baseConfig.Storage.GetCollection<BsonDocument>(baseConfig.DataBase, grainConfig.FollowSnapshotTable).DeleteManyAsync(filter);
         }
 
         public async Task<FollowSnapshot<PrimaryKey>> Get(PrimaryKey id)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", id);
-            var cursor = await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.GetFollowStateTable()).FindAsync<BsonDocument>(filter);
+            var baseConfig = grainConfig.Config as StorageConfig;
+            var cursor = await baseConfig.Storage.GetCollection<BsonDocument>(baseConfig.DataBase, grainConfig.FollowSnapshotTable).FindAsync<BsonDocument>(filter);
             var document = await cursor.FirstOrDefaultAsync();
             if (document != default)
             {
@@ -45,21 +48,24 @@ namespace Ray.Storage.MongoDB
                 { "Version", snapshot.Version },
                 { "StartTimestamp", snapshot.StartTimestamp }
             };
-            return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.GetFollowStateTable()).InsertOneAsync(doc);
+            var baseConfig = grainConfig.Config as StorageConfig;
+            return baseConfig.Storage.GetCollection<BsonDocument>(baseConfig.DataBase, grainConfig.FollowSnapshotTable).InsertOneAsync(doc);
         }
 
         public Task Update(FollowSnapshot<PrimaryKey> snapshot)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", snapshot.StateId);
             var update = Builders<BsonDocument>.Update.Set("Version", snapshot.Version).Set("StartTimestamp", snapshot.StartTimestamp);
-            return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.GetFollowStateTable()).UpdateOneAsync(filter, update);
+            var baseConfig = grainConfig.Config as StorageConfig;
+            return baseConfig.Storage.GetCollection<BsonDocument>(baseConfig.DataBase, grainConfig.FollowSnapshotTable).UpdateOneAsync(filter, update);
         }
 
         public Task UpdateStartTimestamp(PrimaryKey id, long timestamp)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", id);
             var update = Builders<BsonDocument>.Update.Set("StartTimestamp", timestamp);
-            return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.GetFollowStateTable()).UpdateOneAsync(filter, update);
+            var baseConfig = grainConfig.Config as StorageConfig;
+            return baseConfig.Storage.GetCollection<BsonDocument>(baseConfig.DataBase, grainConfig.FollowSnapshotTable).UpdateOneAsync(filter, update);
         }
     }
 }

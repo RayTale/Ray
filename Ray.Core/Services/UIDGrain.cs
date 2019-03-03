@@ -13,7 +13,6 @@ namespace Ray.Core.Services
     {
         int newStringByUtcTimes = 1;
         long newStringByUtcStart = long.Parse(DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss"));
-        readonly StringBuilder utcBuilder = new StringBuilder(22);
         public async Task<string> NewUtcID()
         {
             var nowTimestamp = long.Parse(DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss"));
@@ -22,10 +21,10 @@ namespace Ray.Core.Services
                 Interlocked.Exchange(ref newStringByUtcStart, nowTimestamp);
                 Interlocked.Exchange(ref newStringByUtcTimes, 0);
             }
+            var utcBuilder = new StringBuilder(22);
             var newTimes = Interlocked.Increment(ref newStringByUtcTimes);
             if (newTimes <= 999999)
             {
-                utcBuilder.Clear();
                 utcBuilder.Append(newStringByUtcStart.ToString());
                 var timesString = newTimes.ToString();
                 for (int i = 0; i < 4 - timesString.Length; i++)
@@ -44,7 +43,6 @@ namespace Ray.Core.Services
 
         int newStringByLocalTimes = 1;
         long newStringByLocalStart = long.Parse(DateTimeOffset.Now.ToString("yyyyMMddHHmmss"));
-        readonly StringBuilder localBuilder = new StringBuilder(22);
         public async Task<string> NewLocalID()
         {
             var nowTimestamp = long.Parse(DateTimeOffset.Now.ToString("yyyyMMddHHmmss"));
@@ -53,18 +51,18 @@ namespace Ray.Core.Services
                 Interlocked.Exchange(ref newStringByLocalStart, nowTimestamp);
                 Interlocked.Exchange(ref newStringByLocalTimes, 0);
             }
+            var builder = new StringBuilder(22);
             var newTimes = Interlocked.Increment(ref newStringByLocalTimes);
             if (newTimes <= 999999)
             {
-                localBuilder.Clear();
-                localBuilder.Append(newStringByLocalStart.ToString());
+                builder.Append(newStringByLocalStart.ToString());
                 var timesString = newTimes.ToString();
                 for (int i = 0; i < 4 - timesString.Length; i++)
                 {
-                    localBuilder.Append("0");
+                    builder.Append("0");
                 }
-                localBuilder.Append(timesString);
-                return localBuilder.ToString();
+                builder.Append(timesString);
+                return builder.ToString();
             }
             else
             {

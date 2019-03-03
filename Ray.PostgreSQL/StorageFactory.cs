@@ -58,29 +58,29 @@ namespace Ray.Storage.PostgreSQL
             {
                 var storage = ArchiveStorageDict.GetOrAdd(config, key =>
                 {
-                    return new ArchiveStorage<PrimaryKey, State>(serializer, config as StorageConfig);
+                    return new ArchiveStorage<PrimaryKey, State>(serviceProvider, serializer, config as StorageConfig);
                 });
                 return new ValueTask<IArchiveStorage<PrimaryKey, State>>(storage as IArchiveStorage<PrimaryKey, State>);
             }
             else
             {
-                return new ValueTask<IArchiveStorage<PrimaryKey, State>>(new ArchiveStorage<PrimaryKey, State>(serializer, config as StorageConfig));
+                return new ValueTask<IArchiveStorage<PrimaryKey, State>>(new ArchiveStorage<PrimaryKey, State>(serviceProvider, serializer, config as StorageConfig));
             }
         }
-        readonly ConcurrentDictionary<IStorageConfig, object> FollowSnapshotStorageDict = new ConcurrentDictionary<IStorageConfig, object>();
-        public ValueTask<IFollowSnapshotStorage<PrimaryKey>> CreateFollowSnapshotStorage<PrimaryKey>(IStorageConfig config, PrimaryKey grainId)
+        readonly ConcurrentDictionary<IFollowStorageConfig, object> FollowSnapshotStorageDict = new ConcurrentDictionary<IFollowStorageConfig, object>();
+        public ValueTask<IFollowSnapshotStorage<PrimaryKey>> CreateFollowSnapshotStorage<PrimaryKey>(IFollowStorageConfig config, PrimaryKey grainId)
         {
-            if (config.Singleton)
+            if (config.Config.Singleton)
             {
                 var storage = FollowSnapshotStorageDict.GetOrAdd(config, key =>
                 {
-                    return new FollowSnapshotStorage<PrimaryKey>(config as StorageConfig);
+                    return new FollowSnapshotStorage<PrimaryKey>(config as FollowStorageConfig);
                 });
                 return new ValueTask<IFollowSnapshotStorage<PrimaryKey>>(storage as IFollowSnapshotStorage<PrimaryKey>);
             }
             else
             {
-                return new ValueTask<IFollowSnapshotStorage<PrimaryKey>>(new FollowSnapshotStorage<PrimaryKey>(config as StorageConfig));
+                return new ValueTask<IFollowSnapshotStorage<PrimaryKey>>(new FollowSnapshotStorage<PrimaryKey>(config as FollowStorageConfig));
             }
         }
     }

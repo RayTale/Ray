@@ -7,7 +7,7 @@ namespace Ray.Core.Storage
         ValueTask<IEventStorage<PrimaryKey>> CreateEventStorage<PrimaryKey>(IStorageConfig config, PrimaryKey grainId);
         ValueTask<ISnapshotStorage<PrimaryKey, State>> CreateSnapshotStorage<PrimaryKey, State>(IStorageConfig config, PrimaryKey grainId)
             where State : class, new();
-        ValueTask<IFollowSnapshotStorage<PrimaryKey>> CreateFollowSnapshotStorage<PrimaryKey>(IStorageConfig config, PrimaryKey grainId);
+        ValueTask<IFollowSnapshotStorage<PrimaryKey>> CreateFollowSnapshotStorage<PrimaryKey>(IFollowStorageConfig config, PrimaryKey grainId);
         ValueTask<IArchiveStorage<PrimaryKey, State>> CreateArchiveStorage<PrimaryKey, State>(IStorageConfig config, PrimaryKey grainId)
             where State : class, new();
     }

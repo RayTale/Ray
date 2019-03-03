@@ -61,6 +61,7 @@ namespace Ray.MongoHost
                             { "core_event","Server=127.0.0.1;Port=5432;Database=Ray;User Id=postgres;Password=extop;Pooling=true;MaxPoolSize=20;"}
                         };
                     });
+                    servicecollection.AddPostgreSQLTransactionStorage("core_event");
                     servicecollection.PSQLConfigure();
                     //注册mongodb为事件存储库
                     //servicecollection.AddMongoDBStorage(config => { config.Connection = "mongodb://127.0.0.1:27017"; });

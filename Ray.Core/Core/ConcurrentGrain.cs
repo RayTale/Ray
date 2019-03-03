@@ -91,9 +91,7 @@ namespace Ray.Core
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace("Start batch event processing with id = {0},state version = {1},the number of events = {2}", GrainId.ToString(), CurrentTransactionStartVersion, inputs.Count.ToString());
-            var beginTask = BeginTransaction(defaultTransactionId);
-            if (!beginTask.IsCompletedSuccessfully)
-                await beginTask;
+            await BeginTransaction(defaultTransactionId);
             try
             {
                 foreach (var input in inputs)
@@ -122,9 +120,7 @@ namespace Ray.Core
                 Logger.LogError(batchEx, batchEx.Message);
                 try
                 {
-                    var rollBackTask = RollbackTransaction(defaultTransactionId);
-                    if (!rollBackTask.IsCompletedSuccessfully)
-                        await rollBackTask;
+                    await RollbackTransaction(defaultTransactionId);
                     await ReTry();
                 }
                 catch (Exception ex)

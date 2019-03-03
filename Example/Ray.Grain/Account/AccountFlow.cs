@@ -4,7 +4,7 @@ using Orleans;
 using Ray.Core;
 using Ray.Core.Event;
 using Ray.IGrains.Actors;
-using Ray.IGrains.Events;
+using Ray.Grain.Events;
 
 namespace Ray.Grain
 {

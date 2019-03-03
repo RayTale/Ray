@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Orleans;
-using Ray.Core.Serialization;
+using Ray.Core.Event;
 
 namespace Ray.Core
 {

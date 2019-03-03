@@ -119,7 +119,7 @@ namespace Ray.Storage.PostgreSQL
         {
             using (var conn = tableInfo.CreateConnection())
             {
-                var data = await conn.QuerySingleOrDefaultAsync<StateModel>(getByIdSql, new { StateId = id.ToString() });
+                var data = await conn.QuerySingleOrDefaultAsync<Snapshot>(getByIdSql, new { StateId = id.ToString() });
                 if (data != default)
                 {
                     return new Snapshot<PrimaryKey, StateType>()

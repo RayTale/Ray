@@ -18,14 +18,14 @@ namespace Ray.Storage.MongoDB
     public class EventStorage<PrimaryKey> : IEventStorage<PrimaryKey>
     {
         readonly StorageConfig grainConfig;
-        readonly IMpscChannel<DataAsyncWrapper<SaveTransport<PrimaryKey>, bool>> mpscChannel;
+        readonly IMpscChannel<DataAsyncWrapper<BatchAppendTransport<PrimaryKey>, bool>> mpscChannel;
         readonly ILogger<EventStorage<PrimaryKey>> logger;
         readonly ISerializer serializer;
         public EventStorage(IServiceProvider serviceProvider, StorageConfig grainConfig)
         {
             serializer = serviceProvider.GetService<ISerializer>();
             logger = serviceProvider.GetService<ILogger<EventStorage<PrimaryKey>>>();
-            mpscChannel = serviceProvider.GetService<IMpscChannel<DataAsyncWrapper<SaveTransport<PrimaryKey>, bool>>>();
+            mpscChannel = serviceProvider.GetService<IMpscChannel<DataAsyncWrapper<BatchAppendTransport<PrimaryKey>, bool>>>();
             mpscChannel.BindConsumer(BatchProcessing).ActiveConsumer();
             this.grainConfig = grainConfig;
         }
@@ -35,11 +35,11 @@ namespace Ray.Storage.MongoDB
             if (!collectionListTask.IsCompletedSuccessfully)
                 await collectionListTask;
             var list = new List<IFullyEvent<PrimaryKey>>();
-            foreach (var collection in collectionListTask.Result.Where(c => c.Version >= grainConfig.GetVersion(latestTimestamp)))
+            foreach (var collection in collectionListTask.Result.Where(c => c.EndTime >= latestTimestamp))
             {
                 var filterBuilder = Builders<BsonDocument>.Filter;
                 var filter = filterBuilder.Eq("StateId", stateId) & filterBuilder.Lte("Version", endVersion) & filterBuilder.Gte("Version", startVersion);
-                var cursor = await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, collection.Name).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(10000).Token);
+                var cursor = await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, collection.SubTable).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(10000).Token);
                 foreach (var document in cursor.ToEnumerable())
                 {
                     var typeCode = document["TypeCode"].AsString;
@@ -72,7 +72,7 @@ namespace Ray.Storage.MongoDB
             {
                 var filterBuilder = Builders<BsonDocument>.Filter;
                 var filter = filterBuilder.Eq("StateId", stateId) & filterBuilder.Eq("TypeCode", typeCode) & filterBuilder.Gte("Version", startVersion);
-                var cursor = await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, collection.Name).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(10000).Token);
+                var cursor = await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, collection.SubTable).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(10000).Token);
                 foreach (var document in cursor.ToEnumerable())
                 {
                     var data = document["Data"].AsString;
@@ -93,23 +93,46 @@ namespace Ray.Storage.MongoDB
             }
             return list;
         }
-        public Task<bool> Append(SaveTransport<PrimaryKey> saveTransport)
+        public Task<bool> Append(IFullyEvent<PrimaryKey> fullyEvent, EventBytesTransport bytesTransport, string unique)
         {
             return Task.Run(async () =>
             {
-                var wrap = new DataAsyncWrapper<SaveTransport<PrimaryKey>, bool>(saveTransport);
+                var wrap = new DataAsyncWrapper<BatchAppendTransport<PrimaryKey>, bool>(new BatchAppendTransport<PrimaryKey>(fullyEvent, bytesTransport, unique));
                 var writeTask = mpscChannel.WriteAsync(wrap);
                 if (!writeTask.IsCompletedSuccessfully)
                     await writeTask;
                 return await wrap.TaskSource.Task;
             });
         }
-        private async Task BatchProcessing(List<DataAsyncWrapper<SaveTransport<PrimaryKey>, bool>> wrapperList)
+        private async Task BatchProcessing(List<DataAsyncWrapper<BatchAppendTransport<PrimaryKey>, bool>> wrapperList)
         {
-            var documents = new List<BsonDocument>();
-            foreach (var wrapper in wrapperList)
+            var minTimestamp = wrapperList.Min(t => t.Value.Event.Base.Timestamp);
+            var maxTimestamp = wrapperList.Max(t => t.Value.Event.Base.Timestamp);
+            var minTask = grainConfig.GetCollection(minTimestamp);
+            if (!minTask.IsCompletedSuccessfully)
+                await minTask;
+            if (minTask.Result.EndTime > maxTimestamp)
             {
-                documents.Add(new BsonDocument
+                await BatchInsert(minTask.Result.SubTable, wrapperList);
+            }
+            else
+            {
+                var groups = (await Task.WhenAll(wrapperList.Select(async t =>
+                {
+                    var task = grainConfig.GetCollection(t.Value.Event.Base.Timestamp);
+                    if (!task.IsCompletedSuccessfully)
+                        await task;
+                    return (task.Result.SubTable, t);
+                }))).GroupBy(t => t.SubTable);
+                foreach (var group in groups)
+                {
+                    await BatchInsert(group.Key, group.Select(g => g.t).ToList());
+                }
+            }
+            async Task BatchInsert(string collectionName, List<DataAsyncWrapper<BatchAppendTransport<PrimaryKey>, bool>> list)
+            {
+                var collection = grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, minTask.Result.SubTable);
+                var documents = list.Select(wrapper => (wrapper, new BsonDocument
                 {
                     {"StateId",BsonValue.Create( wrapper.Value.Event.StateId) },
                     {"Version",wrapper.Value.Event.Base.Version },
@@ -117,69 +140,106 @@ namespace Ray.Storage.MongoDB
                     {"TypeCode",wrapper.Value.Event.Event.GetType().FullName },
                     {"Data",Encoding.Default.GetString(wrapper.Value.BytesTransport.EventBytes)},
                     {"UniqueId",string.IsNullOrEmpty(wrapper.Value.UniqueId) ? wrapper.Value.Event.Base.Version.ToString() : wrapper.Value.UniqueId }
-                });
-            }
-            var collectionTask = grainConfig.GetCollection(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-            if (!collectionTask.IsCompletedSuccessfully)
-                await collectionTask;
-            var collection = grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, collectionTask.Result.Name);
-            wrapperList.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
-            try
-            {
-                await collection.InsertManyAsync(documents);
-                wrapperList.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
-            }
-            catch
-            {
-                foreach (var wrapper in wrapperList)
+                }));
+                var session = await grainConfig.Storage.Client.StartSessionAsync();
+                session.StartTransaction(new TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
+                try
                 {
-                    try
+                    await collection.InsertManyAsync(session, documents.Select(d => d.Item2));
+                    await session.CommitTransactionAsync();
+                    list.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
+                }
+                catch
+                {
+                    await session.AbortTransactionAsync();
+                    foreach (var document in documents)
                     {
-                        await collection.InsertOneAsync(new BsonDocument
+                        try
                         {
-                            {"StateId",BsonValue.Create( wrapper.Value.Event.StateId) },
-                            {"Version",wrapper.Value.Event.Base.Version },
-                            {"Timestamp",wrapper.Value.Event.Base.Timestamp },
-                            {"TypeCode",wrapper.Value.Event.Event.GetType().FullName },
-                            {"Data",Encoding.Default.GetString(wrapper.Value.BytesTransport.EventBytes)},
-                            {"UniqueId",string.IsNullOrEmpty(wrapper.Value.UniqueId) ? wrapper.Value.Event.Base.Version.ToString() : wrapper.Value.UniqueId }
-                        });
-                        wrapper.TaskSource.TrySetResult(true);
-                    }
-                    catch (MongoWriteException ex)
-                    {
-                        if (ex.WriteError.Category != ServerErrorCategory.DuplicateKey)
-                        {
-                            wrapper.TaskSource.TrySetException(ex);
+                            await collection.InsertOneAsync(document.Item2);
+                            document.wrapper.TaskSource.TrySetResult(true);
                         }
-                        else
+                        catch (MongoWriteException ex)
                         {
-                            wrapper.TaskSource.TrySetResult(false);
+                            if (ex.WriteError.Category != ServerErrorCategory.DuplicateKey)
+                            {
+                                document.wrapper.TaskSource.TrySetException(ex);
+                            }
+                            else
+                            {
+                                document.wrapper.TaskSource.TrySetResult(false);
+                            }
                         }
                     }
                 }
             }
         }
 
-        public async Task TransactionBatchAppend(List<TransactionTransport<PrimaryKey>> list)
+        public async Task TransactionBatchAppend(List<EventTransport<PrimaryKey>> list)
         {
-            var documents = new List<BsonDocument>();
-            foreach (var data in list)
+            var minTimestamp = list.Min(t => t.FullyEvent.Base.Timestamp);
+            var maxTimestamp = list.Max(t => t.FullyEvent.Base.Timestamp);
+            var minTask = grainConfig.GetCollection(minTimestamp);
+            if (!minTask.IsCompletedSuccessfully)
+                await minTask;
+
+            if (minTask.Result.EndTime > maxTimestamp)
             {
-                documents.Add(new BsonDocument
+                var session = await grainConfig.Storage.Client.StartSessionAsync();
+                session.StartTransaction(new TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
+                try
                 {
-                    {"StateId",BsonValue.Create( data.FullyEvent.StateId) },
-                    {"Version", data.FullyEvent.Base.Version },
-                    {"Timestamp",data.FullyEvent.Base.Timestamp},
-                    {"TypeCode", data.FullyEvent.Event.GetType().FullName },
-                    {"Data", Encoding.Default.GetString(data.BytesTransport.EventBytes)},
-                    {"UniqueId",string.IsNullOrEmpty(data.UniqueId) ? data.FullyEvent.Base.Version.ToString() : data.UniqueId }
-                });
+                    await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, minTask.Result.SubTable).InsertManyAsync(session, list.Select(data => new BsonDocument
+                        {
+                            {"StateId", BsonValue.Create( data.FullyEvent.StateId) },
+                            {"Version", data.FullyEvent.Base.Version },
+                            {"Timestamp", data.FullyEvent.Base.Timestamp},
+                            {"TypeCode", data.FullyEvent.Event.GetType().FullName },
+                            {"Data", Encoding.Default.GetString(data.BytesTransport.EventBytes)},
+                            {"UniqueId",string.IsNullOrEmpty(data.UniqueId) ? data.FullyEvent.Base.Version.ToString() : data.UniqueId }
+                        }));
+                    await session.CommitTransactionAsync();
+                }
+                catch
+                {
+                    await session.AbortTransactionAsync();
+                    throw;
+                }
             }
-            var collectionTask = grainConfig.GetCollection(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-            if (!collectionTask.IsCompletedSuccessfully)
-                await collectionTask;
-            await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, collectionTask.Result.Name).InsertManyAsync(documents);
+            else
+            {
+                var groups = (await Task.WhenAll(list.Select(async t =>
+                {
+                    var task = grainConfig.GetCollection(t.FullyEvent.Base.Timestamp);
+                    if (!task.IsCompletedSuccessfully)
+                        await task;
+                    return (task.Result.SubTable, t);
+                }))).GroupBy(t => t.SubTable);
+                var session = await grainConfig.Storage.Client.StartSessionAsync();
+                session.StartTransaction(new TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
+                try
+                {
+                    foreach (var group in groups)
+                    {
+                        await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, group.Key).InsertManyAsync(session, group.Select(data => new BsonDocument
+                            {
+                                {"StateId", BsonValue.Create( data.t.FullyEvent.StateId) },
+                                {"Version", data.t.FullyEvent.Base.Version },
+                                {"Timestamp", data.t.FullyEvent.Base.Timestamp},
+                                {"TypeCode", data.t.FullyEvent.Event.GetType().FullName },
+                                {"Data", Encoding.Default.GetString(data.t.BytesTransport.EventBytes)},
+                                {"UniqueId",string.IsNullOrEmpty(data.t.UniqueId) ? data.t.FullyEvent.Base.Version.ToString() : data.t.UniqueId }
+                            }));
+                    }
+                    await session.CommitTransactionAsync();
+                }
+                catch (Exception ex)
+                {
+                    await session.AbortTransactionAsync();
+                    logger.LogError(ex, nameof(TransactionBatchAppend));
+                    throw;
+                }
+            }
         }
 
         public async Task DeleteStart(PrimaryKey stateId, long endVersion, long startTimestamp)
@@ -189,9 +249,20 @@ namespace Ray.Storage.MongoDB
             var collectionListTask = grainConfig.GetCollectionList();
             if (!collectionListTask.IsCompletedSuccessfully)
                 await collectionListTask;
-            foreach (var collection in collectionListTask.Result.Where(c => c.CreateTime >= startTimestamp))
+            var session = await grainConfig.Storage.Client.StartSessionAsync();
+            session.StartTransaction(new TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
+            try
             {
-                await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, collection.Name).DeleteManyAsync(filter);
+                foreach (var collection in collectionListTask.Result.Where(c => c.EndTime >= startTimestamp))
+                {
+                    await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, collection.SubTable).DeleteManyAsync(session, filter);
+                }
+                await session.CommitTransactionAsync();
+            }
+            catch
+            {
+                await session.AbortTransactionAsync();
+                throw;
             }
         }
 
@@ -202,9 +273,20 @@ namespace Ray.Storage.MongoDB
             var collectionListTask = grainConfig.GetCollectionList();
             if (!collectionListTask.IsCompletedSuccessfully)
                 await collectionListTask;
-            foreach (var collection in collectionListTask.Result.Where(c => c.CreateTime >= startTimestamp))
+            var session = await grainConfig.Storage.Client.StartSessionAsync();
+            session.StartTransaction(new TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
+            try
             {
-                await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, collection.Name).DeleteManyAsync(filter);
+                foreach (var collection in collectionListTask.Result.Where(c => c.EndTime >= startTimestamp))
+                {
+                    await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, collection.SubTable).DeleteManyAsync(session, filter);
+                }
+                await session.CommitTransactionAsync();
+            }
+            catch
+            {
+                await session.AbortTransactionAsync();
+                throw;
             }
         }
     }

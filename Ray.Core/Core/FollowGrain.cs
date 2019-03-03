@@ -4,7 +4,6 @@ using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Orleans;
 using Ray.Core.Configuration;
 using Ray.Core.Event;
@@ -23,7 +22,7 @@ namespace Ray.Core
             GrainType = GetType();
         }
         public abstract PrimaryKey GrainId { get; }
-        protected CoreOptions<MainGrain> ConfigOptions { get; private set; }
+        protected CoreOptions ConfigOptions { get; private set; }
         protected ILogger Logger { get; private set; }
         protected ISerializer Serializer { get; private set; }
         /// <summary>
@@ -64,10 +63,10 @@ namespace Ray.Core
         /// </summary>
         protected async virtual ValueTask DependencyInjection()
         {
-            ConfigOptions = ServiceProvider.GetService<IOptions<CoreOptions<MainGrain>>>().Value;
+            ConfigOptions = ServiceProvider.GetOptionsByName<CoreOptions>(typeof(MainGrain).FullName);
             Serializer = ServiceProvider.GetService<ISerializer>();
             var configureBuilder = ServiceProvider.GetService<IConfigureBuilder<PrimaryKey, MainGrain>>();
-            var storageConfigTask = configureBuilder.GetConfig(ServiceProvider, GrainType, GrainId);
+            var storageConfigTask = configureBuilder.GetConfig(ServiceProvider, GrainId);
             if (!storageConfigTask.IsCompletedSuccessfully)
                 await storageConfigTask;
             var storageFactory = ServiceProvider.GetService(configureBuilder.StorageFactory) as IStorageFactory;
@@ -77,7 +76,10 @@ namespace Ray.Core
                 await eventStorageTask;
             EventStorage = eventStorageTask.Result;
             //创建状态存储器
-            var stateStorageTask = storageFactory.CreateFollowSnapshotStorage(storageConfigTask.Result, GrainId);
+            var followConfigTask = configureBuilder.GetFollowConfig(ServiceProvider,GrainType, GrainId);
+            if (!followConfigTask.IsCompletedSuccessfully)
+                await followConfigTask;
+            var stateStorageTask = storageFactory.CreateFollowSnapshotStorage(followConfigTask.Result, GrainId);
             if (!stateStorageTask.IsCompletedSuccessfully)
                 await stateStorageTask;
             FollowSnapshotStorage = stateStorageTask.Result;

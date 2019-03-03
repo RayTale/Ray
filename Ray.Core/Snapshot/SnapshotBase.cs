@@ -27,11 +27,16 @@
         /// <summary>
         /// 清理事务相关信息
         /// </summary>
-        public void ClearTransactionInfo()
+        public void ClearTransactionInfo(bool clearTransactionEvent)
         {
             TransactionStartVersion = -1;
             TransactionId = 0;
             TransactionStartTimestamp = 0;
+            if (clearTransactionEvent)
+            {
+                Version -= 1;
+                DoingVersion = Version;
+            }
         }
         public SnapshotBase<PrimaryKey> Clone()
         {

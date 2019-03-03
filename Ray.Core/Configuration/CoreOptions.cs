@@ -1,15 +1,15 @@
 ﻿namespace Ray.Core.Configuration
 {
-    public class CoreOptions<GrainState>
+    public class CoreOptions
     {
         /// <summary>
         /// RayGrain保存快照的事件Version间隔
         /// </summary>
-        public int SnapshotIntervalVersion { get; set; } = 500;
+        public int SnapshotVersionInterval { get; set; } = 500;
         /// <summary>
         /// RayGrain失活的时候保存快照的最小事件Version间隔
         /// </summary>
-        public int MinSnapshotIntervalVersion { get; set; } = 1;
+        public int MinSnapshotVersionInterval { get; set; } = 1;
         /// <summary>
         /// FollowGrain保存快照的事件Version间隔
         /// </summary>
@@ -27,9 +27,10 @@
         /// </summary>
         public int EventAsyncProcessSecondsTimeout { get; set; } = 30;
         /// <summary>
-        /// 当Grain Over时是否清理事件
+        /// 当Grain Over时是否归档事件
+        /// 归档事件操作受ArchiveOption配置影响
         /// </summary>
-        public bool ClearEventWhenOver { get; set; } = true;
+        public bool ArchiveEventOnOver { get; set; } = true;
         /// <summary>
         /// 优先异步事件流
         /// </summary>
@@ -43,6 +44,6 @@
         /// true:减少事件量，但是会带来额外的性能开销
         /// 默认为(false)
         /// </summary>
-        public bool ClearTransactionEvents { get; set; } = false;
+        public bool ClearTransactionEvents { get; set; } = true;
     }
 }

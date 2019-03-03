@@ -18,7 +18,7 @@ namespace Ray.Core.Channels
     {
         readonly BufferBlock<T> buffer = new BufferBlock<T>();
         private Func<List<T>, Task> consumer;
-        readonly List<IMpscChannelBase> consumerSequence = new List<IMpscChannelBase>();
+        readonly List<IBaseMpscChannel> consumerSequence = new List<IBaseMpscChannel>();
         private Task<bool> waitToReadTask;
         readonly ILogger logger;
         readonly IOptions<ChannelOptions> options;
@@ -44,7 +44,7 @@ namespace Ray.Core.Channels
                 return await buffer.SendAsync(data);
             return true;
         }
-        public void JoinConsumerSequence(IMpscChannelBase channel)
+        public void JoinConsumerSequence(IBaseMpscChannel channel)
         {
             if (consumerSequence.IndexOf(channel) == -1)
                 consumerSequence.Add(channel);

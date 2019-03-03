@@ -25,19 +25,19 @@ namespace Ray.Grain
         }
         public void ConfigureArchive(IServiceCollection serviceCollection)
         {
-            serviceCollection.PostConfigure<ArchiveOptions<Account>>(options =>
+            serviceCollection.Configure<ArchiveOptions>(typeof(Account).FullName, options =>
             {
                 options.On = true;
-                options.EventClearOn = false;
-                options.IntervalMilliSeconds = 60 * 1000;
-                options.IntervalVersion = 500;
+                options.DeleteEvents = false;
+                options.SecondsInterval = 60;
+                options.VersionInterval = 500;
             });
         }
         public void ConfigureBase(IServiceCollection serviceCollection)
         {
-            serviceCollection.PostConfigure<CoreOptions<Account>>(options =>
+            serviceCollection.Configure<CoreOptions>(typeof(Account).FullName, options =>
             {
-                options.ClearEventWhenOver = true;
+                options.ArchiveEventOnOver = true;
                 options.PriorityAsyncEventBus = true;
             });
         }

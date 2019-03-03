@@ -8,7 +8,7 @@ namespace Ray.Grain
     {
         public static IServiceCollection MongoConfigure(this IServiceCollection serviceCollection)
         {
-            serviceCollection.AddSingleton<IConfigureBuilder<long, Account>>(new MongoConfigureBuilder<long, Account>((provider, id, parameter) => new StorageConfig(provider.GetService<IMongoStorage>(), "Ray", "account_event", "account_state", parameter.IsFollow, parameter.FollowName)).
+            serviceCollection.AddSingleton<IConfigureBuilder<long, Account>>(new MongoConfigureBuilder<long, Account>((provider, id, parameter) => new StorageConfig(provider.GetService<IMongoStorage>(), "Ray", "account_event", "account_state")).
                 Follow<AccountRep>().Follow<AccountDb>("db").Follow<AccountFlow>("flow"));
 
             return serviceCollection;

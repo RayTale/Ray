@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Ray.Core\Ray.Core.csproj" />
+    <ProjectReference Include="..\Ray.DistributedTransaction\Ray.DistributedTransaction.csproj" />
   </ItemGroup>
 
 </Project>

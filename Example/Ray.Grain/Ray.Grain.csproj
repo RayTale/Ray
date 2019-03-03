@@ -14,6 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\Ray.DistributedTransaction\Ray.DistributedTransaction.csproj" />
     <ProjectReference Include="..\..\Ray.MongoDb\Ray.Storage.MongoDB.csproj" />
     <ProjectReference Include="..\..\Ray.Postgresql\Ray.Storage.PostgreSQL.csproj" />
     <ProjectReference Include="..\..\Ray.RabbitMQ\Ray.EventBus.RabbitMQ.csproj" />

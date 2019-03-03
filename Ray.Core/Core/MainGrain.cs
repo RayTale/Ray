@@ -5,7 +5,6 @@ using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Orleans;
 using Ray.Core.Abstractions;
 using Ray.Core.Configuration;
@@ -26,8 +25,8 @@ namespace Ray.Core
         {
             GrainType = typeof(Grain);
         }
-        protected CoreOptions<Grain> CoreOptions { get; private set; }
-        protected ArchiveOptions<Grain> ArchiveOptions { get; private set; }
+        protected CoreOptions CoreOptions { get; private set; }
+        protected ArchiveOptions ArchiveOptions { get; private set; }
         protected ILogger Logger { get; private set; }
         protected IProducerContainer ProducerContainer { get; private set; }
         protected ISerializer Serializer { get; private set; }
@@ -68,15 +67,15 @@ namespace Ray.Core
         /// </summary>
         protected async virtual ValueTask DependencyInjection()
         {
-            CoreOptions = ServiceProvider.GetService<IOptions<CoreOptions<Grain>>>().Value;
-            ArchiveOptions = ServiceProvider.GetService<IOptions<ArchiveOptions<Grain>>>().Value;
+            CoreOptions = ServiceProvider.GetOptionsByName<CoreOptions>(GrainType.FullName);
+            ArchiveOptions = ServiceProvider.GetOptionsByName<ArchiveOptions>(GrainType.FullName);
             Logger = ServiceProvider.GetService<ILogger<Grain>>();
             ProducerContainer = ServiceProvider.GetService<IProducerContainer>();
             Serializer = ServiceProvider.GetService<ISerializer>();
             EventHandler = ServiceProvider.GetService<IEventHandler<PrimaryKey, StateType>>();
             FollowUnit = ServiceProvider.GetService<IFollowUnitContainer>().GetUnit<PrimaryKey>(GrainType);
             var configureBuilder = ServiceProvider.GetService<IConfigureBuilder<PrimaryKey, Grain>>();
-            var storageConfigTask = configureBuilder.GetConfig(ServiceProvider, GrainType, GrainId);
+            var storageConfigTask = configureBuilder.GetConfig(ServiceProvider, GrainId);
             if (!storageConfigTask.IsCompletedSuccessfully)
                 await storageConfigTask;
             var storageFactory = ServiceProvider.GetService(configureBuilder.StorageFactory) as IStorageFactory;
@@ -110,9 +109,9 @@ namespace Ray.Core
         /// <returns></returns>
         public override async Task OnActivateAsync()
         {
-            if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace("Start activation grain with id = {0}", GrainId.ToString());
             var dITask = DependencyInjection();
+            if (Logger.IsEnabled(LogLevel.Trace))
+                Logger.LogTrace("Start activation with id = {0}", GrainId.ToString());
             if (!dITask.IsCompletedSuccessfully)
                 await dITask;
             try
@@ -171,11 +170,11 @@ namespace Ray.Core
                 if (!onActivatedTask.IsCompletedSuccessfully)
                     await onActivatedTask;
                 if (Logger.IsEnabled(LogLevel.Trace))
-                    Logger.LogTrace("Grain activation completed with id = {0}", GrainId.ToString());
+                    Logger.LogTrace("Activation completed with id = {0}", GrainId.ToString());
             }
             catch (Exception ex)
             {
-                Logger.LogCritical(ex, "Grain activation failed with Id = {0}", GrainId.ToString());
+                Logger.LogCritical(ex, "Activation failed with Id = {0}", GrainId.ToString());
                 throw;
             }
         }
@@ -212,7 +211,7 @@ namespace Ray.Core
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace("Grain start deactivation with id = {0}", GrainId.ToString());
-            var needSaveSnap = Snapshot.Base.Version - SnapshotEventVersion >= CoreOptions.MinSnapshotIntervalVersion;
+            var needSaveSnap = Snapshot.Base.Version - SnapshotEventVersion >= CoreOptions.MinSnapshotVersionInterval;
             try
             {
                 if (needSaveSnap)
@@ -226,7 +225,7 @@ namespace Ray.Core
                 }
                 if (ArchiveOptions.On && NewArchive != default)
                 {
-                    if (NewArchive.EndVersion - NewArchive.StartVersion >= ArchiveOptions.MinIntervalVersion)
+                    if (NewArchive.EndVersion - NewArchive.StartVersion >= ArchiveOptions.MinVersionIntervalAtDeactivate)
                     {
                         var archiveTask = Archive(true);
                         if (!archiveTask.IsCompletedSuccessfully)
@@ -287,7 +286,7 @@ namespace Ray.Core
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace("Start save snapshot  with Id = {0} ,state version = {1}", GrainId.ToString(), Snapshot.Base.Version);
             //如果版本号差超过设置则更新快照
-            if (force || (Snapshot.Base.Version - SnapshotEventVersion >= CoreOptions.SnapshotIntervalVersion))
+            if (force || (Snapshot.Base.Version - SnapshotEventVersion >= CoreOptions.SnapshotVersionInterval))
             {
                 var oldLatestMinEventTimestamp = Snapshot.Base.LatestMinEventTimestamp;
                 try
@@ -323,7 +322,7 @@ namespace Ray.Core
                 throw new StateIsOverException(Snapshot.Base.StateId.ToString(), GrainType);
             if (Snapshot.Base.Version != Snapshot.Base.DoingVersion)
                 throw new StateInsecurityException(Snapshot.Base.StateId.ToString(), GrainType, Snapshot.Base.DoingVersion, Snapshot.Base.Version);
-            if (CoreOptions.ClearEventWhenOver)
+            if (CoreOptions.ArchiveEventOnOver)
             {
                 var versions = await Task.WhenAll(FollowUnit.GetAndSaveVersionFuncs().Select(func => func(Snapshot.Base.StateId, Snapshot.Base.Version)));
                 if (versions.Any(v => v < Snapshot.Base.Version))
@@ -343,10 +342,13 @@ namespace Ray.Core
             {
                 await SnapshotStorage.Over(Snapshot.Base.StateId, true);
             }
-            if (CoreOptions.ClearEventWhenOver)
+            if (CoreOptions.ArchiveEventOnOver)
             {
                 await ArchiveStorage.DeleteAll(Snapshot.Base.StateId);
-                await EventStorage.DeleteStart(Snapshot.Base.StateId, Snapshot.Base.Version, Snapshot.Base.StartTimestamp);
+                if (ArchiveOptions.DeleteEvents)
+                    await EventStorage.DeleteStart(Snapshot.Base.StateId, Snapshot.Base.Version, Snapshot.Base.StartTimestamp);
+                else
+                    await ArchiveStorage.EventArichive(Snapshot.Base.StateId, Snapshot.Base.Version, Snapshot.Base.StartTimestamp);
             }
             else
             {
@@ -425,11 +427,11 @@ namespace Ray.Core
                 var bytesTransport = new EventBytesTransport
                 {
                     EventType = @event.GetType().FullName,
-                    ActorId = Snapshot.Base.StateId,
+                    GrainId = Snapshot.Base.StateId,
                     EventBytes = Serializer.SerializeToBytes(@event),
                     BaseBytes = fullyEvent.Base.GetBytes()
                 };
-                if (await EventStorage.Append(new SaveTransport<PrimaryKey>(fullyEvent, bytesTransport, uniqueId.UID)))
+                if (await EventStorage.Append(fullyEvent, bytesTransport, uniqueId.UID))
                 {
                     Snapshot.Apply(EventHandler, fullyEvent);
                     Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
@@ -625,7 +627,7 @@ namespace Ray.Core
         {
             //开始执行事件清理逻辑
             var noCleareds = BriefArchiveList.Where(a => !a.EventIsCleared).ToList();
-            if (noCleareds.Count >= ArchiveOptions.EventClearIntervalArchive)
+            if (noCleareds.Count >= ArchiveOptions.MaxSnapshotArchiveRecords)
             {
                 var minArchive = noCleareds.FirstOrDefault();
                 if (minArchive != default)
@@ -644,7 +646,10 @@ namespace Ray.Core
                             if (!saveTask.IsCompletedSuccessfully)
                                 await saveTask;
                         }
-                        await EventStorage.DeleteStart(Snapshot.Base.StateId, minArchive.EndVersion, Snapshot.Base.StartTimestamp);
+                        if (ArchiveOptions.DeleteEvents)
+                            await EventStorage.DeleteStart(Snapshot.Base.StateId, minArchive.EndVersion, Snapshot.Base.StartTimestamp);
+                        else
+                            await ArchiveStorage.EventArichive(Snapshot.Base.StateId, minArchive.EndVersion, Snapshot.Base.StartTimestamp);
                         ClearedArchive = minArchive;
                         //只保留一个清理过事件的快照，其它的删除掉
                         var cleareds = BriefArchiveList.Where(a => a.EventIsCleared).OrderBy(a => a.Index).ToArray();

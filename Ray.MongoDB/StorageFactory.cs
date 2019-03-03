@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using Ray.Core.Serialization;
 using Ray.Core.Storage;
+using Ray.Storage.MongoDB.Configuration;
 
 namespace Ray.Storage.MongoDB
 {
@@ -69,20 +70,20 @@ namespace Ray.Storage.MongoDB
             }
         }
 
-        readonly ConcurrentDictionary<IStorageConfig, object> FollowSnapshotStorageDict = new ConcurrentDictionary<IStorageConfig, object>();
-        public ValueTask<IFollowSnapshotStorage<PrimaryKey>> CreateFollowSnapshotStorage<PrimaryKey>(IStorageConfig config, PrimaryKey grainId)
+        readonly ConcurrentDictionary<IFollowStorageConfig, object> FollowSnapshotStorageDict = new ConcurrentDictionary<IFollowStorageConfig, object>();
+        public ValueTask<IFollowSnapshotStorage<PrimaryKey>> CreateFollowSnapshotStorage<PrimaryKey>(IFollowStorageConfig config, PrimaryKey grainId)
         {
-            if (config.Singleton)
+            if (config.Config.Singleton)
             {
                 var storage = FollowSnapshotStorageDict.GetOrAdd(config, key =>
                 {
-                    return new FollowSnapshotStorage<PrimaryKey>(config as StorageConfig);
+                    return new FollowSnapshotStorage<PrimaryKey>(config as FollowStorageConfig);
                 });
                 return new ValueTask<IFollowSnapshotStorage<PrimaryKey>>(storage as IFollowSnapshotStorage<PrimaryKey>);
             }
             else
             {
-                return new ValueTask<IFollowSnapshotStorage<PrimaryKey>>(new FollowSnapshotStorage<PrimaryKey>(config as StorageConfig));
+                return new ValueTask<IFollowSnapshotStorage<PrimaryKey>>(new FollowSnapshotStorage<PrimaryKey>(config as FollowStorageConfig));
             }
         }
     }

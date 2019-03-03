@@ -5,9 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Ray.Core.Event;
-using Ray.Core.Event.Default;
 using Ray.Core.Exceptions;
-using Ray.Core.Serialization;
 using Ray.Core.Snapshot;
 
 namespace Ray.Core
@@ -21,11 +19,15 @@ namespace Ray.Core
         /// <summary>
         /// 事务过程中用于回滚的备份快照
         /// </summary>
-        protected Snapshot<PrimaryKey, StateType> BackupSnapshot { get; set; }
+        private Snapshot<PrimaryKey, StateType> BackupSnapshot { get; set; }
         /// <summary>
         /// 事务的开始版本
         /// </summary>
         protected long CurrentTransactionStartVersion { get; private set; } = -1;
+        /// <summary>
+        /// 事务开始的时间(用作超时处理)
+        /// </summary>
+        protected long TransactionStartMilliseconds { get; private set; }
         /// <summary>
         /// 0:本地事务
         /// >0:分布式事务
@@ -34,11 +36,11 @@ namespace Ray.Core
         /// <summary>
         /// 事务中待提交的数据列表
         /// </summary>
-        private readonly List<TransactionTransport<PrimaryKey>> WaitingForTransactionTransports = new List<TransactionTransport<PrimaryKey>>();
+        private readonly List<EventTransport<PrimaryKey>> WaitingForTransactionTransports = new List<EventTransport<PrimaryKey>>();
         /// <summary>
         /// 保证同一时间只有一个事务启动的信号量控制器
         /// </summary>
-        protected SemaphoreSlim TransactionSemaphore { get; } = new SemaphoreSlim(1, 1);
+        private SemaphoreSlim TransactionSemaphore { get; } = new SemaphoreSlim(1, 1);
         protected override async Task RecoverySnapshot()
         {
             await base.RecoverySnapshot();
@@ -58,12 +60,12 @@ namespace Ray.Core
                 var waitingEvents = await EventStorage.GetList(GrainId, Snapshot.Base.TransactionStartTimestamp, Snapshot.Base.TransactionStartVersion, Snapshot.Base.Version);
                 foreach (var evt in waitingEvents)
                 {
-                    WaitingForTransactionTransports.Add(new TransactionTransport<PrimaryKey>(evt, string.Empty, evt.StateId.ToString())
+                    WaitingForTransactionTransports.Add(new EventTransport<PrimaryKey>(evt, string.Empty, evt.StateId.ToString())
                     {
                         BytesTransport = new EventBytesTransport
                         {
                             EventType = evt.Event.GetType().FullName,
-                            ActorId = GrainId,
+                            GrainId = GrainId,
                             EventBytes = Serializer.SerializeToBytes(evt.Event),
                             BaseBytes = evt.Base.GetBytes()
                         }
@@ -80,34 +82,47 @@ namespace Ray.Core
         {
             CurrentTransactionId = 0;
             CurrentTransactionStartVersion = -1;
+            TransactionStartMilliseconds = 0;
         }
-        protected async ValueTask BeginTransaction(long transactionId)
+        private SemaphoreSlim _transactionTimeoutLock { get; } = new SemaphoreSlim(1, 1);
+        protected async Task BeginTransaction(long transactionId)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace("Begin transaction with grainid {0} and transactionId {1},transaction start state version {2}", GrainId.ToString(), transactionId, CurrentTransactionStartVersion.ToString());
-
-            if ((Snapshot.Base.TransactionId != 0 && Snapshot.Base.TransactionId == transactionId) ||
-                (CurrentTransactionId != 0 && CurrentTransactionId == transactionId))
+            if (TransactionStartMilliseconds != 0 &&
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - TransactionStartMilliseconds > CoreOptions.TransactionMillisecondsTimeout)
             {
-                throw new RepeatedTransactionException(GrainId.ToString(), transactionId, GetType());
+                if (await _transactionTimeoutLock.WaitAsync(CoreOptions.TransactionMillisecondsTimeout))
+                {
+                    try
+                    {
+                        if (TransactionStartMilliseconds != 0 &&
+                            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - TransactionStartMilliseconds > CoreOptions.TransactionMillisecondsTimeout)
+                        {
+                            await RollbackTransaction(CurrentTransactionId);//事务超时自动回滚
+                            Logger.LogError("Transaction timeout, automatic rollback,grain id = {1}", GrainId.ToString());
+                        }
+                    }
+                    finally
+                    {
+                        _transactionTimeoutLock.Release();
+                    }
+                }
             }
-
             if (await TransactionSemaphore.WaitAsync(CoreOptions.TransactionMillisecondsTimeout))
             {
                 try
                 {
-                    var checkTask = SnapshotCheck();
-                    if (!checkTask.IsCompletedSuccessfully)
-                        await checkTask;
+                    SnapshotCheck();
+                    CurrentTransactionStartVersion = Snapshot.Base.Version + 1;
+                    CurrentTransactionId = transactionId;
+                    TransactionStartMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 }
-                catch (Exception ex)
+                catch
                 {
-                    Logger.LogCritical(ex, "Begin transaction failed, grain Id = {1}", GrainId.ToString());
                     TransactionSemaphore.Release();
                     throw;
                 }
-                CurrentTransactionStartVersion = Snapshot.Base.Version + 1;
-                CurrentTransactionId = transactionId;
             }
             else
             {
@@ -115,7 +130,7 @@ namespace Ray.Core
             }
 
         }
-        protected async Task CommitTransaction(long transactionId)
+        public async Task CommitTransaction(long transactionId)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace("Commit transaction with id = {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), WaitingForTransactionTransports.Count.ToString(), CurrentTransactionStartVersion.ToString(), Snapshot.Base.Version.ToString());
@@ -138,7 +153,7 @@ namespace Ray.Core
                         transport.BytesTransport = new EventBytesTransport
                         {
                             EventType = transport.FullyEvent.Event.GetType().FullName,
-                            ActorId = GrainId,
+                            GrainId = GrainId,
                             EventBytes = Serializer.SerializeToBytes(transport.FullyEvent.Event),
                             BaseBytes = transport.FullyEvent.Base.GetBytes()
                         };
@@ -152,7 +167,7 @@ namespace Ray.Core
                 }
             }
         }
-        protected async ValueTask RollbackTransaction(long transactionId)
+        public async Task RollbackTransaction(long transactionId)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace("Start rollback transaction with id = {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), WaitingForTransactionTransports.Count.ToString(), CurrentTransactionStartVersion.ToString(), Snapshot.Base.Version.ToString());
@@ -171,7 +186,7 @@ namespace Ray.Core
                     else
                     {
                         if (BackupSnapshot.Base.Version >= CurrentTransactionStartVersion)
-                            await EventStorage.DeleteEnd(Snapshot.Base.StateId, CurrentTransactionStartVersion, Snapshot.Base.TransactionStartTimestamp);
+                            await EventStorage.DeleteEnd(Snapshot.Base.StateId, CurrentTransactionStartVersion, Snapshot.Base.LatestMinEventTimestamp);
                         await RecoverySnapshot();
                     }
 
@@ -188,7 +203,7 @@ namespace Ray.Core
                 }
             }
         }
-        protected async Task FinishTransaction(long transactionId)
+        public async Task FinishTransaction(long transactionId)
         {
             if (CurrentTransactionId == transactionId)
             {
@@ -204,9 +219,9 @@ namespace Ray.Core
                     if (CoreOptions.ClearTransactionEvents)
                     {
                         //删除最后一个TransactionCommitEvent
-                        await EventStorage.DeleteEnd(Snapshot.Base.StateId, Snapshot.Base.Version, Snapshot.Base.TransactionStartTimestamp);
-                        Snapshot.Base.ClearTransactionInfo();
-                        BackupSnapshot.Base.ClearTransactionInfo();
+                        await EventStorage.DeleteEnd(Snapshot.Base.StateId, Snapshot.Base.Version, Snapshot.Base.LatestMinEventTimestamp);
+                        Snapshot.Base.ClearTransactionInfo(true);
+                        BackupSnapshot.Base.ClearTransactionInfo(true);
                     }
                     else
                     {
@@ -266,23 +281,28 @@ namespace Ray.Core
                 TransactionSemaphore.Release();
             }
         }
-        private async ValueTask SnapshotCheck()
+        private void SnapshotCheck()
         {
             if (BackupSnapshot.Base.Version != Snapshot.Base.Version)
             {
-                await RecoverySnapshot();
-                CurrentTransactionId = 0;
-                WaitingForTransactionTransports.Clear();
+                var ex = new TransactionSnapshotException(Snapshot.Base.StateId.ToString(), Snapshot.Base.Version, BackupSnapshot.Base.Version);
+                Logger.LogCritical(ex, nameof(SnapshotCheck));
+                throw ex;
             }
         }
         protected override async Task<bool> RaiseEvent(IEvent @event, EventUID uniqueId = null)
         {
             if (await TransactionSemaphore.WaitAsync(CoreOptions.TransactionMillisecondsTimeout))
             {
-                var checkTask = SnapshotCheck();
-                if (!checkTask.IsCompletedSuccessfully)
-                    await checkTask;
-                return await base.RaiseEvent(@event, uniqueId);
+                try
+                {
+                    SnapshotCheck();
+                    return await base.RaiseEvent(@event, uniqueId);
+                }
+                finally
+                {
+                    TransactionSemaphore.Release();
+                }
             }
             else
             {
@@ -340,7 +360,7 @@ namespace Ray.Core
                     fullyEvent.Base.Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 else
                     fullyEvent.Base.Timestamp = uniqueId.Timestamp;
-                WaitingForTransactionTransports.Add(new TransactionTransport<PrimaryKey>(fullyEvent, uniqueId.UID, fullyEvent.StateId.ToString()));
+                WaitingForTransactionTransports.Add(new EventTransport<PrimaryKey>(fullyEvent, uniqueId.UID, fullyEvent.StateId.ToString()));
                 Snapshot.Apply(EventHandler, fullyEvent);
                 Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
             }
@@ -350,6 +370,16 @@ namespace Ray.Core
                 Snapshot.Base.DecrementDoingVersion();//还原doing Version
                 throw;
             }
+        }
+        protected async Task DistributedTransactionRaiseEvent(long transactionId, IEvent @event, EventUID uniqueId = null)
+        {
+            if (transactionId <= 0)
+                throw new DistributedTransactionIdException();
+            if (transactionId != CurrentTransactionId)
+            {
+                await BeginTransaction(transactionId);
+            }
+            TransactionRaiseEvent(@event, uniqueId);
         }
     }
 }

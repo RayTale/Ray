@@ -3,11 +3,13 @@ using Orleans;
 using Ray.Core;
 using Ray.Core.Event;
 using Ray.IGrains.Actors;
-using Ray.IGrains.Events;
+using Ray.Grain.Events;
 using Ray.IGrains.States;
+using Orleans.Concurrency;
 
 namespace Ray.Grain
 {
+    [Reentrant]
     public sealed class Account : ConcurrentGrain<Account, long, AccountState>, IAccount
     {
         public Account() : base()
@@ -19,11 +21,27 @@ namespace Ray.Grain
             var evt = new AmountTransferEvent(toAccountId, amount, Snapshot.State.Balance - amount);
             return RaiseEvent(evt);
         }
+        public async Task<bool> TransferDeduct(decimal amount, long transactionId)
+        {
+            if (Snapshot.State.Balance > amount)
+            {
+                await DistributedTransactionRaiseEvent(transactionId, new AmountDeductEvent(amount, Snapshot.State.Balance - amount));
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        public async Task TransferAddAmount(decimal amount, long transactionId)
+        {
+            await DistributedTransactionRaiseEvent(transactionId, new AmountAddEvent(amount, Snapshot.State.Balance + amount));
+        }
         public Task<bool> AddAmount(decimal amount, EventUID uniqueId = null)
         {
             return ConcurrentRaiseEvent((snapshot, func) =>
            {
-               var evt = new AmountAddEvent(amount, Snapshot.State.Balance + amount);
+               var evt = new AmountAddEvent(amount, snapshot.State.Balance + amount);
                return func(evt, uniqueId);
            });
         }

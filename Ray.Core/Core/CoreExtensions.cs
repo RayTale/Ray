@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
 using Ray.Core.Event;
-using Ray.Core.Event.Default;
 using Ray.Core.Exceptions;
 using Ray.Core.Snapshot;
 
@@ -17,7 +16,7 @@ namespace Ray.Core
             {
                 case TransactionFinishEvent _:
                     {
-                        snapshot.Base.ClearTransactionInfo();
+                        snapshot.Base.ClearTransactionInfo(false);
                     }; break;
                 case TransactionCommitEvent transactionCommitEvent:
                     {

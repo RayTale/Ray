@@ -3,7 +3,6 @@ using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Orleans;
 using Ray.Core.Configuration;
 using Ray.Core.Event;
@@ -22,8 +21,8 @@ namespace Ray.Core
             Logger = logger;
             GrainType = GetType();
         }
-        protected CoreOptions<Main> CoreOptions { get; private set; }
-        protected ArchiveOptions<Main> ArchiveOptions { get; private set; }
+        protected CoreOptions CoreOptions { get; private set; }
+        protected ArchiveOptions ArchiveOptions { get; private set; }
         protected ILogger Logger { get; private set; }
         protected ISerializer Serializer { get; private set; }
         protected Snapshot<PrimaryKey, StateType> Snapshot { get; set; }
@@ -64,12 +63,12 @@ namespace Ray.Core
         /// </summary>
         protected async virtual ValueTask DependencyInjection()
         {
-            CoreOptions = ServiceProvider.GetService<IOptions<CoreOptions<Main>>>().Value;
-            ArchiveOptions = ServiceProvider.GetService<IOptions<ArchiveOptions<Main>>>().Value;
+            CoreOptions = ServiceProvider.GetOptionsByName<CoreOptions>(typeof(Main).FullName);
+            ArchiveOptions = ServiceProvider.GetOptionsByName<ArchiveOptions>(typeof(Main).FullName);
             Serializer = ServiceProvider.GetService<ISerializer>();
             EventHandler = ServiceProvider.GetService<IEventHandler<PrimaryKey, StateType>>();
             var configureBuilder = ServiceProvider.GetService<IConfigureBuilder<PrimaryKey, Main>>();
-            var storageConfigTask = configureBuilder.GetConfig(ServiceProvider, GrainType, GrainId);
+            var storageConfigTask = configureBuilder.GetConfig(ServiceProvider, GrainId);
             if (!storageConfigTask.IsCompletedSuccessfully)
                 await storageConfigTask;
             var storageFactory = ServiceProvider.GetService(configureBuilder.StorageFactory) as IStorageFactory;

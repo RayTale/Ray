@@ -1,6 +1,10 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Dapper;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Ray.Core.Serialization;
 using Ray.Core.Snapshot;
 using Ray.Core.Storage;
@@ -10,7 +14,7 @@ namespace Ray.Storage.PostgreSQL
     public class ArchiveStorage<PrimaryKey, StateType> : IArchiveStorage<PrimaryKey, StateType>
           where StateType : class, new()
     {
-        readonly StorageConfig tableInfo;
+        readonly StorageConfig config;
         private readonly string deleteSql;
         private readonly string deleteAllSql;
         private readonly string getByIdSql;
@@ -20,11 +24,13 @@ namespace Ray.Storage.PostgreSQL
         private readonly string updateOverSql;
         private readonly string updateEventIsClearSql;
         readonly ISerializer serializer;
-        public ArchiveStorage(ISerializer serializer, StorageConfig table)
+        readonly ILogger<ArchiveStorage<PrimaryKey, StateType>> logger;
+        public ArchiveStorage(IServiceProvider serviceProvider, ISerializer serializer, StorageConfig config)
         {
+            logger = serviceProvider.GetService<ILogger<ArchiveStorage<PrimaryKey, StateType>>>();
             this.serializer = serializer;
-            tableInfo = table;
-            var tableName = table.ArchiveSnapshotTable;
+            this.config = config;
+            var tableName = config.SnapshotArchiveTable;
             deleteSql = $"DELETE FROM {tableName} where id=@Id";
             deleteAllSql = $"DELETE FROM {tableName} where stateid=@StateId";
             getByIdSql = $"select * FROM {tableName} where id=@Id";
@@ -36,21 +42,21 @@ namespace Ray.Storage.PostgreSQL
         }
         public async Task Delete(PrimaryKey stateId, string briefId)
         {
-            using (var conn = tableInfo.CreateConnection())
+            using (var conn = config.CreateConnection())
             {
                 await conn.ExecuteAsync(deleteSql, new { Id = briefId });
             }
         }
         public async Task DeleteAll(PrimaryKey stateId)
         {
-            using (var conn = tableInfo.CreateConnection())
+            using (var conn = config.CreateConnection())
             {
                 await conn.ExecuteAsync(deleteAllSql, new { StateId = stateId.ToString() });
             }
         }
         public async Task EventIsClear(PrimaryKey stateId, string briefId)
         {
-            using (var connection = tableInfo.CreateConnection())
+            using (var connection = config.CreateConnection())
             {
                 await connection.ExecuteAsync(updateEventIsClearSql, new { Id = briefId });
             }
@@ -58,7 +64,7 @@ namespace Ray.Storage.PostgreSQL
 
         public async Task<List<ArchiveBrief>> GetBriefList(PrimaryKey stateId)
         {
-            using (var connection = tableInfo.CreateConnection())
+            using (var connection = config.CreateConnection())
             {
                 return (await connection.QueryAsync<ArchiveBrief>(getListByStateIdSql, new { StateId = stateId.ToString() })).AsList();
             }
@@ -66,7 +72,7 @@ namespace Ray.Storage.PostgreSQL
 
         public async Task<ArchiveBrief> GetLatestBrief(PrimaryKey stateId)
         {
-            using (var connection = tableInfo.CreateConnection())
+            using (var connection = config.CreateConnection())
             {
                 return await connection.QuerySingleOrDefaultAsync<ArchiveBrief>(getLatestByStateIdSql, new { StateId = stateId.ToString() });
             }
@@ -74,9 +80,9 @@ namespace Ray.Storage.PostgreSQL
 
         public async Task<Snapshot<PrimaryKey, StateType>> GetById(string briefId)
         {
-            using (var connection = tableInfo.CreateConnection())
+            using (var connection = config.CreateConnection())
             {
-                var data = await connection.QuerySingleOrDefaultAsync<StateModel>(getByIdSql, new { Id = briefId });
+                var data = await connection.QuerySingleOrDefaultAsync<Snapshot>(getByIdSql, new { Id = briefId });
                 if (data != default)
                 {
                     return new Snapshot<PrimaryKey, StateType>()
@@ -100,7 +106,7 @@ namespace Ray.Storage.PostgreSQL
 
         public async Task Insert(ArchiveBrief brief, Snapshot<PrimaryKey, StateType> snapshot)
         {
-            using (var connection = tableInfo.CreateConnection())
+            using (var connection = config.CreateConnection())
             {
                 await connection.ExecuteAsync(insertSql, new
                 {
@@ -120,10 +126,44 @@ namespace Ray.Storage.PostgreSQL
         }
         public async Task Over(PrimaryKey stateId, bool isOver)
         {
-            using (var connection = tableInfo.CreateConnection())
+            using (var connection = config.CreateConnection())
             {
                 await connection.ExecuteAsync(updateOverSql, new { StateId = stateId.ToString(), IsOver = isOver });
             }
+        }
+        public Task EventArichive(PrimaryKey stateId, long endVersion, long startTimestamp)
+        {
+            return Task.Run(async () =>
+            {
+                var getTableListTask = config.GetSubTables();
+                if (!getTableListTask.IsCompletedSuccessfully)
+                    await getTableListTask;
+                var tableList = getTableListTask.Result.Where(t => t.EndTime >= startTimestamp);
+                using (var conn = config.CreateConnection())
+                {
+                    await conn.OpenAsync();
+                    using (var trans = conn.BeginTransaction())
+                    {
+                        try
+                        {
+                            foreach (var table in tableList)
+                            {
+                                var copySql = $"insert into {config.EventArchiveTable} select * from {table.SubTable} WHERE stateid=@StateId and version<=@EndVersion";
+                                var sql = $"delete from {table.SubTable} WHERE stateid=@StateId and version<=@EndVersion";
+                                await conn.ExecuteAsync(copySql, new { StateId = stateId.ToString(), EndVersion = endVersion }, transaction: trans);
+                                await conn.ExecuteAsync(sql, new { StateId = stateId.ToString(), EndVersion = endVersion }, transaction: trans);
+                            }
+                            trans.Commit();
+                        }
+                        catch (Exception ex)
+                        {
+                            trans.Rollback();
+                            logger.LogCritical(ex, ex.Message);
+                            throw;
+                        }
+                    }
+                }
+            });
         }
     }
 }

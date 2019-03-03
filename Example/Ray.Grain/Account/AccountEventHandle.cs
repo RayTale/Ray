@@ -1,6 +1,6 @@
 ﻿using Ray.Core.Event;
 using Ray.Core.Snapshot;
-using Ray.IGrains.Events;
+using Ray.Grain.Events;
 using Ray.IGrains.States;
 
 namespace Ray.Grain.EventHandles

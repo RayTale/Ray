@@ -18,7 +18,7 @@ namespace Ray.Core.Serialization
 
         public string SerializeToString<T>(T data)
         {
-            return Encoding.Default.GetString(JsonSerializer.Generic.Utf8.SerializeToArrayPool(data));
+            return Encoding.Default.GetString(JsonSerializer.NonGeneric.Utf8.SerializeToArrayPool(data));
         }
 
         public byte[] SerializeToBytes<T>(T data)
