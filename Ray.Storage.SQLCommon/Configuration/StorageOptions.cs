@@ -25,7 +25,7 @@ namespace Ray.Storage.SQLCore.Configuration
         public string UniqueName { get; set; }
         public long SubTableMillionSecondsInterval { get; set; }
         public string EventTable => $"{UniqueName}_Event";
-        public string SnapshotTable => $"{EventTable}_Snapshot";
+        public string SnapshotTable => $"{UniqueName}_Snapshot";
         public string SnapshotArchiveTable => $"{SnapshotTable}_Archive";
         public string EventArchiveTable => $"{EventTable}_Archive";
         public abstract DbConnection CreateConnection();

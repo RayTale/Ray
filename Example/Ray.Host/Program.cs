@@ -66,7 +66,7 @@ namespace Ray.MongoHost
                     //{
                     //    config.ConnectionDict.Add("core", "mongodb://127.0.0.1:27017");
                     //});
-                    servicecollection.MongoConfigure();
+                    //servicecollection.MongoConfigure();
                     servicecollection.AddRabbitMQ(config =>
                     {
                         config.UserName = "admin";
