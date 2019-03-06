@@ -1,6 +1,6 @@
-﻿namespace Ray.Storage.PostgreSQL
+﻿namespace Ray.Storage.SQLCore
 {
-    public class FollowSnapshot
+    public class FollowSnapshotModel
     {
         public string StateId { get; set; }
         public long Version { get; set; }

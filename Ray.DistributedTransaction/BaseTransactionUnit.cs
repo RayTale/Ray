@@ -176,6 +176,6 @@ namespace Ray.DistributedTransaction
             }
         }
         public abstract IDistributedTransaction[] GetTransactionActors(Input input);
-        public abstract Task<(bool needCommit, bool needRollbask, Output output)> Work(Commit<Input> commit);
+        public abstract Task<(bool needCommit, bool needRollback, Output output)> Work(Commit<Input> commit);
     }
 }

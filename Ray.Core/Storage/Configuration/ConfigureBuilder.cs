@@ -13,8 +13,8 @@ namespace Ray.Core.Storage
     {
         protected readonly Parameter parameter;
         readonly Func<IServiceProvider, PrimaryKey, Parameter, Config> generator;
-        readonly Dictionary<Type, Func<IServiceProvider, PrimaryKey, Parameter, FollowConfig>> FollowConfigGeneratorDict = new Dictionary<Type, Func<IServiceProvider, PrimaryKey, Parameter, FollowConfig>>();
-        readonly ConcurrentDictionary<Type, Task<FollowConfig>> SingletonFollowConfigDict = new ConcurrentDictionary<Type, Task<FollowConfig>>();
+        readonly Dictionary<Type, Func<IServiceProvider, PrimaryKey, Parameter, FollowConfig>> followConfigGeneratorDict = new Dictionary<Type, Func<IServiceProvider, PrimaryKey, Parameter, FollowConfig>>();
+        readonly ConcurrentDictionary<Type, Task<FollowConfig>> singletonFollowConfigDict = new ConcurrentDictionary<Type, Task<FollowConfig>>();
         IStorageConfig config;
         public ConfigureBuilder(
             Func<IServiceProvider, PrimaryKey, Parameter, Config> generator,
@@ -27,7 +27,7 @@ namespace Ray.Core.Storage
 
         protected void Follow<Follow>(Func<IServiceProvider, PrimaryKey, Parameter, FollowConfig> generator)
         {
-            FollowConfigGeneratorDict.Add(typeof(Follow), generator);
+            followConfigGeneratorDict.Add(typeof(Follow), generator);
         }
         readonly SemaphoreSlim seamphore = new SemaphoreSlim(1, 1);
         public async ValueTask<IStorageConfig> GetConfig(IServiceProvider serviceProvider, PrimaryKey primaryKey)
@@ -43,7 +43,7 @@ namespace Ray.Core.Storage
                         {
                             config = generator(serviceProvider, primaryKey, parameter);
                             config.Singleton = parameter.Singleton;
-                            var initTask = config.Init();
+                            var initTask = config.Build();
                             if (!initTask.IsCompletedSuccessfully)
                                 await initTask;
                         }
@@ -59,7 +59,7 @@ namespace Ray.Core.Storage
             {
                 var newConfig = generator(serviceProvider, primaryKey, parameter);
                 newConfig.Singleton = parameter.Singleton;
-                var initTask = newConfig.Init();
+                var initTask = newConfig.Build();
                 if (!initTask.IsCompletedSuccessfully)
                     await initTask;
                 return newConfig;
@@ -69,16 +69,16 @@ namespace Ray.Core.Storage
         {
             if (parameter.Singleton)
             {
-                return await SingletonFollowConfigDict.GetOrAdd(followGrainType, async key =>
+                return await singletonFollowConfigDict.GetOrAdd(followGrainType, async key =>
                 {
-                    if (FollowConfigGeneratorDict.TryGetValue(followGrainType, out var followGenerator))
+                    if (followConfigGeneratorDict.TryGetValue(followGrainType, out var followGenerator))
                     {
                         var task = GetConfig(serviceProvider, primaryKey);
                         if (!task.IsCompleted)
                             await task;
                         var followConfig = followGenerator(serviceProvider, primaryKey, parameter);
                         followConfig.Config = task.Result;
-                        var initTask = followConfig.Init();
+                        var initTask = followConfig.Build();
                         if (!initTask.IsCompletedSuccessfully)
                             await initTask;
                         return followConfig;
@@ -91,14 +91,14 @@ namespace Ray.Core.Storage
             }
             else
             {
-                if (FollowConfigGeneratorDict.TryGetValue(followGrainType, out var followGenerator))
+                if (followConfigGeneratorDict.TryGetValue(followGrainType, out var followGenerator))
                 {
                     var task = GetConfig(serviceProvider, primaryKey);
                     if (!task.IsCompleted)
                         await task;
                     var followConfig = followGenerator(serviceProvider, primaryKey, parameter);
                     followConfig.Config = task.Result;
-                    var initTask = followConfig.Init();
+                    var initTask = followConfig.Build();
                     if (!initTask.IsCompletedSuccessfully)
                         await initTask;
                     return followConfig;

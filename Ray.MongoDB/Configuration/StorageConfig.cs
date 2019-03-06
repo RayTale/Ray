@@ -3,35 +3,40 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Ray.Core.Storage;
+using Microsoft.Extensions.DependencyInjection;
+using Ray.Storage.MongoDB.Core;
 
 namespace Ray.Storage.MongoDB
 {
     public class StorageConfig : IStorageConfig
     {
-        public StorageConfig(IMongoStorage storage, string database, string eventCollection, string snapshotCollection, int subTableMinutesInterval = 40)
+        const string subTableCollectionName = "SubTableCollection";
+        public StorageConfig(IServiceProvider serviceProvider, string connectionKey, string database, string uniqueName, int subTableMinutesInterval = 40)
         {
-            Storage = storage;
+            var connection = serviceProvider.GetService<IOptions<MongoConnections>>().Value.ConnectionDict[connectionKey];
+            Storage = ClientFactory.CreateClient(connection);
             DataBase = database;
-            EventCollection = eventCollection;
-            SnapshotCollection = snapshotCollection;
+            UniqueName = uniqueName;
             SubTableMillionSecondsInterval = subTableMinutesInterval * 24 * 60 * 60 * 1000;
         }
-        public IMongoStorage Storage { get; }
+        public ICustomClient Storage { get; }
+        public string UniqueName { get; set; }
         public bool Singleton { get; set; }
         public string DataBase { get; set; }
-        public string EventCollection { get; set; }
-        public string SnapshotCollection { get; set; }
+        public string EventCollection => $"{UniqueName}_Event";
+        public string SnapshotCollection => $"{UniqueName}_Snapshot";
         public string SnapshotArchiveTable => $"{SnapshotCollection}_Archive";
-        const string SplitCollectionName = "SplitCollections";
-        public string EventArchiveTable => $"{EventCollection}_Archive";
+        public string EventArchiveTable => $"{UniqueName}_Archive";
         public long SubTableMillionSecondsInterval { get; set; }
+
         bool builded = false;
         private List<SubCollectionInfo> _subTables;
         readonly SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
-        public async ValueTask Init()
+        public async ValueTask Build()
         {
             if (!builded)
             {
@@ -43,7 +48,7 @@ namespace Ray.Storage.MongoDB
                         await CreateSnapshotIndex();
                         await CreateSnapshotArchiveIndex();
                         await CreateEventArchiveIndex();
-                        _subTables = await (await Storage.GetCollection<SubCollectionInfo>(DataBase, SplitCollectionName).FindAsync(c => c.Table == EventCollection)).ToListAsync();
+                        _subTables = await (await Storage.GetCollection<SubCollectionInfo>(DataBase, subTableCollectionName).FindAsync(c => c.Table == EventCollection)).ToListAsync();
                         builded = true;
                     }
                 }
@@ -63,7 +68,7 @@ namespace Ray.Storage.MongoDB
                 {
                     if (lastSubTable == default || lastSubTable.EndTime <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
                     {
-                        _subTables = await (await Storage.GetCollection<SubCollectionInfo>(DataBase, SplitCollectionName).FindAsync(c => c.Table == EventCollection)).ToListAsync();
+                        _subTables = await (await Storage.GetCollection<SubCollectionInfo>(DataBase, subTableCollectionName).FindAsync(c => c.Table == EventCollection)).ToListAsync();
                     }
                 }
                 finally
@@ -100,14 +105,14 @@ namespace Ray.Storage.MongoDB
                         };
                         try
                         {
-                            await Storage.GetCollection<SubCollectionInfo>(DataBase, SplitCollectionName).InsertOneAsync(subTable);
+                            await Storage.GetCollection<SubCollectionInfo>(DataBase, subTableCollectionName).InsertOneAsync(subTable);
                             await CreateEventIndex(subTable.SubTable);
                             _subTables.Add(subTable);
                         }
                         catch
                         {
                             subTable = default;
-                            _subTables = await (await Storage.GetCollection<SubCollectionInfo>(DataBase, SplitCollectionName).FindAsync(c => c.Table == EventCollection)).ToListAsync();
+                            _subTables = await (await Storage.GetCollection<SubCollectionInfo>(DataBase, subTableCollectionName).FindAsync(c => c.Table == EventCollection)).ToListAsync();
                         }
                     }
                 }
@@ -132,7 +137,7 @@ namespace Ray.Storage.MongoDB
             {
                 await stateCollection.Indexes.CreateOneAsync(new CreateIndexModel<BsonDocument>("{'StateId':1}", new CreateIndexOptions { Name = "StateId", Unique = true }));
             }
-            var collection = Storage.GetCollection<BsonDocument>(DataBase, SplitCollectionName);
+            var collection = Storage.GetCollection<BsonDocument>(DataBase, subTableCollectionName);
             var index = await collection.Indexes.ListAsync();
             var indexList = await index.ToListAsync();
             if (!indexList.Exists(p => p["name"] == "Name"))

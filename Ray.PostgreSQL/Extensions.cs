@@ -1,17 +1,14 @@
 ﻿using System;
 using Microsoft.Extensions.DependencyInjection;
 using Ray.DistributedTransaction;
-using Ray.Storage.PostgreSQL.Services;
-using Ray.Storage.PostgreSQL.Services.Abstractions;
 
 namespace Ray.Storage.PostgreSQL
 {
     public static class Extensions
     {
-        public static void AddPostgreSQLStorage(this IServiceCollection serviceCollection, Action<SqlConfig> configAction)
+        public static void AddPostgreSQLStorage(this IServiceCollection serviceCollection, Action<PSQLConnections> configAction)
         {
-            serviceCollection.Configure<SqlConfig>(config => configAction(config));
-            serviceCollection.AddSingleton<ITableRepository, TableRepository>();
+            serviceCollection.Configure<PSQLConnections>(config => configAction(config));
             serviceCollection.AddSingleton<StorageFactory>();
         }
         public static void AddPostgreSQLTransactionStorage(this IServiceCollection serviceCollection, string connectionKey)

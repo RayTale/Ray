@@ -322,7 +322,7 @@ namespace Ray.Core
                 throw new StateIsOverException(Snapshot.Base.StateId.ToString(), GrainType);
             if (Snapshot.Base.Version != Snapshot.Base.DoingVersion)
                 throw new StateInsecurityException(Snapshot.Base.StateId.ToString(), GrainType, Snapshot.Base.DoingVersion, Snapshot.Base.Version);
-            if (CoreOptions.ArchiveEventOnOver)
+            if (ArchiveOptions.On && ArchiveOptions.ArchiveEventOnOver)
             {
                 var versions = await Task.WhenAll(FollowUnit.GetAndSaveVersionFuncs().Select(func => func(Snapshot.Base.StateId, Snapshot.Base.Version)));
                 if (versions.Any(v => v < Snapshot.Base.Version))
@@ -342,10 +342,10 @@ namespace Ray.Core
             {
                 await SnapshotStorage.Over(Snapshot.Base.StateId, true);
             }
-            if (CoreOptions.ArchiveEventOnOver)
+            if (ArchiveOptions.On && ArchiveOptions.ArchiveEventOnOver)
             {
                 await ArchiveStorage.DeleteAll(Snapshot.Base.StateId);
-                if (ArchiveOptions.DeleteEvents)
+                if (ArchiveOptions.EventArchiveType == EventArchiveType.Delete)
                     await EventStorage.DeleteStart(Snapshot.Base.StateId, Snapshot.Base.Version, Snapshot.Base.StartTimestamp);
                 else
                     await ArchiveStorage.EventArichive(Snapshot.Base.StateId, Snapshot.Base.Version, Snapshot.Base.StartTimestamp);
@@ -646,7 +646,7 @@ namespace Ray.Core
                             if (!saveTask.IsCompletedSuccessfully)
                                 await saveTask;
                         }
-                        if (ArchiveOptions.DeleteEvents)
+                        if (ArchiveOptions.EventArchiveType == EventArchiveType.Delete)
                             await EventStorage.DeleteStart(Snapshot.Base.StateId, minArchive.EndVersion, Snapshot.Base.StartTimestamp);
                         else
                             await ArchiveStorage.EventArichive(Snapshot.Base.StateId, minArchive.EndVersion, Snapshot.Base.StartTimestamp);

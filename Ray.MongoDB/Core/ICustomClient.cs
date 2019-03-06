@@ -2,9 +2,8 @@
 
 namespace Ray.Storage.MongoDB
 {
-    public interface IMongoStorage
+    public interface ICustomClient
     {
-        MongoConfig Config { get; }
         MongoClient Client { get; }
         IMongoDatabase GetDatabase(string name);
         IMongoCollection<T> GetCollection<T>(string databaseName, string collectionName);

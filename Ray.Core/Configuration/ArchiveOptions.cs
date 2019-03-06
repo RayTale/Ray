@@ -35,6 +35,15 @@
         /// tue:归档事件时会删除事件
         /// false:会把归档的事件移动到归档事件库
         /// </summary>
-        public bool DeleteEvents { get; set; } = false;
+        public EventArchiveType EventArchiveType { get; set; } = EventArchiveType.Transfer;
+        /// <summary>
+        /// 当Grain Over时是否归档事件
+        /// </summary>
+        public bool ArchiveEventOnOver { get; set; } = true;
+    }
+    public enum EventArchiveType : byte
+    {
+        Transfer = 0,
+        Delete = 1
     }
 }

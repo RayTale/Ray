@@ -7,7 +7,7 @@ using Ray.Core.Event;
 
 namespace Ray.Core
 {
-    public class FollowUnitWithLong : IFollowUnit<long>
+    public class LongFollowUnit : IFollowUnit<long>
     {
         readonly IServiceProvider serviceProvider;
         readonly Dictionary<string, List<Func<byte[], Task>>> eventHandlersDict = new Dictionary<string, List<Func<byte[], Task>>>();
@@ -16,15 +16,15 @@ namespace Ray.Core
 
         public Type GrainType { get; }
 
-        public FollowUnitWithLong(IServiceProvider serviceProvider, Type grainType)
+        public LongFollowUnit(IServiceProvider serviceProvider, Type grainType)
         {
             this.serviceProvider = serviceProvider;
             GrainType = grainType;
         }
-        public static FollowUnitWithLong From<Grain>(IServiceProvider serviceProvider)
+        public static LongFollowUnit From<Grain>(IServiceProvider serviceProvider)
             where Grain : Orleans.Grain
         {
-            return new FollowUnitWithLong(serviceProvider, typeof(Grain));
+            return new LongFollowUnit(serviceProvider, typeof(Grain));
         }
         public List<Func<byte[], Task>> GetEventHandlers(string followType)
         {
@@ -40,14 +40,14 @@ namespace Ray.Core
         {
             return followVersionHandlers;
         }
-        public FollowUnitWithLong BindEventHandler(string followType, Func<byte[], Task> handler)
+        public LongFollowUnit BindEventHandler(string followType, Func<byte[], Task> handler)
         {
             var funcs = GetEventHandlers(followType);
             funcs.Add(handler);
             eventHandlers.Add(handler);
             return this;
         }
-        public FollowUnitWithLong Flow<F>(string followType)
+        public LongFollowUnit Flow<F>(string followType)
             where F : IFollow, IGrainWithIntegerKey
         {
             var funcs = GetEventHandlers(followType);
@@ -65,7 +65,7 @@ namespace Ray.Core
             followVersionHandlers.Add((stateId, version) => serviceProvider.GetService<IClusterClient>().GetGrain<F>(stateId).GetAndSaveVersion(version));
             return this;
         }
-        public FollowUnitWithLong ConcurrentFlow<F>(string followType)
+        public LongFollowUnit ConcurrentFlow<F>(string followType)
             where F : IConcurrentFollow, IGrainWithIntegerKey
         {
             var funcs = GetEventHandlers(followType);

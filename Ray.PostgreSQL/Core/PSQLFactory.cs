@@ -3,10 +3,10 @@ using System.Data.Common;
 
 namespace Ray.Storage.PostgreSQL
 {
-    public class SqlFactory
+    public class PSQLFactory
     {
         static readonly DbProviderFactory dbFactory;
-        static SqlFactory()
+        static PSQLFactory()
         {
             dbFactory = GetPostgreSqlFactory();
         }

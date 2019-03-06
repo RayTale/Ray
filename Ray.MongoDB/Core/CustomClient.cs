@@ -1,16 +1,13 @@
-﻿using Microsoft.Extensions.Options;
-using MongoDB.Driver;
+﻿using MongoDB.Driver;
 
 namespace Ray.Storage.MongoDB
 {
-    public class MongoStorage : IMongoStorage
+    public class CustomClient : ICustomClient
     {
-        public MongoStorage(IOptions<MongoConfig> config)
+        public CustomClient(string connection)
         {
-            Config = config.Value;
-            Client = new MongoClient(config.Value.Connection);
+            Client = new MongoClient(connection);
         }
-        public MongoConfig Config { get; }
         public MongoClient Client { get; }
         public IMongoDatabase GetDatabase(string name)
         {

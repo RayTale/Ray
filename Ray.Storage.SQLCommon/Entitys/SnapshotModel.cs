@@ -1,8 +1,8 @@
-﻿namespace Ray.Storage.PostgreSQL
+﻿namespace Ray.Storage.SQLCore
 {
-    public class Snapshot
+    public class SnapshotModel<PrimaryKey>
     {
-        public string StateId { get; set; }
+        public PrimaryKey StateId { get; set; }
         public long Version { get; set; }
         public long StartTimestamp { get; set; }
         public long LatestMinEventTimestamp { get; set; }

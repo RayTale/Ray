@@ -31,7 +31,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.Client", "Example\Ray.C
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.DistributedTransaction", "Ray.DistributedTransaction\Ray.DistributedTransaction.csproj", "{68DBEB35-2187-495E-A2FD-37F6F35494D7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ray.Storage.SQLCommon", "Ray.Storage.SQLCommon\Ray.Storage.SQLCommon.csproj", "{FC5817E5-1486-41A6-8170-CE4DA970159A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.Storage.SQLCore", "Ray.Storage.SQLCommon\Ray.Storage.SQLCore.csproj", "{FC5817E5-1486-41A6-8170-CE4DA970159A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -7,22 +7,22 @@ using Ray.Core.Event;
 
 namespace Ray.Core
 {
-    public class FollowUnitWithString<E> : IFollowUnit<string>
+    public class StringFollowUnit<E> : IFollowUnit<string>
     {
         readonly IServiceProvider serviceProvider;
         readonly Dictionary<string, List<Func<byte[], Task>>> eventHandlers = new Dictionary<string, List<Func<byte[], Task>>>();
         readonly List<Func<string, long, Task<long>>> followVersionHandlers = new List<Func<string, long, Task<long>>>();
         public Type GrainType { get; }
 
-        public FollowUnitWithString(IServiceProvider serviceProvider, Type grainType)
+        public StringFollowUnit(IServiceProvider serviceProvider, Type grainType)
         {
             this.serviceProvider = serviceProvider;
             GrainType = grainType;
         }
-        public static FollowUnitWithString<E> From<Grain>(IServiceProvider serviceProvider)
+        public static StringFollowUnit<E> From<Grain>(IServiceProvider serviceProvider)
             where Grain : Orleans.Grain
         {
-            return new FollowUnitWithString<E>(serviceProvider, typeof(Grain));
+            return new StringFollowUnit<E>(serviceProvider, typeof(Grain));
         }
         public List<Func<byte[], Task>> GetEventHandlers(string followType)
         {
@@ -38,13 +38,13 @@ namespace Ray.Core
         {
             return followVersionHandlers;
         }
-        public FollowUnitWithString<E> BindEventHandler(string followType, Func<byte[], Task> handler)
+        public StringFollowUnit<E> BindEventHandler(string followType, Func<byte[], Task> handler)
         {
             var funcs = GetEventHandlers(followType);
             funcs.Add(handler);
             return this;
         }
-        public FollowUnitWithString<E> BindFlow<F>(string followType)
+        public StringFollowUnit<E> BindFlow<F>(string followType)
             where F : IFollow, IGrainWithStringKey
         {
             var funcs = GetEventHandlers(followType);
@@ -61,7 +61,7 @@ namespace Ray.Core
             return this;
         }
 
-        public FollowUnitWithString<E> BindConcurrentFlow<F>(string followType)
+        public StringFollowUnit<E> BindConcurrentFlow<F>(string followType)
             where F : IConcurrentFollow, IGrainWithStringKey
         {
             var funcs = GetEventHandlers(followType);

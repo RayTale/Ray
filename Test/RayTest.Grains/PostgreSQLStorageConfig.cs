@@ -8,8 +8,8 @@ namespace RayTest.Grains
     {
         public static IServiceCollection PSQLConfigure(this IServiceCollection serviceCollection)
         {
-            serviceCollection.AddSingleton<IConfigureBuilder<long, Account>>(new SQLConfigureBuilder<long, Account>((provider, id, parameter) =>
-            new StorageConfig(provider, "core_event", "account_event", "account_state")));
+            serviceCollection.AddSingleton<IConfigureBuilder<long, Account>>(new PSQLConfigureBuilder<long, Account>((provider, id, parameter) =>
+            new LongStorageOptions(provider, "core_event", "account")));
 
             return serviceCollection;
         }

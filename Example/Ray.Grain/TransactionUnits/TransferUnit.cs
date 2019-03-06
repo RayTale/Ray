@@ -21,7 +21,7 @@ namespace Ray.Grain.TransactionUnits
             };
         }
 
-        public override async Task<(bool needCommit, bool needRollbask, bool output)> Work(Commit<TransferInput> commit)
+        public override async Task<(bool needCommit, bool needRollback, bool output)> Work(Commit<TransferInput> commit)
         {
             var result = await GrainFactory.GetGrain<IAccount>(commit.Data.FromId).TransferDeduct(commit.Data.Amount, commit.TransactionId);
             if (result)

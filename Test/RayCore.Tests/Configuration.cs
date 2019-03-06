@@ -16,7 +16,7 @@ namespace RayCore.Tests
 
         public Task ConfigureFollowUnit(IServiceProvider serviceProvider, IFollowUnitContainer followUnitContainer)
         {
-            followUnitContainer.Register(FollowUnitWithLong.From<Account>(serviceProvider));
+            followUnitContainer.Register(LongFollowUnit.From<Account>(serviceProvider));
             return Task.CompletedTask;
         }
     }

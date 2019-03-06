@@ -6,6 +6,6 @@ namespace Ray.Core.Storage
     {
         IStorageConfig Config { get; set; }
         string FollowName { get; set; }
-        ValueTask Init();
+        ValueTask Build();
     }
 }

@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using Ray.Core.Serialization;
 using Ray.Core.Storage;
+using Ray.Storage.SQLCore.Configuration;
 
 namespace Ray.Storage.PostgreSQL
 {
@@ -24,13 +25,13 @@ namespace Ray.Storage.PostgreSQL
             {
                 var storage = eventStorageDict.GetOrAdd(config, key =>
                 {
-                    return new EventStorage<PrimaryKey>(serviceProvider, config as StorageConfig);
+                    return new EventStorage<PrimaryKey>(serviceProvider, config as StorageOptions);
                 });
                 return new ValueTask<IEventStorage<PrimaryKey>>(storage as EventStorage<PrimaryKey>);
             }
             else
             {
-                return new ValueTask<IEventStorage<PrimaryKey>>(new EventStorage<PrimaryKey>(serviceProvider, config as StorageConfig));
+                return new ValueTask<IEventStorage<PrimaryKey>>(new EventStorage<PrimaryKey>(serviceProvider, config as StorageOptions));
             }
         }
         readonly ConcurrentDictionary<IStorageConfig, object> stateStorageDict = new ConcurrentDictionary<IStorageConfig, object>();
@@ -41,13 +42,13 @@ namespace Ray.Storage.PostgreSQL
             {
                 var storage = stateStorageDict.GetOrAdd(config, key =>
                 {
-                    return new SnapshotStorage<PrimaryKey, State>(serializer, config as StorageConfig);
+                    return new SnapshotStorage<PrimaryKey, State>(serializer, config as StorageOptions);
                 });
                 return new ValueTask<ISnapshotStorage<PrimaryKey, State>>(storage as SnapshotStorage<PrimaryKey, State>);
             }
             else
             {
-                return new ValueTask<ISnapshotStorage<PrimaryKey, State>>(new SnapshotStorage<PrimaryKey, State>(serializer, config as StorageConfig));
+                return new ValueTask<ISnapshotStorage<PrimaryKey, State>>(new SnapshotStorage<PrimaryKey, State>(serializer, config as StorageOptions));
             }
         }
         readonly ConcurrentDictionary<IStorageConfig, object> ArchiveStorageDict = new ConcurrentDictionary<IStorageConfig, object>();
@@ -58,13 +59,13 @@ namespace Ray.Storage.PostgreSQL
             {
                 var storage = ArchiveStorageDict.GetOrAdd(config, key =>
                 {
-                    return new ArchiveStorage<PrimaryKey, State>(serviceProvider, serializer, config as StorageConfig);
+                    return new ArchiveStorage<PrimaryKey, State>(serviceProvider, serializer, config as StorageOptions);
                 });
                 return new ValueTask<IArchiveStorage<PrimaryKey, State>>(storage as IArchiveStorage<PrimaryKey, State>);
             }
             else
             {
-                return new ValueTask<IArchiveStorage<PrimaryKey, State>>(new ArchiveStorage<PrimaryKey, State>(serviceProvider, serializer, config as StorageConfig));
+                return new ValueTask<IArchiveStorage<PrimaryKey, State>>(new ArchiveStorage<PrimaryKey, State>(serviceProvider, serializer, config as StorageOptions));
             }
         }
         readonly ConcurrentDictionary<IFollowStorageConfig, object> FollowSnapshotStorageDict = new ConcurrentDictionary<IFollowStorageConfig, object>();

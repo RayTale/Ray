@@ -36,9 +36,9 @@ namespace Ray.Storage.PostgreSQL
         public TransactionStorage(
             IServiceProvider serviceProvider,
             IOptions<TransactionStorageConfig> storageConfig,
-            IOptions<SqlConfig> sqlConfig)
+            IOptions<PSQLConnections> connectionsOptions)
         {
-            connection = sqlConfig.Value.ConnectionDict[storageConfig.Value.ConnectionKey];
+            connection = connectionsOptions.Value.ConnectionDict[storageConfig.Value.ConnectionKey];
             mpscChannel = serviceProvider.GetService<IMpscChannel<DataAsyncWrapper<AppendInput, bool>>>();
             serializer = serviceProvider.GetService<ISerializer>();
             mpscChannel.BindConsumer(BatchProcessing);
@@ -46,7 +46,7 @@ namespace Ray.Storage.PostgreSQL
         }
         public DbConnection CreateConnection()
         {
-            return SqlFactory.CreateConnection(connection);
+            return PSQLFactory.CreateConnection(connection);
         }
         public Task<bool> Append<Input>(string unitName, Commit<Input> commit)
         {

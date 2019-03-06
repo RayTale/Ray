@@ -12,7 +12,7 @@ namespace Ray.Grain
     {
         public Task ConfigureFollowUnit(IServiceProvider serviceProvider, IFollowUnitContainer followUnitContainer)
         {
-            followUnitContainer.Register(FollowUnitWithLong.From<Account>(serviceProvider).
+            followUnitContainer.Register(LongFollowUnit.From<Account>(serviceProvider).
                 Flow<IAccountRep>(DefaultFollowType.primary).
                 ConcurrentFlow<IAccountFlow>(DefaultFollowType.primary).
                 ConcurrentFlow<IAccountDb>(DefaultFollowType.secondary));
@@ -28,7 +28,6 @@ namespace Ray.Grain
             serviceCollection.Configure<ArchiveOptions>(typeof(Account).FullName, options =>
             {
                 options.On = true;
-                options.DeleteEvents = false;
                 options.SecondsInterval = 60;
                 options.VersionInterval = 500;
             });

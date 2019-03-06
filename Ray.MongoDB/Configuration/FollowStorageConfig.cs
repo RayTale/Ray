@@ -19,7 +19,7 @@ namespace Ray.Storage.MongoDB.Configuration
         public string FollowName { get; set; }
         public string FollowSnapshotTable => $"{_baseConfig.SnapshotCollection}_{FollowName}";
 
-        public ValueTask Init()
+        public ValueTask Build()
         {
             return new ValueTask(CreateFollowSnapshotIndex());
         }

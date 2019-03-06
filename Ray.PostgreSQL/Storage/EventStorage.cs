@@ -13,16 +13,17 @@ using Ray.Core.Channels;
 using Ray.Core.Event;
 using Ray.Core.Serialization;
 using Ray.Core.Storage;
+using Ray.Storage.SQLCore.Configuration;
 
 namespace Ray.Storage.PostgreSQL
 {
     public class EventStorage<PrimaryKey> : IEventStorage<PrimaryKey>
     {
-        readonly StorageConfig config;
+        readonly StorageOptions config;
         readonly IMpscChannel<DataAsyncWrapper<BatchAppendTransport<PrimaryKey>, bool>> mpscChannel;
         readonly ILogger<EventStorage<PrimaryKey>> logger;
         readonly ISerializer serializer;
-        public EventStorage(IServiceProvider serviceProvider, StorageConfig config)
+        public EventStorage(IServiceProvider serviceProvider, StorageOptions config)
         {
             logger = serviceProvider.GetService<ILogger<EventStorage<PrimaryKey>>>();
             serializer = serviceProvider.GetService<ISerializer>();
@@ -38,12 +39,13 @@ namespace Ray.Storage.PostgreSQL
                 var getTableListTask = config.GetSubTables();
                 if (!getTableListTask.IsCompletedSuccessfully)
                     await getTableListTask;
+                var stateIdStr = typeof(PrimaryKey) == typeof(long) ? stateId.ToString() : $"'{stateId.ToString()}'";
                 using (var conn = config.CreateConnection() as NpgsqlConnection)
                 {
                     await conn.OpenAsync();
                     foreach (var table in getTableListTask.Result.Where(t => t.EndTime >= latestTimestamp))
                     {
-                        var sql = $"COPY (SELECT typecode,data,version,timestamp from {table.SubTable} WHERE stateid='{stateId.ToString()}' and version>={startVersion} and version<={endVersion} order by version asc) TO STDOUT (FORMAT BINARY)";
+                        var sql = $"COPY (SELECT typecode,data,version,timestamp from {table.SubTable} WHERE stateid={stateIdStr} and version>={startVersion} and version<={endVersion} order by version asc) TO STDOUT (FORMAT BINARY)";
                         using (var reader = conn.BeginBinaryExport(sql))
                         {
                             while (reader.StartRow() != -1)
@@ -80,12 +82,14 @@ namespace Ray.Storage.PostgreSQL
                 var getTableListTask = config.GetSubTables();
                 if (!getTableListTask.IsCompletedSuccessfully)
                     await getTableListTask;
+                var stateIdStr = typeof(PrimaryKey) == typeof(long) ? stateId.ToString() : $"'{stateId.ToString()}'";
                 using (var conn = config.CreateConnection() as NpgsqlConnection)
                 {
                     await conn.OpenAsync();
                     foreach (var table in getTableListTask.Result)
                     {
-                        var sql = $"COPY (SELECT data,version,timestamp from {table.SubTable} WHERE stateid='{stateId.ToString()}' and typecode='{typeCode}' and version>={startVersion} order by version asc limit {limit}) TO STDOUT (FORMAT BINARY)";
+
+                        var sql = $"COPY (SELECT data,version,timestamp from {table.SubTable} WHERE stateid={stateIdStr} and typecode='{typeCode}' and version>={startVersion} order by version asc limit {limit}) TO STDOUT (FORMAT BINARY)";
                         using (var reader = conn.BeginBinaryExport(sql))
                         {
                             while (reader.StartRow() != -1)
@@ -163,7 +167,7 @@ namespace Ray.Storage.PostgreSQL
                             foreach (var wrapper in list)
                             {
                                 writer.StartRow();
-                                writer.Write(wrapper.Value.Event.StateId.ToString(), NpgsqlDbType.Varchar);
+                                writer.Write(wrapper.Value.Event.StateId);
                                 writer.Write(wrapper.Value.UniqueId, NpgsqlDbType.Varchar);
                                 writer.Write(wrapper.Value.Event.GetType().FullName, NpgsqlDbType.Varchar);
                                 writer.Write(Encoding.Default.GetString(wrapper.Value.BytesTransport.EventBytes), NpgsqlDbType.Jsonb);
@@ -261,7 +265,7 @@ namespace Ray.Storage.PostgreSQL
                             foreach (var wrapper in list)
                             {
                                 writer.StartRow();
-                                writer.Write(wrapper.FullyEvent.StateId.ToString(), NpgsqlDbType.Varchar);
+                                writer.Write(wrapper.FullyEvent.StateId);
                                 writer.Write(wrapper.UniqueId, NpgsqlDbType.Varchar);
                                 writer.Write(wrapper.FullyEvent.Event.GetType().FullName, NpgsqlDbType.Varchar);
                                 writer.Write(Encoding.Default.GetString(wrapper.BytesTransport.EventBytes), NpgsqlDbType.Jsonb);
@@ -295,7 +299,7 @@ namespace Ray.Storage.PostgreSQL
                                     key => $"INSERT INTO {key}(stateid,uniqueId,typecode,data,version,timestamp) VALUES(@StateId,@UniqueId,@TypeCode,(@Data)::jsonb,@Version,@Timestamp)");
                                 await conn.ExecuteAsync(saveSql, group.Select(g => new
                                 {
-                                    StateId = g.t.FullyEvent.StateId.ToString(),
+                                    g.t.FullyEvent.StateId,
                                     g.t.UniqueId,
                                     TypeCode = g.t.FullyEvent.GetType().FullName,
                                     Data = Encoding.Default.GetString(g.t.BytesTransport.EventBytes),
@@ -334,7 +338,7 @@ namespace Ray.Storage.PostgreSQL
                             foreach (var table in tableList)
                             {
                                 var sql = $"delete from {table.SubTable} WHERE stateid=@StateId and version<=@EndVersion";
-                                await conn.ExecuteAsync(sql, new { StateId = stateId.ToString(), EndVersion = endVersion }, transaction: trans);
+                                await conn.ExecuteAsync(sql, new { StateId = stateId, EndVersion = endVersion }, transaction: trans);
                             }
                             trans.Commit();
                         }
@@ -366,7 +370,7 @@ namespace Ray.Storage.PostgreSQL
                             foreach (var table in tableList)
                             {
                                 var sql = $"delete from {table.SubTable} WHERE stateid=@StateId and version>=@StartVersion";
-                                await conn.ExecuteAsync(sql, new { StateId = stateId.ToString(), StartVersion = startVersion });
+                                await conn.ExecuteAsync(sql, new { StateId = stateId, StartVersion = startVersion });
                             }
                             trans.Commit();
                         }

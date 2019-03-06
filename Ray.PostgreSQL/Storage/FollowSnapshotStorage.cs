@@ -2,6 +2,8 @@
 using Dapper;
 using Ray.Core.Snapshot;
 using Ray.Core.Storage;
+using Ray.Storage.SQLCore;
+using Ray.Storage.SQLCore.Configuration;
 
 namespace Ray.Storage.PostgreSQL
 {
@@ -25,9 +27,9 @@ namespace Ray.Storage.PostgreSQL
         }
         public async Task<FollowSnapshot<PrimaryKey>> Get(PrimaryKey id)
         {
-            using (var conn = (config.Config as StorageConfig).CreateConnection())
+            using (var conn = config.CreateConnection())
             {
-                var data = await conn.QuerySingleOrDefaultAsync<FollowSnapshot>(getByIdSql, new { StateId = id.ToString() });
+                var data = await conn.QuerySingleOrDefaultAsync<FollowSnapshotModel>(getByIdSql, new { StateId = id.ToString() });
                 if (data != default)
                 {
                     return new FollowSnapshot<PrimaryKey>()
@@ -43,11 +45,11 @@ namespace Ray.Storage.PostgreSQL
         }
         public async Task Insert(FollowSnapshot<PrimaryKey> snapshot)
         {
-            using (var connection = (config.Config as StorageConfig).CreateConnection())
+            using (var connection = config.CreateConnection())
             {
                 await connection.ExecuteAsync(insertSql, new
                 {
-                    StateId = snapshot.StateId.ToString(),
+                    StateId = snapshot.StateId,
                     snapshot.Version,
                     snapshot.StartTimestamp
                 });
@@ -56,11 +58,11 @@ namespace Ray.Storage.PostgreSQL
 
         public async Task Update(FollowSnapshot<PrimaryKey> snapshot)
         {
-            using (var connection = (config.Config as StorageConfig).CreateConnection())
+            using (var connection = config.CreateConnection())
             {
                 await connection.ExecuteAsync(updateSql, new
                 {
-                    StateId = snapshot.StateId.ToString(),
+                    StateId = snapshot.StateId,
                     snapshot.Version,
                     snapshot.StartTimestamp
                 });
@@ -68,19 +70,19 @@ namespace Ray.Storage.PostgreSQL
         }
         public async Task Delete(PrimaryKey id)
         {
-            using (var conn = (config.Config as StorageConfig).CreateConnection())
+            using (var conn = config.CreateConnection())
             {
-                await conn.ExecuteAsync(deleteSql, new { StateId = id.ToString() });
+                await conn.ExecuteAsync(deleteSql, new { StateId = id });
             }
         }
 
         public async Task UpdateStartTimestamp(PrimaryKey id, long timestamp)
         {
-            using (var connection = (config.Config as StorageConfig).CreateConnection())
+            using (var connection = config.CreateConnection())
             {
                 await connection.ExecuteAsync(updateStartTimestampSql, new
                 {
-                    StateId = id.ToString(),
+                    StateId = id,
                     StartTimestamp = timestamp
                 });
             }

@@ -2,78 +2,48 @@
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Ray.Core.Serialization;
 using Ray.Core.Storage;
-using Ray.Storage.PostgreSQL.Entitys;
-using Ray.Storage.PostgreSQL.Services.Abstractions;
+using Ray.Storage.SQLCore.Services;
 
-namespace Ray.Storage.PostgreSQL
+namespace Ray.Storage.SQLCore.Configuration
 {
-    public class StorageConfig : IStorageConfig
+    public abstract class StorageOptions : IStorageConfig
     {
-        private readonly ITableRepository tableRepository;
-        private readonly ILogger<StorageConfig> logger;
+        readonly ILogger logger;
         private readonly ISerializer serializer;
-        public StorageConfig(IServiceProvider serviceProvider, string connectionKey, string eventTable, string snapshotTable, long subTableMinutesInterval = 40, int stateIdLength = 200)
+        public StorageOptions(IServiceProvider serviceProvider)
         {
-            Connection = serviceProvider.GetService<IOptions<SqlConfig>>().Value.ConnectionDict[connectionKey];
-            tableRepository = serviceProvider.GetService<ITableRepository>();
-            logger = serviceProvider.GetService<ILogger<StorageConfig>>();
+            logger = serviceProvider.GetService<ILogger<StorageOptions>>();
             serializer = serviceProvider.GetService<ISerializer>();
-            EventTable = eventTable;
-            SnapshotTable = snapshotTable;
-            SubTableMillionSecondsInterval = subTableMinutesInterval * 24 * 60 * 60 * 1000;
-            StateIdLength = stateIdLength;
         }
         public bool Singleton { get; set; }
-        public string Connection { get; set; }
-        public string EventTable { get; set; }
-        public string SnapshotTable { get; set; }
+        public string UniqueName { get; set; }
         public long SubTableMillionSecondsInterval { get; set; }
-        public int StateIdLength { get; }
+        public string EventTable => $"{UniqueName}_Event";
+        public string SnapshotTable => $"{EventTable}_Snapshot";
         public string SnapshotArchiveTable => $"{SnapshotTable}_Archive";
         public string EventArchiveTable => $"{EventTable}_Archive";
-
-        bool builded = false;
-        private List<SubTableInfo> _subTables;
+        public abstract DbConnection CreateConnection();
+        public abstract IBuildRepository BuildRepository { get; }
+        private List<EventSubTable> _subTables;
         readonly SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
-        public async ValueTask Init()
+        public async ValueTask Build()
         {
-            if (!builded)
+            if (!await BuildRepository.CreateEventSubRecordTable())
             {
-                await semaphore.WaitAsync();
-                try
-                {
-                    if (!builded)
-                    {
-                        if (!await tableRepository.CreateSubRecordTable(Connection))
-                        {
-                            _subTables = (await tableRepository.GetSubTableList(Connection, EventTable)).OrderBy(table => table.EndTime).ToList();
-                        }
-                        await tableRepository.CreateSnapshotTable(Connection, SnapshotTable, StateIdLength);
-                        await tableRepository.CreateSnapshotArchiveTable(Connection, SnapshotArchiveTable, StateIdLength);
-                        await tableRepository.CreateEventArchiveTable(Connection, EventArchiveTable, StateIdLength);
-                        builded = true;
-                    }
-                }
-                finally
-                {
-                    semaphore.Release();
-                }
+                _subTables = (await BuildRepository.GetSubTableList()).OrderBy(table => table.EndTime).ToList();
             }
+            await BuildRepository.CreateSnapshotTable();
+            await BuildRepository.CreateSnapshotArchiveTable();
+            await BuildRepository.CreateEventArchiveTable();
         }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public DbConnection CreateConnection()
-        {
-            return SqlFactory.CreateConnection(Connection);
-        }
-        public async ValueTask<List<SubTableInfo>> GetSubTables()
+
+        public async ValueTask<List<EventSubTable>> GetSubTables()
         {
             var lastSubTable = _subTables.LastOrDefault();
             if (lastSubTable == default || lastSubTable.EndTime <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
@@ -83,7 +53,7 @@ namespace Ray.Storage.PostgreSQL
                 {
                     if (lastSubTable == default || lastSubTable.EndTime <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
                     {
-                        _subTables = (await tableRepository.GetSubTableList(Connection, EventTable)).OrderBy(table => table.EndTime).ToList();
+                        _subTables = (await BuildRepository.GetSubTableList()).OrderBy(table => table.EndTime).ToList();
                     }
                 }
                 finally
@@ -93,7 +63,7 @@ namespace Ray.Storage.PostgreSQL
             }
             return _subTables;
         }
-        public async ValueTask<SubTableInfo> GetTable(long eventTimestamp)
+        public async ValueTask<EventSubTable> GetTable(long eventTimestamp)
         {
             var getTask = GetSubTables();
             if (!getTask.IsCompletedSuccessfully)
@@ -110,7 +80,7 @@ namespace Ray.Storage.PostgreSQL
                         var lastSubTable = getTask.Result.LastOrDefault();
                         var startTime = lastSubTable != default ? (lastSubTable.EndTime == lastSubTable.StartTime ? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() : lastSubTable.EndTime) : eventTimestamp;
                         var index = lastSubTable == default ? 0 : lastSubTable.Index + 1;
-                        subTable = new SubTableInfo
+                        subTable = new EventSubTable
                         {
                             TableName = EventTable,
                             SubTable = $"{EventTable}_{index}",
@@ -120,14 +90,14 @@ namespace Ray.Storage.PostgreSQL
                         };
                         try
                         {
-                            await tableRepository.CreateEventTable(Connection, subTable, StateIdLength);
+                            await BuildRepository.CreateEventTable(subTable);
                             _subTables.Add(subTable);
                         }
                         catch (Exception ex)
                         {
                             logger.LogCritical(ex, serializer.SerializeToString(subTable));
                             subTable = default;
-                            _subTables = (await tableRepository.GetSubTableList(Connection, EventTable)).OrderBy(table => table.EndTime).ToList();
+                            _subTables = (await BuildRepository.GetSubTableList()).OrderBy(table => table.EndTime).ToList();
                         }
                     }
                 }
