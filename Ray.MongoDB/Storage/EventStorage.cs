@@ -185,7 +185,7 @@ namespace Ray.Storage.Mongo
             if (minTask.Result.EndTime > maxTimestamp)
             {
                 var session = await grainConfig.Client.Client.StartSessionAsync();
-                session.StartTransaction(new global::MongoDB.Driver.TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
+                session.StartTransaction(new MongoDB.Driver.TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
                 try
                 {
                     await grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, minTask.Result.SubTable).InsertManyAsync(session, list.Select(data => new BsonDocument
@@ -215,7 +215,7 @@ namespace Ray.Storage.Mongo
                     return (task.Result.SubTable, t);
                 }))).GroupBy(t => t.SubTable);
                 var session = await grainConfig.Client.Client.StartSessionAsync();
-                session.StartTransaction(new global::MongoDB.Driver.TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
+                session.StartTransaction(new MongoDB.Driver.TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
                 try
                 {
                     foreach (var group in groups)
@@ -248,7 +248,7 @@ namespace Ray.Storage.Mongo
             if (!collectionListTask.IsCompletedSuccessfully)
                 await collectionListTask;
             var session = await grainConfig.Client.Client.StartSessionAsync();
-            session.StartTransaction(new global::MongoDB.Driver.TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
+            session.StartTransaction(new MongoDB.Driver.TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
             try
             {
                 foreach (var collection in collectionListTask.Result.Where(c => c.EndTime >= startTimestamp))
@@ -272,7 +272,7 @@ namespace Ray.Storage.Mongo
             if (!collectionListTask.IsCompletedSuccessfully)
                 await collectionListTask;
             var session = await grainConfig.Client.Client.StartSessionAsync();
-            session.StartTransaction(new global::MongoDB.Driver.TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
+            session.StartTransaction(new MongoDB.Driver.TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
             try
             {
                 foreach (var collection in collectionListTask.Result.Where(c => c.EndTime >= startTimestamp))
