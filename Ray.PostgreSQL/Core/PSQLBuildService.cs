@@ -7,12 +7,12 @@ using Ray.Storage.SQLCore.Services;
 
 namespace Ray.Storage.PostgreSQL
 {
-    public class PSQLBuildRepository : IBuildRepository
+    public class PSQLBuildService : IBuildService
     {
         private readonly StringStorageOptions stringStorageOptions;
         private readonly StorageOptions storageOptions;
         private readonly bool stateIdIsString;
-        public PSQLBuildRepository(StorageOptions storageOptions)
+        public PSQLBuildService(StorageOptions storageOptions)
         {
             this.storageOptions = storageOptions;
             if (storageOptions.GetType() == typeof(StringStorageOptions))
@@ -25,25 +25,25 @@ namespace Ray.Storage.PostgreSQL
                 stateIdIsString = false;
             }
         }
-        public async Task<List<EventSubTable>> GetSubTableList()
+        public async Task<List<EventSubTable>> GetSubTables()
         {
-            string sql = "SELECT * FROM Ray_SubTable where TableName=@TableName";
+            string sql = "SELECT * FROM SubTable_Records where TableName=@TableName";
             using (var connection = storageOptions.CreateConnection())
             {
                 return (await connection.QueryAsync<EventSubTable>(sql, new { TableName = storageOptions.EventTable })).AsList();
             }
         }
-        public async Task<bool> CreateEventSubRecordTable()
+        public async Task<bool> CreateEventSubTable()
         {
             const string sql = @"
-                    CREATE TABLE if not exists Ray_SubTable(
+                    CREATE TABLE if not exists SubTable_Records(
                         TableName varchar(255) not null,
                         SubTable varchar(255) not null,
                         Index int4 not null,
                         StartTime int8 not null,
                         EndTime int8 not null
                     )WITH (OIDS=FALSE);
-                    CREATE UNIQUE INDEX IF NOT EXISTS subtable_record ON Ray_SubTable USING btree(TableName, Index)";
+                    CREATE UNIQUE INDEX IF NOT EXISTS subtable_record ON SubTable_Records USING btree(TableName, Index)";
             using (var connection = storageOptions.CreateConnection())
             {
                 return await connection.ExecuteAsync(sql) > 0;
@@ -63,7 +63,7 @@ namespace Ray.Storage.PostgreSQL
                             constraint {subTable.SubTable}_id_unique unique(StateId,TypeCode,UniqueId)
                             ) WITH (OIDS=FALSE);
                             CREATE UNIQUE INDEX IF NOT EXISTS {subTable.SubTable}_Version ON {subTable.SubTable} USING btree(StateId, Version);";
-            const string insertSql = "INSERT into Ray_SubTable  VALUES(@TableName,@SubTable,@Index,@StartTime,@EndTime)";
+            const string insertSql = "INSERT into SubTable_Records  VALUES(@TableName,@SubTable,@Index,@StartTime,@EndTime)";
             using (var connection = storageOptions.CreateConnection())
             {
                 await connection.OpenAsync();

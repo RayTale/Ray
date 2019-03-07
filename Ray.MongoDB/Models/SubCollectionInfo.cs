@@ -1,6 +1,6 @@
 ﻿using MongoDB.Bson.Serialization.Attributes;
 
-namespace Ray.Storage.MongoDB
+namespace Ray.Storage.Mongo
 {
     public class SubCollectionInfo
     {

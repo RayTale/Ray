@@ -1,6 +1,6 @@
 ﻿using MongoDB.Driver;
 
-namespace Ray.Storage.MongoDB
+namespace Ray.Storage.Mongo
 {
     public class CustomClient : ICustomClient
     {

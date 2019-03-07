@@ -10,7 +10,7 @@ using Orleans.Hosting;
 using Ray.Core;
 using Ray.EventBus.RabbitMQ;
 using Ray.Grain;
-using Ray.Storage.MongoDB;
+using Ray.Storage.Mongo;
 using Ray.Storage.PostgreSQL;
 
 namespace Ray.MongoHost
@@ -59,7 +59,11 @@ namespace Ray.MongoHost
                     {
                         config.ConnectionDict.Add("core_event", "Server=127.0.0.1;Port=5432;Database=Ray;User Id=postgres;Password=extop;Pooling=true;MaxPoolSize=20;");
                     });
-                    servicecollection.AddPostgreSQLTransactionStorage("core_event");
+                    servicecollection.AddPostgreSQLTransactionStorage(options =>
+                    {
+                        options.ConnectionKey = "core_event";
+                        options.TableName = "Transaction_TemporaryRecord";
+                    });
                     servicecollection.PSQLConfigure();
                     //注册mongodb为事件存储库
                     //servicecollection.AddMongoDBStorage(config =>

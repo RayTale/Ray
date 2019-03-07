@@ -13,15 +13,15 @@ using Ray.Core.Event;
 using Ray.Core.Serialization;
 using Ray.Core.Storage;
 
-namespace Ray.Storage.MongoDB
+namespace Ray.Storage.Mongo
 {
     public class EventStorage<PrimaryKey> : IEventStorage<PrimaryKey>
     {
-        readonly StorageConfig grainConfig;
+        readonly StorageOptions grainConfig;
         readonly IMpscChannel<DataAsyncWrapper<BatchAppendTransport<PrimaryKey>, bool>> mpscChannel;
         readonly ILogger<EventStorage<PrimaryKey>> logger;
         readonly ISerializer serializer;
-        public EventStorage(IServiceProvider serviceProvider, StorageConfig grainConfig)
+        public EventStorage(IServiceProvider serviceProvider, StorageOptions grainConfig)
         {
             serializer = serviceProvider.GetService<ISerializer>();
             logger = serviceProvider.GetService<ILogger<EventStorage<PrimaryKey>>>();
@@ -39,7 +39,7 @@ namespace Ray.Storage.MongoDB
             {
                 var filterBuilder = Builders<BsonDocument>.Filter;
                 var filter = filterBuilder.Eq("StateId", stateId) & filterBuilder.Lte("Version", endVersion) & filterBuilder.Gte("Version", startVersion);
-                var cursor = await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, collection.SubTable).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(10000).Token);
+                var cursor = await grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, collection.SubTable).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(10000).Token);
                 foreach (var document in cursor.ToEnumerable())
                 {
                     var typeCode = document["TypeCode"].AsString;
@@ -72,7 +72,7 @@ namespace Ray.Storage.MongoDB
             {
                 var filterBuilder = Builders<BsonDocument>.Filter;
                 var filter = filterBuilder.Eq("StateId", stateId) & filterBuilder.Eq("TypeCode", typeCode) & filterBuilder.Gte("Version", startVersion);
-                var cursor = await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, collection.SubTable).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(10000).Token);
+                var cursor = await grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, collection.SubTable).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(10000).Token);
                 foreach (var document in cursor.ToEnumerable())
                 {
                     var data = document["Data"].AsString;
@@ -131,7 +131,7 @@ namespace Ray.Storage.MongoDB
             }
             async Task BatchInsert(string collectionName, List<DataAsyncWrapper<BatchAppendTransport<PrimaryKey>, bool>> list)
             {
-                var collection = grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, minTask.Result.SubTable);
+                var collection = grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, minTask.Result.SubTable);
                 var documents = list.Select(wrapper => (wrapper, new BsonDocument
                 {
                     {"StateId",BsonValue.Create( wrapper.Value.Event.StateId) },
@@ -141,8 +141,8 @@ namespace Ray.Storage.MongoDB
                     {"Data",Encoding.Default.GetString(wrapper.Value.BytesTransport.EventBytes)},
                     {"UniqueId",string.IsNullOrEmpty(wrapper.Value.UniqueId) ? wrapper.Value.Event.Base.Version.ToString() : wrapper.Value.UniqueId }
                 }));
-                var session = await grainConfig.Storage.Client.StartSessionAsync();
-                session.StartTransaction(new TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
+                var session = await grainConfig.Client.Client.StartSessionAsync();
+                session.StartTransaction(new global::MongoDB.Driver.TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
                 try
                 {
                     await collection.InsertManyAsync(session, documents.Select(d => d.Item2));
@@ -185,11 +185,11 @@ namespace Ray.Storage.MongoDB
 
             if (minTask.Result.EndTime > maxTimestamp)
             {
-                var session = await grainConfig.Storage.Client.StartSessionAsync();
-                session.StartTransaction(new TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
+                var session = await grainConfig.Client.Client.StartSessionAsync();
+                session.StartTransaction(new global::MongoDB.Driver.TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
                 try
                 {
-                    await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, minTask.Result.SubTable).InsertManyAsync(session, list.Select(data => new BsonDocument
+                    await grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, minTask.Result.SubTable).InsertManyAsync(session, list.Select(data => new BsonDocument
                         {
                             {"StateId", BsonValue.Create( data.FullyEvent.StateId) },
                             {"Version", data.FullyEvent.Base.Version },
@@ -215,13 +215,13 @@ namespace Ray.Storage.MongoDB
                         await task;
                     return (task.Result.SubTable, t);
                 }))).GroupBy(t => t.SubTable);
-                var session = await grainConfig.Storage.Client.StartSessionAsync();
-                session.StartTransaction(new TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
+                var session = await grainConfig.Client.Client.StartSessionAsync();
+                session.StartTransaction(new global::MongoDB.Driver.TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
                 try
                 {
                     foreach (var group in groups)
                     {
-                        await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, group.Key).InsertManyAsync(session, group.Select(data => new BsonDocument
+                        await grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, group.Key).InsertManyAsync(session, group.Select(data => new BsonDocument
                             {
                                 {"StateId", BsonValue.Create( data.t.FullyEvent.StateId) },
                                 {"Version", data.t.FullyEvent.Base.Version },
@@ -244,18 +244,17 @@ namespace Ray.Storage.MongoDB
 
         public async Task DeleteStart(PrimaryKey stateId, long endVersion, long startTimestamp)
         {
-            var filterBuilder = Builders<BsonDocument>.Filter;
-            var filter = filterBuilder.Eq("StateId", stateId) & filterBuilder.Lte("Version", endVersion);
+            var filter = Builders<BsonDocument>.Filter.Eq("StateId", stateId) & Builders<BsonDocument>.Filter.Lte("Version", endVersion);
             var collectionListTask = grainConfig.GetCollectionList();
             if (!collectionListTask.IsCompletedSuccessfully)
                 await collectionListTask;
-            var session = await grainConfig.Storage.Client.StartSessionAsync();
-            session.StartTransaction(new TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
+            var session = await grainConfig.Client.Client.StartSessionAsync();
+            session.StartTransaction(new global::MongoDB.Driver.TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
             try
             {
                 foreach (var collection in collectionListTask.Result.Where(c => c.EndTime >= startTimestamp))
                 {
-                    await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, collection.SubTable).DeleteManyAsync(session, filter);
+                    await grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, collection.SubTable).DeleteManyAsync(session, filter);
                 }
                 await session.CommitTransactionAsync();
             }
@@ -273,13 +272,13 @@ namespace Ray.Storage.MongoDB
             var collectionListTask = grainConfig.GetCollectionList();
             if (!collectionListTask.IsCompletedSuccessfully)
                 await collectionListTask;
-            var session = await grainConfig.Storage.Client.StartSessionAsync();
-            session.StartTransaction(new TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
+            var session = await grainConfig.Client.Client.StartSessionAsync();
+            session.StartTransaction(new global::MongoDB.Driver.TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
             try
             {
                 foreach (var collection in collectionListTask.Result.Where(c => c.EndTime >= startTimestamp))
                 {
-                    await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, collection.SubTable).DeleteManyAsync(session, filter);
+                    await grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, collection.SubTable).DeleteManyAsync(session, filter);
                 }
                 await session.CommitTransactionAsync();
             }

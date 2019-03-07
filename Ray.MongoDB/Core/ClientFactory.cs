@@ -1,6 +1,6 @@
 ﻿using System.Collections.Concurrent;
 
-namespace Ray.Storage.MongoDB.Core
+namespace Ray.Storage.Mongo.Core
 {
     public static class ClientFactory
     {

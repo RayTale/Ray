@@ -4,10 +4,10 @@ using Ray.Core.Storage;
 
 namespace Ray.Storage.SQLCore.Configuration
 {
-    public class FollowStorageConfig : IFollowStorageConfig
+    public class FollowStorageOptions : IFollowStorageOptions
     {
         StorageOptions _baseConfig;
-        public IStorageConfig Config
+        public IStorageOptions Config
         {
             get => _baseConfig;
             set

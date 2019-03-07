@@ -3,10 +3,10 @@ using System.Threading.Tasks;
 
 namespace Ray.Storage.SQLCore.Services
 {
-    public interface IBuildRepository
+    public interface IBuildService
     {
-        Task<List<EventSubTable>> GetSubTableList();
-        Task<bool> CreateEventSubRecordTable();
+        Task<List<EventSubTable>> GetSubTables();
+        Task<bool> CreateEventSubTable();
         Task CreateEventTable(EventSubTable subTable);
         Task CreateSnapshotTable();
         Task CreateFollowSnapshotTable(string followSnapshotTable);

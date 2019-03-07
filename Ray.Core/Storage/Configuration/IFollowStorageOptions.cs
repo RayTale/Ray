@@ -2,9 +2,9 @@
 
 namespace Ray.Core.Storage
 {
-    public interface IFollowStorageConfig
+    public interface IFollowStorageOptions
     {
-        IStorageConfig Config { get; set; }
+        IStorageOptions Config { get; set; }
         string FollowName { get; set; }
         ValueTask Build();
     }

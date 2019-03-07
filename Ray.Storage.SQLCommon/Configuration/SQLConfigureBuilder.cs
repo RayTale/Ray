@@ -4,7 +4,7 @@ using Ray.Core.Storage;
 namespace Ray.Storage.SQLCore.Configuration
 {
     public class SQLConfigureBuilder<Factory, PrimaryKey, Grain> :
-        ConfigureBuilder<PrimaryKey, Grain, StorageOptions, FollowStorageConfig, DefaultConfigParameter>
+        ConfigureBuilder<PrimaryKey, Grain, StorageOptions, FollowStorageOptions, DefaultConfigParameter>
         where Factory : IStorageFactory
     {
         public SQLConfigureBuilder(Func<IServiceProvider, PrimaryKey, DefaultConfigParameter, StorageOptions> generator, bool singleton = true) :
@@ -15,7 +15,7 @@ namespace Ray.Storage.SQLCore.Configuration
         public SQLConfigureBuilder<Factory, PrimaryKey, Grain> Follow<FollowGrain>(string followName = null)
             where FollowGrain : Orleans.Grain
         {
-            Follow<FollowGrain>((provider, id, parameter) => new FollowStorageConfig { FollowName = followName });
+            Follow<FollowGrain>((provider, id, parameter) => new FollowStorageOptions { FollowName = followName });
             return this;
         }
     }

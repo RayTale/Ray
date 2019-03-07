@@ -16,29 +16,21 @@ using TransactionStatus = Ray.DistributedTransaction.TransactionStatus;
 
 namespace Ray.Storage.PostgreSQL
 {
-    public class CommitModel
-    {
-        public long TransactionId { get; set; }
-        public string Data { get; set; }
-        public TransactionStatus Status { get; set; }
-    }
-    public class AppendInput : CommitModel
-    {
-        public string UnitName { get; set; }
-        public bool ReturnValue { get; set; }
-    }
     public class TransactionStorage : ITransactionStorage
     {
         readonly IMpscChannel<DataAsyncWrapper<AppendInput, bool>> mpscChannel;
         readonly ILogger<TransactionStorage> logger;
         readonly ISerializer serializer;
         readonly string connection;
+        readonly IOptions<TransactionOptions> options;
         public TransactionStorage(
             IServiceProvider serviceProvider,
-            IOptions<TransactionStorageConfig> storageConfig,
+            IOptions<TransactionOptions> options,
             IOptions<PSQLConnections> connectionsOptions)
         {
-            connection = connectionsOptions.Value.ConnectionDict[storageConfig.Value.ConnectionKey];
+            this.options = options;
+            connection = connectionsOptions.Value.ConnectionDict[options.Value.ConnectionKey];
+            CreateEventSubRecordTable().GetAwaiter().GetResult();
             mpscChannel = serviceProvider.GetService<IMpscChannel<DataAsyncWrapper<AppendInput, bool>>>();
             serializer = serviceProvider.GetService<ISerializer>();
             mpscChannel.BindConsumer(BatchProcessing);
@@ -47,6 +39,20 @@ namespace Ray.Storage.PostgreSQL
         public DbConnection CreateConnection()
         {
             return PSQLFactory.CreateConnection(connection);
+        }
+        public async Task CreateEventSubRecordTable()
+        {
+            var sql = $@"
+CREATE TABLE if not exists {options.Value.TableName}(
+                     UnitName varchar(500) not null,
+                     TransactionId int8 not null,
+                     Data jsonb not null,
+                     Status int2 not null)WITH (OIDS=FALSE);
+                     CREATE UNIQUE INDEX IF NOT EXISTS UnitName_TransId ON {options.Value.TableName} USING btree(UnitName, TransactionId)";
+            using (var connection = CreateConnection())
+            {
+                await connection.ExecuteAsync(sql);
+            }
         }
         public Task<bool> Append<Input>(string unitName, Commit<Input> commit)
         {
@@ -70,13 +76,13 @@ namespace Ray.Storage.PostgreSQL
         {
             using (var conn = CreateConnection())
             {
-                const string sql = "delete from TransactionCommit WHERE UnitName=@UnitName and TransactionId=@TransactionId";
+                var sql = $"delete from {options.Value.TableName} WHERE UnitName=@UnitName and TransactionId=@TransactionId";
                 await conn.ExecuteAsync(sql, new { UnitName = unitName, TransactionId = transactionId });
             }
         }
         public async Task<IList<Commit<Input>>> GetList<Input>(string unitName)
         {
-            const string getListSql = "select * from TransactionCommit WHERE UnitName=@UnitName";
+            var getListSql = $"select * from {options.Value.TableName} WHERE UnitName=@UnitName";
             using (var conn = CreateConnection())
             {
                 return (await conn.QueryAsync<CommitModel>(getListSql, new
@@ -93,7 +99,7 @@ namespace Ray.Storage.PostgreSQL
 
         public async Task<bool> Update(string unitName, long transactionId, TransactionStatus status)
         {
-            const string sql = "update TransactionCommit set Status=@Status where UnitName=@UnitName and TransactionId=@TransactionId";
+            var sql = $"update {options.Value.TableName} set Status=@Status where UnitName=@UnitName and TransactionId=@TransactionId";
             using (var conn = CreateConnection())
             {
                 return await conn.ExecuteAsync(sql, new { UnitName = unitName, TransactionId = transactionId, Status = status }) > 0;
@@ -101,7 +107,7 @@ namespace Ray.Storage.PostgreSQL
         }
         private async Task BatchProcessing(List<DataAsyncWrapper<AppendInput, bool>> wrapperList)
         {
-            const string copySql = "copy TransactionCommit(UnitName,TransactionId,Data,Status) FROM STDIN (FORMAT BINARY)";
+            var copySql = $"copy {options.Value.TableName}(UnitName,TransactionId,Data,Status) FROM STDIN (FORMAT BINARY)";
             try
             {
                 using (var conn = CreateConnection() as NpgsqlConnection)
@@ -124,7 +130,7 @@ namespace Ray.Storage.PostgreSQL
             }
             catch
             {
-                var saveSql = "INSERT INTO TransactionCommit(UnitName,TransactionId,Data,Status) VALUES(@UnitName,@TransactionId,(@Data)::jsonb,@Status) ON CONFLICT ON CONSTRAINT TransactionCommit_uniqueue DO NOTHING";
+                var saveSql = $"INSERT INTO {options.Value.TableName}(UnitName,TransactionId,Data,Status) VALUES(@UnitName,@TransactionId,(@Data)::jsonb,@Status) ON CONFLICT ON CONSTRAINT TransactionCommit_uniqueue DO NOTHING";
                 using (var conn = CreateConnection())
                 {
                     await conn.OpenAsync();
@@ -154,5 +160,16 @@ namespace Ray.Storage.PostgreSQL
                 }
             }
         }
+    }
+    public class CommitModel
+    {
+        public long TransactionId { get; set; }
+        public string Data { get; set; }
+        public TransactionStatus Status { get; set; }
+    }
+    public class AppendInput : CommitModel
+    {
+        public string UnitName { get; set; }
+        public bool ReturnValue { get; set; }
     }
 }

@@ -7,15 +7,15 @@ using System.Threading.Tasks;
 namespace Ray.Core.Storage
 {
     public abstract class ConfigureBuilder<PrimaryKey, Grain, Config, FollowConfig, Parameter> : IConfigureBuilder<PrimaryKey, Grain>
-         where Config : IStorageConfig
-         where FollowConfig : IFollowStorageConfig
+         where Config : IStorageOptions
+         where FollowConfig : IFollowStorageOptions
          where Parameter : IConfigParameter
     {
         protected readonly Parameter parameter;
         readonly Func<IServiceProvider, PrimaryKey, Parameter, Config> generator;
         readonly Dictionary<Type, Func<IServiceProvider, PrimaryKey, Parameter, FollowConfig>> followConfigGeneratorDict = new Dictionary<Type, Func<IServiceProvider, PrimaryKey, Parameter, FollowConfig>>();
         readonly ConcurrentDictionary<Type, Task<FollowConfig>> singletonFollowConfigDict = new ConcurrentDictionary<Type, Task<FollowConfig>>();
-        IStorageConfig config;
+        IStorageOptions config;
         public ConfigureBuilder(
             Func<IServiceProvider, PrimaryKey, Parameter, Config> generator,
             Parameter parameter)
@@ -30,7 +30,7 @@ namespace Ray.Core.Storage
             followConfigGeneratorDict.Add(typeof(Follow), generator);
         }
         readonly SemaphoreSlim seamphore = new SemaphoreSlim(1, 1);
-        public async ValueTask<IStorageConfig> GetConfig(IServiceProvider serviceProvider, PrimaryKey primaryKey)
+        public async ValueTask<IStorageOptions> GetConfig(IServiceProvider serviceProvider, PrimaryKey primaryKey)
         {
             if (parameter.Singleton)
             {
@@ -65,7 +65,7 @@ namespace Ray.Core.Storage
                 return newConfig;
             }
         }
-        public async ValueTask<IFollowStorageConfig> GetFollowConfig(IServiceProvider serviceProvider, Type followGrainType, PrimaryKey primaryKey)
+        public async ValueTask<IFollowStorageOptions> GetFollowConfig(IServiceProvider serviceProvider, Type followGrainType, PrimaryKey primaryKey)
         {
             if (parameter.Singleton)
             {

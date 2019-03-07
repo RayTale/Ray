@@ -9,13 +9,13 @@ namespace Ray.Storage.PostgreSQL
 {
     public class FollowSnapshotStorage<PrimaryKey> : IFollowSnapshotStorage<PrimaryKey>
     {
-        readonly FollowStorageConfig config;
+        readonly FollowStorageOptions config;
         private readonly string deleteSql;
         private readonly string getByIdSql;
         private readonly string insertSql;
         private readonly string updateSql;
         private readonly string updateStartTimestampSql;
-        public FollowSnapshotStorage(FollowStorageConfig config)
+        public FollowSnapshotStorage(FollowStorageOptions config)
         {
             this.config = config;
             var followStateTable = config.FollowSnapshotTable;

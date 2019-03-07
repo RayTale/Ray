@@ -3,17 +3,17 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using Ray.Core.Storage;
 
-namespace Ray.Storage.MongoDB.Configuration
+namespace Ray.Storage.Mongo.Configuration
 {
-    public class FollowStorageConfig : IFollowStorageConfig
+    public class FollowStorageOptions : IFollowStorageOptions
     {
-        StorageConfig _baseConfig;
-        public IStorageConfig Config
+        StorageOptions _baseConfig;
+        public IStorageOptions Config
         {
             get => _baseConfig;
             set
             {
-                _baseConfig = value as StorageConfig;
+                _baseConfig = value as StorageOptions;
             }
         }
         public string FollowName { get; set; }
@@ -25,7 +25,7 @@ namespace Ray.Storage.MongoDB.Configuration
         }
         private async Task CreateFollowSnapshotIndex()
         {
-            var stateCollection = _baseConfig.Storage.GetCollection<BsonDocument>(_baseConfig.DataBase, FollowSnapshotTable);
+            var stateCollection = _baseConfig.Client.GetCollection<BsonDocument>(_baseConfig.DataBase, FollowSnapshotTable);
             var stateIndex = await stateCollection.Indexes.ListAsync();
             var stateIndexList = await stateIndex.ToListAsync();
             if (!stateIndexList.Exists(p => p["name"] == "State"))

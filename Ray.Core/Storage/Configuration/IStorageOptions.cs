@@ -2,7 +2,7 @@
 
 namespace Ray.Core.Storage
 {
-    public interface IStorageConfig
+    public interface IStorageOptions
     {
         /// <summary>
         /// 是否是单实例

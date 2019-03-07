@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace Ray.Storage.MongoDB
+namespace Ray.Storage.Mongo
 {
     public class MongoConnections
     {

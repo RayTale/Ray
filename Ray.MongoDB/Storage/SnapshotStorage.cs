@@ -6,14 +6,14 @@ using Ray.Core.Serialization;
 using Ray.Core.Snapshot;
 using Ray.Core.Storage;
 
-namespace Ray.Storage.MongoDB
+namespace Ray.Storage.Mongo
 {
     public class SnapshotStorage<PrimaryKey, StateType> : ISnapshotStorage<PrimaryKey, StateType>
         where StateType : class, new()
     {
-        readonly StorageConfig grainConfig;
+        readonly StorageOptions grainConfig;
         readonly ISerializer serializer;
-        public SnapshotStorage(ISerializer serializer, StorageConfig grainConfig)
+        public SnapshotStorage(ISerializer serializer, StorageOptions grainConfig)
         {
             this.serializer = serializer;
             this.grainConfig = grainConfig;
@@ -21,12 +21,12 @@ namespace Ray.Storage.MongoDB
         public Task Delete(PrimaryKey id)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", id);
-            return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotCollection).DeleteManyAsync(filter);
+            return grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotCollection).DeleteManyAsync(filter);
         }
         public async Task<Snapshot<PrimaryKey, StateType>> Get(PrimaryKey id)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", id);
-            var cursor = await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotCollection).FindAsync<BsonDocument>(filter);
+            var cursor = await grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotCollection).FindAsync<BsonDocument>(filter);
             var document = await cursor.FirstOrDefaultAsync();
             if (document != null)
             {
@@ -60,14 +60,14 @@ namespace Ray.Storage.MongoDB
                 { "IsLatest", snapshot.Base.IsLatest },
                 { "IsOver", snapshot.Base.IsOver }
             };
-            await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotCollection).InsertOneAsync(doc, null, new CancellationTokenSource(3000).Token);
+            await grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotCollection).InsertOneAsync(doc, null, new CancellationTokenSource(3000).Token);
         }
 
         public Task Over(PrimaryKey id, bool isOver)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", id);
             var update = Builders<BsonDocument>.Update.Set("IsOver", isOver);
-            return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotCollection).UpdateOneAsync(filter, update);
+            return grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotCollection).UpdateOneAsync(filter, update);
         }
 
         public async Task Update(Snapshot<PrimaryKey, StateType> snapshot)
@@ -77,7 +77,7 @@ namespace Ray.Storage.MongoDB
             if (!string.IsNullOrEmpty(json))
             {
                 var update = Builders<BsonDocument>.Update.Set("Data", json).Set("Version", snapshot.Base.Version);
-                await grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotCollection).UpdateOneAsync(filter, update, null, new CancellationTokenSource(3000).Token);
+                await grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotCollection).UpdateOneAsync(filter, update, null, new CancellationTokenSource(3000).Token);
             }
         }
 
@@ -85,21 +85,21 @@ namespace Ray.Storage.MongoDB
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", id);
             var update = Builders<BsonDocument>.Update.Set("IsLatest", isLatest);
-            return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotCollection).UpdateOneAsync(filter, update);
+            return grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotCollection).UpdateOneAsync(filter, update);
         }
 
         public Task UpdateLatestMinEventTimestamp(PrimaryKey id, long timestamp)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", id);
             var update = Builders<BsonDocument>.Update.Set("LatestMinEventTimestamp", timestamp);
-            return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotCollection).UpdateOneAsync(filter, update);
+            return grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotCollection).UpdateOneAsync(filter, update);
         }
 
         public Task UpdateStartTimestamp(PrimaryKey id, long timestamp)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", id);
             var update = Builders<BsonDocument>.Update.Set("StartTimestamp", timestamp);
-            return grainConfig.Storage.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotCollection).UpdateOneAsync(filter, update);
+            return grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotCollection).UpdateOneAsync(filter, update);
         }
     }
 }

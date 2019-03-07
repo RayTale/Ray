@@ -12,7 +12,7 @@ using Ray.Storage.SQLCore.Services;
 
 namespace Ray.Storage.SQLCore.Configuration
 {
-    public abstract class StorageOptions : IStorageConfig
+    public abstract class StorageOptions : IStorageOptions
     {
         readonly ILogger logger;
         private readonly ISerializer serializer;
@@ -29,14 +29,14 @@ namespace Ray.Storage.SQLCore.Configuration
         public string SnapshotArchiveTable => $"{SnapshotTable}_Archive";
         public string EventArchiveTable => $"{EventTable}_Archive";
         public abstract DbConnection CreateConnection();
-        public abstract IBuildRepository BuildRepository { get; }
+        public abstract IBuildService BuildRepository { get; }
         private List<EventSubTable> _subTables;
         readonly SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
         public async ValueTask Build()
         {
-            if (!await BuildRepository.CreateEventSubRecordTable())
+            if (!await BuildRepository.CreateEventSubTable())
             {
-                _subTables = (await BuildRepository.GetSubTableList()).OrderBy(table => table.EndTime).ToList();
+                _subTables = (await BuildRepository.GetSubTables()).OrderBy(table => table.EndTime).ToList();
             }
             await BuildRepository.CreateSnapshotTable();
             await BuildRepository.CreateSnapshotArchiveTable();
@@ -53,7 +53,7 @@ namespace Ray.Storage.SQLCore.Configuration
                 {
                     if (lastSubTable == default || lastSubTable.EndTime <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
                     {
-                        _subTables = (await BuildRepository.GetSubTableList()).OrderBy(table => table.EndTime).ToList();
+                        _subTables = (await BuildRepository.GetSubTables()).OrderBy(table => table.EndTime).ToList();
                     }
                 }
                 finally
@@ -97,7 +97,7 @@ namespace Ray.Storage.SQLCore.Configuration
                         {
                             logger.LogCritical(ex, serializer.SerializeToString(subTable));
                             subTable = default;
-                            _subTables = (await BuildRepository.GetSubTableList()).OrderBy(table => table.EndTime).ToList();
+                            _subTables = (await BuildRepository.GetSubTables()).OrderBy(table => table.EndTime).ToList();
                         }
                     }
                 }

@@ -1,12 +1,12 @@
 ﻿using System;
 using Ray.Core.Storage;
-using Ray.Storage.MongoDB.Configuration;
+using Ray.Storage.Mongo.Configuration;
 
-namespace Ray.Storage.MongoDB
+namespace Ray.Storage.Mongo
 {
-    public class MongoConfigureBuilder<PrimaryKey, Grain> : ConfigureBuilder<PrimaryKey, Grain, StorageConfig, FollowStorageConfig, DefaultConfigParameter>
+    public class MongoConfigureBuilder<PrimaryKey, Grain> : ConfigureBuilder<PrimaryKey, Grain, StorageOptions, FollowStorageOptions, DefaultConfigParameter>
     {
-        public MongoConfigureBuilder(Func<IServiceProvider, PrimaryKey, DefaultConfigParameter, StorageConfig> generator, bool singleton = true) : base(generator, new DefaultConfigParameter(singleton))
+        public MongoConfigureBuilder(Func<IServiceProvider, PrimaryKey, DefaultConfigParameter, StorageOptions> generator, bool singleton = true) : base(generator, new DefaultConfigParameter(singleton))
         {
         }
 
@@ -15,7 +15,7 @@ namespace Ray.Storage.MongoDB
         public MongoConfigureBuilder<PrimaryKey, Grain> Follow<FollowGrain>(string followName = null)
             where FollowGrain : Orleans.Grain
         {
-            Follow<FollowGrain>((provider, id, parameter) => new FollowStorageConfig { FollowName = followName });
+            Follow<FollowGrain>((provider, id, parameter) => new FollowStorageOptions { FollowName = followName });
             return this;
         }
     }
