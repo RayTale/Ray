@@ -70,8 +70,7 @@ namespace Ray.Storage.Mongo
             var list = new List<IFullyEvent<PrimaryKey>>();
             foreach (var collection in collectionListTask.Result)
             {
-                var filterBuilder = Builders<BsonDocument>.Filter;
-                var filter = filterBuilder.Eq("StateId", stateId) & filterBuilder.Eq("TypeCode", typeCode) & filterBuilder.Gte("Version", startVersion);
+                var filter = Builders<BsonDocument>.Filter.Eq("StateId", stateId) & Builders<BsonDocument>.Filter.Eq("TypeCode", typeCode) & Builders<BsonDocument>.Filter.Gte("Version", startVersion);
                 var cursor = await grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, collection.SubTable).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(10000).Token);
                 foreach (var document in cursor.ToEnumerable())
                 {
@@ -142,7 +141,7 @@ namespace Ray.Storage.Mongo
                     {"UniqueId",string.IsNullOrEmpty(wrapper.Value.UniqueId) ? wrapper.Value.Event.Base.Version.ToString() : wrapper.Value.UniqueId }
                 }));
                 var session = await grainConfig.Client.Client.StartSessionAsync();
-                session.StartTransaction(new global::MongoDB.Driver.TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
+                session.StartTransaction(new MongoDB.Driver.TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
                 try
                 {
                     await collection.InsertManyAsync(session, documents.Select(d => d.Item2));

@@ -1,7 +1,9 @@
 ﻿using System;
+using Orleans.Concurrency;
 
 namespace Ray.Core.Event
 {
+    [Immutable]
     public class EventUID
     {
         public static readonly EventUID Empty = new EventUID(null, DateTimeOffset.MinValue.ToUnixTimeMilliseconds());
