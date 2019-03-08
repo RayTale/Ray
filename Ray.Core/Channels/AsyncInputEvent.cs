@@ -2,9 +2,9 @@
 
 namespace Ray.Core.Channels
 {
-    public class DataAsyncWrapper<Input, Output>
+    public class AsyncInputEvent<Input, Output>
     {
-        public DataAsyncWrapper(Input data)
+        public AsyncInputEvent(Input data)
         {
             Value = data;
             TaskSource = new TaskCompletionSource<Output>();

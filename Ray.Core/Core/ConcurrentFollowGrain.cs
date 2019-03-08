@@ -21,11 +21,11 @@ namespace Ray.Core
         /// <summary>
         /// 多生产者单消费者消息信道
         /// </summary>
-        protected IMpscChannel<DataAsyncWrapper<IFullyEvent<PrimaryKey>, bool>> ConcurrentChannel { get; private set; }
+        protected IMpscChannel<AsyncInputEvent<IFullyEvent<PrimaryKey>, bool>> ConcurrentChannel { get; private set; }
         protected override bool EventConcurrentProcessing => true;
         public override Task OnActivateAsync()
         {
-            ConcurrentChannel = ServiceProvider.GetService<IMpscChannel<DataAsyncWrapper<IFullyEvent<PrimaryKey>, bool>>>().BindConsumer(BatchInputProcessing);
+            ConcurrentChannel = ServiceProvider.GetService<IMpscChannel<AsyncInputEvent<IFullyEvent<PrimaryKey>, bool>>>().BindConsumer(BatchInputProcessing);
             ConcurrentChannel.ActiveConsumer();
             return base.OnActivateAsync();
         }
@@ -45,7 +45,7 @@ namespace Ray.Core
                     var eventBase = EventBase.FromBytes(transport.BaseBytes);
                     if (eventBase.Version > Snapshot.Version)
                     {
-                        var writeTask = ConcurrentChannel.WriteAsync(new DataAsyncWrapper<IFullyEvent<PrimaryKey>, bool>(new FullyEvent<PrimaryKey>
+                        var writeTask = ConcurrentChannel.WriteAsync(new AsyncInputEvent<IFullyEvent<PrimaryKey>, bool>(new FullyEvent<PrimaryKey>
                         {
                             StateId = GrainId,
                             Base = eventBase,
@@ -69,7 +69,7 @@ namespace Ray.Core
             }
         }
         readonly TimeoutException timeoutException = new TimeoutException($"{nameof(OnEventDelivered)} with timeouts in {nameof(BatchInputProcessing)}");
-        private async Task BatchInputProcessing(List<DataAsyncWrapper<IFullyEvent<PrimaryKey>, bool>> events)
+        private async Task BatchInputProcessing(List<AsyncInputEvent<IFullyEvent<PrimaryKey>, bool>> events)
         {
             var evtList = new List<IFullyEvent<PrimaryKey>>();
             var startVersion = Snapshot.Version;

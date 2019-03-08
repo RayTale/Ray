@@ -20,14 +20,14 @@ namespace Ray.Storage.PostgreSQL
     public class EventStorage<PrimaryKey> : IEventStorage<PrimaryKey>
     {
         readonly StorageOptions config;
-        readonly IMpscChannel<DataAsyncWrapper<BatchAppendTransport<PrimaryKey>, bool>> mpscChannel;
+        readonly IMpscChannel<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>> mpscChannel;
         readonly ILogger<EventStorage<PrimaryKey>> logger;
         readonly ISerializer serializer;
         public EventStorage(IServiceProvider serviceProvider, StorageOptions config)
         {
             logger = serviceProvider.GetService<ILogger<EventStorage<PrimaryKey>>>();
             serializer = serviceProvider.GetService<ISerializer>();
-            mpscChannel = serviceProvider.GetService<IMpscChannel<DataAsyncWrapper<BatchAppendTransport<PrimaryKey>, bool>>>().BindConsumer(BatchProcessing);
+            mpscChannel = serviceProvider.GetService<IMpscChannel<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>>>().BindConsumer(BatchProcessing);
             mpscChannel.ActiveConsumer();
             this.config = config;
         }
@@ -121,14 +121,14 @@ namespace Ray.Storage.PostgreSQL
         {
             return Task.Run(async () =>
             {
-                var wrap = new DataAsyncWrapper<BatchAppendTransport<PrimaryKey>, bool>(new BatchAppendTransport<PrimaryKey>(fullyEvent, bytesTransport, unique));
+                var wrap = new AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>(new BatchAppendTransport<PrimaryKey>(fullyEvent, bytesTransport, unique));
                 var writeTask = mpscChannel.WriteAsync(wrap);
                 if (!writeTask.IsCompletedSuccessfully)
                     await writeTask;
                 return await wrap.TaskSource.Task;
             });
         }
-        private async Task BatchProcessing(List<DataAsyncWrapper<BatchAppendTransport<PrimaryKey>, bool>> wrapperList)
+        private async Task BatchProcessing(List<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>> wrapperList)
         {
             var minTimestamp = wrapperList.Min(t => t.Value.Event.Base.Timestamp);
             var maxTimestamp = wrapperList.Max(t => t.Value.Event.Base.Timestamp);
@@ -153,7 +153,7 @@ namespace Ray.Storage.PostgreSQL
                     await BatchCopy(group.Key, group.Select(t => t.t).ToList());
                 }
             }
-            async Task BatchCopy(string tableName, List<DataAsyncWrapper<BatchAppendTransport<PrimaryKey>, bool>> list)
+            async Task BatchCopy(string tableName, List<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>> list)
             {
                 try
                 {
@@ -187,7 +187,7 @@ namespace Ray.Storage.PostgreSQL
                     await BatchInsert(saveSql, wrapperList);
                 }
             }
-            async Task BatchInsert(string saveSql, List<DataAsyncWrapper<BatchAppendTransport<PrimaryKey>, bool>> list)
+            async Task BatchInsert(string saveSql, List<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>> list)
             {
                 bool isSuccess = false;
                 using (var conn = config.CreateConnection())

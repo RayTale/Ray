@@ -18,14 +18,14 @@ namespace Ray.Storage.Mongo
     public class EventStorage<PrimaryKey> : IEventStorage<PrimaryKey>
     {
         readonly StorageOptions grainConfig;
-        readonly IMpscChannel<DataAsyncWrapper<BatchAppendTransport<PrimaryKey>, bool>> mpscChannel;
+        readonly IMpscChannel<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>> mpscChannel;
         readonly ILogger<EventStorage<PrimaryKey>> logger;
         readonly ISerializer serializer;
         public EventStorage(IServiceProvider serviceProvider, StorageOptions grainConfig)
         {
             serializer = serviceProvider.GetService<ISerializer>();
             logger = serviceProvider.GetService<ILogger<EventStorage<PrimaryKey>>>();
-            mpscChannel = serviceProvider.GetService<IMpscChannel<DataAsyncWrapper<BatchAppendTransport<PrimaryKey>, bool>>>();
+            mpscChannel = serviceProvider.GetService<IMpscChannel<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>>>();
             mpscChannel.BindConsumer(BatchProcessing).ActiveConsumer();
             this.grainConfig = grainConfig;
         }
@@ -96,14 +96,14 @@ namespace Ray.Storage.Mongo
         {
             return Task.Run(async () =>
             {
-                var wrap = new DataAsyncWrapper<BatchAppendTransport<PrimaryKey>, bool>(new BatchAppendTransport<PrimaryKey>(fullyEvent, bytesTransport, unique));
+                var wrap = new AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>(new BatchAppendTransport<PrimaryKey>(fullyEvent, bytesTransport, unique));
                 var writeTask = mpscChannel.WriteAsync(wrap);
                 if (!writeTask.IsCompletedSuccessfully)
                     await writeTask;
                 return await wrap.TaskSource.Task;
             });
         }
-        private async Task BatchProcessing(List<DataAsyncWrapper<BatchAppendTransport<PrimaryKey>, bool>> wrapperList)
+        private async Task BatchProcessing(List<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>> wrapperList)
         {
             var minTimestamp = wrapperList.Min(t => t.Value.Event.Base.Timestamp);
             var maxTimestamp = wrapperList.Max(t => t.Value.Event.Base.Timestamp);
@@ -128,7 +128,7 @@ namespace Ray.Storage.Mongo
                     await BatchInsert(group.Key, group.Select(g => g.t).ToList());
                 }
             }
-            async Task BatchInsert(string collectionName, List<DataAsyncWrapper<BatchAppendTransport<PrimaryKey>, bool>> list)
+            async Task BatchInsert(string collectionName, List<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>> list)
             {
                 var collection = grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, minTask.Result.SubTable);
                 var documents = list.Select(wrapper => (wrapper, new BsonDocument

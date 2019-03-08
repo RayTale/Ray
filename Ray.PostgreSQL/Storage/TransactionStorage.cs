@@ -18,7 +18,7 @@ namespace Ray.Storage.PostgreSQL
 {
     public class TransactionStorage : ITransactionStorage
     {
-        readonly IMpscChannel<DataAsyncWrapper<AppendInput, bool>> mpscChannel;
+        readonly IMpscChannel<AsyncInputEvent<AppendInput, bool>> mpscChannel;
         readonly ILogger<TransactionStorage> logger;
         readonly ISerializer serializer;
         readonly string connection;
@@ -31,7 +31,7 @@ namespace Ray.Storage.PostgreSQL
             this.options = options;
             connection = connectionsOptions.Value.ConnectionDict[options.Value.ConnectionKey];
             CreateEventSubRecordTable().GetAwaiter().GetResult();
-            mpscChannel = serviceProvider.GetService<IMpscChannel<DataAsyncWrapper<AppendInput, bool>>>();
+            mpscChannel = serviceProvider.GetService<IMpscChannel<AsyncInputEvent<AppendInput, bool>>>();
             serializer = serviceProvider.GetService<ISerializer>();
             mpscChannel.BindConsumer(BatchProcessing);
             mpscChannel.ActiveConsumer();
@@ -58,7 +58,7 @@ CREATE TABLE if not exists {options.Value.TableName}(
         {
             return Task.Run(async () =>
             {
-                var wrap = new DataAsyncWrapper<AppendInput, bool>(new AppendInput
+                var wrap = new AsyncInputEvent<AppendInput, bool>(new AppendInput
                 {
                     UnitName = unitName,
                     TransactionId = commit.TransactionId,
@@ -105,7 +105,7 @@ CREATE TABLE if not exists {options.Value.TableName}(
                 return await conn.ExecuteAsync(sql, new { UnitName = unitName, TransactionId = transactionId, Status = status }) > 0;
             }
         }
-        private async Task BatchProcessing(List<DataAsyncWrapper<AppendInput, bool>> wrapperList)
+        private async Task BatchProcessing(List<AsyncInputEvent<AppendInput, bool>> wrapperList)
         {
             var copySql = $"copy {options.Value.TableName}(UnitName,TransactionId,Data,Status) FROM STDIN (FORMAT BINARY)";
             try
