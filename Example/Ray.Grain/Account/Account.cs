@@ -6,11 +6,12 @@ using Ray.IGrains.Actors;
 using Ray.Grain.Events;
 using Ray.IGrains.States;
 using Orleans.Concurrency;
+using Ray.DistributedTransaction;
 
 namespace Ray.Grain
 {
-    [Reentrant]
-    public sealed class Account : ConcurrentGrain<Account, long, AccountState>, IAccount
+    //[Reentrant]
+    public sealed class Account : DistributedTransactionGrain<Account, long, AccountState>, IAccount
     {
         public Account() : base()
         {

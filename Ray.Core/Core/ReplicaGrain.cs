@@ -259,7 +259,7 @@ namespace Ray.Core
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask OnEventDelivered(IFullyEvent<PrimaryKey> @event)
         {
-            Snapshot.Apply(EventHandler, @event);
+            EventHandler.Apply(Snapshot, @event);
             return Consts.ValueTaskDone;
         }
     }

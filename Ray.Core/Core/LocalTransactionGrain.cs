@@ -10,16 +10,16 @@ using Ray.Core.Snapshot;
 
 namespace Ray.Core
 {
-    public abstract class TransactionGrain<Grain, PrimaryKey, StateType> : MainGrain<Grain, PrimaryKey, StateType>
+    public abstract class LocalTransactionGrain<Grain, PrimaryKey, StateType> : MainGrain<Grain, PrimaryKey, StateType>
         where StateType : class, ICloneable<StateType>, new()
     {
-        public TransactionGrain() : base()
+        public LocalTransactionGrain() : base()
         {
         }
         /// <summary>
         /// 事务过程中用于回滚的备份快照
         /// </summary>
-        private Snapshot<PrimaryKey, StateType> BackupSnapshot { get; set; }
+        protected Snapshot<PrimaryKey, StateType> BackupSnapshot { get; set; }
         /// <summary>
         /// 事务的开始版本
         /// </summary>
@@ -36,7 +36,7 @@ namespace Ray.Core
         /// <summary>
         /// 事务中待提交的数据列表
         /// </summary>
-        private readonly List<EventTransport<PrimaryKey>> WaitingForTransactionTransports = new List<EventTransport<PrimaryKey>>();
+        protected readonly List<EventTransport<PrimaryKey>> WaitingForTransactionTransports = new List<EventTransport<PrimaryKey>>();
         /// <summary>
         /// 保证同一时间只有一个事务启动的信号量控制器
         /// </summary>
@@ -140,11 +140,9 @@ namespace Ray.Core
                     throw new TransactionCommitException();
                 try
                 {
-                    //如果是带Id的事务，则加入事务事件，等待Complete
-                    if (transactionId > 0)
-                    {
-                        TransactionRaiseEvent(new TransactionCommitEvent(CurrentTransactionId, CurrentTransactionStartVersion + 1, WaitingForTransactionTransports.Min(t => t.FullyEvent.Base.Timestamp)));
-                    }
+                    var onCommitTask = OnCommitTransaction(transactionId);
+                    if (!onCommitTask.IsCompletedSuccessfully)
+                        await onCommitTask;
                     foreach (var transport in WaitingForTransactionTransports)
                     {
                         var startTask = OnRaiseStart(transport.FullyEvent);
@@ -167,6 +165,7 @@ namespace Ray.Core
                 }
             }
         }
+        protected virtual ValueTask OnCommitTransaction(long transactionId) => Consts.ValueTaskDone;
         public async Task RollbackTransaction(long transactionId)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
@@ -214,20 +213,9 @@ namespace Ray.Core
                     if (!task.IsCompletedSuccessfully)
                         await task;
                 }
-                if (transactionId > 0)
-                {
-                    if (CoreOptions.ClearTransactionEvents)
-                    {
-                        //删除最后一个TransactionCommitEvent
-                        await EventStorage.DeleteEnd(Snapshot.Base.StateId, Snapshot.Base.Version, Snapshot.Base.LatestMinEventTimestamp);
-                        Snapshot.Base.ClearTransactionInfo(true);
-                        BackupSnapshot.Base.ClearTransactionInfo(true);
-                    }
-                    else
-                    {
-                        await base.RaiseEvent(new TransactionFinishEvent(transactionId));
-                    }
-                }
+                var onFinishTask = OnFinshTransaction(transactionId);
+                if (!onFinishTask.IsCompletedSuccessfully)
+                    await onFinishTask;
                 var saveSnapshotTask = SaveSnapshotAsync();
                 if (!saveSnapshotTask.IsCompletedSuccessfully)
                     await saveSnapshotTask;
@@ -281,6 +269,7 @@ namespace Ray.Core
                 TransactionSemaphore.Release();
             }
         }
+        protected virtual ValueTask OnFinshTransaction(long transactionId) => Consts.ValueTaskDone;
         private void SnapshotCheck()
         {
             if (BackupSnapshot.Base.Version != Snapshot.Base.Version)
@@ -323,7 +312,7 @@ namespace Ray.Core
                     Event = Serializer.Deserialize(fullyEvent.Event.GetType(), bytesTransport.EventBytes) as IEvent,
                     Base = EventBase.FromBytes(bytesTransport.BaseBytes)
                 };
-                BackupSnapshot.Apply(EventHandler, copiedEvent);
+                EventHandler.Apply(BackupSnapshot, copiedEvent);
                 BackupSnapshot.Base.FullUpdateVersion(copiedEvent.Base, GrainType);//更新处理完成的Version
             }
             //父级涉及状态归档
@@ -361,7 +350,7 @@ namespace Ray.Core
                 else
                     fullyEvent.Base.Timestamp = uniqueId.Timestamp;
                 WaitingForTransactionTransports.Add(new EventTransport<PrimaryKey>(fullyEvent, uniqueId.UID, fullyEvent.StateId.ToString()));
-                Snapshot.Apply(EventHandler, fullyEvent);
+                EventHandler.Apply(Snapshot, fullyEvent);
                 Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
             }
             catch (Exception ex)

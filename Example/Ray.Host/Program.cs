@@ -10,6 +10,7 @@ using Orleans.Hosting;
 using Ray.Core;
 using Ray.EventBus.RabbitMQ;
 using Ray.Grain;
+using Ray.Grain.EventHandles;
 using Ray.Storage.Mongo;
 using Ray.Storage.PostgreSQL;
 
@@ -69,6 +70,11 @@ namespace Ray.MongoHost
                     //servicecollection.AddMongoDBStorage(config =>
                     //{
                     //    config.ConnectionDict.Add("core", "mongodb://127.0.0.1:27017");
+                    //});
+                    //servicecollection.AddMongoTransactionStorage(options =>
+                    //{
+                    //    options.ConnectionKey = "core";
+                    //    options.CollectionName = "Transaction_TemporaryRecord";
                     //});
                     //servicecollection.MongoConfigure();
                     servicecollection.AddRabbitMQ(config =>

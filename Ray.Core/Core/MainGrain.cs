@@ -193,7 +193,7 @@ namespace Ray.Core
                     foreach (var fullyEvent in eventList)
                     {
                         Snapshot.Base.IncrementDoingVersion(GrainType);//标记将要处理的Version
-                        Snapshot.Apply(EventHandler, fullyEvent);
+                        EventHandler.Apply(Snapshot, fullyEvent);
                         Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
                     }
                     if (eventList.Count < CoreOptions.NumberOfEventsPerRead) break;
@@ -433,7 +433,7 @@ namespace Ray.Core
                 };
                 if (await EventStorage.Append(fullyEvent, bytesTransport, uniqueId.UID))
                 {
-                    Snapshot.Apply(EventHandler, fullyEvent);
+                    EventHandler.Apply(Snapshot, fullyEvent);
                     Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
                     var task = OnRaiseSuccessed(fullyEvent, bytesTransport);
                     if (!task.IsCompletedSuccessfully)

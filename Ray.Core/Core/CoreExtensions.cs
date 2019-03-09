@@ -9,25 +9,6 @@ namespace Ray.Core
     public static class CoreExtensions
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void Apply<PrimaryKey, SnapshotType>(this Snapshot<PrimaryKey, SnapshotType> snapshot, IEventHandler<PrimaryKey, SnapshotType> handler, IFullyEvent<PrimaryKey> fullyEvent)
-             where SnapshotType : class, new()
-        {
-            switch (fullyEvent.Event)
-            {
-                case TransactionFinishEvent _:
-                    {
-                        snapshot.Base.ClearTransactionInfo(false);
-                    }; break;
-                case TransactionCommitEvent transactionCommitEvent:
-                    {
-                        snapshot.Base.TransactionStartVersion = transactionCommitEvent.StartVersion;
-                        snapshot.Base.TransactionStartTimestamp = transactionCommitEvent.StartTimestamp;
-                        snapshot.Base.TransactionId = transactionCommitEvent.Id;
-                    }; break;
-                default: handler.Apply(snapshot, fullyEvent); break;
-            }
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void UpdateVersion<PrimaryKey>(this ISnapshotBase<PrimaryKey> snapshot, IEventBase eventBase, Type grainType)
         {
             if (snapshot.Version + 1 != eventBase.Version)

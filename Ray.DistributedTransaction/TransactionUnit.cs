@@ -10,9 +10,9 @@ using Orleans;
 
 namespace Ray.DistributedTransaction
 {
-    public abstract class BaseTransactionUnit<Input, Output> : Grain, ITransactionUnit<Input, Output>
+    public abstract class TransactionUnit<Input, Output> : Grain, ITransactionUnit<Input, Output>
     {
-        public BaseTransactionUnit(ILogger logger)
+        public TransactionUnit(ILogger logger)
         {
             Logger = logger;
         }

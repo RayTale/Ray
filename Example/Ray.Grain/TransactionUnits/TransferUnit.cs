@@ -7,7 +7,7 @@ using Ray.IGrains.TransactionUnits.Inputs;
 
 namespace Ray.Grain.TransactionUnits
 {
-    public class TransferUnit : BaseTransactionUnit<TransferInput, bool>, ITransferUnit
+    public class TransferUnit : TransactionUnit<TransferInput, bool>, ITransferUnit
     {
         public TransferUnit(ILogger<TransferUnit> logger) : base(logger)
         {

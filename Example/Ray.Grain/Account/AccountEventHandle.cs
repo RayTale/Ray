@@ -1,13 +1,14 @@
 ﻿using Ray.Core.Event;
 using Ray.Core.Snapshot;
+using Ray.DistributedTransaction;
 using Ray.Grain.Events;
 using Ray.IGrains.States;
 
 namespace Ray.Grain.EventHandles
 {
-    public class AccountEventHandle : IEventHandler<long, AccountState>
+    public class AccountEventHandle : TransactionEventHandler<long, AccountState>
     {
-        public void Apply(Snapshot<long, AccountState> snapshot, IFullyEvent<long> fullyEvent)
+        public override void CustomApply(Snapshot<long, AccountState> snapshot, IFullyEvent<long> fullyEvent)
         {
             switch (fullyEvent.Event)
             {

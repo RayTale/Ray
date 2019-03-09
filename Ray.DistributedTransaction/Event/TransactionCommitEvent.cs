@@ -1,6 +1,6 @@
 ﻿using Ray.Core.Event;
 
-namespace Ray.Core
+namespace Ray.DistributedTransaction
 {
     public class TransactionCommitEvent : IEvent
     {
