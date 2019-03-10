@@ -34,7 +34,6 @@ namespace Ray.Storage.PostgreSQL
             mpscChannel = serviceProvider.GetService<IMpscChannel<AsyncInputEvent<AppendInput, bool>>>();
             serializer = serviceProvider.GetService<ISerializer>();
             mpscChannel.BindConsumer(BatchProcessing);
-            mpscChannel.ActiveConsumer();
         }
         public DbConnection CreateConnection()
         {

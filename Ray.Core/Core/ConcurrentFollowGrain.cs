@@ -26,7 +26,6 @@ namespace Ray.Core
         public override Task OnActivateAsync()
         {
             ConcurrentChannel = ServiceProvider.GetService<IMpscChannel<AsyncInputEvent<IFullyEvent<PrimaryKey>, bool>>>().BindConsumer(BatchInputProcessing);
-            ConcurrentChannel.ActiveConsumer();
             return base.OnActivateAsync();
         }
         public override Task OnDeactivateAsync()

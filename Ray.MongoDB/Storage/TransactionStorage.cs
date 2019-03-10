@@ -33,7 +33,6 @@ namespace Ray.Storage.Mongo.Storage
             serializer = serviceProvider.GetService<ISerializer>();
             serviceProvider.GetService<IIndexBuildService>().CreateTransactionStorageIndex(client, transactionOptions.Value.Database, transactionOptions.Value.CollectionName).GetAwaiter().GetResult();
             mpscChannel.BindConsumer(BatchProcessing);
-            mpscChannel.ActiveConsumer();
         }
         public Task<bool> Append<Input>(string unitName, Commit<Input> commit)
         {

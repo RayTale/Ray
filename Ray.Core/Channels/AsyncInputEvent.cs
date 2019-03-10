@@ -7,9 +7,8 @@ namespace Ray.Core.Channels
         public AsyncInputEvent(Input data)
         {
             Value = data;
-            TaskSource = new TaskCompletionSource<Output>();
         }
-        public TaskCompletionSource<Output> TaskSource { get; private set; }
+        public TaskCompletionSource<Output> TaskSource { get; } = new TaskCompletionSource<Output>();
         public Input Value { get; set; }
     }
 }

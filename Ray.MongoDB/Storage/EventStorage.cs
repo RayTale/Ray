@@ -26,7 +26,7 @@ namespace Ray.Storage.Mongo
             serializer = serviceProvider.GetService<ISerializer>();
             logger = serviceProvider.GetService<ILogger<EventStorage<PrimaryKey>>>();
             mpscChannel = serviceProvider.GetService<IMpscChannel<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>>>();
-            mpscChannel.BindConsumer(BatchProcessing).ActiveConsumer();
+            mpscChannel.BindConsumer(BatchProcessing);
             this.grainConfig = grainConfig;
         }
         public async Task<IList<IFullyEvent<PrimaryKey>>> GetList(PrimaryKey stateId, long latestTimestamp, long startVersion, long endVersion)

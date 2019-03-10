@@ -23,7 +23,7 @@ namespace Ray.Core
         {
             await base.OnActivateAsync();
             ConcurrentChannel = ServiceProvider.GetService<IMpscChannel<ConcurrentTransport<Snapshot<PrimaryKey, SnapshotType>>>>();
-            ConcurrentChannel.BindConsumer(BatchInputProcessing).ActiveConsumer();
+            ConcurrentChannel.BindConsumer(BatchInputProcessing);
         }
         public override async Task OnDeactivateAsync()
         {

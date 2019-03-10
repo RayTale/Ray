@@ -16,7 +16,7 @@ namespace Ray.Core
             var startupConfig = new StartupConfig();
             startupConfig.Configure(serviceCollection);
             serviceCollection.AddSingleton<IStartupConfig>(startupConfig);
-            serviceCollection.AddEventHandler();
+            serviceCollection.AutoAddEventHandler();
             serviceCollection.AddTransient(typeof(IMpscChannel<>), typeof(MpscChannel<>));
             serviceCollection.AddSingleton<ISerializer, DefaultJsonSerializer>();
             serviceCollection.AddSingleton<IFollowUnitContainer, FollowUnitContainer>();

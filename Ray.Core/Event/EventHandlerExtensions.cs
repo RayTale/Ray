@@ -4,9 +4,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Ray.Core.Event
 {
-    public static class AutoAddEventHandler
+    public static class EventHandlerExtensions
     {
-        public static void AddEventHandler(this IServiceCollection serviceCollection)
+        public static void AutoAddEventHandler(this IServiceCollection serviceCollection)
         {
             foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
             {

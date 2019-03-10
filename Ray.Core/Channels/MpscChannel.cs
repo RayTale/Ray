@@ -21,11 +21,18 @@ namespace Ray.Core.Channels
         private Task<bool> waitToReadTask;
         readonly ILogger logger;
         readonly IOptions<ChannelOptions> options;
+        /// <summary>
+        /// 是否在自动消费中
+        /// </summary>
+        private int _autoConsuming = 0;
         public MpscChannel(ILogger<MpscChannel<T>> logger, IOptions<ChannelOptions> options)
         {
             this.logger = logger;
             this.options = options;
         }
+        public bool IsComplete { get; private set; }
+        public bool IsChildren { get; set; }
+
         public IMpscChannel<T> BindConsumer(Func<List<T>, Task> consumer)
         {
             if (this.consumer == default)
@@ -37,18 +44,47 @@ namespace Ray.Core.Channels
 
         public async ValueTask<bool> WriteAsync(T data)
         {
-            if (!InConsuming)
-                ActiveConsumer();
+            if (!IsChildren && !(_autoConsuming != 0))
+                ActiveAutoConsumer();
             if (!buffer.Post(data))
                 return await buffer.SendAsync(data);
             return true;
         }
+        private void ActiveAutoConsumer()
+        {
+            if (!IsChildren && !(_autoConsuming != 0))
+                ThreadPool.QueueUserWorkItem(ActiveConsumer);
+            async void ActiveConsumer(object state)
+            {
+                if (Interlocked.CompareExchange(ref _autoConsuming, 1, 0) == 0)
+                {
+                    try
+                    {
+                        while (await WaitToReadAsync())
+                        {
+                            await ManualConsume();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex, ex.Message);
+                    }
+                    finally
+                    {
+                        Interlocked.Exchange(ref _autoConsuming, 0);
+                    }
+                }
+            }
+        }
         public void JoinConsumerSequence(IBaseMpscChannel channel)
         {
             if (consumerSequence.IndexOf(channel) == -1)
+            {
+                channel.IsChildren = true;
                 consumerSequence.Add(channel);
+            }
         }
-        public async Task Consume()
+        public async Task ManualConsume()
         {
             if (waitToReadTask.IsCompletedSuccessfully && waitToReadTask.Result)
             {
@@ -63,7 +99,7 @@ namespace Ray.Core.Channels
             }
             foreach (var joinConsumer in consumerSequence)
             {
-                await joinConsumer.Consume();
+                await joinConsumer.ManualConsume();
             }
         }
         public async Task<bool> WaitToReadAsync()
@@ -80,35 +116,6 @@ namespace Ray.Core.Channels
                 return await await Task.WhenAny(taskList);
             }
         }
-        private int consuming = 0;
-        private bool InConsuming => consuming != 0;
-        private async void ActiveConsumer(object state)
-        {
-            if (Interlocked.CompareExchange(ref consuming, 1, 0) == 0)
-            {
-                try
-                {
-                    while (await WaitToReadAsync())
-                    {
-                        await Consume();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex, ex.Message);
-                }
-                finally
-                {
-                    Interlocked.Exchange(ref consuming, 0);
-                }
-            }
-        }
-        public void ActiveConsumer()
-        {
-            if (!InConsuming)
-                ThreadPool.QueueUserWorkItem(ActiveConsumer);
-        }
-        public bool IsComplete { get; private set; }
         public void Complete()
         {
             IsComplete = true;
