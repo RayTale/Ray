@@ -168,7 +168,7 @@ namespace Ray.Storage.PostgreSQL
                                 writer.StartRow();
                                 writer.Write(wrapper.Value.Event.StateId);
                                 writer.Write(wrapper.Value.UniqueId, NpgsqlDbType.Varchar);
-                                writer.Write(wrapper.Value.Event.GetType().FullName, NpgsqlDbType.Varchar);
+                                writer.Write(wrapper.Value.Event.Event.GetType().FullName, NpgsqlDbType.Varchar);
                                 writer.Write(Encoding.Default.GetString(wrapper.Value.BytesTransport.EventBytes), NpgsqlDbType.Jsonb);
                                 writer.Write(wrapper.Value.Event.Base.Version, NpgsqlDbType.Bigint);
                                 writer.Write(wrapper.Value.Event.Base.Timestamp, NpgsqlDbType.Bigint);

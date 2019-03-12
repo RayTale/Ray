@@ -19,7 +19,6 @@ namespace Ray.Storage.PostgreSQL
     public class TransactionStorage : ITransactionStorage
     {
         readonly IMpscChannel<AsyncInputEvent<AppendInput, bool>> mpscChannel;
-        readonly ILogger<TransactionStorage> logger;
         readonly ISerializer serializer;
         readonly string connection;
         readonly IOptions<TransactionOptions> options;
