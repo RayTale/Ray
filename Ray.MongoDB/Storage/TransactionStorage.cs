@@ -18,7 +18,6 @@ namespace Ray.Storage.Mongo.Storage
     public class TransactionStorage : ITransactionStorage
     {
         readonly IMpscChannel<AsyncInputEvent<AppendInput, bool>> mpscChannel;
-        readonly ILogger<TransactionStorage> logger;
         readonly ISerializer serializer;
         readonly ICustomClient client;
         readonly IOptions<TransactionOptions> transactionOptions;
