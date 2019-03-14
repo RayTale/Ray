@@ -32,24 +32,24 @@ namespace Ray.Core
                 snapshot.LatestMinEventTimestamp = eventBase.Timestamp;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void IncrementDoingVersion<K>(this ISnapshotBase<K> snapshot, Type grainType)
+        public static void IncrementDoingVersion<PrimaryKey>(this ISnapshotBase<PrimaryKey> snapshot, Type grainType)
         {
             if (snapshot.DoingVersion != snapshot.Version)
                 throw new StateInsecurityException(snapshot.StateId.ToString(), grainType, snapshot.DoingVersion, snapshot.Version);
             snapshot.DoingVersion += 1;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void DecrementDoingVersion<K>(this ISnapshotBase<K> snapshot)
+        public static void DecrementDoingVersion<PrimaryKey>(this ISnapshotBase<PrimaryKey> snapshot)
         {
             snapshot.DoingVersion -= 1;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static string GetEventId<K>(this IFullyEvent<K> @event)
+        public static string GetEventId<PrimaryKey>(this IFullyEvent<PrimaryKey> @event)
         {
             return $"{@event.StateId.ToString()}_{@event.Base.Version.ToString()}";
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static EventUID GetNextUID<K>(this IFullyEvent<K> @event)
+        public static EventUID GetNextUID<PrimaryKey>(this IFullyEvent<PrimaryKey> @event)
         {
             return new EventUID(@event.GetEventId(), @event.Base.Timestamp);
         }
@@ -62,7 +62,7 @@ namespace Ray.Core
                 snapshot.StartTimestamp = eventBase.Timestamp;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void IncrementDoingVersion<K>(this IFollowSnapshot<K> state, Type grainType)
+        public static void IncrementDoingVersion<PrimaryKey>(this IFollowSnapshot<PrimaryKey> state, Type grainType)
         {
             if (state.DoingVersion != state.Version)
                 throw new StateInsecurityException(state.StateId.ToString(), grainType, state.DoingVersion, state.Version);

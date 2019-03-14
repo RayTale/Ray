@@ -1,6 +1,6 @@
 ﻿namespace Ray.Core.Snapshot
 {
-    public interface ISnapshotBase<K> : IActorOwned<K>
+    public interface ISnapshotBase<PrimaryKey> : IActorOwned<PrimaryKey>
     {
         /// <summary>
         /// 正在处理中的Version
