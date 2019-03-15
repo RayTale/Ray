@@ -12,7 +12,7 @@ namespace Ray.Core.Event
             {
                 foreach (var type in assembly.GetTypes())
                 {
-                    var handlerType = type.GetInterfaces().SingleOrDefault(t => t.FullName.StartsWith("Ray.Core.Event.IEventHandler"));
+                    var handlerType = type.GetInterfaces().SingleOrDefault(t => !string.IsNullOrEmpty(t.FullName) && t.FullName.StartsWith("Ray.Core.Event.IEventHandler"));
                     if (handlerType != default && !type.IsAbstract)
                         serviceCollection.AddSingleton(handlerType, type);
                 }
