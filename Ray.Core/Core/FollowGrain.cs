@@ -161,7 +161,7 @@ namespace Ray.Core
                 Snapshot = await FollowSnapshotStorage.Get(GrainId);
                 if (Snapshot == null)
                 {
-                    var createTask = CreateState();
+                    var createTask = InitFirstSnapshot();
                     if (!createTask.IsCompletedSuccessfully)
                         await createTask;
                 }
@@ -179,7 +179,7 @@ namespace Ray.Core
         /// 初始化状态，必须实现
         /// </summary>
         /// <returns></returns>
-        protected virtual ValueTask CreateState()
+        protected virtual ValueTask InitFirstSnapshot()
         {
             Snapshot = new FollowSnapshot<PrimaryKey>
             {

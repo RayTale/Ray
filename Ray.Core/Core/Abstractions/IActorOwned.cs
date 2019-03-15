@@ -1,7 +1,7 @@
 ﻿namespace Ray.Core
 {
-    public interface IActorOwned<K>
+    public interface IActorOwned<PrimaryKey>
     {
-        K StateId { get; set; }
+        PrimaryKey StateId { get; set; }
     }
 }

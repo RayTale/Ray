@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -44,12 +43,13 @@ namespace Ray.Core
                     var eventBase = EventBase.FromBytes(transport.BaseBytes);
                     if (eventBase.Version > Snapshot.Version)
                     {
-                        var writeTask = ConcurrentChannel.WriteAsync(new AsyncInputEvent<IFullyEvent<PrimaryKey>, bool>(new FullyEvent<PrimaryKey>
+                        var input = new AsyncInputEvent<IFullyEvent<PrimaryKey>, bool>(new FullyEvent<PrimaryKey>
                         {
                             StateId = GrainId,
                             Base = eventBase,
                             Event = @event
-                        }));
+                        });
+                        var writeTask = ConcurrentChannel.WriteAsync(input);
                         if (!writeTask.IsCompletedSuccessfully)
                             await writeTask;
                         if (!writeTask.Result)
@@ -58,6 +58,7 @@ namespace Ray.Core
                             Logger.LogError(ex, ex.Message);
                             throw ex;
                         }
+                        await input.TaskSource.Task;
                     }
                 }
                 else
@@ -67,7 +68,6 @@ namespace Ray.Core
                 }
             }
         }
-        readonly TimeoutException timeoutException = new TimeoutException($"{nameof(OnEventDelivered)} with timeouts in {nameof(BatchInputProcessing)}");
         private async Task BatchInputProcessing(List<AsyncInputEvent<IFullyEvent<PrimaryKey>, bool>> events)
         {
             var evtList = new List<IFullyEvent<PrimaryKey>>();
@@ -117,37 +117,18 @@ namespace Ray.Core
                 }
                 if (UnprocessedEventList.Count > 0)
                 {
-                    using (var tokenSource = new CancellationTokenSource())
+                    await Task.WhenAll(UnprocessedEventList.Select(async @event =>
                     {
-                        var allTask = Task.WhenAll(UnprocessedEventList.Select(@event =>
-                        {
-                            var task = OnEventDelivered(@event);
-                            if (!task.IsCompletedSuccessfully)
-                                return task.AsTask();
-                            else
-                                return Task.CompletedTask;
-                        }));
-                        using (var delayTask = Task.Delay(ConfigOptions.EventAsyncProcessSecondsTimeout, tokenSource.Token))
-                        {
-                            await Task.WhenAny(allTask, delayTask);
-                            if (allTask.Status == TaskStatus.RanToCompletion)
-                            {
-                                tokenSource.Cancel();
-                                var lastEvt = UnprocessedEventList.Last();
-                                var lastEvtBase = lastEvt.Base;
-                                Snapshot.UnsafeUpdateVersion(lastEvtBase);
-                                var saveTask = SaveSnapshotAsync();
-                                if (!saveTask.IsCompletedSuccessfully)
-                                    await saveTask;
-                                UnprocessedEventList.Clear();
-                                maxRequest?.TrySetResult(true);
-                            }
-                            else
-                            {
-                                maxRequest?.TrySetException(timeoutException);
-                            }
-                        }
-                    }
+                        var task = OnEventDelivered(@event);
+                        if (!task.IsCompletedSuccessfully)
+                            await task;
+                    }));
+                    Snapshot.UnsafeUpdateVersion(UnprocessedEventList.Last().Base);
+                    var saveTask = SaveSnapshotAsync();
+                    if (!saveTask.IsCompletedSuccessfully)
+                        await saveTask;
+                    UnprocessedEventList.Clear();
+                    maxRequest?.TrySetResult(true);
                 }
             }
             catch (Exception ex)
