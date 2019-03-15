@@ -82,7 +82,11 @@ namespace Ray.Core
             {
                 foreach (var wrap in events)
                 {
-                    if (wrap.Value.Base.Version <= startVersion)
+                    if (wrap.Value.Base.Version == startVersion)
+                    {
+                        maxRequest = wrap.TaskSource;
+                    }
+                    else if (wrap.Value.Base.Version < startVersion)
                     {
                         wrap.TaskSource.TrySetResult(true);
                     }
@@ -101,9 +105,10 @@ namespace Ray.Core
                         }
                     }
                 }
-                var orderList = evtList.OrderBy(e => e.Base.Version).ToList();
-                if (orderList.Count > 0)
+
+                if (evtList.Count > 0)
                 {
+                    var orderList = evtList.OrderBy(e => e.Base.Version).ToList();
                     var inputLast = orderList.Last();
                     if (startVersion + orderList.Count < inputLast.Base.Version)
                     {
