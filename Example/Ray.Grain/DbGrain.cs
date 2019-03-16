@@ -1,4 +1,5 @@
-﻿using System.Runtime.ExceptionServices;
+﻿using System;
+using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Ray.Core;
@@ -16,16 +17,17 @@ namespace Ray.Grain
             var task = Process(@event);
             if (!task.IsCompletedSuccessfully)
             {
-                await task.AsTask().ContinueWith(t =>
+                try
                 {
-                    if (t.Exception != null)
+                    await task;
+                }
+                catch (Exception ex)
+                {
+                    if (!(ex is Npgsql.PostgresException e && e.SqlState == "23505"))
                     {
-                        if (!(t.Exception.InnerException is Npgsql.PostgresException e && e.SqlState == "23505"))
-                        {
-                            ExceptionDispatchInfo.Capture(t.Exception).Throw();
-                        }
+                        ExceptionDispatchInfo.Capture(ex).Throw();
                     }
-                });
+                }
             }
         }
         protected abstract ValueTask Process(IFullyEvent<K> @event);

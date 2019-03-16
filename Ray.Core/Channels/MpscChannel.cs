@@ -62,12 +62,15 @@ namespace Ray.Core.Channels
                     {
                         while (await WaitToReadAsync())
                         {
-                            await ManualConsume();
+                            try
+                            {
+                                await ManualConsume();
+                            }
+                            catch (Exception ex)
+                            {
+                                logger.LogError(ex, ex.Message);
+                            }
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogError(ex, ex.Message);
                     }
                     finally
                     {
