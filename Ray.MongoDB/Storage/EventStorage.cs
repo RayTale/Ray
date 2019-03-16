@@ -92,11 +92,12 @@ namespace Ray.Storage.Mongo
             }
             return list;
         }
-        public Task<bool> Append(IFullyEvent<PrimaryKey> fullyEvent, EventBytesTransport bytesTransport, string unique)
+        public Task<bool> Append(IFullyEvent<PrimaryKey> fullyEvent, in EventBytesTransport bytesTransport, string unique)
         {
+            var input = new BatchAppendTransport<PrimaryKey>(fullyEvent, in bytesTransport, unique);
             return Task.Run(async () =>
             {
-                var wrap = new AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>(new BatchAppendTransport<PrimaryKey>(fullyEvent, bytesTransport, unique));
+                var wrap = new AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>(input);
                 var writeTask = mpscChannel.WriteAsync(wrap);
                 if (!writeTask.IsCompletedSuccessfully)
                     await writeTask;

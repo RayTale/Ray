@@ -2,7 +2,7 @@
 {
     public class BatchAppendTransport<PrimaryKey>
     {
-        public BatchAppendTransport(IFullyEvent<PrimaryKey> evt, EventBytesTransport bytesTransport, string uniqueId = null)
+        public BatchAppendTransport(IFullyEvent<PrimaryKey> evt, in EventBytesTransport bytesTransport, string uniqueId = null)
         {
             Event = evt;
             UniqueId = uniqueId;

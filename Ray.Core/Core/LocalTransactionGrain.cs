@@ -62,13 +62,12 @@ namespace Ray.Core
                 {
                     WaitingForTransactionTransports.Add(new EventTransport<PrimaryKey>(evt, string.Empty, evt.StateId.ToString())
                     {
-                        BytesTransport = new EventBytesTransport
-                        {
-                            EventType = evt.Event.GetType().FullName,
-                            GrainId = GrainId,
-                            EventBytes = Serializer.SerializeToBytes(evt.Event),
-                            BaseBytes = evt.Base.GetBytes()
-                        }
+                        BytesTransport = new EventBytesTransport(
+                            evt.Event.GetType().FullName,
+                            GrainId,
+                            evt.Base.GetBytes(),
+                            Serializer.SerializeToBytes(evt.Event)
+                        )
                     });
                 }
                 CurrentTransactionId = Snapshot.Base.TransactionId;
@@ -148,13 +147,12 @@ namespace Ray.Core
                         var startTask = OnRaiseStart(transport.FullyEvent);
                         if (!startTask.IsCompletedSuccessfully)
                             await startTask;
-                        transport.BytesTransport = new EventBytesTransport
-                        {
-                            EventType = transport.FullyEvent.Event.GetType().FullName,
-                            GrainId = GrainId,
-                            EventBytes = Serializer.SerializeToBytes(transport.FullyEvent.Event),
-                            BaseBytes = transport.FullyEvent.Base.GetBytes()
-                        };
+                        transport.BytesTransport = new EventBytesTransport(
+                            transport.FullyEvent.Event.GetType().FullName,
+                            GrainId,
+                            transport.FullyEvent.Base.GetBytes(),
+                            Serializer.SerializeToBytes(transport.FullyEvent.Event)
+                        );
                     }
                     await EventStorage.TransactionBatchAppend(WaitingForTransactionTransports);
                 }

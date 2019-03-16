@@ -424,14 +424,13 @@ namespace Ray.Core
                 if (!startTask.IsCompletedSuccessfully)
                     await startTask;
                 Snapshot.Base.IncrementDoingVersion(GrainType);//标记将要处理的Version
-                var bytesTransport = new EventBytesTransport
-                {
-                    EventType = @event.GetType().FullName,
-                    GrainId = Snapshot.Base.StateId,
-                    EventBytes = Serializer.SerializeToBytes(@event),
-                    BaseBytes = fullyEvent.Base.GetBytes()
-                };
-                if (await EventStorage.Append(fullyEvent, bytesTransport, uniqueId.UID))
+                var bytesTransport = new EventBytesTransport(
+                    @event.GetType().FullName,
+                    Snapshot.Base.StateId,
+                    fullyEvent.Base.GetBytes(),
+                    Serializer.SerializeToBytes(@event)
+                );
+                if (await EventStorage.Append(fullyEvent, in bytesTransport, uniqueId.UID))
                 {
                     EventHandler.Apply(Snapshot, fullyEvent);
                     Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
