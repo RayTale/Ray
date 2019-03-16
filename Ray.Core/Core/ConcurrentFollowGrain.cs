@@ -114,6 +114,7 @@ namespace Ray.Core
                     {
                         var loadList = await EventStorage.GetList(GrainId, 0, startVersion + 1, inputLast.Base.Version - 1);
                         UnprocessedEventList.AddRange(loadList);
+                        UnprocessedEventList.Add(inputLast);
                     }
                     else
                     {
