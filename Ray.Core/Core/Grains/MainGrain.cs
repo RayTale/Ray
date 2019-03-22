@@ -263,7 +263,7 @@ namespace Ray.Core
                     if (Snapshot == default)
                     {
                         //新建状态
-                        var createTask = CreateState();
+                        var createTask = CreateSnapshot();
                         if (!createTask.IsCompletedSuccessfully)
                             await createTask;
                     }
@@ -379,7 +379,7 @@ namespace Ray.Core
         /// 初始化状态，必须实现
         /// </summary>
         /// <returns></returns>
-        protected virtual ValueTask CreateState()
+        protected virtual ValueTask CreateSnapshot()
         {
             Snapshot = new Snapshot<PrimaryKey, StateType>(GrainId);
             return Consts.ValueTaskDone;
@@ -388,7 +388,7 @@ namespace Ray.Core
         /// 删除状态
         /// </summary>
         /// <returns></returns>
-        protected async ValueTask DeleteState()
+        protected async ValueTask DeleteSnapshot()
         {
             if (Snapshot.Base.IsOver)
                 throw new StateIsOverException(Snapshot.Base.StateId.ToString(), GrainType);

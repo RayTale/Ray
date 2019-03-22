@@ -61,27 +61,25 @@ namespace Ray.Core.Event
                 return ms.ToArray();
             }
         }
-        public static (bool success, long actorId) GetActorIdWithLong(byte[] bytes)
+        public static (bool success, PrimaryKey actorId) GetActorId<PrimaryKey>(byte[] bytes)
         {
             if (bytes[0] == (byte)TransportType.Event)
             {
                 var bytesSpan = bytes.AsSpan();
                 var eventTypeLength = BitConverter.ToUInt16(bytesSpan.Slice(1, sizeof(ushort)));
                 var actorIdBytesLength = BitConverter.ToUInt16(bytesSpan.Slice(1 + sizeof(ushort), sizeof(ushort)));
-                var result = BitConverter.ToInt64(bytesSpan.Slice(3 * sizeof(ushort) + 1 + sizeof(int) + eventTypeLength, actorIdBytesLength));
-                return (true, result);
-            }
-            return (false, default);
-        }
-        public static (bool success, string actorId) GetActorIdWithString(byte[] bytes)
-        {
-            if (bytes[0] == (byte)TransportType.Event)
-            {
-                var bytesSpan = bytes.AsSpan();
-                var eventTypeLength = BitConverter.ToUInt16(bytesSpan.Slice(1, sizeof(ushort)));
-                var actorIdBytesLength = BitConverter.ToUInt16(bytesSpan.Slice(1 + sizeof(ushort), sizeof(ushort)));
-                var result = Encoding.Default.GetString(bytesSpan.Slice(3 * sizeof(ushort) + 1 + sizeof(int) + eventTypeLength, actorIdBytesLength));
-                return (true, result);
+                if (typeof(PrimaryKey) == typeof(long))
+                {
+                    var id = BitConverter.ToInt64(bytesSpan.Slice(3 * sizeof(ushort) + 1 + sizeof(int) + eventTypeLength, actorIdBytesLength));
+                    if (id is PrimaryKey actorId)
+                        return (true, actorId);
+                }
+                else
+                {
+                    var id = Encoding.Default.GetString(bytesSpan.Slice(3 * sizeof(ushort) + 1 + sizeof(int) + eventTypeLength, actorIdBytesLength));
+                    if (id is PrimaryKey actorId)
+                        return (true, actorId);
+                }
             }
             return (false, default);
         }
@@ -104,7 +102,7 @@ namespace Ray.Core.Event
             }
             return (false, default);
         }
-        public static (bool success, EventBytesTransport transport) FromBytesWithLongId(byte[] bytes)
+        public static (bool success, EventBytesTransport transport) FromBytes<PrimaryKey>(byte[] bytes)
         {
             if (bytes[0] == (byte)TransportType.Event)
             {
@@ -114,33 +112,26 @@ namespace Ray.Core.Event
                 var baseBytesLength = BitConverter.ToUInt16(bytesSpan.Slice(2 * sizeof(ushort) + 1, sizeof(ushort)));
                 var eventBytesLength = BitConverter.ToInt32(bytesSpan.Slice(3 * sizeof(ushort) + 1, sizeof(int)));
                 var skipLength = 3 * sizeof(ushort) + 1 + sizeof(int);
-                var actorId = BitConverter.ToInt64(bytesSpan.Slice(3 * sizeof(ushort) + 1 + sizeof(int) + eventTypeLength, actorIdBytesLength));
-                return (true, new EventBytesTransport(
-                    Encoding.Default.GetString(bytesSpan.Slice(skipLength, eventTypeLength)),
-                    actorId,
-                    bytesSpan.Slice(skipLength + eventTypeLength + actorIdBytesLength, baseBytesLength).ToArray(),
-                    bytesSpan.Slice(skipLength + eventTypeLength + actorIdBytesLength + baseBytesLength, eventBytesLength).ToArray()
-                ));
-            }
-            return (false, default);
-        }
-        public static (bool success, EventBytesTransport transport) FromBytesWithStringId(byte[] bytes)
-        {
-            if (bytes[0] == (byte)TransportType.Event)
-            {
-                var bytesSpan = bytes.AsSpan();
-                var eventTypeLength = BitConverter.ToUInt16(bytesSpan.Slice(1, sizeof(ushort)));
-                var actorIdBytesLength = BitConverter.ToUInt16(bytesSpan.Slice(1 + sizeof(ushort), sizeof(ushort)));
-                var baseBytesLength = BitConverter.ToUInt16(bytesSpan.Slice(2 * sizeof(ushort) + 1, sizeof(ushort)));
-                var eventBytesLength = BitConverter.ToInt32(bytesSpan.Slice(3 * sizeof(ushort) + 1, sizeof(int)));
-                var skipLength = 3 * sizeof(ushort) + 1 + sizeof(int);
-                var actorId = Encoding.Default.GetString(bytesSpan.Slice(skipLength + eventTypeLength, actorIdBytesLength));
-                return (true, new EventBytesTransport(
-                    Encoding.Default.GetString(bytesSpan.Slice(skipLength, eventTypeLength)),
-                    actorId,
-                    bytesSpan.Slice(skipLength + eventTypeLength + actorIdBytesLength, baseBytesLength).ToArray(),
-                    bytesSpan.Slice(skipLength + eventTypeLength + actorIdBytesLength + baseBytesLength, eventBytesLength).ToArray()
-                ));
+                if (typeof(PrimaryKey) == typeof(long))
+                {
+                    var actorId = BitConverter.ToInt64(bytesSpan.Slice(3 * sizeof(ushort) + 1 + sizeof(int) + eventTypeLength, actorIdBytesLength));
+                    return (true, new EventBytesTransport(
+                        Encoding.Default.GetString(bytesSpan.Slice(skipLength, eventTypeLength)),
+                        actorId,
+                        bytesSpan.Slice(skipLength + eventTypeLength + actorIdBytesLength, baseBytesLength).ToArray(),
+                        bytesSpan.Slice(skipLength + eventTypeLength + actorIdBytesLength + baseBytesLength, eventBytesLength).ToArray()
+                    ));
+                }
+                else
+                {
+                    var actorId = Encoding.Default.GetString(bytesSpan.Slice(skipLength + eventTypeLength, actorIdBytesLength));
+                    return (true, new EventBytesTransport(
+                        Encoding.Default.GetString(bytesSpan.Slice(skipLength, eventTypeLength)),
+                        actorId,
+                        bytesSpan.Slice(skipLength + eventTypeLength + actorIdBytesLength, baseBytesLength).ToArray(),
+                        bytesSpan.Slice(skipLength + eventTypeLength + actorIdBytesLength + baseBytesLength, eventBytesLength).ToArray()
+                    ));
+                }
             }
             return (false, default);
         }

@@ -97,7 +97,7 @@ namespace Ray.MongoHost
                 {
                     logging.SetMinimumLevel(LogLevel.Information);
                     logging.AddConsole(options => options.IncludeScopes = true);
-                }).EnableDirectClient();
+                });
 
             var host = builder.Build();
             await host.StartAsync();

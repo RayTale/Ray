@@ -12,10 +12,10 @@ namespace Ray.Grain
     {
         public Task ConfigureFollowUnit(IServiceProvider serviceProvider, IFollowUnitContainer followUnitContainer)
         {
-            followUnitContainer.Register(LongFollowUnit.From<Account>(serviceProvider).
-                Flow<IAccountRep>(DefaultFollowType.primary).
-                ConcurrentFlow<IAccountFlow>(DefaultFollowType.primary).
-                ConcurrentFlow<IAccountDb>(DefaultFollowType.secondary));
+            followUnitContainer.Register(FollowUnit<long>.From<Account>(serviceProvider).
+                Flow(DefaultFollowGroup.primary, (client, id) => client.GetGrain<IAccountRep>(id)).
+                ConcurrentFlow(DefaultFollowGroup.primary, (client, id) => client.GetGrain<IAccountFlow>(id)).
+                ConcurrentFlow(DefaultFollowGroup.secondary, (client, id) => client.GetGrain<IAccountDb>(id)));
             return Task.CompletedTask;
         }
         public void Configure(IServiceCollection serviceCollection)

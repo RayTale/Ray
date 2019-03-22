@@ -87,7 +87,7 @@ namespace Ray.EventBus.RabbitMQ
         }
         public Task DefaultConsumer<K>()
         {
-            return CreateConsumer<K>(DefaultFollowType.primary).CreateConsumer<K>(DefaultFollowType.secondary).Enable();
+            return CreateConsumer<K>(DefaultFollowGroup.primary).CreateConsumer<K>(DefaultFollowGroup.secondary).Enable();
         }
     }
 }
