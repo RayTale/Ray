@@ -11,7 +11,7 @@ using Ray.DistributedTransaction;
 namespace Ray.Grain
 {
     //[Reentrant]
-    public sealed class Account : DistributedTransactionGrain<Account, long, AccountState>, IAccount
+    public sealed class Account : DistributedTxGrain<Account, long, AccountState>, IAccount
     {
         public Account() : base()
         {

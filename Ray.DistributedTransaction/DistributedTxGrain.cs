@@ -7,10 +7,10 @@ using Ray.DistributedTransaction.Configuration;
 
 namespace Ray.DistributedTransaction
 {
-    public abstract class DistributedTransactionGrain<Grain, PrimaryKey, StateType> : ConcurrentTxGrain<Grain, PrimaryKey, StateType>
+    public abstract class DistributedTxGrain<Grain, PrimaryKey, StateType> : ConcurrentTxGrain<Grain, PrimaryKey, StateType>
         where StateType : class, ICloneable<StateType>, new()
     {
-        public DistributedTransactionGrain() : base()
+        public DistributedTxGrain() : base()
         {
         }
         protected DistributedTransactionOptions TransactionOptions { get; private set; }
