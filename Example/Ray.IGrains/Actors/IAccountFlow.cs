@@ -3,7 +3,7 @@ using Ray.Core;
 
 namespace Ray.IGrains.Actors
 {
-    public interface IAccountFlow : IConcurrentFollow, IGrainWithIntegerKey
+    public interface IAccountFlow : IConcurrentObserver, IGrainWithIntegerKey
     {
     }
 }

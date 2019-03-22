@@ -10,10 +10,10 @@ using Ray.Core.Snapshot;
 
 namespace Ray.Core
 {
-    public abstract class LocalTransactionGrain<Grain, PrimaryKey, StateType> : MainGrain<Grain, PrimaryKey, StateType>
+    public abstract class TxGrain<Grain, PrimaryKey, StateType> : RayGrain<Grain, PrimaryKey, StateType>
         where StateType : class, ICloneable<StateType>, new()
     {
-        public LocalTransactionGrain() : base()
+        public TxGrain() : base()
         {
         }
         /// <summary>

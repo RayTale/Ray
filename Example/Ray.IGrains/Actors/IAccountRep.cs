@@ -4,7 +4,7 @@ using Ray.Core;
 
 namespace Ray.IGrains.Actors
 {
-    public interface IAccountRep : IFollow, IGrainWithIntegerKey
+    public interface IAccountRep : IObserver, IGrainWithIntegerKey
     {
         /// <summary>
         /// 获取账户余额

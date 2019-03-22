@@ -14,9 +14,9 @@ using Ray.Core.Storage;
 
 namespace Ray.Core
 {
-    public abstract class FollowGrain<MainGrain, PrimaryKey> : Grain, IFollow
+    public abstract class ObserverGrain<MainGrain, PrimaryKey> : Grain, IObserver
     {
-        public FollowGrain(ILogger logger)
+        public ObserverGrain(ILogger logger)
         {
             Logger = logger;
             GrainType = GetType();
@@ -188,7 +188,7 @@ namespace Ray.Core
             return Consts.ValueTaskDone;
         }
         #endregion
-        public Task Tell(byte[] bytes)
+        public Task OnNext(byte[] bytes)
         {
             var (success, transport) = EventBytesTransport.FromBytesWithNoId(bytes);
             if (success)

@@ -1,6 +1,6 @@
 ﻿namespace Ray.Core
 {
-    public static class DefaultFollowGroup
+    public static class DefaultObserverGroup
     {
         public const string primary = "primary";
         public const string secondary = "secondary";

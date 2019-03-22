@@ -7,22 +7,22 @@ using System.Threading.Tasks;
 
 namespace Ray.Core
 {
-    public class FollowUnit<PrimaryKey> : IFollowUnit<PrimaryKey>
+    public class ObserverUnit<PrimaryKey> : IObserverUnit<PrimaryKey>
     {
         readonly IServiceProvider serviceProvider;
         readonly Dictionary<string, List<Func<byte[], Task>>> eventHandlerGroups = new Dictionary<string, List<Func<byte[], Task>>>();
         readonly List<Func<byte[], Task>> eventHandlers = new List<Func<byte[], Task>>();
-        readonly List<Func<PrimaryKey, long, Task<long>>> followVersionHandlers = new List<Func<PrimaryKey, long, Task<long>>>();
+        readonly List<Func<PrimaryKey, long, Task<long>>> observerVersionHandlers = new List<Func<PrimaryKey, long, Task<long>>>();
         public Type GrainType { get; }
 
-        public FollowUnit(IServiceProvider serviceProvider, Type grainType)
+        public ObserverUnit(IServiceProvider serviceProvider, Type grainType)
         {
             this.serviceProvider = serviceProvider;
             GrainType = grainType;
         }
-        public static FollowUnit<PrimaryKey> From<Grain>(IServiceProvider serviceProvider) where Grain : Orleans.Grain
+        public static ObserverUnit<PrimaryKey> From<Grain>(IServiceProvider serviceProvider) where Grain : Orleans.Grain
         {
-            return new FollowUnit<PrimaryKey>(serviceProvider, typeof(Grain));
+            return new ObserverUnit<PrimaryKey>(serviceProvider, typeof(Grain));
         }
         public List<Func<byte[], Task>> GetAllEventHandlers()
         {
@@ -31,7 +31,7 @@ namespace Ray.Core
 
         public List<Func<PrimaryKey, long, Task<long>>> GetAndSaveVersionFuncs()
         {
-            return followVersionHandlers;
+            return observerVersionHandlers;
         }
 
         public List<Func<byte[], Task>> GetEventHandlers(string group)
@@ -43,12 +43,12 @@ namespace Ray.Core
             }
             return funcs;
         }
-        public FollowUnit<PrimaryKey> Flow(string followType, Func<IClusterClient, PrimaryKey, IFollow> grainFunc)
+        public ObserverUnit<PrimaryKey> Observer(string followType, Func<IClusterClient, PrimaryKey, IObserver> grainFunc)
         {
             var funcs = GetEventHandlers(followType);
             funcs.Add(func);
             eventHandlers.Add(func);
-            followVersionHandlers.Add((actorId, version) => grainFunc(serviceProvider.GetService<IClusterClient>(), actorId).GetAndSaveVersion(version));
+            observerVersionHandlers.Add((actorId, version) => grainFunc(serviceProvider.GetService<IClusterClient>(), actorId).GetAndSaveVersion(version));
             return this;
             //内部函数
             Task func(byte[] bytes)
@@ -56,17 +56,17 @@ namespace Ray.Core
                 var (success, actorId) = EventBytesTransport.GetActorId<PrimaryKey>(bytes);
                 if (success)
                 {
-                    return grainFunc(serviceProvider.GetService<IClusterClient>(), actorId).Tell(bytes);
+                    return grainFunc(serviceProvider.GetService<IClusterClient>(), actorId).OnNext(bytes);
                 }
                 return Task.CompletedTask;
             }
         }
-        public FollowUnit<PrimaryKey> ConcurrentFlow(string group, Func<IClusterClient, PrimaryKey, IConcurrentFollow> grainFunc)
+        public ObserverUnit<PrimaryKey> ConcurrentObserver(string group, Func<IClusterClient, PrimaryKey, IConcurrentObserver> grainFunc)
         {
             var funcs = GetEventHandlers(group);
             funcs.Add(func);
             eventHandlers.Add(func);
-            followVersionHandlers.Add((actorId, version) => grainFunc(serviceProvider.GetService<IClusterClient>(), actorId).GetAndSaveVersion(version));
+            observerVersionHandlers.Add((actorId, version) => grainFunc(serviceProvider.GetService<IClusterClient>(), actorId).GetAndSaveVersion(version));
             return this;
             //内部函数
             Task func(byte[] bytes)
@@ -74,7 +74,7 @@ namespace Ray.Core
                 var (success, actorId) = EventBytesTransport.GetActorId<PrimaryKey>(bytes);
                 if (success)
                 {
-                    return grainFunc(serviceProvider.GetService<IClusterClient>(), actorId).ConcurrentTell(bytes);
+                    return grainFunc(serviceProvider.GetService<IClusterClient>(), actorId).ConcurrentOnNext(bytes);
                 }
                 return Task.CompletedTask;
             }

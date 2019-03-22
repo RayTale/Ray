@@ -6,7 +6,7 @@ namespace Ray.Core.Abstractions
 {
     public interface IStartupConfig
     {
-        Task ConfigureFollowUnit(IServiceProvider serviceProvider, IFollowUnitContainer followUnitContainer);
+        Task ConfigureFollowUnit(IServiceProvider serviceProvider, IObserverUnitContainer followUnitContainer);
         void Configure(IServiceCollection serviceCollection);
     }
 }

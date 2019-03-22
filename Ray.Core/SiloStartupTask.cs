@@ -18,7 +18,7 @@ namespace Ray.Core
         }
         public async Task Execute(CancellationToken cancellationToken)
         {
-            await startupConfig.ConfigureFollowUnit(serviceProvider, serviceProvider.GetService<IFollowUnitContainer>());
+            await startupConfig.ConfigureFollowUnit(serviceProvider, serviceProvider.GetService<IObserverUnitContainer>());
             await Startup.StartRay(serviceProvider);
         }
     }

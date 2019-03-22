@@ -5,14 +5,14 @@ using Ray.Core.Exceptions;
 
 namespace Ray.Core
 {
-    public class FollowUnitContainer : IFollowUnitContainer
+    public class ObserverUnitContainer : IObserverUnitContainer
     {
         readonly ConcurrentDictionary<Type, object> unitDict = new ConcurrentDictionary<Type, object>();
-        public IFollowUnit<PrimaryKey> GetUnit<PrimaryKey>(Type grainType)
+        public IObserverUnit<PrimaryKey> GetUnit<PrimaryKey>(Type grainType)
         {
             if (unitDict.TryGetValue(grainType, out var unit))
             {
-                if (unit is IFollowUnit<PrimaryKey> result)
+                if (unit is IObserverUnit<PrimaryKey> result)
                 {
                     return result;
                 }

@@ -18,10 +18,10 @@ using Ray.Core.Storage;
 
 namespace Ray.Core
 {
-    public abstract class MainGrain<Grain, PrimaryKey, StateType> : Orleans.Grain
+    public abstract class RayGrain<Grain, PrimaryKey, StateType> : Orleans.Grain
         where StateType : class, new()
     {
-        public MainGrain()
+        public RayGrain()
         {
             GrainType = typeof(Grain);
         }
@@ -32,7 +32,7 @@ namespace Ray.Core
         protected ISerializer Serializer { get; private set; }
         protected Snapshot<PrimaryKey, StateType> Snapshot { get; set; }
         protected IEventHandler<PrimaryKey, StateType> EventHandler { get; private set; }
-        protected IFollowUnit<PrimaryKey> FollowUnit { get; private set; }
+        protected IObserverUnit<PrimaryKey> FollowUnit { get; private set; }
         /// <summary>
         /// 归档存储器
         /// </summary>
@@ -73,7 +73,7 @@ namespace Ray.Core
             ProducerContainer = ServiceProvider.GetService<IProducerContainer>();
             Serializer = ServiceProvider.GetService<ISerializer>();
             EventHandler = ServiceProvider.GetService<IEventHandler<PrimaryKey, StateType>>();
-            FollowUnit = ServiceProvider.GetService<IFollowUnitContainer>().GetUnit<PrimaryKey>(GrainType);
+            FollowUnit = ServiceProvider.GetService<IObserverUnitContainer>().GetUnit<PrimaryKey>(GrainType);
             var configureBuilder = ServiceProvider.GetService<IConfigureBuilder<PrimaryKey, Grain>>();
             var storageConfigTask = configureBuilder.GetConfig(ServiceProvider, GrainId);
             if (!storageConfigTask.IsCompletedSuccessfully)

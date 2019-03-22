@@ -13,10 +13,10 @@ using Ray.Core.Storage;
 
 namespace Ray.Core
 {
-    public abstract class ReplicaGrain<Main, PrimaryKey, StateType> : Grain, IFollow
+    public abstract class ShadowGrain<Main, PrimaryKey, StateType> : Grain, IObserver
         where StateType : class, new()
     {
-        public ReplicaGrain(ILogger logger)
+        public ShadowGrain(ILogger logger)
         {
             Logger = logger;
             GrainType = GetType();
@@ -174,7 +174,7 @@ namespace Ray.Core
             return Consts.ValueTaskDone;
         }
         #endregion
-        public Task Tell(byte[] bytes)
+        public Task OnNext(byte[] bytes)
         {
             var (success, transport) = EventBytesTransport.FromBytesWithNoId(bytes);
             if (success)

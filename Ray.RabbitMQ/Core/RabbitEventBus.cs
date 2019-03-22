@@ -64,7 +64,7 @@ namespace Ray.EventBus.RabbitMQ
         }
         public RabbitEventBus CreateConsumer<K>(string followType, ushort minQos = 100, ushort incQos = 100, ushort maxQos = 300, bool autoAck = false, bool errorReject = false)
         {
-            var consumer = new RabbitConsumer(ServiceProvider.GetService<IFollowUnitContainer>().GetUnit<K>(ProducerType).GetEventHandlers(followType))
+            var consumer = new RabbitConsumer(ServiceProvider.GetService<IObserverUnitContainer>().GetUnit<K>(ProducerType).GetEventHandlers(followType))
             {
                 EventBus = this,
                 QueueList = new List<QueueInfo>(),
@@ -87,7 +87,7 @@ namespace Ray.EventBus.RabbitMQ
         }
         public Task DefaultConsumer<K>()
         {
-            return CreateConsumer<K>(DefaultFollowGroup.primary).CreateConsumer<K>(DefaultFollowGroup.secondary).Enable();
+            return CreateConsumer<K>(DefaultObserverGroup.primary).CreateConsumer<K>(DefaultObserverGroup.secondary).Enable();
         }
     }
 }

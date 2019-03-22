@@ -7,7 +7,7 @@ using Ray.Core.Event;
 
 namespace Ray.Grain
 {
-    public abstract class DbGrain<Main, K> : ConcurrentFollowGrain<Main, K>
+    public abstract class DbGrain<Main, K> : ConcurrentObserverGrain<Main, K>
     {
         public DbGrain(ILogger logger) : base(logger)
         {

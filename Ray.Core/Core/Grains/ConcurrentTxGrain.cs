@@ -10,11 +10,11 @@ using Ray.Core.Snapshot;
 
 namespace Ray.Core
 {
-    public abstract class ConcurrentGrain<Grain, PrimaryKey, SnapshotType> : LocalTransactionGrain<Grain, PrimaryKey, SnapshotType>
+    public abstract class ConcurrentTxGrain<Grain, PrimaryKey, SnapshotType> : TxGrain<Grain, PrimaryKey, SnapshotType>
         where SnapshotType : class, ICloneable<SnapshotType>, new()
     {
         public long defaultTransactionId = 0;
-        public ConcurrentGrain() : base()
+        public ConcurrentTxGrain() : base()
         {
         }
         protected IMpscChannel<ConcurrentTransport<Snapshot<PrimaryKey, SnapshotType>>> ConcurrentChannel { get; private set; }

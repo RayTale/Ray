@@ -8,7 +8,7 @@ using Ray.Grain.Events;
 
 namespace Ray.Grain
 {
-    public sealed class AccountFlow : ConcurrentFollowGrain<Account, long>, IAccountFlow
+    public sealed class AccountFlow : ConcurrentObserverGrain<Account, long>, IAccountFlow
     {
         public AccountFlow(ILogger<AccountFlow> logger) : base(logger)
         {

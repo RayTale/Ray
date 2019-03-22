@@ -10,12 +10,12 @@ namespace Ray.Grain
 {
     public class Configuration : IStartupConfig
     {
-        public Task ConfigureFollowUnit(IServiceProvider serviceProvider, IFollowUnitContainer followUnitContainer)
+        public Task ConfigureFollowUnit(IServiceProvider serviceProvider, IObserverUnitContainer followUnitContainer)
         {
-            followUnitContainer.Register(FollowUnit<long>.From<Account>(serviceProvider).
-                Flow(DefaultFollowGroup.primary, (client, id) => client.GetGrain<IAccountRep>(id)).
-                ConcurrentFlow(DefaultFollowGroup.primary, (client, id) => client.GetGrain<IAccountFlow>(id)).
-                ConcurrentFlow(DefaultFollowGroup.secondary, (client, id) => client.GetGrain<IAccountDb>(id)));
+            followUnitContainer.Register(ObserverUnit<long>.From<Account>(serviceProvider).
+                Observer(DefaultObserverGroup.primary, (client, id) => client.GetGrain<IAccountRep>(id)).
+                ConcurrentObserver(DefaultObserverGroup.primary, (client, id) => client.GetGrain<IAccountFlow>(id)).
+                ConcurrentObserver(DefaultObserverGroup.secondary, (client, id) => client.GetGrain<IAccountDb>(id)));
             return Task.CompletedTask;
         }
         public void Configure(IServiceCollection serviceCollection)

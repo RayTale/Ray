@@ -11,10 +11,10 @@ using Ray.Core.Serialization;
 
 namespace Ray.Core
 {
-    public abstract class ConcurrentFollowGrain<Main, PrimaryKey> : FollowGrain<Main, PrimaryKey>, IConcurrentFollow
+    public abstract class ConcurrentObserverGrain<Main, PrimaryKey> : ObserverGrain<Main, PrimaryKey>, IConcurrentObserver
     {
         readonly List<IFullyEvent<PrimaryKey>> UnprocessedEventList = new List<IFullyEvent<PrimaryKey>>();
-        public ConcurrentFollowGrain(ILogger logger) : base(logger)
+        public ConcurrentObserverGrain(ILogger logger) : base(logger)
         {
         }
         /// <summary>
@@ -32,7 +32,7 @@ namespace Ray.Core
             ConcurrentChannel.Complete();
             return base.OnDeactivateAsync();
         }
-        public async Task ConcurrentTell(byte[] bytes)
+        public async Task ConcurrentOnNext(byte[] bytes)
         {
             var (success, transport) = EventBytesTransport.FromBytesWithNoId(bytes);
             if (success)

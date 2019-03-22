@@ -5,7 +5,7 @@ using Ray.Core.Abstractions;
 
 namespace Ray.Core
 {
-    public interface IFollowUnit<PrimaryKey> : IGrainID
+    public interface IObserverUnit<PrimaryKey> : IGrainID
     {
         List<Func<PrimaryKey, long, Task<long>>> GetAndSaveVersionFuncs();
         List<Func<byte[], Task>> GetEventHandlers(string followType);

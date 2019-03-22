@@ -7,7 +7,7 @@ using Ray.IGrains.States;
 
 namespace Ray.Grain
 {
-    public sealed class AccountRep : ReplicaGrain<Account, long, AccountState>, IAccountRep
+    public sealed class AccountRep : ShadowGrain<Account, long, AccountState>, IAccountRep
     {
 
         public AccountRep(ILogger<AccountRep> logger) : base(logger)
