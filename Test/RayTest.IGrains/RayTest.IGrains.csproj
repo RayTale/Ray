@@ -14,7 +14,7 @@
   </ItemGroup>
   
   <ItemGroup>
-    <ProjectReference Include="..\..\Ray.Core\Ray.Core.csproj" />
+    <ProjectReference Include="..\..\src\Ray.Core\Ray.Core.csproj" />
   </ItemGroup>
 
 </Project>

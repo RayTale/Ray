@@ -14,7 +14,7 @@ namespace RayCore.Tests
 
         }
 
-        public Task ConfigureFollowUnit(IServiceProvider serviceProvider, IObserverUnitContainer followUnitContainer)
+        public Task ConfigureObserverUnit(IServiceProvider serviceProvider, IObserverUnitContainer followUnitContainer)
         {
             followUnitContainer.Register(ObserverUnit<long>.From<Account>(serviceProvider));
             return Task.CompletedTask;

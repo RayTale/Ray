@@ -4,19 +4,20 @@
     <TargetFramework>netcoreapp2.2</TargetFramework>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
-  
+
   <ItemGroup>
     <PackageReference Include="Microsoft.Orleans.CodeGenerator.MSBuild" Version="2.3.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Npgsql" Version="4.0.5" />
+    <PackageReference Include="protobuf-net" Version="2.4.0" />
+    <PackageReference Include="SpanJson" Version="2.0.7" />
   </ItemGroup>
-  
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\Ray.Core\Ray.Core.csproj" />
-    <ProjectReference Include="..\..\src\Ray.Postgresql\Ray.Storage.PostgreSQL.csproj" />
+    <ProjectReference Include="..\..\src\Ray.DistributedTx\Ray.DistributedTx.csproj" />
     <ProjectReference Include="..\..\src\Ray.RabbitMQ\Ray.EventBus.RabbitMQ.csproj" />
-    <ProjectReference Include="..\RayTest.IGrains\RayTest.IGrains.csproj" />
   </ItemGroup>
+
 </Project>
