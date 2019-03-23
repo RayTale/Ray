@@ -98,7 +98,7 @@ namespace Ray.Core
                 {
                     await input.Handler(Snapshot, (evt, uniqueId) =>
                     {
-                        TransactionRaiseEvent(evt, uniqueId);
+                        TxRaiseEvent(evt, uniqueId);
                         input.Executed = true;
                         return Task.CompletedTask;
                     });

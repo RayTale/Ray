@@ -2,9 +2,9 @@
 
 namespace Ray.Core.Exceptions
 {
-    public class TransactionSnapshotException : Exception
+    public class TxSnapshotException : Exception
     {
-        public TransactionSnapshotException(string stateId, long snapshotVersion, long backupSnapshotVersion) :
+        public TxSnapshotException(string stateId, long snapshotVersion, long backupSnapshotVersion) :
             base($"StateId {stateId} and snapshot version {snapshotVersion} and backup snapshot version {backupSnapshotVersion}")
         {
         }

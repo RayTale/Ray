@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using Orleans;
 using Ray.Core;
+using Ray.Core.Exceptions;
 using Ray.Core.Snapshot;
 using Ray.DistributedTransaction.Configuration;
 
@@ -22,7 +23,7 @@ namespace Ray.DistributedTransaction
         public override async Task OnActivateAsync()
         {
             await base.OnActivateAsync();
-            if (!(EventHandler is TransactionEventHandler<PrimaryKey, StateType>))
+            if (!(EventHandler is TxEventHandler<PrimaryKey, StateType>))
             {
                 throw new TypeErrorOfEventHandlerException(EventHandler.GetType().FullName);
             }
@@ -32,7 +33,7 @@ namespace Ray.DistributedTransaction
             //如果是带Id的事务，则加入事务事件，等待Complete
             if (transactionId > 0)
             {
-                TransactionRaiseEvent(new TransactionCommitEvent(CurrentTransactionId, CurrentTransactionStartVersion + 1, WaitingForTransactionTransports.Min(t => t.FullyEvent.Base.Timestamp)));
+                TxRaiseEvent(new TxCommitEvent(CurrentTransactionId, CurrentTransactionStartVersion + 1, WaitingForTransactionTransports.Min(t => t.FullyEvent.Base.Timestamp)));
             }
             return Consts.ValueTaskDone;
         }
@@ -44,12 +45,20 @@ namespace Ray.DistributedTransaction
                 {
                     //删除最后一个TransactionCommitEvent
                     await EventStorage.DeleteEnd(Snapshot.Base.StateId, Snapshot.Base.Version, Snapshot.Base.LatestMinEventTimestamp);
-                    Snapshot.Base.ClearTransactionInfo(true);
-                    BackupSnapshot.Base.ClearTransactionInfo(true);
+                    if (Snapshot.Base is TxSnapshotBase<PrimaryKey> snapshotBase &&
+                        BackupSnapshot.Base is TxSnapshotBase<PrimaryKey> backupSnapshotBase)
+                    {
+                        snapshotBase.ClearTransactionInfo(true);
+                        backupSnapshotBase.ClearTransactionInfo(true);
+                    }
+                    else
+                    {
+                        throw new SnapshotNotSupportTxException(Snapshot.GetType());
+                    }
                 }
                 else
                 {
-                    await base.RaiseEvent(new TransactionFinishEvent(transactionId));
+                    await base.RaiseEvent(new TxFinishedEvent(transactionId));
                 }
             }
         }

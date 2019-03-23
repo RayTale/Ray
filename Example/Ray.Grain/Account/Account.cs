@@ -26,7 +26,7 @@ namespace Ray.Grain
         {
             if (Snapshot.State.Balance > amount)
             {
-                await DistributedTransactionRaiseEvent(transactionId, new AmountDeductEvent(amount, Snapshot.State.Balance - amount));
+                await TxRaiseEvent(transactionId, new AmountDeductEvent(amount, Snapshot.State.Balance - amount));
                 return true;
             }
             else
@@ -36,7 +36,7 @@ namespace Ray.Grain
         }
         public async Task TransferAddAmount(decimal amount, long transactionId)
         {
-            await DistributedTransactionRaiseEvent(transactionId, new AmountAddEvent(amount, Snapshot.State.Balance + amount));
+            await TxRaiseEvent(transactionId, new AmountAddEvent(amount, Snapshot.State.Balance + amount));
         }
         public Task<bool> AddAmount(decimal amount, EventUID uniqueId = null)
         {

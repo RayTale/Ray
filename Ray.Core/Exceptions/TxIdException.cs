@@ -2,7 +2,7 @@
 
 namespace Ray.Core.Exceptions
 {
-    public class DistributedTransactionIdException : Exception
+    public class TxIdException : Exception
     {
     }
 }

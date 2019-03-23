@@ -2,9 +2,9 @@
 
 namespace Ray.Core.Exceptions
 {
-    public class BeginTransactionTimeoutException : Exception
+    public class RepeatedTxException : Exception
     {
-        public BeginTransactionTimeoutException(string stateId, long transactionId, Type type) :
+        public RepeatedTxException(string stateId, long transactionId, Type type) :
             base($"Grain type {type.FullName} with grainId {stateId} and transactionId {transactionId}")
         {
         }

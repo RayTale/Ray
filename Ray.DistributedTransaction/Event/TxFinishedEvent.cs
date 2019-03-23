@@ -2,11 +2,11 @@
 
 namespace Ray.DistributedTransaction
 {
-    public class TransactionFinishEvent : IEvent
+    public class TxFinishedEvent : IEvent
     {
         public long Id { get; set; }
-        public TransactionFinishEvent() { }
-        public TransactionFinishEvent(long transactionId)
+        public TxFinishedEvent() { }
+        public TxFinishedEvent(long transactionId)
         {
             Id = transactionId;
         }

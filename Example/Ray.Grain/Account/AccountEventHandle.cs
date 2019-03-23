@@ -6,7 +6,7 @@ using Ray.IGrains.States;
 
 namespace Ray.Grain.EventHandles
 {
-    public class AccountEventHandle : TransactionEventHandler<long, AccountState>
+    public class AccountEventHandle : TxEventHandler<long, AccountState>
     {
         public override void CustomApply(Snapshot<long, AccountState> snapshot, IFullyEvent<long> fullyEvent)
         {
