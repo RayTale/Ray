@@ -7,15 +7,17 @@ using Ray.Storage.SQLCore.Services;
 
 namespace Ray.Storage.PostgreSQL
 {
-    public class LongStorageOptions : StorageOptions
+    public class StringKeyOptions : StorageOptions
     {
-        public LongStorageOptions(IServiceProvider serviceProvider, string connectionKey, string uniqueName, long subTableMinutesInterval = 30) : base(serviceProvider)
+        public StringKeyOptions(IServiceProvider serviceProvider, string connectionKey, string uniqueName, long subTableMinutesInterval = 30, int stateIdLength = 200) : base(serviceProvider)
         {
+            StateIdLength = stateIdLength;
             Connection = serviceProvider.GetService<IOptions<PSQLConnections>>().Value.ConnectionDict[connectionKey];
             UniqueName = uniqueName;
             SubTableMillionSecondsInterval = subTableMinutesInterval * 24 * 60 * 60 * 1000;
             BuildRepository = new PSQLBuildService(this);
         }
+        public int StateIdLength { get; set; }
         public string Connection { get; set; }
         public override IBuildService BuildRepository { get; }
 

@@ -9,16 +9,16 @@ namespace Ray.Storage.PostgreSQL
 {
     public class PSQLBuildService : IBuildService
     {
-        private readonly StringStorageOptions stringStorageOptions;
+        private readonly StringKeyOptions stringStorageOptions;
         private readonly StorageOptions storageOptions;
         private readonly bool stateIdIsString;
         public PSQLBuildService(StorageOptions storageOptions)
         {
             this.storageOptions = storageOptions;
-            if (storageOptions.GetType() == typeof(StringStorageOptions))
+            if (storageOptions is StringKeyOptions options)
             {
                 stateIdIsString = true;
-                stringStorageOptions = storageOptions as StringStorageOptions;
+                stringStorageOptions = options;
             }
             else
             {
