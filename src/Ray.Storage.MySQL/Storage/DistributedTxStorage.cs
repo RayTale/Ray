@@ -1,8 +1,6 @@
 ﻿using Dapper;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Npgsql;
-using NpgsqlTypes;
 using Ray.Core.Channels;
 using Ray.Core.Serialization;
 using Ray.DistributedTransaction;
@@ -13,7 +11,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using TransactionStatus = Ray.DistributedTransaction.TransactionStatus;
 
-namespace Ray.Storage.PostgreSQL
+namespace Ray.Storage.MySQL
 {
     public class DistributedTxStorage : IDistributedTxStorage
     {
@@ -24,7 +22,7 @@ namespace Ray.Storage.PostgreSQL
         public DistributedTxStorage(
             IServiceProvider serviceProvider,
             IOptions<TransactionOptions> options,
-            IOptions<PSQLConnections> connectionsOptions)
+            IOptions<MySQLConnections> connectionsOptions)
         {
             this.options = options;
             connection = connectionsOptions.Value.ConnectionDict[options.Value.ConnectionKey];
@@ -35,17 +33,17 @@ namespace Ray.Storage.PostgreSQL
         }
         public DbConnection CreateConnection()
         {
-            return PSQLFactory.CreateConnection(connection);
+            return MySQLFactory.CreateConnection(connection);
         }
         public async Task CreateEventSubRecordTable()
         {
             var sql = $@"
-                CREATE TABLE if not exists {options.Value.TableName}(
-                     UnitName varchar(500) not null,
-                     TransactionId int8 not null,
-                     Data jsonb not null,
-                     Status int2 not null)WITH (OIDS=FALSE);
-                     CREATE UNIQUE INDEX IF NOT EXISTS UnitName_TransId ON {options.Value.TableName} USING btree(UnitName, TransactionId)";
+                CREATE TABLE if not exists `{options.Value.TableName}`(
+                     `UnitName` varchar(500) not null,
+                     `TransactionId` int8 not null,
+                     `Data` json not null,
+                     `Status` int2 not null,
+                     UNIQUE INDEX `UnitName_TransId`(`UnitName`, `TransactionId`) USING BTREE);";
             using (var connection = CreateConnection())
             {
                 await connection.ExecuteAsync(sql);
@@ -104,52 +102,28 @@ namespace Ray.Storage.PostgreSQL
         }
         private async Task BatchProcessing(List<AsyncInputEvent<AppendInput, bool>> wrapperList)
         {
-            var copySql = $"copy {options.Value.TableName}(UnitName,TransactionId,Data,Status) FROM STDIN (FORMAT BINARY)";
-            try
+            var saveSql = $"INSERT IGNORE INTO {options.Value.TableName}(UnitName,TransactionId,Data,Status) VALUES(@UnitName,@TransactionId,@Data,@Status)";
+            using (var conn = CreateConnection())
             {
-                using (var conn = CreateConnection() as NpgsqlConnection)
+                await conn.OpenAsync();
+                using (var trans = conn.BeginTransaction())
                 {
-                    await conn.OpenAsync();
-                    using (var writer = conn.BeginBinaryImport(copySql))
+                    try
                     {
-                        foreach (var wrapper in wrapperList)
+                        await conn.ExecuteAsync(saveSql, wrapperList.Select(wrapper => new
                         {
-                            writer.StartRow();
-                            writer.Write(wrapper.Value.UnitName, NpgsqlDbType.Varchar);
-                            writer.Write(wrapper.Value.TransactionId, NpgsqlDbType.Bigint);
-                            writer.Write(wrapper.Value.Data, NpgsqlDbType.Jsonb);
-                            writer.Write((short)wrapper.Value.Status, NpgsqlDbType.Smallint);
-                        }
-                        writer.Complete();
+                            wrapper.Value.UnitName,
+                            wrapper.Value.TransactionId,
+                            wrapper.Value.Data,
+                            Status = (short)wrapper.Value.Status
+                        }).ToList(), trans);
+                        trans.Commit();
+                        wrapperList.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
                     }
-                }
-                wrapperList.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
-            }
-            catch
-            {
-                var saveSql = $"INSERT INTO {options.Value.TableName}(UnitName,TransactionId,Data,Status) VALUES(@UnitName,@TransactionId,(@Data)::jsonb,@Status) ON CONFLICT ON CONSTRAINT UnitName_TransId DO NOTHING";
-                using (var conn = CreateConnection())
-                {
-                    await conn.OpenAsync();
-                    using (var trans = conn.BeginTransaction())
+                    catch (Exception e)
                     {
-                        try
-                        {
-                            await conn.ExecuteAsync(saveSql, wrapperList.Select(wrapper => new
-                            {
-                                wrapper.Value.UnitName,
-                                wrapper.Value.TransactionId,
-                                wrapper.Value.Data,
-                                Status = (short)wrapper.Value.Status
-                            }).ToList(), trans);
-                            trans.Commit();
-                            wrapperList.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
-                        }
-                        catch (Exception e)
-                        {
-                            trans.Rollback();
-                            wrapperList.ForEach(wrap => wrap.TaskSource.TrySetException(e));
-                        }
+                        trans.Rollback();
+                        wrapperList.ForEach(wrap => wrap.TaskSource.TrySetException(e));
                     }
                 }
             }

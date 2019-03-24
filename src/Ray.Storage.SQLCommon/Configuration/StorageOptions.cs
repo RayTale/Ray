@@ -28,8 +28,11 @@ namespace Ray.Storage.SQLCore.Configuration
         public string SnapshotTable => $"{UniqueName}_Snapshot";
         public string SnapshotArchiveTable => $"{SnapshotTable}_Archive";
         public string EventArchiveTable => $"{EventTable}_Archive";
-        public abstract DbConnection CreateConnection();
-        public abstract IBuildService BuildRepository { get; }
+        public string ConnectionKey { get; set; }
+        public string Connection { get; set; }
+        public Func<string, DbConnection> CreateConnectionFunc { get; set; }
+        public DbConnection CreateConnection() => CreateConnectionFunc(Connection);
+        public IBuildService BuildRepository { get; set; }
         private List<EventSubTable> _subTables;
         readonly SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
         public async ValueTask Build()

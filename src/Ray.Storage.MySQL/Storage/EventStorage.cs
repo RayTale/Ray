@@ -1,21 +1,20 @@
-﻿using System;
+﻿using Dapper;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Ray.Core.Channels;
+using Ray.Core.Event;
+using Ray.Core.Serialization;
+using Ray.Core.Storage;
+using Ray.Storage.SQLCore;
+using Ray.Storage.SQLCore.Configuration;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Dapper;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Npgsql;
-using NpgsqlTypes;
-using Ray.Core.Channels;
-using Ray.Core.Event;
-using Ray.Core.Serialization;
-using Ray.Core.Storage;
-using Ray.Storage.SQLCore.Configuration;
 
-namespace Ray.Storage.PostgreSQL
+namespace Ray.Storage.MySQL
 {
     public class EventStorage<PrimaryKey> : IEventStorage<PrimaryKey>
     {
@@ -39,32 +38,28 @@ namespace Ray.Storage.PostgreSQL
                 if (!getTableListTask.IsCompletedSuccessfully)
                     await getTableListTask;
                 var stateIdStr = typeof(PrimaryKey) == typeof(long) ? stateId.ToString() : $"'{stateId.ToString()}'";
-                using (var conn = config.CreateConnection() as NpgsqlConnection)
+                using (var conn = config.CreateConnection())
                 {
                     await conn.OpenAsync();
                     foreach (var table in getTableListTask.Result.Where(t => t.EndTime >= latestTimestamp))
                     {
-                        var sql = $"COPY (SELECT typecode,data,version,timestamp from {table.SubTable} WHERE stateid={stateIdStr} and version>={startVersion} and version<={endVersion} order by version asc) TO STDOUT (FORMAT BINARY)";
-                        using (var reader = conn.BeginBinaryExport(sql))
+                        var sql = $"SELECT typecode,data,version,timestamp from {table.SubTable} WHERE stateid=@StateId and version>=@StartVersion and version<=@EndVersion order by version asc";
+                        var originList = await conn.QueryAsync<EventModel>(sql, new
                         {
-                            while (reader.StartRow() != -1)
+                            StateId = stateId,
+                            StartVersion = startVersion,
+                            EndVersion = endVersion
+                        });
+                        foreach (var item in originList)
+                        {
+                            if (serializer.Deserialize(TypeContainer.GetType(item.TypeCode), Encoding.Default.GetBytes(item.Data)) is IEvent evt)
                             {
-                                var typeCode = reader.Read<string>(NpgsqlDbType.Varchar);
-                                var data = reader.Read<string>(NpgsqlDbType.Jsonb);
-                                var version = reader.Read<long>(NpgsqlDbType.Bigint);
-                                var timestamp = reader.Read<long>(NpgsqlDbType.Bigint);
-                                if (version <= endVersion && version >= startVersion)
+                                list.Add(new FullyEvent<PrimaryKey>
                                 {
-                                    if (serializer.Deserialize(TypeContainer.GetType(typeCode), Encoding.Default.GetBytes(data)) is IEvent evt)
-                                    {
-                                        list.Add(new FullyEvent<PrimaryKey>
-                                        {
-                                            StateId = stateId,
-                                            Event = evt,
-                                            Base = new EventBase(version, timestamp)
-                                        });
-                                    }
-                                }
+                                    StateId = stateId,
+                                    Event = evt,
+                                    Base = new EventBase(item.Version, item.Timestamp)
+                                });
                             }
                         }
                     }
@@ -81,30 +76,29 @@ namespace Ray.Storage.PostgreSQL
                 var getTableListTask = config.GetSubTables();
                 if (!getTableListTask.IsCompletedSuccessfully)
                     await getTableListTask;
-                var stateIdStr = typeof(PrimaryKey) == typeof(long) ? stateId.ToString() : $"'{stateId.ToString()}'";
-                using (var conn = config.CreateConnection() as NpgsqlConnection)
+                using (var conn = config.CreateConnection())
                 {
                     await conn.OpenAsync();
                     foreach (var table in getTableListTask.Result)
                     {
-
-                        var sql = $"COPY (SELECT data,version,timestamp from {table.SubTable} WHERE stateid={stateIdStr} and typecode='{typeCode}' and version>={startVersion} order by version asc limit {limit}) TO STDOUT (FORMAT BINARY)";
-                        using (var reader = conn.BeginBinaryExport(sql))
+                        var sql = $"SELECT data,version,timestamp from {table.SubTable} WHERE stateid=@StateId and typecode=@TypeCode and version>=@StartVersion order by version asc limit @Limit";
+                        var originList = await conn.QueryAsync<EventModel>(sql, new
                         {
-                            while (reader.StartRow() != -1)
+                            StateId = stateId,
+                            TypeCode = typeCode,
+                            StartVersion = startVersion,
+                            Limit = limit
+                        });
+                        foreach (var item in originList)
+                        {
+                            if (serializer.Deserialize(type, Encoding.Default.GetBytes(item.Data)) is IEvent evt)
                             {
-                                var data = reader.Read<string>(NpgsqlDbType.Jsonb);
-                                var version = reader.Read<long>(NpgsqlDbType.Bigint);
-                                var timestamp = reader.Read<long>(NpgsqlDbType.Bigint);
-                                if (version >= startVersion && serializer.Deserialize(type, Encoding.Default.GetBytes(data)) is IEvent evt)
+                                list.Add(new FullyEvent<PrimaryKey>
                                 {
-                                    list.Add(new FullyEvent<PrimaryKey>
-                                    {
-                                        StateId = stateId,
-                                        Event = evt,
-                                        Base = new EventBase(version, timestamp)
-                                    });
-                                }
+                                    StateId = stateId,
+                                    Event = evt,
+                                    Base = new EventBase(item.Version, item.Timestamp)
+                                });
                             }
                         }
                         if (list.Count >= limit)
@@ -158,23 +152,31 @@ namespace Ray.Storage.PostgreSQL
                 try
                 {
                     var copySql = copySaveSqlDict.GetOrAdd(tableName,
-                         key => $"copy {key}(stateid,uniqueId,typecode,data,version,timestamp) FROM STDIN (FORMAT BINARY)");
-                    using (var conn = config.CreateConnection() as NpgsqlConnection)
+                         key => $"INSERT INTO {key}(stateid,uniqueId,typecode,data,version,timestamp) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version,@Timestamp)");
+                    using (var conn = config.CreateConnection())
                     {
                         await conn.OpenAsync();
-                        using (var writer = conn.BeginBinaryImport(copySql))
+                        using (var trans = conn.BeginTransaction())
                         {
-                            foreach (var wrapper in list)
+                            try
                             {
-                                writer.StartRow();
-                                writer.Write(wrapper.Value.Event.StateId);
-                                writer.Write(wrapper.Value.UniqueId, NpgsqlDbType.Varchar);
-                                writer.Write(wrapper.Value.Event.Event.GetType().FullName, NpgsqlDbType.Varchar);
-                                writer.Write(Encoding.Default.GetString(wrapper.Value.BytesTransport.EventBytes), NpgsqlDbType.Jsonb);
-                                writer.Write(wrapper.Value.Event.Base.Version, NpgsqlDbType.Bigint);
-                                writer.Write(wrapper.Value.Event.Base.Timestamp, NpgsqlDbType.Bigint);
+                                await conn.ExecuteAsync(copySql, list.Select(wrapper => new
+                                {
+                                    StateId = wrapper.Value.Event.StateId.ToString(),
+                                    wrapper.Value.UniqueId,
+                                    TypeCode = wrapper.Value.Event.Event.GetType().FullName,
+                                    Data = Encoding.Default.GetString(wrapper.Value.BytesTransport.EventBytes),
+                                    wrapper.Value.Event.Base.Version,
+                                    wrapper.Value.Event.Base.Timestamp
+                                }).ToList(), trans);
+                                trans.Commit();
+                                list.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
                             }
-                            writer.Complete();
+                            catch
+                            {
+                                trans.Rollback();
+                                throw;
+                            }
                         }
                     }
                     list.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
@@ -183,7 +185,7 @@ namespace Ray.Storage.PostgreSQL
                 {
                     logger.LogError(ex, ex.Message);
                     var saveSql = saveSqlDict.GetOrAdd(tableName,
-                        key => $"INSERT INTO {key}(stateid,uniqueId,typecode,data,version,timestamp) VALUES(@StateId,@UniqueId,@TypeCode,(@Data)::jsonb,@Version,@Timestamp) ON CONFLICT ON CONSTRAINT {key}_id_unique DO NOTHING");
+                        key => $"INSERT ignore INTO {key}(stateid,uniqueId,typecode,data,version,timestamp) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version,@Timestamp)");
                     await BatchInsert(saveSql, wrapperList);
                 }
             }
@@ -251,70 +253,41 @@ namespace Ray.Storage.PostgreSQL
             var minTask = config.GetTable(minTimestamp);
             if (!minTask.IsCompletedSuccessfully)
                 await minTask;
-            if (minTask.Result.EndTime > maxTimestamp)
+            var groups = (await Task.WhenAll(list.Select(async t =>
             {
-                var saveSql = copySaveSqlDict.GetOrAdd(minTask.Result.SubTable,
-                    key => $"copy {key}(stateid,uniqueId,typecode,data,version,timestamp) FROM STDIN (FORMAT BINARY)");
-                await Task.Run(async () =>
+                var task = config.GetTable(t.FullyEvent.Base.Timestamp);
+                if (!task.IsCompletedSuccessfully)
+                    await task;
+                return (task.Result.SubTable, t);
+            }))).GroupBy(t => t.SubTable);
+            using (var conn = config.CreateConnection())
+            {
+                await conn.OpenAsync();
+                using (var trans = conn.BeginTransaction())
                 {
-                    using (var conn = config.CreateConnection() as NpgsqlConnection)
+                    try
                     {
-                        await conn.OpenAsync();
-                        using (var writer = conn.BeginBinaryImport(saveSql))
+                        foreach (var group in groups)
                         {
-                            foreach (var wrapper in list)
+                            var saveSql = saveSqlDict.GetOrAdd(group.Key,
+                                key => $"INSERT INTO {key}(stateid,uniqueId,typecode,data,version,timestamp) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version,@Timestamp)");
+                            await conn.ExecuteAsync(saveSql, group.Select(g => new
                             {
-                                writer.StartRow();
-                                writer.Write(wrapper.FullyEvent.StateId);
-                                writer.Write(wrapper.UniqueId, NpgsqlDbType.Varchar);
-                                writer.Write(wrapper.FullyEvent.Event.GetType().FullName, NpgsqlDbType.Varchar);
-                                writer.Write(Encoding.Default.GetString(wrapper.BytesTransport.EventBytes), NpgsqlDbType.Jsonb);
-                                writer.Write(wrapper.FullyEvent.Base.Version, NpgsqlDbType.Bigint);
-                                writer.Write(wrapper.FullyEvent.Base.Timestamp, NpgsqlDbType.Bigint);
-                            }
-                            writer.Complete();
+                                g.t.FullyEvent.StateId,
+                                g.t.UniqueId,
+                                TypeCode = g.t.FullyEvent.Event.GetType().FullName,
+                                Data = Encoding.Default.GetString(g.t.BytesTransport.EventBytes),
+                                g.t.FullyEvent.Base.Version,
+                                g.t.FullyEvent.Base.Timestamp
+                            }), trans);
                         }
+                        trans.Commit();
                     }
-                });
-            }
-            else
-            {
-                var groups = (await Task.WhenAll(list.Select(async t =>
-                {
-                    var task = config.GetTable(t.FullyEvent.Base.Timestamp);
-                    if (!task.IsCompletedSuccessfully)
-                        await task;
-                    return (task.Result.SubTable, t);
-                }))).GroupBy(t => t.SubTable);
-                using (var conn = config.CreateConnection())
-                {
-                    await conn.OpenAsync();
-                    using (var trans = conn.BeginTransaction())
+                    catch (Exception ex)
                     {
-                        try
-                        {
-                            foreach (var group in groups)
-                            {
-                                var saveSql = saveSqlDict.GetOrAdd(group.Key,
-                                    key => $"INSERT INTO {key}(stateid,uniqueId,typecode,data,version,timestamp) VALUES(@StateId,@UniqueId,@TypeCode,(@Data)::jsonb,@Version,@Timestamp)");
-                                await conn.ExecuteAsync(saveSql, group.Select(g => new
-                                {
-                                    g.t.FullyEvent.StateId,
-                                    g.t.UniqueId,
-                                    TypeCode = g.t.FullyEvent.Event.GetType().FullName,
-                                    Data = Encoding.Default.GetString(g.t.BytesTransport.EventBytes),
-                                    g.t.FullyEvent.Base.Version,
-                                    g.t.FullyEvent.Base.Timestamp
-                                }), trans);
-                            }
-                            trans.Commit();
-                        }
-                        catch (Exception ex)
-                        {
-                            trans.Rollback();
-                            logger.LogError(ex, nameof(TransactionBatchAppend));
-                            throw;
-                        }
+                        trans.Rollback();
+                        logger.LogError(ex, nameof(TransactionBatchAppend));
+                        throw;
                     }
                 }
             }

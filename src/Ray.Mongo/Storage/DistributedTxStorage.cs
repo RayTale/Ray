@@ -32,7 +32,7 @@ namespace Ray.Storage.Mongo.Storage
             serviceProvider.GetService<IIndexBuildService>().CreateTransactionStorageIndex(client, transactionOptions.Value.Database, transactionOptions.Value.CollectionName).GetAwaiter().GetResult();
             mpscChannel.BindConsumer(BatchProcessing);
         }
-        public Task<bool> Append<Input>(string unitName, Commit<Input> commit)
+        public Task Append<Input>(string unitName, Commit<Input> commit)
         {
             return Task.Run(async () =>
             {
@@ -46,7 +46,7 @@ namespace Ray.Storage.Mongo.Storage
                 var writeTask = mpscChannel.WriteAsync(wrap);
                 if (!writeTask.IsCompletedSuccessfully)
                     await writeTask;
-                return await wrap.TaskSource.Task;
+                await wrap.TaskSource.Task;
             });
         }
 
@@ -132,6 +132,5 @@ namespace Ray.Storage.Mongo.Storage
     public class AppendInput : CommitModel
     {
         public string UnitName { get; set; }
-        public bool ReturnValue { get; set; }
     }
 }

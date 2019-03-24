@@ -2,16 +2,16 @@
 using Microsoft.Extensions.DependencyInjection;
 using Ray.DistributedTransaction;
 
-namespace Ray.Storage.PostgreSQL
+namespace Ray.Storage.MySQL
 {
     public static class Extensions
     {
-        public static void AddPostgreSQLStorage(this IServiceCollection serviceCollection, Action<PSQLConnections> configAction)
+        public static void AddMySQLStorage(this IServiceCollection serviceCollection, Action<MySQLConnections> configAction)
         {
-            serviceCollection.Configure<PSQLConnections>(config => configAction(config));
+            serviceCollection.Configure<MySQLConnections>(config => configAction(config));
             serviceCollection.AddSingleton<StorageFactory>();
         }
-        public static void AddPostgreSQLTxStorage(this IServiceCollection serviceCollection, Action<TransactionOptions> configAction)
+        public static void AddMySQLTxStorage(this IServiceCollection serviceCollection, Action<TransactionOptions> configAction)
         {
             serviceCollection.Configure<TransactionOptions>(config => configAction(config));
             serviceCollection.AddSingleton<IDistributedTxStorage, DistributedTxStorage>();

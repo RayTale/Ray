@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Ray.Core.Storage;
 using Ray.Storage.PostgreSQL;
+using Ray.Storage.SQLCore.Configuration;
 
 namespace RayTest.Grains
 {

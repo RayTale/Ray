@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MySql.Data" Version="8.0.15" />
+    <PackageReference Include="Dapper" Version="1.60.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Ray.Core\Ray.Core.csproj" />
+    <ProjectReference Include="..\Ray.DistributedTx\Ray.DistributedTx.csproj" />
+    <ProjectReference Include="..\Ray.Storage.SQLCommon\Ray.Storage.SQLCore.csproj" />
+  </ItemGroup>
+</Project>

@@ -18,6 +18,7 @@
     <ProjectReference Include="..\..\src\Ray.Mongo\Ray.Storage.Mongo.csproj" />
     <ProjectReference Include="..\..\src\Ray.Postgresql\Ray.Storage.PostgreSQL.csproj" />
     <ProjectReference Include="..\..\src\Ray.RabbitMQ\Ray.EventBus.RabbitMQ.csproj" />
+    <ProjectReference Include="..\..\src\Ray.Storage.MySQL\Ray.Storage.MySQL.csproj" />
     <ProjectReference Include="..\Ray.IGrains\Ray.IGrains.csproj" />
   </ItemGroup>
 
