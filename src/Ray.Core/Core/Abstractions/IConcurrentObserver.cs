@@ -3,7 +3,7 @@ using Orleans.Concurrency;
 
 namespace Ray.Core
 {
-    public interface IConcurrentObserver : IVersionGrain
+    public interface IConcurrentObserver : IObserver
     {
         [AlwaysInterleave]
         Task ConcurrentOnNext(byte[] bytes);

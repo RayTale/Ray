@@ -7,7 +7,7 @@ namespace Ray.Core
 {
     public interface IObserverUnit<PrimaryKey> : IGrainID
     {
-        List<Func<PrimaryKey, long, Task<long>>> GetAndSaveVersionFuncs();
+        Task<long[]> GetAndSaveVersion(PrimaryKey primaryKey, long srcVersion);
         List<Func<byte[], Task>> GetEventHandlers(string followType);
         List<Func<byte[], Task>> GetAllEventHandlers();
     }

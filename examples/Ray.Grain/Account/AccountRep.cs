@@ -2,12 +2,13 @@
 using Microsoft.Extensions.Logging;
 using Orleans;
 using Ray.Core;
+using Ray.Core.Core.Grains;
 using Ray.IGrains.Actors;
 using Ray.IGrains.States;
 
 namespace Ray.Grain
 {
-    public sealed class AccountRep : ShadowGrain<Account, long, AccountState>, IAccountRep
+    public sealed class AccountRep : TxShadowGrain<Account, long, AccountState>, IAccountRep
     {
 
         public AccountRep(ILogger<AccountRep> logger) : base(logger)

@@ -324,7 +324,7 @@ namespace Ray.Core
                 throw new StateInsecurityException(Snapshot.Base.StateId.ToString(), GrainType, Snapshot.Base.DoingVersion, Snapshot.Base.Version);
             if (ArchiveOptions.On && ArchiveOptions.ArchiveEventOnOver)
             {
-                var versions = await Task.WhenAll(ObserverUnit.GetAndSaveVersionFuncs().Select(func => func(Snapshot.Base.StateId, Snapshot.Base.Version)));
+                var versions = await ObserverUnit.GetAndSaveVersion(Snapshot.Base.StateId, Snapshot.Base.Version);
                 if (versions.Any(v => v < Snapshot.Base.Version))
                 {
                     throw new ObserverNotCompletedException(GrainType.FullName, Snapshot.Base.StateId.ToString());
@@ -637,7 +637,7 @@ namespace Ray.Core
                 if (minArchive != default)
                 {
                     //判断需要清理的event是否都被follow执行过
-                    var versions = await Task.WhenAll(ObserverUnit.GetAndSaveVersionFuncs().Select(func => func(Snapshot.Base.StateId, Snapshot.Base.Version)));
+                    var versions = await ObserverUnit.GetAndSaveVersion(Snapshot.Base.StateId, Snapshot.Base.Version);
                     if (versions.All(v => v >= minArchive.EndVersion))
                     {
                         //清理归档对应的事件

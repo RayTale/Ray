@@ -33,13 +33,16 @@
         /// </summary>
         public void ClearTransactionInfo(bool clearTransactionEvent)
         {
-            TransactionStartVersion = -1;
-            TransactionId = 0;
-            TransactionStartTimestamp = 0;
-            if (clearTransactionEvent)
+            if (TransactionStartVersion != -1)
             {
-                Version -= 1;
-                DoingVersion = Version;
+                TransactionStartVersion = -1;
+                TransactionId = 0;
+                TransactionStartTimestamp = 0;
+                if (clearTransactionEvent)
+                {
+                    Version -= 1;
+                    DoingVersion = Version;
+                }
             }
         }
         public override SnapshotBase<PrimaryKey> Clone()

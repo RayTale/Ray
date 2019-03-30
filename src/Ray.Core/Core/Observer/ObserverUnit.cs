@@ -3,6 +3,7 @@ using Orleans;
 using Ray.Core.Event;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Ray.Core
@@ -28,12 +29,10 @@ namespace Ray.Core
         {
             return eventHandlers;
         }
-
-        public List<Func<PrimaryKey, long, Task<long>>> GetAndSaveVersionFuncs()
+        public Task<long[]> GetAndSaveVersion(PrimaryKey primaryKey, long srcVersion)
         {
-            return observerVersionHandlers;
+            return Task.WhenAll(observerVersionHandlers.Select(func => func(primaryKey, srcVersion)));
         }
-
         public List<Func<byte[], Task>> GetEventHandlers(string group)
         {
             if (!eventHandlerGroups.TryGetValue(group, out var funcs))

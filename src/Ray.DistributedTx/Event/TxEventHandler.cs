@@ -29,7 +29,15 @@ namespace Ray.DistributedTransaction
                         else
                             throw new SnapshotNotSupportTxException(snapshot.GetType());
                     }; break;
-                default: CustomApply(snapshot, fullyEvent); break;
+                default:
+                    {
+                        //如果产生非事务相关的事件，说明事务事件已被清理，应该执行一次清理动作
+                        if (snapshot.Base is TxSnapshotBase<PrimaryKey> snapshotBase && snapshotBase.TransactionStartVersion != -1)
+                        {
+                            snapshotBase.ClearTransactionInfo(false);
+                        }
+                        CustomApply(snapshot, fullyEvent);
+                    }; break;
             }
         }
         public abstract void CustomApply(Snapshot<PrimaryKey, Snapshot> snapshot, IFullyEvent<PrimaryKey> fullyEvent);
