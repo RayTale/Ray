@@ -28,7 +28,7 @@ namespace Ray.Storage.PostgreSQL
         {
             this.options = options;
             connection = connectionsOptions.Value.ConnectionDict[options.Value.ConnectionKey];
-            CreateEventSubRecordTable().GetAwaiter().GetResult();
+            CreateEventSubRecordTable();
             mpscChannel = serviceProvider.GetService<IMpscChannel<AsyncInputEvent<AppendInput, bool>>>();
             serializer = serviceProvider.GetService<ISerializer>();
             mpscChannel.BindConsumer(BatchProcessing);
@@ -37,7 +37,7 @@ namespace Ray.Storage.PostgreSQL
         {
             return PSQLFactory.CreateConnection(connection);
         }
-        public async Task CreateEventSubRecordTable()
+        public void CreateEventSubRecordTable()
         {
             var sql = $@"
                 CREATE TABLE if not exists {options.Value.TableName}(
@@ -48,7 +48,7 @@ namespace Ray.Storage.PostgreSQL
                      CREATE UNIQUE INDEX IF NOT EXISTS UnitName_TransId ON {options.Value.TableName} USING btree(UnitName, TransactionId)";
             using (var connection = CreateConnection())
             {
-                await connection.ExecuteAsync(sql);
+                connection.Execute(sql);
             }
         }
         public Task Append<Input>(string unitName, Commit<Input> commit)
