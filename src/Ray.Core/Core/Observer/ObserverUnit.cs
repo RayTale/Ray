@@ -76,22 +76,19 @@ namespace Ray.Core
                 return Task.CompletedTask;
             }
         }
-
-        public ObserverUnit<PrimaryKey> Observer<Observer>(string group)
-            where Observer : IObserver
+        public void Observer(string group, Type observerType)
         {
             var funcs = GetEventHandlers(group);
             funcs.Add(func);
             eventHandlers.Add(func);
-            observerVersionHandlers.Add((actorId, version) => GetObserver<Observer>(actorId).GetAndSaveVersion(version));
-            return this;
+            observerVersionHandlers.Add((actorId, version) => GetObserver(observerType, actorId).GetAndSaveVersion(version));
             //内部函数
             Task func(byte[] bytes)
             {
                 var (success, actorId) = EventBytesTransport.GetActorId<PrimaryKey>(bytes);
                 if (success)
                 {
-                    var observer = GetObserver<Observer>(actorId);
+                    var observer = GetObserver(observerType, actorId);
                     if (observer is IConcurrentObserver concurrentObserver)
                         return concurrentObserver.ConcurrentOnNext(bytes);
                     return observer.OnNext(bytes);
@@ -99,19 +96,32 @@ namespace Ray.Core
                 return Task.CompletedTask;
             }
         }
-        static readonly ConcurrentDictionary<Type, Func<IClusterClient, PrimaryKey, IObserver>> _FuncDict = new ConcurrentDictionary<Type, Func<IClusterClient, PrimaryKey, IObserver>>();
-        private IObserver GetObserver<Observer>(PrimaryKey primaryKey)
+        public ObserverUnit<PrimaryKey> Observer(string group, params Type[] observers)
+        {
+            foreach (var observerType in observers)
+            {
+                Observer(group, observerType);
+            }
+            return this;
+        }
+        public ObserverUnit<PrimaryKey> Observer<Observer>(string group)
             where Observer : IObserver
         {
+            this.Observer(group, typeof(Observer));
+            return this;
+        }
+        static readonly ConcurrentDictionary<Type, Func<IClusterClient, PrimaryKey, IObserver>> _FuncDict = new ConcurrentDictionary<Type, Func<IClusterClient, PrimaryKey, IObserver>>();
+        private IObserver GetObserver(Type ObserverType, PrimaryKey primaryKey)
+        {
             var clusterClient = serviceProvider.GetService<IClusterClient>();
-            var getGrainFunc = _FuncDict.GetOrAdd(typeof(Observer), key =>
+            var getGrainFunc = _FuncDict.GetOrAdd(ObserverType, key =>
             {
                 var clientType = clusterClient.GetType();
                 var primaryKeyParams = Expression.Parameter(typeof(PrimaryKey), "primaryKey");
                 var grainClassNamePrefixParams = Expression.Parameter(typeof(string), "grainClassNamePrefix");
                 var instanceParams = Expression.Parameter(clientType);
                 var method = clientType.GetMethod("GetGrain", new Type[] { typeof(PrimaryKey), typeof(string) });
-                var body = Expression.Call(instanceParams, method.MakeGenericMethod(typeof(Observer)), primaryKeyParams, grainClassNamePrefixParams);
+                var body = Expression.Call(instanceParams, method.MakeGenericMethod(ObserverType), primaryKeyParams, grainClassNamePrefixParams);
                 var func = Expression.Lambda(body, instanceParams, primaryKeyParams, grainClassNamePrefixParams).Compile();
                 return (client, id) => func.DynamicInvoke(client, id, null) as IObserver;
             });

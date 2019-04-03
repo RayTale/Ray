@@ -12,10 +12,10 @@ namespace Ray.Grain
     {
         public Task ConfigureObserverUnit(IServiceProvider serviceProvider, IObserverUnitContainer container)
         {
-            container.Register(ObserverUnit<long>.From<Account>(serviceProvider).
-                Observer<IAccountRep>(DefaultObserverGroup.primary).
-                Observer<IAccountFlow>(DefaultObserverGroup.primary).
-                Observer<IAccountDb>(DefaultObserverGroup.secondary));
+            //container.Register(ObserverUnit<long>.From<Account>(serviceProvider).
+            //    Observer<IAccountRep>(DefaultObserverGroup.primary).
+            //    Observer<IAccountFlow>(DefaultObserverGroup.primary).
+            //    Observer<IAccountDb>(DefaultObserverGroup.secondary));
             return Task.CompletedTask;
         }
         public void Configure(IServiceCollection serviceCollection)

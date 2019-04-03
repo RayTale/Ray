@@ -3,14 +3,15 @@ using Microsoft.Extensions.Logging;
 using Orleans;
 using Ray.Core;
 using Ray.Core.Core.Grains;
+using Ray.Core.Core.Observer;
 using Ray.IGrains.Actors;
 using Ray.IGrains.States;
 
 namespace Ray.Grain
 {
+    [Observer(DefaultObserverGroup.primary, typeof(Account), typeof(IAccountRep))]
     public sealed class AccountRep : TxShadowGrain<Account, long, AccountState>, IAccountRep
     {
-
         public AccountRep(ILogger<AccountRep> logger) : base(logger)
         {
         }

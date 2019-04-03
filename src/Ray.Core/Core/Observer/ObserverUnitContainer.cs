@@ -1,13 +1,54 @@
 ﻿using System;
+using System.Linq;
+using System.Collections.Generic;
 using System.Collections.Concurrent;
 using Ray.Core.Abstractions;
 using Ray.Core.Exceptions;
+using Ray.Core.Core.Observer;
+using Orleans;
 
 namespace Ray.Core
 {
     public class ObserverUnitContainer : IObserverUnitContainer
     {
         readonly ConcurrentDictionary<Type, object> unitDict = new ConcurrentDictionary<Type, object>();
+        public ObserverUnitContainer(IServiceProvider serviceProvider)
+        {
+            var observableList = new List<Type>();
+            var observerList = new List<ObserverAttribute>();
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                foreach (var type in assembly.GetTypes())
+                {
+                    foreach (var attribute in type.GetCustomAttributes(false))
+                    {
+                        if (attribute is ObservableAttribute observable)
+                        {
+                            observableList.Add(type);
+                            break;
+                        }
+                        if (attribute is ObserverAttribute observer)
+                        {
+                            observerList.Add(observer);
+                            break;
+                        }
+                    }
+                }
+            }
+            foreach (var observable in observableList)
+            {
+                if (typeof(IGrainWithIntegerKey).IsAssignableFrom(observable))
+                {
+                    var unitType = typeof(ObserverUnit<>).MakeGenericType(new Type[] { typeof(long) });
+                    var unit = (ObserverUnit<long>)Activator.CreateInstance(unitType, serviceProvider, observable);
+                    foreach (var observer in observerList.Where(o => o.Observable == observable))
+                    {
+                        unit.Observer(observer.Group, observer.Observer);
+                    }
+                    Register(unit);
+                }
+            }
+        }
         public IObserverUnit<PrimaryKey> GetUnit<PrimaryKey>(Type grainType)
         {
             if (unitDict.TryGetValue(grainType, out var unit))

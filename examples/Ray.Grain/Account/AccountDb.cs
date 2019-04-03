@@ -4,9 +4,12 @@ using Orleans;
 using Ray.Core.Event;
 using Ray.IGrains.Actors;
 using Ray.Grain.Events;
+using Ray.Core.Core.Observer;
+using Ray.Core;
 
 namespace Ray.Grain
 {
+    [Observer(DefaultObserverGroup.secondary, typeof(Account), typeof(IAccountDb))]
     public sealed class AccountDb : DbGrain<Account, long>, IAccountDb
     {
         public AccountDb(ILogger<AccountDb> logger) : base(logger)

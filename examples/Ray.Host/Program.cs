@@ -57,27 +57,27 @@ namespace Ray.MongoHost
                 .ConfigureServices((context, servicecollection) =>
                 {
                     //注册postgresql为事件存储库
-                    //servicecollection.AddPostgreSQLStorage(config =>
-                    //{
-                    //    config.ConnectionDict.Add("core_event", "Server=127.0.0.1;Port=5432;Database=Ray;User Id=postgres;Password=extop;Pooling=true;MaxPoolSize=20;");
-                    //});
-                    //servicecollection.AddPostgreSQLTxStorage(options =>
-                    //{
-                    //    options.ConnectionKey = "core_event";
-                    //    options.TableName = "Transaction_TemporaryRecord";
-                    //});
-                    //servicecollection.PSQLConfigure();
-                    //注册mysql作为事件存储库
-                    servicecollection.AddMySQLStorage(config =>
+                    servicecollection.AddPostgreSQLStorage(config =>
                     {
-                        config.ConnectionDict.Add("core_event", "Server=127.0.0.1;Port=3306;Database=ray;User Id=root;Password=extop;Pooling=true;MaxPoolSize=20;");
+                        config.ConnectionDict.Add("core_event", "Server=127.0.0.1;Port=5432;Database=Ray;User Id=postgres;Password=extop;Pooling=true;MaxPoolSize=20;");
                     });
-                    servicecollection.AddMySQLTxStorage(options =>
+                    servicecollection.AddPostgreSQLTxStorage(options =>
                     {
                         options.ConnectionKey = "core_event";
                         options.TableName = "Transaction_TemporaryRecord";
                     });
-                    servicecollection.MySQLConfigure();
+                    servicecollection.PSQLConfigure();
+                    //注册mysql作为事件存储库
+                    //servicecollection.AddMySQLStorage(config =>
+                    //{
+                    //    config.ConnectionDict.Add("core_event", "Server=127.0.0.1;Port=3306;Database=ray;User Id=root;Password=extop;Pooling=true;MaxPoolSize=20;");
+                    //});
+                    //servicecollection.AddMySQLTxStorage(options =>
+                    //{
+                    //    options.ConnectionKey = "core_event";
+                    //    options.TableName = "Transaction_TemporaryRecord";
+                    //});
+                    //servicecollection.MySQLConfigure();
                     //注册mongodb为事件存储库
                     //servicecollection.AddMongoDBStorage(config =>
                     //{

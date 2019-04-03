@@ -5,9 +5,11 @@ using Ray.Core;
 using Ray.Core.Event;
 using Ray.IGrains.Actors;
 using Ray.Grain.Events;
+using Ray.Core.Core.Observer;
 
 namespace Ray.Grain
 {
+    [Observer(DefaultObserverGroup.primary, typeof(Account), typeof(IAccountFlow))]
     public sealed class AccountFlow : ConcurrentObserverGrain<Account, long>, IAccountFlow
     {
         public AccountFlow(ILogger<AccountFlow> logger) : base(logger)

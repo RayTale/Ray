@@ -1,16 +1,16 @@
-﻿using System.Threading.Tasks;
-using Orleans;
-using Ray.Core;
-using Ray.Core.Event;
-using Ray.IGrains.Actors;
-using Ray.Grain.Events;
-using Ray.IGrains.States;
+﻿using Orleans;
 using Orleans.Concurrency;
+using Ray.Core.Core.Observer;
+using Ray.Core.Event;
 using Ray.DistributedTransaction;
+using Ray.Grain.Events;
+using Ray.IGrains.Actors;
+using Ray.IGrains.States;
+using System.Threading.Tasks;
 
 namespace Ray.Grain
 {
-    [Reentrant]
+    [Reentrant, Observable]
     public sealed class Account : DistributedTxGrain<Account, long, AccountState>, IAccount
     {
         public Account() : base()
