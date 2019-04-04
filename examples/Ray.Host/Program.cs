@@ -96,10 +96,18 @@ namespace Ray.MongoHost
                         config.Hosts = new[] { "127.0.0.1:5672" };
                         config.MaxPoolSize = 100;
                         config.VirtualHost = "/";
-                    }, async container =>
-                    {
-                        await container.CreateEventBus<Account>("Account", "account", 5).DefaultConsumer<long>();
                     });
+                    //servicecollection.AddRabbitMQ(config =>
+                    //{
+                    //    config.UserName = "admin";
+                    //    config.Password = "admin";
+                    //    config.Hosts = new[] { "127.0.0.1:5672" };
+                    //    config.MaxPoolSize = 100;
+                    //    config.VirtualHost = "/";
+                    //}, async container =>
+                    //{
+                    //    await container.CreateEventBus<Account>("Account", "account", 5).DefaultConsumer<long>();
+                    //});
                 })
                  .Configure<GrainCollectionOptions>(options =>
                  {

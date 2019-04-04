@@ -12,10 +12,6 @@ namespace Ray.EventBus.RabbitMQ
         }
         public RabbitEventBus EventBus { get; set; }
         public List<QueueInfo> QueueList { get; set; }
-        public ushort MinQos { get; set; }
-        public ushort IncQos { get; set; }
-        public ushort MaxQos { get; set; }
-        public bool AutoAck { get; set; }
-        public bool ErrorReject { get; set; }
+        public ConsumerConfig Config { get; set; }
     }
 }

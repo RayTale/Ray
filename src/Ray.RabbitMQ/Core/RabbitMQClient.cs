@@ -54,28 +54,28 @@ namespace Ray.EventBus.RabbitMQ
         /// <typeparam name="T"></typeparam>
         /// <param name="data"></param>
         /// <param name="exchange"></param>
-        /// <param name="queue"></param>
+        /// <param name="routingKey"></param>
         /// <returns></returns>
-        public void Publish<T>(T data, string exchange, string queue, bool persistent = true)
+        public void Publish<T>(T data, string exchange, string routingKey, bool persistent = true)
         {
             using (var ms = new PooledMemoryStream())
             {
                 Serializer.Serialize(ms, data);
-                Publish(ms.ToArray(), exchange, queue, persistent);
+                Publish(ms.ToArray(), exchange, routingKey, persistent);
             }
         }
-        public void PublishByCmd<T>(ushort cmd, T data, string exchange, string queue, bool persistent = false)
+        public void PublishByCmd<T>(ushort cmd, T data, string exchange, string routingKey, bool persistent = false)
         {
             using (var ms = new PooledMemoryStream())
             {
                 ms.Write(BitConverter.GetBytes(cmd), 0, 2);
                 Serializer.Serialize(ms, data);
-                Publish(ms.ToArray(), exchange, queue, persistent);
+                Publish(ms.ToArray(), exchange, routingKey, persistent);
             }
         }
-        public void Publish(byte[] msg, string exchange, string queue, bool persistent = true)
+        public void Publish(byte[] msg, string exchange, string routingKey, bool persistent = true)
         {
-            Model.BasicPublish(exchange, queue, persistent ? persistentProperties : noPersistentProperties, msg);
+            Model.BasicPublish(exchange, routingKey, persistent ? persistentProperties : noPersistentProperties, msg);
         }
     }
     public class RabbitMQClient : IRabbitMQClient

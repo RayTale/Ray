@@ -5,7 +5,7 @@ namespace Ray.Core.Core.Observer
     /// <summary>
     /// 标记为观察者
     /// </summary>
-    [AttributeUsage(AttributeTargets.Class)]
+    [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
     public class ObserverAttribute : Attribute
     {
         public ObserverAttribute(string group, Type observable, Type observer)

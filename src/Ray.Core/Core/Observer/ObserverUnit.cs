@@ -38,6 +38,7 @@ namespace Ray.Core
         {
             return Task.WhenAll(observerVersionHandlers.Select(func => func(primaryKey, srcVersion)));
         }
+        public List<string> GetGroups() => eventHandlerGroups.Keys.ToList();
         public List<Func<byte[], Task>> GetEventHandlers(string group)
         {
             if (!eventHandlerGroups.TryGetValue(group, out var funcs))

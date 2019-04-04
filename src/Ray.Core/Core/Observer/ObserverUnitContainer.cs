@@ -47,6 +47,18 @@ namespace Ray.Core
                     }
                     Register(unit);
                 }
+                else if (typeof(IGrainWithStringKey).IsAssignableFrom(observable))
+                {
+                    var unitType = typeof(ObserverUnit<>).MakeGenericType(new Type[] { typeof(string) });
+                    var unit = (ObserverUnit<string>)Activator.CreateInstance(unitType, serviceProvider, observable);
+                    foreach (var observer in observerList.Where(o => o.Observable == observable))
+                    {
+                        unit.Observer(observer.Group, observer.Observer);
+                    }
+                    Register(unit);
+                }
+                else
+                    throw new PrimaryKeyTypeException(observable.FullName);
             }
         }
         public IObserverUnit<PrimaryKey> GetUnit<PrimaryKey>(Type grainType)
@@ -59,6 +71,15 @@ namespace Ray.Core
                 }
                 else
                     throw new UnMatchObserverUnitException(grainType.FullName, unit.GetType().FullName);
+            }
+            else
+                throw new UnfindObserverUnitException(grainType.FullName);
+        }
+        public object GetUnit(Type grainType)
+        {
+            if (unitDict.TryGetValue(grainType, out var unit))
+            {
+                return unit;
             }
             else
                 throw new UnfindObserverUnitException(grainType.FullName);

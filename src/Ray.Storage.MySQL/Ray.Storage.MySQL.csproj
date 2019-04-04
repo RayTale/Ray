@@ -7,7 +7,7 @@
 
   <ItemGroup>
     <PackageReference Include="MySql.Data" Version="8.0.15" />
-    <PackageReference Include="Dapper" Version="1.60.1" />
+    <PackageReference Include="Dapper" Version="1.60.6" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Ray.Core\Ray.Core.csproj" />

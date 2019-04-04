@@ -1,9 +1,14 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Orleans;
 using RabbitMQ.Client;
+using Ray.Core;
+using Ray.Core.Abstractions;
 using Ray.Core.EventBus;
+using Ray.Core.Exceptions;
 
 namespace Ray.EventBus.RabbitMQ
 {
@@ -13,35 +18,88 @@ namespace Ray.EventBus.RabbitMQ
         private readonly List<RabbitEventBus> eventBusList = new List<RabbitEventBus>();
         readonly IRabbitMQClient rabbitMQClient;
         readonly IServiceProvider serviceProvider;
+        private readonly IObserverUnitContainer observerUnitContainer;
         public EventBusContainer(
             IServiceProvider serviceProvider,
+            IObserverUnitContainer observerUnitContainer,
             IRabbitMQClient rabbitMQClient)
         {
             this.serviceProvider = serviceProvider;
             this.rabbitMQClient = rabbitMQClient;
+            this.observerUnitContainer = observerUnitContainer;
         }
-        public RabbitEventBus CreateEventBus(string exchange, string queue, int queueCount = 1)
+        public async Task AutoRegister()
+        {
+            var observableList = new List<(Type type, ProducerAttribute config)>();
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                foreach (var type in assembly.GetTypes())
+                {
+                    foreach (var attribute in type.GetCustomAttributes(false))
+                    {
+                        if (attribute is ProducerAttribute config)
+                        {
+                            observableList.Add((type, config));
+                            break;
+                        }
+                    }
+                }
+            }
+            foreach (var (type, config) in observableList)
+            {
+                var groupsConfig = serviceProvider.GetOptionsByName<GroupsConfig>(type.FullName);
+                var eventBus = CreateEventBus(string.IsNullOrEmpty(config.Exchange) ? type.Name : config.Exchange, string.IsNullOrEmpty(config.RoutePrefix) ? type.Name : config.RoutePrefix, config.LBCount, config.MinQos, config.IncQos, config.MaxQos, config.AutoAck, config.Reenqueue).BindProducer(type);
+                if (typeof(IGrainWithIntegerKey).IsAssignableFrom(type))
+                {
+                    var observerUnit = observerUnitContainer.GetUnit(type) as IObserverUnit<long>;
+                    var groups = observerUnit.GetGroups();
+                    foreach (var group in groups)
+                    {
+                        var groupConfig = groupsConfig.Configs?.SingleOrDefault(c => c.Group == group);
+                        eventBus.CreateConsumer<long>(group, groupConfig?.Config);
+                    }
+                }
+                else if (typeof(IGrainWithStringKey).IsAssignableFrom(type))
+                {
+                    var observerUnit = observerUnitContainer.GetUnit(type) as IObserverUnit<string>;
+                    var groups = observerUnit.GetGroups();
+                    foreach (var group in groups)
+                    {
+                        var groupConfig = groupsConfig.Configs?.SingleOrDefault(c => c.Group == group);
+                        eventBus.CreateConsumer<string>(group, groupConfig?.Config);
+                    }
+                }
+                else
+                    throw new PrimaryKeyTypeException(type.FullName);
+                await Work(eventBus);
+            }
+        }
+        public RabbitEventBus CreateEventBus(string exchange, string routePrefix, int lBCount = 1, ushort minQos = 100, ushort incQos = 100, ushort maxQos = 300, bool autoAck = false, bool reenqueue = false)
         {
             if (string.IsNullOrEmpty(exchange))
                 throw new ArgumentNullException(nameof(exchange));
-            if (string.IsNullOrEmpty(queue))
-                throw new ArgumentNullException(nameof(queue));
-            if (queueCount < 1)
-                throw new ArgumentOutOfRangeException($"{nameof(queueCount)} must be greater than 1");
-            return new RabbitEventBus(serviceProvider, this, exchange, queue, queueCount);
+            if (string.IsNullOrEmpty(routePrefix))
+                throw new ArgumentNullException(nameof(routePrefix));
+            if (lBCount < 1)
+                throw new ArgumentOutOfRangeException($"{nameof(lBCount)} must be greater than 1");
+            return new RabbitEventBus(serviceProvider, this, exchange, routePrefix, lBCount, minQos, incQos, maxQos, autoAck, reenqueue);
         }
-        public RabbitEventBus CreateEventBus<MainGrain>(string exchange, string queue, int queueCount = 1)
+        public RabbitEventBus CreateEventBus<MainGrain>(string exchange, string routePrefix, int lBCount = 1, ushort minQos = 100, ushort incQos = 100, ushort maxQos = 300, bool autoAck = false, bool reenqueue = false)
         {
-            return CreateEventBus(exchange, queue, queueCount).BindProducer<MainGrain>();
+            return CreateEventBus(exchange, routePrefix, lBCount, minQos, incQos, maxQos, autoAck, reenqueue).BindProducer<MainGrain>();
         }
         public async Task Work(RabbitEventBus bus)
         {
-            eventBusDictionary.TryAdd(bus.ProducerType, bus);
-            eventBusList.Add(bus);
-            using (var channel = await rabbitMQClient.PullModel())
+            if (eventBusDictionary.TryAdd(bus.ProducerType, bus))
             {
-                channel.Model.ExchangeDeclare(bus.Exchange, "direct", true);
+                eventBusList.Add(bus);
+                using (var channel = await rabbitMQClient.PullModel())
+                {
+                    channel.Model.ExchangeDeclare(bus.Exchange, "direct", true);
+                }
             }
+            else
+                throw new EventBusRepeatException(bus.ProducerType.FullName);
         }
 
         readonly ConcurrentDictionary<Type, IProducer> producerDict = new ConcurrentDictionary<Type, IProducer>();

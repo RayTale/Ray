@@ -5,8 +5,9 @@ namespace Ray.EventBus.RabbitMQ
 {
     public interface IRabbitEventBusContainer : IConsumerContainer
     {
-        RabbitEventBus CreateEventBus(string exchange, string queue, int queueCount = 1);
-        RabbitEventBus CreateEventBus<MainGrain>(string exchange, string queue, int queueCount = 1);
+        Task AutoRegister();
+        RabbitEventBus CreateEventBus(string exchange, string routePrefix, int lBCount = 1, ushort minQos = 100, ushort incQos = 100, ushort maxQos = 300, bool autoAck = false, bool reenqueue = false);
+        RabbitEventBus CreateEventBus<MainGrain>(string routePrefix, string queue, int lBCount = 1, ushort minQos = 100, ushort incQos = 100, ushort maxQos = 300, bool autoAck = false, bool reenqueue = false);
         Task Work(RabbitEventBus bus);
     }
 }

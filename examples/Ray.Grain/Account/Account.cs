@@ -3,6 +3,7 @@ using Orleans.Concurrency;
 using Ray.Core.Core.Observer;
 using Ray.Core.Event;
 using Ray.DistributedTransaction;
+using Ray.EventBus.RabbitMQ;
 using Ray.Grain.Events;
 using Ray.IGrains.Actors;
 using Ray.IGrains.States;
@@ -10,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace Ray.Grain
 {
-    [Reentrant, Observable]
+    [Reentrant, Observable, Producer]
     public sealed class Account : DistributedTxGrain<Account, long, AccountState>, IAccount
     {
         public Account() : base()

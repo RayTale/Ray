@@ -34,7 +34,7 @@ namespace Ray.EventBus.RabbitMQ
             var child = new ConsumerRunnerSlice
             {
                 Channel = await Client.PullModel(),
-                Qos = Consumer.MinQos
+                Qos = Consumer.Config.MinQos
             };
             if (isFirst)
             {
@@ -43,14 +43,14 @@ namespace Ray.EventBus.RabbitMQ
                 child.Channel.Model.QueueDeclare(Queue.Queue, true, false, false, null);
                 child.Channel.Model.QueueBind(Queue.Queue, Consumer.EventBus.Exchange, Queue.RoutingKey);
             }
-            child.Channel.Model.BasicQos(0, Consumer.MinQos, false);
+            child.Channel.Model.BasicQos(0, Consumer.Config.MinQos, false);
 
             child.BasicConsumer = new EventingBasicConsumer(child.Channel.Model);
             child.BasicConsumer.Received += async (ch, ea) =>
             {
                 await Process(child, ea, 0);
             };
-            child.BasicConsumer.ConsumerTag = child.Channel.Model.BasicConsume(Queue.Queue, Consumer.AutoAck, child.BasicConsumer);
+            child.BasicConsumer.ConsumerTag = child.Channel.Model.BasicConsume(Queue.Queue, Consumer.Config.AutoAck, child.BasicConsumer);
             child.NeedRestart = false;
             Slices.Add(child);
             NowQos += child.Qos;
@@ -58,21 +58,21 @@ namespace Ray.EventBus.RabbitMQ
         }
         public async Task ExpandQos()
         {
-            if (NowQos + Consumer.IncQos <= Consumer.MaxQos)
+            if (NowQos + Consumer.Config.IncQos <= Consumer.Config.MaxQos)
             {
                 var child = new ConsumerRunnerSlice
                 {
                     Channel = await Client.PullModel(),
-                    Qos = Consumer.IncQos
+                    Qos = Consumer.Config.IncQos
                 };
-                child.Channel.Model.BasicQos(0, Consumer.IncQos, false);
+                child.Channel.Model.BasicQos(0, Consumer.Config.IncQos, false);
 
                 child.BasicConsumer = new EventingBasicConsumer(child.Channel.Model);
                 child.BasicConsumer.Received += async (ch, ea) =>
                 {
                     await Process(child, ea, 0);
                 };
-                child.BasicConsumer.ConsumerTag = child.Channel.Model.BasicConsume(Queue.Queue, Consumer.AutoAck, child.BasicConsumer);
+                child.BasicConsumer.ConsumerTag = child.Channel.Model.BasicConsume(Queue.Queue, Consumer.Config.AutoAck, child.BasicConsumer);
                 child.NeedRestart = false;
                 Slices.Add(child);
                 NowQos += child.Qos;
@@ -90,7 +90,7 @@ namespace Ray.EventBus.RabbitMQ
                     Slices.Remove(slice);
                     NowQos -= slice.Qos;
                 }
-                if (NowQos < Consumer.MinQos)
+                if (NowQos < Consumer.Config.MinQos)
                 {
                     await Run();
                 }
@@ -107,7 +107,7 @@ namespace Ray.EventBus.RabbitMQ
             try
             {
                 await Consumer.Notice(ea.Body);
-                if (!Consumer.AutoAck)
+                if (!Consumer.Config.AutoAck)
                 {
                     try
                     {
@@ -122,7 +122,7 @@ namespace Ray.EventBus.RabbitMQ
             catch (Exception exception)
             {
                 Logger.LogError(exception.InnerException ?? exception, $"An error occurred in {Consumer.EventBus.Exchange}-{Queue}");
-                if (Consumer.ErrorReject)
+                if (Consumer.Config.Reenqueue)
                 {
                     consumerChild.Channel.Model.BasicReject(ea.DeliveryTag, true);
                 }
