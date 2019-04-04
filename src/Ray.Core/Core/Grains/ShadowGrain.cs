@@ -245,7 +245,7 @@ namespace Ray.Core
                 }
                 if (@event.Base.Version > Snapshot.Base.Version)
                 {
-                    throw new EventVersionNotMatchStateException(GrainId.ToString(), GrainType, @event.Base.Version, this.Snapshot.Base.Version);
+                    throw new EventVersionUnorderedException(GrainId.ToString(), GrainType, @event.Base.Version, this.Snapshot.Base.Version);
                 }
                 if (Logger.IsEnabled(LogLevel.Trace))
                     Logger.LogTrace("Event Handling Completion, grain Id ={0} and state version = {1},event type = {2}", GrainId.ToString(), this.Snapshot.Base.Version, @event.GetType().FullName);

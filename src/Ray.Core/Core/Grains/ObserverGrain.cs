@@ -262,7 +262,7 @@ namespace Ray.Core
                 }
                 if (@event.Base.Version > Snapshot.Version)
                 {
-                    throw new EventVersionNotMatchStateException(GrainId.ToString(), GrainType, @event.Base.Version, Snapshot.Version);
+                    throw new EventVersionUnorderedException(GrainId.ToString(), GrainType, @event.Base.Version, Snapshot.Version);
                 }
                 await SaveSnapshotAsync();
                 if (Logger.IsEnabled(LogLevel.Trace))

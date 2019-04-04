@@ -351,7 +351,7 @@ namespace Ray.Core
             {
                 if (CurrentTransactionStartVersion == -1)
                 {
-                    throw new UnopenTransactionException(GrainId.ToString(), GrainType, nameof(TxRaiseEvent));
+                    throw new UnopenedTransactionException(GrainId.ToString(), GrainType, nameof(TxRaiseEvent));
                 }
                 Snapshot.Base.IncrementDoingVersion(GrainType);//标记将要处理的Version
                 var fullyEvent = new FullyEvent<PrimaryKey>

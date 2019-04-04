@@ -12,7 +12,7 @@ namespace Ray.Core
         public static void UpdateVersion<PrimaryKey>(this ISnapshotBase<PrimaryKey> snapshot, IEventBase eventBase, Type grainType)
         {
             if (snapshot.Version + 1 != eventBase.Version)
-                throw new EventVersionNotMatchStateException(snapshot.StateId.ToString(), grainType, eventBase.Version, snapshot.Version);
+                throw new EventVersionUnorderedException(snapshot.StateId.ToString(), grainType, eventBase.Version, snapshot.Version);
             snapshot.Version = eventBase.Version;
             if (snapshot.StartTimestamp == 0 || eventBase.Timestamp < snapshot.StartTimestamp)
                 snapshot.StartTimestamp = eventBase.Timestamp;
@@ -23,7 +23,7 @@ namespace Ray.Core
         public static void FullUpdateVersion<PrimaryKey>(this ISnapshotBase<PrimaryKey> snapshot, IEventBase eventBase, Type grainType)
         {
             if (snapshot.Version + 1 != eventBase.Version)
-                throw new EventVersionNotMatchStateException(snapshot.StateId.ToString(), grainType, eventBase.Version, snapshot.Version);
+                throw new EventVersionUnorderedException(snapshot.StateId.ToString(), grainType, eventBase.Version, snapshot.Version);
             snapshot.DoingVersion = eventBase.Version;
             snapshot.Version = eventBase.Version;
             if (snapshot.StartTimestamp == 0 || eventBase.Timestamp < snapshot.StartTimestamp)
@@ -72,7 +72,7 @@ namespace Ray.Core
         public static void UpdateVersion<PrimaryKey>(this IObserverSnapshot<PrimaryKey> snapshot, IEventBase eventBase, Type grainType)
         {
             if (snapshot.Version + 1 != eventBase.Version)
-                throw new EventVersionNotMatchStateException(snapshot.StateId.ToString(), grainType, eventBase.Version, snapshot.Version);
+                throw new EventVersionUnorderedException(snapshot.StateId.ToString(), grainType, eventBase.Version, snapshot.Version);
             snapshot.Version = eventBase.Version;
             if (snapshot.StartTimestamp == 0 || eventBase.Timestamp < snapshot.StartTimestamp)
                 snapshot.StartTimestamp = eventBase.Timestamp;
@@ -81,7 +81,7 @@ namespace Ray.Core
         public static void FullUpdateVersion<PrimaryKey>(this IObserverSnapshot<PrimaryKey> snapshot, IEventBase eventBase, Type grainType)
         {
             if (snapshot.Version > 0 && snapshot.Version + 1 != eventBase.Version)
-                throw new EventVersionNotMatchStateException(snapshot.StateId.ToString(), grainType, eventBase.Version, snapshot.Version);
+                throw new EventVersionUnorderedException(snapshot.StateId.ToString(), grainType, eventBase.Version, snapshot.Version);
             snapshot.DoingVersion = eventBase.Version;
             snapshot.Version = eventBase.Version;
             if (snapshot.StartTimestamp == 0 || eventBase.Timestamp < snapshot.StartTimestamp)
