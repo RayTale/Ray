@@ -8,7 +8,7 @@ namespace Ray.Core.Core.Observer
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
     public class ObserverAttribute : Attribute
     {
-        public ObserverAttribute(string group, Type observable, Type observer)
+        public ObserverAttribute(string group, Type observable, Type observer = default)
         {
             Group = group;
             Observable = observable;

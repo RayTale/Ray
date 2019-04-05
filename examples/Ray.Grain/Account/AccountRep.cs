@@ -9,7 +9,7 @@ using Ray.IGrains.States;
 
 namespace Ray.Grain
 {
-    [Observer(DefaultObserverGroup.primary, typeof(Account), typeof(IAccountRep))]
+    [Observer(DefaultObserverGroup.primary, typeof(Account))]
     public sealed class AccountRep : TxShadowGrain<Account, long, AccountState>, IAccountRep
     {
         public AccountRep(ILogger<AccountRep> logger) : base(logger)

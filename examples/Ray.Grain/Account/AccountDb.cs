@@ -9,7 +9,7 @@ using Ray.Core;
 
 namespace Ray.Grain
 {
-    [Observer(DefaultObserverGroup.secondary, typeof(Account), typeof(IAccountDb))]
+    [Observer(DefaultObserverGroup.secondary, typeof(Account))]
     public sealed class AccountDb : DbGrain<Account, long>, IAccountDb
     {
         public AccountDb(ILogger<AccountDb> logger) : base(logger)

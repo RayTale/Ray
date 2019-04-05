@@ -9,7 +9,7 @@ using Ray.Core.Core.Observer;
 
 namespace Ray.Grain
 {
-    [Observer(DefaultObserverGroup.primary, typeof(Account), typeof(IAccountFlow))]
+    [Observer(DefaultObserverGroup.primary, typeof(Account))]
     public sealed class AccountFlow : ConcurrentObserverGrain<Account, long>, IAccountFlow
     {
         public AccountFlow(ILogger<AccountFlow> logger) : base(logger)
