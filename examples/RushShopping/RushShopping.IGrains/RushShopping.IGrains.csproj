@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Ray.Core\Ray.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Orleans.CodeGenerator.MSBuild" Version="2.3.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="RushShopping.Application\Class1.cs" />
+    <Compile Remove="RushShopping.Grains\Class1.cs" />
+    <Compile Remove="RushShopping.Share.Dto\Class1.cs" />
+    <Compile Remove="RushShopping.Client.Console\Program.cs" />
+    <Compile Remove="RushShopping.Repository\RushShoppingDbContext.cs" />
+    <Compile Remove="Class1.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Remove="RushShopping.Application\obj\RushShopping.Application.csproj.nuget.g.props" />
+    <None Remove="RushShopping.Application\obj\RushShopping.Application.csproj.nuget.g.targets" />
+    <None Remove="RushShopping.Application\obj\project.assets.json" />
+    <None Remove="RushShopping.Application\obj\RushShopping.Application.csproj.nuget.cache" />
+    <None Remove="RushShopping.Application\obj\Debug\netcoreapp2.2\RushShopping.Application.csprojAssemblyReference.cache" />
+    <None Remove="RushShopping.Client.Console\obj\Debug\netcoreapp2.2\RushShopping.Client.Console.assets.cache" />
+    <None Remove="RushShopping.Grains\obj\RushShopping.Grains.csproj.nuget.g.targets" />
+    <None Remove="RushShopping.Grains\obj\project.assets.json" />
+    <None Remove="RushShopping.Grains\obj\RushShopping.Grains.csproj.nuget.cache" />
+    <None Remove="RushShopping.Grains\obj\RushShopping.Grains.csproj.nuget.g.props" />
+    <None Remove="RushShopping.Grains\obj\Debug\netcoreapp2.2\RushShopping.Grains.assets.cache" />
+    <None Remove="RushShopping.Grains\obj\Debug\netcoreapp2.2\RushShopping.Grains.csprojAssemblyReference.cache" />
+    <None Remove="RushShopping.Repository\obj\RushShopping.Repository.csproj.nuget.g.targets" />
+    <None Remove="RushShopping.Repository\obj\RushShopping.Repository.csproj.nuget.g.props" />
+    <None Remove="RushShopping.Repository\obj\project.assets.json" />
+    <None Remove="RushShopping.Repository\obj\RushShopping.Repository.csproj.nuget.cache" />
+    <None Remove="RushShopping.Repository\obj\Debug\netcoreapp2.2\RushShopping.Repository.assets.cache" />
+    <None Remove="RushShopping.Share.Dto\obj\RushShopping.Share.Dto.csproj.nuget.g.targets" />
+    <None Remove="RushShopping.Share.Dto\obj\RushShopping.Share.Dto.csproj.nuget.cache" />
+    <None Remove="RushShopping.Share.Dto\obj\project.assets.json" />
+    <None Remove="RushShopping.Share.Dto\obj\RushShopping.Share.Dto.csproj.nuget.g.props" />
+    <None Remove="RushShopping.Share.Dto\obj\Debug\netcoreapp2.2\RushShopping.Share.Dto.assets.cache" />
+    <None Remove="RushShopping.Client.Console\obj\RushShopping.Client.Console.csproj.nuget.cache" />
+    <None Remove="RushShopping.Client.Console\obj\RushShopping.Client.Console.csproj.nuget.g.targets" />
+    <None Remove="RushShopping.Client.Console\obj\RushShopping.Client.Console.csproj.nuget.g.props" />
+    <None Remove="RushShopping.Repository\obj\Debug\netcoreapp2.2\RushShopping.Repository.csprojAssemblyReference.cache" />
+  </ItemGroup>
+</Project>

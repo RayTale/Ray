@@ -59,7 +59,7 @@ namespace Ray.MongoHost
                     //注册postgresql为事件存储库
                     servicecollection.AddPostgreSQLStorage(config =>
                     {
-                        config.ConnectionDict.Add("core_event", "Server=127.0.0.1;Port=5432;Database=Ray;User Id=postgres;Password=extop;Pooling=true;MaxPoolSize=20;");
+                        config.ConnectionDict.Add("core_event", "Server=127.0.0.1;Port=5432;Database=Ray;User Id=feijie;Password=123456;Pooling=true;MaxPoolSize=20;");
                     });
                     servicecollection.AddPostgreSQLTxStorage(options =>
                     {
