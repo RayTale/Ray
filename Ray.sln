@@ -36,6 +36,9 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ray.Storage.MySQL", "src\Ray.Storage.MySQL\Ray.Storage.MySQL.csproj", "{F41EFC6C-5299-477B-8301-65C1C8398D69}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "RushShopping", "RushShopping", "{830B4C41-DD3D-4B34-B4B4-E8B4C5A4337D}"
+	ProjectSection(SolutionItems) = preProject
+		examples\RushShopping\appsettings.json = examples\RushShopping\appsettings.json
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RushShopping.Share.Dto", "examples\RushShopping\RushShopping.Share.Dto\RushShopping.Share.Dto.csproj", "{24AC3806-0B1F-4077-A8A7-8B5667407DE4}"
 EndProject
@@ -48,6 +51,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RushShopping.Application", "examples\RushShopping\RushShopping.Application\RushShopping.Application.csproj", "{5E43DDFD-E454-47F3-B58F-AD836A6691D0}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RushShopping.Client.Console", "examples\RushShopping\RushShopping.Client.Console\RushShopping.Client.Console.csproj", "{9DDBBABE-B70C-44EF-B114-7AB0CCF23D39}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RushShopping.Host", "examples\RushShopping\RushShopping.Host\RushShopping.Host.csproj", "{BAA13155-7072-414C-9A41-9D0505A61236}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -217,6 +222,14 @@ Global
 		{9DDBBABE-B70C-44EF-B114-7AB0CCF23D39}.Release|Any CPU.Build.0 = Release|Any CPU
 		{9DDBBABE-B70C-44EF-B114-7AB0CCF23D39}.Release|x64.ActiveCfg = Release|Any CPU
 		{9DDBBABE-B70C-44EF-B114-7AB0CCF23D39}.Release|x64.Build.0 = Release|Any CPU
+		{BAA13155-7072-414C-9A41-9D0505A61236}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BAA13155-7072-414C-9A41-9D0505A61236}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BAA13155-7072-414C-9A41-9D0505A61236}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{BAA13155-7072-414C-9A41-9D0505A61236}.Debug|x64.Build.0 = Debug|Any CPU
+		{BAA13155-7072-414C-9A41-9D0505A61236}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BAA13155-7072-414C-9A41-9D0505A61236}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BAA13155-7072-414C-9A41-9D0505A61236}.Release|x64.ActiveCfg = Release|Any CPU
+		{BAA13155-7072-414C-9A41-9D0505A61236}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -236,6 +249,7 @@ Global
 		{95756CA3-170C-478B-A840-6EA035F56F9A} = {830B4C41-DD3D-4B34-B4B4-E8B4C5A4337D}
 		{5E43DDFD-E454-47F3-B58F-AD836A6691D0} = {830B4C41-DD3D-4B34-B4B4-E8B4C5A4337D}
 		{9DDBBABE-B70C-44EF-B114-7AB0CCF23D39} = {830B4C41-DD3D-4B34-B4B4-E8B4C5A4337D}
+		{BAA13155-7072-414C-9A41-9D0505A61236} = {830B4C41-DD3D-4B34-B4B4-E8B4C5A4337D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {B7F09963-06DE-499A-B620-B6EFB2FB2BE5}

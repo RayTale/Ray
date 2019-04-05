@@ -10,5 +10,13 @@
   <ItemGroup>
     <ProjectReference Include="..\RushShopping.IGrains\RushShopping.IGrains.csproj" />
     <ProjectReference Include="..\..\..\src\Ray.Postgresql\Ray.Storage.PostgreSQL.csproj" />
+    <ProjectReference Include="..\RushShopping.Repository\RushShopping.Repository.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Orleans.CodeGenerator.MSBuild" Version="2.3.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="ProductGrains\" />
+    <Folder Include="States\" />
   </ItemGroup>
 </Project>

@@ -10,4 +10,11 @@
   <ItemGroup>
     <ProjectReference Include="..\RushShopping.Share.Dto\RushShopping.Share.Dto.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Entities\" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="2.2.3" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="2.2.0" />
+  </ItemGroup>
 </Project>
