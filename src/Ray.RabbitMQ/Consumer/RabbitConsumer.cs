@@ -12,6 +12,6 @@ namespace Ray.EventBus.RabbitMQ
         }
         public RabbitEventBus EventBus { get; set; }
         public List<QueueInfo> QueueList { get; set; }
-        public ConsumerConfig Config { get; set; }
+        public BranchOptions Config { get; set; }
     }
 }

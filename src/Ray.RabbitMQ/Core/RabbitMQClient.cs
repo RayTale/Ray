@@ -81,8 +81,8 @@ namespace Ray.EventBus.RabbitMQ
     public class RabbitMQClient : IRabbitMQClient
     {
         readonly ConnectionFactory _Factory;
-        readonly RabbitConfig rabbitHost;
-        public RabbitMQClient(IOptions<RabbitConfig> config)
+        readonly RabbitOptions rabbitHost;
+        public RabbitMQClient(IOptions<RabbitOptions> config)
         {
             rabbitHost = config.Value;
             _Factory = new ConnectionFactory

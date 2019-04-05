@@ -29,7 +29,7 @@ namespace Ray.EventBus.RabbitMQ
             Exchange = exchange;
             RoutePrefix = routePrefix;
             LBCount = lBCount;
-            DefaultConsumerConfig = new ConsumerConfig
+            DefaultConsumerConfig = new BranchOptions
             {
                 AutoAck = autoAck,
                 MaxQos = maxQos,
@@ -56,7 +56,7 @@ namespace Ray.EventBus.RabbitMQ
         public string Exchange { get; }
         public string RoutePrefix { get; }
         public int LBCount { get; }
-        public ConsumerConfig DefaultConsumerConfig { get; set; }
+        public BranchOptions DefaultConsumerConfig { get; set; }
         public List<string> RouteList { get; }
         public Type ProducerType { get; set; }
         public List<RabbitConsumer> Consumers { get; set; } = new List<RabbitConsumer>();
@@ -76,7 +76,7 @@ namespace Ray.EventBus.RabbitMQ
                 throw new EventBusRepeatBindingProducerException(grainType.FullName);
             return this;
         }
-        public RabbitEventBus CreateConsumer<PrimaryKey>(string observerGroup, ConsumerConfig consumerConfig = default)
+        public RabbitEventBus CreateConsumer<PrimaryKey>(string observerGroup, BranchOptions consumerConfig = default)
         {
             var consumer = new RabbitConsumer(observerUnitContainer.GetUnit<PrimaryKey>(ProducerType).GetEventHandlers(observerGroup))
             {

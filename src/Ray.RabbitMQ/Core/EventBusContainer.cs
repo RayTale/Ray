@@ -47,7 +47,7 @@ namespace Ray.EventBus.RabbitMQ
             }
             foreach (var (type, config) in observableList)
             {
-                var groupsConfig = serviceProvider.GetOptionsByName<GroupsConfig>(type.FullName);
+                var groupsConfig = serviceProvider.GetOptionsByName<GroupsOptions>(type.FullName);
                 var eventBus = CreateEventBus(string.IsNullOrEmpty(config.Exchange) ? type.Name : config.Exchange, string.IsNullOrEmpty(config.RoutePrefix) ? type.Name : config.RoutePrefix, config.LBCount, config.MinQos, config.IncQos, config.MaxQos, config.AutoAck, config.Reenqueue).BindProducer(type);
                 if (typeof(IGrainWithIntegerKey).IsAssignableFrom(type))
                 {
