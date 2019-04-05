@@ -8,6 +8,7 @@
     <Compile Remove="Class1.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\RushShopping.Share.Dto\RushShopping.Share.Dto.csproj" />
+    <ProjectReference Include="..\RushShopping.IGrains\RushShopping.IGrains.csproj" />
+    <ProjectReference Include="..\..\..\src\Ray.Postgresql\Ray.Storage.PostgreSQL.csproj" />
   </ItemGroup>
 </Project>
