@@ -6,6 +6,6 @@ namespace Ray.Core
     public interface IConcurrentObserver : IObserver
     {
         [AlwaysInterleave]
-        Task ConcurrentOnNext(byte[] bytes);
+        Task ConcurrentOnNext(Immutable<byte[]> bytes);
     }
 }
