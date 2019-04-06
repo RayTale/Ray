@@ -11,7 +11,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
     <PackageReference Include="protobuf-net" Version="2.4.0" />
-    <PackageReference Include="SpanJson" Version="2.0.7" />
+    <PackageReference Include="SpanJson" Version="2.0.8" />
   </ItemGroup>
 
   <ItemGroup>

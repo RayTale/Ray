@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-
-namespace Ray.Core.Snapshot
+﻿namespace Ray.Core.Snapshot
 {
     public class SnapshotBase<PrimaryKey> : ISnapshotBase<PrimaryKey>, ICloneable<SnapshotBase<PrimaryKey>>
     {

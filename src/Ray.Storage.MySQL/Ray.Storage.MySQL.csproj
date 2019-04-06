@@ -19,6 +19,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Ray.Core\Ray.Core.csproj" />
     <ProjectReference Include="..\Ray.DistributedTx\Ray.DistributedTx.csproj" />
-    <ProjectReference Include="..\Ray.Storage.SQLCommon\Ray.Storage.SQLCore.csproj" />
+    <ProjectReference Include="..\Ray.Storage.SQLCore\Ray.Storage.SQLCore.csproj" />
   </ItemGroup>
 </Project>
