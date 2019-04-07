@@ -49,10 +49,16 @@ namespace Ray.MongoHost
         private static async Task<ISiloHost> StartSilo()
         {
             var builder = new SiloHostBuilder()
-                .UseLocalhostClustering()
+                .UseLocalhostClustering(11115, 30005)
                 .UseDashboard()
                 .AddRay<Configuration>()
-                .Configure<EndpointOptions>(options => options.AdvertisedIPAddress = IPAddress.Loopback)
+                //.Configure<EndpointOptions>(options =>
+                //{
+                //    options.AdvertisedIPAddress = IPAddress.Loopback;
+                //    options.GatewayPort = 30005;
+                //    //options.SiloPort = 11115;
+                //})
+                //.ConfigureEndpoints(siloPort: 11115, gatewayPort: 30005, listenOnAnyHostAddress: true, advertisedIP: IPAddress.Loopback)
                 .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(Account).Assembly).WithReferences())
                 .ConfigureServices((context, servicecollection) =>
                 {
