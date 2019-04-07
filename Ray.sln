@@ -13,7 +13,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.Storage.Mongo", "src\Ra
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.DistributedTx", "src\Ray.DistributedTx\Ray.DistributedTx.csproj", "{68DBEB35-2187-495E-A2FD-37F6F35494D7}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.Storage.SQLCore", "src\Ray.Storage.SQLCommon\Ray.Storage.SQLCore.csproj", "{FC5817E5-1486-41A6-8170-CE4DA970159A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.Storage.SQLCore", "src\Ray.Storage.SQLCore\Ray.Storage.SQLCore.csproj", "{FC5817E5-1486-41A6-8170-CE4DA970159A}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{93DE27BC-DBA4-4FA9-AA54-495290961438}"
 EndProject

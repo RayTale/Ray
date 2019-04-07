@@ -3,14 +3,13 @@
   <PropertyGroup>
     <TargetFramework>netcoreapp2.2</TargetFramework>
     <LangVersion>latest</LangVersion>
-    <Version>1.2.0</Version>
+    <Version>2.0-beta1</Version>
     <PackageProjectUrl>https://github.com/RayTale/Ray</PackageProjectUrl>
     <RepositoryUrl>https://github.com/RayTale/Ray.git</RepositoryUrl>
     <PackageLicenseUrl>https://github.com/RayTale/Ray/blob/master/LICENSE</PackageLicenseUrl>
-    <PackageIconUrl>https://avatars1.githubusercontent.com/u/34825359?s=200&amp;v=4</PackageIconUrl>
+    <PackageIconUrl>https://raw.githubusercontent.com/RayTale/Ray/master/logo.png</PackageIconUrl>
     <PackageTags>orleans,event-sourcing,actor,Ray</PackageTags>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
-
   </PropertyGroup>
 
   <ItemGroup>

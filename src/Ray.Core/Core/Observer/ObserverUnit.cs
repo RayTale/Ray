@@ -1,13 +1,14 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Orleans;
+using Orleans.Concurrency;
 using Ray.Core.Event;
 using Ray.Core.Serialization;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
-using System.Collections.Concurrent;
 
 namespace Ray.Core
 {
@@ -91,8 +92,8 @@ namespace Ray.Core
                 {
                     var observer = GetObserver(observerType, actorId);
                     if (observer is IConcurrentObserver concurrentObserver)
-                        return concurrentObserver.ConcurrentOnNext(bytes);
-                    return observer.OnNext(bytes);
+                        return concurrentObserver.ConcurrentOnNext(new Immutable<byte[]>(bytes));
+                    return observer.OnNext(new Immutable<byte[]>(bytes));
                 }
                 return Task.CompletedTask;
             }

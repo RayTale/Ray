@@ -61,14 +61,14 @@ namespace RayCore.Tests
                 {
                     config.ConnectionDict = new Dictionary<string, string>
                         {
-                            { "core_event","Server=127.0.0.1;Port=5432;Database=Ray_Test;User Id=postgres;Password=extop;Pooling=true;MaxPoolSize=20;"}
+                            { "core_event","Server=127.0.0.1;Port=5432;Database=ray_test;User Id=postgres;Password=123456;Pooling=true;MaxPoolSize=20;"}
                         };
                 });
                 servicecollection.PSQLConfigure();
                 servicecollection.AddRabbitMQ(config =>
                 {
-                    config.UserName = "admin";
-                    config.Password = "admin";
+                    config.UserName = "guest";
+                    config.Password = "guest";
                     config.Hosts = new[] { "127.0.0.1:5672" };
                     config.MaxPoolSize = 100;
                     config.VirtualHost = "/";

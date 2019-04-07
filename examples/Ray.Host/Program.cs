@@ -59,7 +59,7 @@ namespace Ray.MongoHost
                     //注册postgresql为事件存储库
                     servicecollection.AddPostgreSQLStorage(config =>
                     {
-                        config.ConnectionDict.Add("core_event", "Server=127.0.0.1;Port=5432;Database=Ray;User Id=feijie;Password=123456;Pooling=true;MaxPoolSize=20;");
+                        config.ConnectionDict.Add("core_event", "Server=127.0.0.1;Port=5432;Database=ray;User Id=postgres;Password=123456;Pooling=true;MaxPoolSize=20;");
                     });
                     servicecollection.AddPostgreSQLTxStorage(options =>
                     {
@@ -91,8 +91,8 @@ namespace Ray.MongoHost
                     //servicecollection.MongoConfigure();
                     servicecollection.AddRabbitMQ(config =>
                     {
-                        config.UserName = "admin";
-                        config.Password = "admin";
+                        config.UserName = "guest";
+                        config.Password = "guest";
                         config.Hosts = new[] { "127.0.0.1:5672" };
                         config.MaxPoolSize = 100;
                         config.VirtualHost = "/";

@@ -1,15 +1,16 @@
-﻿using System;
-using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Orleans;
+using Orleans.Concurrency;
 using Ray.Core.Configuration;
 using Ray.Core.Event;
 using Ray.Core.Exceptions;
 using Ray.Core.Serialization;
 using Ray.Core.Snapshot;
 using Ray.Core.Storage;
+using System;
+using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 
 namespace Ray.Core
 {
@@ -174,9 +175,9 @@ namespace Ray.Core
             return Consts.ValueTaskDone;
         }
         #endregion
-        public Task OnNext(byte[] bytes)
+        public Task OnNext(Immutable<byte[]> bytes)
         {
-            var (success, transport) = EventBytesTransport.FromBytesWithNoId(bytes);
+            var (success, transport) = EventBytesTransport.FromBytesWithNoId(bytes.Value);
             if (success)
             {
                 var eventType = TypeContainer.GetType(transport.EventType);

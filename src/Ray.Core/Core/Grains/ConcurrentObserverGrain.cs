@@ -1,13 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Orleans.Concurrency;
 using Ray.Core.Channels;
 using Ray.Core.Event;
 using Ray.Core.Exceptions;
 using Ray.Core.Serialization;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Ray.Core
 {
@@ -32,9 +33,9 @@ namespace Ray.Core
             ConcurrentChannel.Complete();
             return base.OnDeactivateAsync();
         }
-        public async Task ConcurrentOnNext(byte[] bytes)
+        public async Task ConcurrentOnNext(Immutable<byte[]> bytes)
         {
-            var (success, transport) = EventBytesTransport.FromBytesWithNoId(bytes);
+            var (success, transport) = EventBytesTransport.FromBytesWithNoId(bytes.Value);
             if (success)
             {
                 var data = Serializer.Deserialize(TypeContainer.GetType(transport.EventType), transport.EventBytes);

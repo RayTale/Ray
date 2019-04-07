@@ -1,16 +1,17 @@
-﻿using System;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Orleans;
+using Orleans.Concurrency;
 using Ray.Core.Configuration;
 using Ray.Core.Event;
 using Ray.Core.Exceptions;
 using Ray.Core.Serialization;
 using Ray.Core.Snapshot;
 using Ray.Core.Storage;
+using System;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 
 namespace Ray.Core
 {
@@ -76,7 +77,7 @@ namespace Ray.Core
                 await eventStorageTask;
             EventStorage = eventStorageTask.Result;
             //创建状态存储器
-            var followConfigTask = configureBuilder.GetObserverConfig(ServiceProvider,GrainType, GrainId);
+            var followConfigTask = configureBuilder.GetObserverConfig(ServiceProvider, GrainType, GrainId);
             if (!followConfigTask.IsCompletedSuccessfully)
                 await followConfigTask;
             var stateStorageTask = storageFactory.CreateObserverSnapshotStorage(followConfigTask.Result, GrainId);
@@ -188,9 +189,9 @@ namespace Ray.Core
             return Consts.ValueTaskDone;
         }
         #endregion
-        public Task OnNext(byte[] bytes)
+        public Task OnNext(Immutable<byte[]> bytes)
         {
-            var (success, transport) = EventBytesTransport.FromBytesWithNoId(bytes);
+            var (success, transport) = EventBytesTransport.FromBytesWithNoId(bytes.Value);
             if (success)
             {
                 var data = Serializer.Deserialize(TypeContainer.GetType(transport.EventType), transport.EventBytes);
