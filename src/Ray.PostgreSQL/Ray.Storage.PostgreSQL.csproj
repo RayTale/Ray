@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Version>2.0-beta1</Version>
+    <PackageProjectUrl>https://github.com/RayTale/Ray</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/RayTale/Ray.git</RepositoryUrl>
+    <PackageLicenseUrl>https://github.com/RayTale/Ray/blob/master/LICENSE</PackageLicenseUrl>
+    <PackageIconUrl>https://raw.githubusercontent.com/RayTale/Ray/master/logo.png</PackageIconUrl>
+    <PackageTags>orleans,event-sourcing,actor,Ray</PackageTags>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="Dapper" Version="1.60.6" />
+    <PackageReference Include="Npgsql" Version="4.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Ray.Core\Ray.Core.csproj" />
+    <ProjectReference Include="..\Ray.DistributedTx\Ray.DistributedTx.csproj" />
+    <ProjectReference Include="..\Ray.Storage.SQLCore\Ray.Storage.SQLCore.csproj" />
+  </ItemGroup>
+
+</Project>
