@@ -52,7 +52,7 @@ namespace Ray.Client
                 try
                 {
                     var builder = new ClientBuilder()
-                   .UseLocalhostClustering()
+                   .UseLocalhostClustering(30005)
                    .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IAccount).Assembly).WithReferences())
                    .ConfigureLogging(logging => logging.AddConsole());
                     client = builder.Build();
