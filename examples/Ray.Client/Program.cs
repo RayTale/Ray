@@ -18,11 +18,12 @@ namespace Ray.Client
 
         private static async Task<int> RunMainAsync()
         {
-            try
+
+            using (var client = await StartClientWithRetries())
             {
-                using (var client = await StartClientWithRetries())
+                while (true)
                 {
-                    while (true)
+                    try
                     {
                         Console.WriteLine("start");
                         var times = int.Parse(Console.ReadLine());
@@ -34,12 +35,11 @@ namespace Ray.Client
                         await Task.Delay(200);
                         Console.WriteLine($"余额为{await client.GetGrain<IAccountRep>(1).GetBalance()}");
                     }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e);
+                    }
                 }
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-                return 1;
             }
         }
 

@@ -1,6 +1,6 @@
 ﻿using Orleans;
 using Orleans.Concurrency;
-using Ray.Core.Core.Observer;
+using Ray.Core;
 using Ray.Core.Event;
 using Ray.DistributedTransaction;
 using Ray.EventBus.RabbitMQ;

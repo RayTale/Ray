@@ -27,7 +27,11 @@ namespace Ray.Core.Storage
 
         protected void Observe<Follow>(Func<IServiceProvider, PrimaryKey, Parameter, FollowConfig> generator)
         {
-            followConfigGeneratorDict.Add(typeof(Follow), generator);
+            Observe(typeof(Follow), generator);
+        }
+        protected void Observe(Type type, Func<IServiceProvider, PrimaryKey, Parameter, FollowConfig> generator)
+        {
+            followConfigGeneratorDict.Add(type, generator);
         }
         readonly SemaphoreSlim seamphore = new SemaphoreSlim(1, 1);
         public async ValueTask<IStorageOptions> GetConfig(IServiceProvider serviceProvider, PrimaryKey primaryKey)

@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Collections.Concurrent;
 using Ray.Core.Abstractions;
 using Ray.Core.Exceptions;
-using Ray.Core.Core.Observer;
 using Orleans;
 
 namespace Ray.Core
@@ -94,11 +93,11 @@ namespace Ray.Core
                 throw new UnfindObserverUnitException(grainType.FullName);
         }
 
-        public void Register(IGrainID followUnit)
+        public void Register(IGrainID observerUnit)
         {
-            if (!unitDict.TryAdd(followUnit.GrainType, followUnit))
+            if (!unitDict.TryAdd(observerUnit.GrainType, observerUnit))
             {
-                throw new ObserverUnitRepeatedException(followUnit.GrainType.FullName);
+                throw new ObserverUnitRepeatedException(observerUnit.GrainType.FullName);
             }
         }
     }
