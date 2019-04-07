@@ -31,8 +31,9 @@ namespace Ray.Client
                         await Task.WhenAll(Enumerable.Range(0, times).Select(x => client.GetGrain<IAccount>(1).AddAmount(1000)));
                         stopWatch.Stop();
                         Console.WriteLine($"{times }次操作完成，耗时:{stopWatch.ElapsedMilliseconds}ms");
+                        Console.WriteLine($"主Grain余额为{await client.GetGrain<IAccount>(1).GetBalance()}");
                         await Task.Delay(200);
-                        Console.WriteLine($"余额为{await client.GetGrain<IAccountRep>(1).GetBalance()}");
+                        Console.WriteLine($"只读Grain余额为{await client.GetGrain<IAccountRep>(1).GetBalance()}");
                     }
                 }
             }

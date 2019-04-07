@@ -8,11 +8,13 @@
     <Compile Remove="Class1.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Ray.RabbitMQ\Ray.EventBus.RabbitMQ.csproj" />
     <ProjectReference Include="..\RushShopping.IGrains\RushShopping.IGrains.csproj" />
     <ProjectReference Include="..\..\..\src\Ray.Postgresql\Ray.Storage.PostgreSQL.csproj" />
     <ProjectReference Include="..\RushShopping.Repository\RushShopping.Repository.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="8.0.0" />
     <PackageReference Include="Microsoft.Orleans.CodeGenerator.MSBuild" Version="2.3.0" />
   </ItemGroup>
   <ItemGroup>
