@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Ray.Core.Core.Observer
+namespace Ray.Core
 {
     /// <summary>
     /// 标记为可观察
