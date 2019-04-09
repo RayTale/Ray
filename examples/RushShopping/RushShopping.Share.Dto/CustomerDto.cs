@@ -1,14 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-namespace RushShopping.Repository.Entities
-{
-    public class Customer : IEntity<Guid>
-    {
-        public Customer()
-        {
-        }
 
+namespace RushShopping.Share.Dto
+{
+    public class CustomerDto
+    {
         public Guid Id { get; set; }
 
         [MaxLength(32)] public string Name { get; set; }
@@ -16,6 +13,6 @@ namespace RushShopping.Repository.Entities
         public decimal Balance { get; set; }
 
 
-        public virtual ICollection<ProductOrder> ProductOrders { get; set; }
+        public virtual ICollection<ProductOrderDto> ProductOrders { get; set; }
     }
 }

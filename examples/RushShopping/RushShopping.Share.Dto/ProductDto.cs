@@ -1,14 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-namespace RushShopping.Repository.Entities
-{
-    public class Product :IEntity<Guid>
-    {
-        public Product()
-        {
-        }
 
+namespace RushShopping.Share.Dto
+{
+    public class ProductDto
+    {
         public Guid Id { get; set; }
 
         [MaxLength(32)]

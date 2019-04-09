@@ -17,8 +17,4 @@
     <PackageReference Include="AutoMapper" Version="8.0.0" />
     <PackageReference Include="Microsoft.Orleans.CodeGenerator.MSBuild" Version="2.3.0" />
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="ProductGrains\" />
-    <Folder Include="States\" />
-  </ItemGroup>
 </Project>
