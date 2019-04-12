@@ -9,10 +9,11 @@ using RushShopping.Repository;
 
 namespace RushShopping.Grains
 {
-    public abstract class RushShoppingGrain<TGrain, TPrimaryKey, TSnapshotType, TEntityType> : ConcurrentTxGrain<TGrain, TPrimaryKey, TSnapshotType>
-    
+    public abstract class RushShoppingGrain<TGrain, TPrimaryKey, TSnapshotType, TEntityType,TSnapshotDto> : ConcurrentTxGrain<TGrain, TPrimaryKey, TSnapshotType>
+    , ICrudGrain<TSnapshotDto>
         where TSnapshotType : class, ICloneable<TSnapshotType>, TEntityType, new()
         where TEntityType : class, IEntity<TPrimaryKey>
+        where TSnapshotDto : class, new()
     {
         protected IMapper Mapper { get; private set; }
 
@@ -41,19 +42,20 @@ namespace RushShopping.Grains
             return base.DependencyInjection();
         }
 
-        #region Implementation of ICrudGrain
+        #region Implementation of ICrudGrain<TSnapshotDto>
 
-        public Task Create(TSnapshotType snapshot)
+        public Task Create(TSnapshotDto snapshot)
+        {
+            var snapshot = Mapper.Map<TSnapshotType>(snapshot);
+            var evt =new CreatingSnapshotEvent(snapshot);
+        }
+
+        public Task<TSnapshotDto> Get()
         {
             throw new NotImplementedException();
         }
 
-        public Task<TSnapshotType> Get()
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task Update(TSnapshotType snapshotType)
+        public Task Update(TSnapshotDto snapshot)
         {
             throw new NotImplementedException();
         }

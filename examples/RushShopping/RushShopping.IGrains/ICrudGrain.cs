@@ -3,13 +3,14 @@ using Ray.Core.Snapshot;
 
 namespace RushShopping.IGrains
 {
-    public interface ICrudGrain
+    public interface ICrudGrain<TSnapshotDto>
+        where TSnapshotDto : class, new()
     {
-        Task Create<TSnapshotType>(TSnapshotType snapshot);
+        Task Create(TSnapshotDto snapshot);
 
-        Task<TSnapshotType> Get<TSnapshotType>();
+        Task<TSnapshotDto> Get();
 
-        Task Update<TSnapshotType>(TSnapshotType snapshotType);
+        Task Update(TSnapshotDto snapshot);
 
         Task Delete();
     }
