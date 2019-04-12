@@ -50,7 +50,7 @@ namespace Ray.Storage.PostgreSQL
                             while (reader.StartRow() != -1)
                             {
                                 var typeCode = reader.Read<string>(NpgsqlDbType.Varchar);
-                                var data = reader.Read<string>(NpgsqlDbType.Jsonb);
+                                var data = reader.Read<string>(NpgsqlDbType.Json);
                                 var version = reader.Read<long>(NpgsqlDbType.Bigint);
                                 var timestamp = reader.Read<long>(NpgsqlDbType.Bigint);
                                 if (version <= endVersion && version >= startVersion)
@@ -93,7 +93,7 @@ namespace Ray.Storage.PostgreSQL
                         {
                             while (reader.StartRow() != -1)
                             {
-                                var data = reader.Read<string>(NpgsqlDbType.Jsonb);
+                                var data = reader.Read<string>(NpgsqlDbType.Json);
                                 var version = reader.Read<long>(NpgsqlDbType.Bigint);
                                 var timestamp = reader.Read<long>(NpgsqlDbType.Bigint);
                                 if (version >= startVersion && serializer.Deserialize(type, Encoding.Default.GetBytes(data)) is IEvent evt)
@@ -170,7 +170,7 @@ namespace Ray.Storage.PostgreSQL
                                 writer.Write(wrapper.Value.Event.StateId);
                                 writer.Write(wrapper.Value.UniqueId, NpgsqlDbType.Varchar);
                                 writer.Write(wrapper.Value.Event.Event.GetType().FullName, NpgsqlDbType.Varchar);
-                                writer.Write(Encoding.Default.GetString(wrapper.Value.BytesTransport.EventBytes), NpgsqlDbType.Jsonb);
+                                writer.Write(Encoding.Default.GetString(wrapper.Value.BytesTransport.EventBytes), NpgsqlDbType.Json);
                                 writer.Write(wrapper.Value.Event.Base.Version, NpgsqlDbType.Bigint);
                                 writer.Write(wrapper.Value.Event.Base.Timestamp, NpgsqlDbType.Bigint);
                             }
@@ -183,7 +183,7 @@ namespace Ray.Storage.PostgreSQL
                 {
                     logger.LogError(ex, ex.Message);
                     var saveSql = saveSqlDict.GetOrAdd(tableName,
-                        key => $"INSERT INTO {key}(stateid,uniqueId,typecode,data,version,timestamp) VALUES(@StateId,@UniqueId,@TypeCode,(@Data)::jsonb,@Version,@Timestamp) ON CONFLICT ON CONSTRAINT {key}_id_unique DO NOTHING");
+                        key => $"INSERT INTO {key}(stateid,uniqueId,typecode,data,version,timestamp) VALUES(@StateId,@UniqueId,@TypeCode,(@Data)::json,@Version,@Timestamp) ON CONFLICT ON CONSTRAINT {key}_id_unique DO NOTHING");
                     await BatchInsert(saveSql, wrapperList);
                 }
             }
@@ -268,7 +268,7 @@ namespace Ray.Storage.PostgreSQL
                                 writer.Write(wrapper.FullyEvent.StateId);
                                 writer.Write(wrapper.UniqueId, NpgsqlDbType.Varchar);
                                 writer.Write(wrapper.FullyEvent.Event.GetType().FullName, NpgsqlDbType.Varchar);
-                                writer.Write(Encoding.Default.GetString(wrapper.BytesTransport.EventBytes), NpgsqlDbType.Jsonb);
+                                writer.Write(Encoding.Default.GetString(wrapper.BytesTransport.EventBytes), NpgsqlDbType.Json);
                                 writer.Write(wrapper.FullyEvent.Base.Version, NpgsqlDbType.Bigint);
                                 writer.Write(wrapper.FullyEvent.Base.Timestamp, NpgsqlDbType.Bigint);
                             }
@@ -296,7 +296,7 @@ namespace Ray.Storage.PostgreSQL
                             foreach (var group in groups)
                             {
                                 var saveSql = saveSqlDict.GetOrAdd(group.Key,
-                                    key => $"INSERT INTO {key}(stateid,uniqueId,typecode,data,version,timestamp) VALUES(@StateId,@UniqueId,@TypeCode,(@Data)::jsonb,@Version,@Timestamp)");
+                                    key => $"INSERT INTO {key}(stateid,uniqueId,typecode,data,version,timestamp) VALUES(@StateId,@UniqueId,@TypeCode,(@Data)::json,@Version,@Timestamp)");
                                 await conn.ExecuteAsync(saveSql, group.Select(g => new
                                 {
                                     g.t.FullyEvent.StateId,

@@ -57,7 +57,7 @@ namespace Ray.Storage.PostgreSQL
                             {stateIdSql},
                             UniqueId varchar(250)  null,
                             TypeCode varchar(100)  not null,
-                            Data jsonb not null,
+                            Data json not null,
                             Version int8 not null,
                             Timestamp int8 not null,
                             constraint {subTable.SubTable}_id_unique unique(StateId,TypeCode,UniqueId)
@@ -91,7 +91,7 @@ namespace Ray.Storage.PostgreSQL
                             {stateIdSql},
                             UniqueId varchar(250)  null,
                             TypeCode varchar(100)  not null,
-                            Data jsonb not null,
+                            Data json not null,
                             Version int8 not null,
                             Timestamp int8 not null,
                             constraint {storageOptions.EventArchiveTable}_id_unique unique(StateId,TypeCode,UniqueId)
@@ -130,7 +130,7 @@ namespace Ray.Storage.PostgreSQL
                      EndTimestamp int8 not null,
                      Index int4 not null,
                      EventIsCleared bool not null,
-                     Data jsonb not null,
+                     Data json not null,
                      IsOver bool not null,
                      Version int8 not null)WITH (OIDS=FALSE);
                      CREATE INDEX IF NOT EXISTS {storageOptions.SnapshotArchiveTable}_StateId ON {storageOptions.SnapshotArchiveTable} USING btree(StateId)";
@@ -146,7 +146,7 @@ namespace Ray.Storage.PostgreSQL
             var sql = $@"
                      CREATE TABLE if not exists {storageOptions.SnapshotTable}(
                      {stateIdSql},
-                     Data jsonb not null,
+                     Data json not null,
                      Version int8 not null,
                      StartTimestamp int8 not null,
                      LatestMinEventTimestamp int8 not null,

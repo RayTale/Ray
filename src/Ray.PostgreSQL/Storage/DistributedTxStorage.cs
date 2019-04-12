@@ -43,7 +43,7 @@ namespace Ray.Storage.PostgreSQL
                 CREATE TABLE if not exists {options.Value.TableName}(
                      UnitName varchar(500) not null,
                      TransactionId int8 not null,
-                     Data jsonb not null,
+                     Data json not null,
                      Status int2 not null)WITH (OIDS=FALSE);
                      CREATE UNIQUE INDEX IF NOT EXISTS UnitName_TransId ON {options.Value.TableName} USING btree(UnitName, TransactionId)";
             using (var connection = CreateConnection())
@@ -117,7 +117,7 @@ namespace Ray.Storage.PostgreSQL
                             writer.StartRow();
                             writer.Write(wrapper.Value.UnitName, NpgsqlDbType.Varchar);
                             writer.Write(wrapper.Value.TransactionId, NpgsqlDbType.Bigint);
-                            writer.Write(wrapper.Value.Data, NpgsqlDbType.Jsonb);
+                            writer.Write(wrapper.Value.Data, NpgsqlDbType.Json);
                             writer.Write((short)wrapper.Value.Status, NpgsqlDbType.Smallint);
                         }
                         writer.Complete();
@@ -127,7 +127,7 @@ namespace Ray.Storage.PostgreSQL
             }
             catch
             {
-                var saveSql = $"INSERT INTO {options.Value.TableName}(UnitName,TransactionId,Data,Status) VALUES(@UnitName,@TransactionId,(@Data)::jsonb,@Status) ON CONFLICT ON CONSTRAINT UnitName_TransId DO NOTHING";
+                var saveSql = $"INSERT INTO {options.Value.TableName}(UnitName,TransactionId,Data,Status) VALUES(@UnitName,@TransactionId,(@Data)::json,@Status) ON CONFLICT ON CONSTRAINT UnitName_TransId DO NOTHING";
                 using (var conn = CreateConnection())
                 {
                     await conn.OpenAsync();
