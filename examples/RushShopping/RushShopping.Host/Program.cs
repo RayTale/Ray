@@ -13,6 +13,7 @@ using Orleans.Hosting;
 using Ray.Core;
 using Ray.EventBus.RabbitMQ;
 using Ray.Storage.PostgreSQL;
+using RushShopping.Grains.ProductGrains;
 
 namespace RushShopping.Host
 {
@@ -44,10 +45,10 @@ namespace RushShopping.Host
                 .Configure<ClusterOptions>(Configuration.GetSection("ClusterOptions"))
                 .UseLocalhostClustering()
                 .UseDashboard()
-                .AddRay<Grain.Configuration>()
+                //.AddRay<Grain.Configuration>()
                 .Configure<EndpointOptions>(options => options.AdvertisedIPAddress = IPAddress.Loopback)
                 .ConfigureApplicationParts(
-                    parts => parts.AddApplicationPart(typeof(WorkFlowGrain).Assembly).WithReferences())
+                    parts => parts.AddApplicationPart(typeof(CustomerGrain).Assembly).WithReferences())
                 .ConfigureServices((context, serviceCollection) =>
                 {
                     //注册postgresql为事件存储库
@@ -61,20 +62,18 @@ namespace RushShopping.Host
                         options.ConnectionKey = "core_event";
                         options.TableName = "Transaction_TemporaryRecord";
                     });
-                    serviceCollection.AddAutoMapper(WorkFlowDtoMapper.CreateMapping);
-                    serviceCollection.PSQLConfigure();
-                    serviceCollection.AddSingleton<IWorkFlowCodeGenerator, WorkFlowCodeGenerator>();
-                    serviceCollection.AddAbpRepository();
-                    serviceCollection.AddEntityFrameworkNpgsql().AddDbContext<ApprovalDbContext>(
-                        options =>
-                        {
-                            DbContextOptionsConfigurer.Configure(options,
-                                _appConfiguration.GetConnectionString("Default"));
-                        }, ServiceLifetime.Transient);
-                    serviceCollection.Configure<RabbitOptions>(_appConfiguration.GetSection("RabbitConfig"));
+                    //serviceCollection.AddAutoMapper(WorkFlowDtoMapper.CreateMapping);
+                    //serviceCollection.PSQLConfigure();
+                    //serviceCollection.AddEntityFrameworkNpgsql().AddDbContext<ApprovalDbContext>(
+                    //options =>
+                    //{
+                    //    DbContextOptionsConfigurer.Configure(options,
+                    //        _appConfiguration.GetConnectionString("Default"));
+                    //}, ServiceLifetime.Transient);
+                    //serviceCollection.Configure<RabbitOptions>(_appConfiguration.GetSection("RabbitConfig"));
                     serviceCollection.AddRabbitMQ(_ => { });
                 })
-                .AddIncomingGrainCallFilter<DbContextGrainCallFilter>()
+                //.AddIncomingGrainCallFilter<DbContextGrainCallFilter>()
                 .Configure<GrainCollectionOptions>(options => { options.CollectionAge = TimeSpan.FromHours(2); })
                 .ConfigureLogging(logging =>
                 {
@@ -86,17 +85,17 @@ namespace RushShopping.Host
             return host;
         }
 
-        private static async Task StartSilo()
-        {
-            await _silo.StartAsync();
-            Console.WriteLine("Silo started");
-        }
+        //private static async Task StartSilo()
+        //{
+        //    await _silo.StartAsync();
+        //    Console.WriteLine("Silo started");
+        //}
 
-        private static async Task StopSilo()
-        {
-            await _silo.StopAsync();
-            Console.WriteLine("Silo stopped");
-            SiloStopped.Set();
-        }
+        //private static async Task StopSilo()
+        //{
+        //    await _silo.StopAsync();
+        //    Console.WriteLine("Silo stopped");
+        //    SiloStopped.Set();
+        //}
     }
 }

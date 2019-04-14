@@ -3,7 +3,8 @@ using System.Threading.Tasks;
 using Orleans;
 namespace RushShopping.IGrains
 {
-    public interface IProductGrain : IGrainWithGuidKey, ICrudGrain
+    public interface IProductGrain<TSnapshotDto> : IGrainWithGuidKey, ICrudGrain<TSnapshotDto>
+        where TSnapshotDto : class, new()
     {
         /// <summary>
         /// 获取剩余的商品数量
@@ -11,6 +12,6 @@ namespace RushShopping.IGrains
         /// <returns></returns>
         Task<int> GetResidualQuantity();
 
-        Task SellOut(int quantity,decimal unitPrice);
+        Task SellOut(int quantity, decimal unitPrice);
     }
 }

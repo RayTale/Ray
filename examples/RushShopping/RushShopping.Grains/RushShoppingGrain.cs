@@ -4,12 +4,13 @@ using AutoMapper;
 using Microsoft.Extensions.DependencyInjection;
 using Ray.Core;
 using Ray.Core.Snapshot;
+using RushShopping.Grains.Events;
 using RushShopping.IGrains;
 using RushShopping.Repository;
 
 namespace RushShopping.Grains
 {
-    public abstract class RushShoppingGrain<TGrain, TPrimaryKey, TSnapshotType, TEntityType,TSnapshotDto> : ConcurrentTxGrain<TGrain, TPrimaryKey, TSnapshotType>
+    public abstract class RushShoppingGrain<TGrain, TPrimaryKey, TSnapshotType, TEntityType, TSnapshotDto> : ConcurrentTxGrain<TGrain, TPrimaryKey, TSnapshotType>
     , ICrudGrain<TSnapshotDto>
         where TSnapshotType : class, ICloneable<TSnapshotType>, TEntityType, new()
         where TEntityType : class, IEntity<TPrimaryKey>
@@ -46,8 +47,9 @@ namespace RushShopping.Grains
 
         public Task Create(TSnapshotDto snapshot)
         {
-            var snapshot = Mapper.Map<TSnapshotType>(snapshot);
-            var evt =new CreatingSnapshotEvent(snapshot);
+            var snapshotState = Mapper.Map<TSnapshotType>(snapshot);
+            var evt = new CreatingSnapshotEvent<TSnapshotType>(snapshotState);
+            return RaiseEvent(evt);
         }
 
         public Task<TSnapshotDto> Get()
@@ -68,8 +70,9 @@ namespace RushShopping.Grains
         #endregion
     }
 
-    public abstract class RushShoppingGrain<TGrain, TPrimaryKey, TStateType> : RushShoppingGrain<TGrain, TPrimaryKey, TStateType, TStateType>
+    public abstract class RushShoppingGrain<TGrain, TPrimaryKey, TStateType, TSnapshotDto> : RushShoppingGrain<TGrain, TPrimaryKey, TStateType, TStateType, TSnapshotDto>
         where TStateType : class, ICloneable<TStateType>, IEntity<TPrimaryKey>, new()
+        where TSnapshotDto : class, new()
     {
 
     }
