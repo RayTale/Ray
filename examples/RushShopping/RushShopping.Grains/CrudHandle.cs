@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using AutoMapper;
 using Ray.Core.Event;
 using Ray.Core.Snapshot;
@@ -7,11 +8,12 @@ using RushShopping.Grains.Events;
 
 namespace RushShopping.Grains
 {
-    public class CrudHandle<TSnapshot> : TxEventHandler<Guid, TSnapshot> where TSnapshot : class, new()
+    public abstract class CrudHandle<TSnapshot> : TxEventHandler<Guid, TSnapshot>, ICrudHandle<TSnapshot>
+        where TSnapshot : class, new()
     {
         protected readonly IMapper Mapper;
 
-        public CrudHandle(IMapper mapper)
+        protected CrudHandle(IMapper mapper)
         {
             Mapper = mapper;
         }
@@ -20,7 +22,9 @@ namespace RushShopping.Grains
         {
             switch (fullyEvent.Event)
             {
-                case CreatingSnapshotEvent<TSnapshot> evt: CreatingSnapshotHandle(snapshot.State, evt); break;
+                case CreatingSnapshotEvent<TSnapshot> evt:
+                    CreatingSnapshotHandle(snapshot.State, evt);
+                    break;
                 default: break;
             }
         }
@@ -29,5 +33,11 @@ namespace RushShopping.Grains
         {
             Mapper.Map(evt.Snapshot, snapshotState);
         }
+
+        #region Implementation of ICrudHandle<in TSnapshot>
+
+        public abstract Task Apply(TSnapshot snapshot, IEvent evt);
+
+        #endregion
     }
 }
