@@ -12,6 +12,6 @@ namespace RushShopping.IGrains
         /// <returns></returns>
         Task<int> GetResidualQuantity();
 
-        Task SellOut(int quantity,decimal unitPrice);
+        Task SellOut(int quantity, decimal unitPrice);
     }
 }

@@ -4,7 +4,8 @@ using Orleans;
 
 namespace RushShopping.IGrains
 {
-    public interface ICustomerGrain : IGrainWithGuidKey, ICrudGrain
+    public interface ICustomerGrain<TSnapshotDto> : IGrainWithGuidKey, ICrudGrain<TSnapshotDto>
+        where TSnapshotDto : class, new()
     {
         Task Create(string name);
 
@@ -12,6 +13,6 @@ namespace RushShopping.IGrains
 
         Task<decimal> GetBalance();
 
-        Task Buy(Guid productId,int quantity);
+        Task Buy(Guid productId, int quantity);
     }
 }
