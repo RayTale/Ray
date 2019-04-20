@@ -47,7 +47,7 @@ namespace RushShopping.Grains
 
         public Task Create(TSnapshotDto snapshotDto)
         {
-            var snapshotState = Mapper.Map<TSnapshotType>(snapshot);
+            var snapshotState = Mapper.Map<TSnapshotType>(snapshotDto);
             var evt = new CreatingSnapshotEvent<TSnapshotType>(snapshotState);
             return RaiseEvent(evt);
         }
