@@ -4,6 +4,7 @@ using AutoMapper;
 using Microsoft.Extensions.DependencyInjection;
 using Ray.Core;
 using Ray.Core.Snapshot;
+using RushShopping.Grains.Events;
 using RushShopping.IGrains;
 using RushShopping.Repository;
 
@@ -44,15 +45,16 @@ namespace RushShopping.Grains
 
         #region Implementation of ICrudGrain<TSnapshotDto>
 
-        public Task Create(TSnapshotDto snapshot)
+        public Task Create(TSnapshotDto snapshotDto)
         {
-            var snapshot = Mapper.Map<TSnapshotType>(snapshot);
-            var evt =new CreatingSnapshotEvent(snapshot);
+            var snapshot = Mapper.Map<TSnapshotType>(snapshotDto);
+            var evt = new CreatingSnapshotEvent<TSnapshotType>(snapshot);
+            return RaiseEvent(evt);
         }
 
         public Task<TSnapshotDto> Get()
         {
-            throw new NotImplementedException();
+            return Task.FromResult(Mapper.Map<TSnapshotDto>(Snapshot.State));
         }
 
         public Task Update(TSnapshotDto snapshot)
