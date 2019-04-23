@@ -18,12 +18,12 @@ using Ray.Core.Storage;
 
 namespace Ray.Core
 {
-    public abstract class RayGrain<Grain, PrimaryKey, StateType> : Orleans.Grain
+    public abstract class RayGrain<PrimaryKey, StateType> : Grain
         where StateType : class, new()
     {
         public RayGrain()
         {
-            GrainType = typeof(Grain);
+            GrainType = this.GetType();
         }
         protected CoreOptions CoreOptions { get; private set; }
         protected ArchiveOptions ArchiveOptions { get; private set; }
@@ -69,12 +69,12 @@ namespace Ray.Core
         {
             CoreOptions = ServiceProvider.GetOptionsByName<CoreOptions>(GrainType.FullName);
             ArchiveOptions = ServiceProvider.GetOptionsByName<ArchiveOptions>(GrainType.FullName);
-            Logger = ServiceProvider.GetService<ILogger<Grain>>();
+            Logger = (ILogger)ServiceProvider.GetService(typeof(ILogger<>).MakeGenericType(GrainType));
             ProducerContainer = ServiceProvider.GetService<IProducerContainer>();
             Serializer = ServiceProvider.GetService<ISerializer>();
             EventHandler = ServiceProvider.GetService<IEventHandler<PrimaryKey, StateType>>();
             ObserverUnit = ServiceProvider.GetService<IObserverUnitContainer>().GetUnit<PrimaryKey>(GrainType);
-            var configureBuilder = ServiceProvider.GetService<IConfigureBuilder<PrimaryKey, Grain>>();
+            var configureBuilder = (IConfigureBuilder<PrimaryKey>)ServiceProvider.GetService(typeof(IConfigureBuilder<,>).MakeGenericType(typeof(PrimaryKey), GrainType));
             var storageConfigTask = configureBuilder.GetConfig(ServiceProvider, GrainId);
             if (!storageConfigTask.IsCompletedSuccessfully)
                 await storageConfigTask;

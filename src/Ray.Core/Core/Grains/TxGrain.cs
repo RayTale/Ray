@@ -10,7 +10,7 @@ using Ray.Core.Snapshot;
 
 namespace Ray.Core
 {
-    public abstract class TxGrain<Grain, PrimaryKey, StateType> : RayGrain<Grain, PrimaryKey, StateType>
+    public abstract class TxGrain<PrimaryKey, StateType> : RayGrain<PrimaryKey, StateType>
         where StateType : class, ICloneable<StateType>, new()
     {
         public TxGrain() : base()
