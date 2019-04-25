@@ -1,10 +1,13 @@
 ﻿using System.Threading.Tasks;
 using Ray.Core.Event;
+using RushShopping.Grains.Events;
 
 namespace RushShopping.Grains
 {
-    public interface ICrudHandle<in TSnapshot> where TSnapshot : class, new()
+    public interface ICrudHandle<TSnapshot> where TSnapshot : class, new()
     {
-        Task Apply(TSnapshot snapshot, IEvent evt);
+        void Apply(TSnapshot snapshot, IEvent evt);
+
+        void CreatingSnapshotHandle(TSnapshot snapshotState, CreatingSnapshotEvent<TSnapshot> evt);
     }
 }

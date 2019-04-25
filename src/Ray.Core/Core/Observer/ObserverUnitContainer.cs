@@ -65,6 +65,16 @@ namespace Ray.Core
                     }
                     Register(unit);
                 }
+                else if (typeof(IGrainWithGuidKey).IsAssignableFrom(observable))
+                {
+                    var unitType = typeof(ObserverUnit<>).MakeGenericType(new Type[] { typeof(Guid) });
+                    var unit = (ObserverUnit<Guid>)Activator.CreateInstance(unitType, serviceProvider, observable);
+                    foreach (var observer in observerList.Where(o => o.Observable == observable))
+                    {
+                        unit.Observer(observer.Group, observer.Observer);
+                    }
+                    Register(unit);
+                }
                 else
                     throw new PrimaryKeyTypeException(observable.FullName);
             }

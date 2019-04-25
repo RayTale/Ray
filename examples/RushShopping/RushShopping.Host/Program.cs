@@ -2,6 +2,8 @@
 using Microsoft.Extensions.Configuration;
 using System.IO;
 using System.Net;
+using System.Threading;
+using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.Extensions.DependencyInjection;
 using RushShopping.Repository;
@@ -11,14 +13,22 @@ using Orleans;
 using Orleans.Configuration;
 using Orleans.Hosting;
 using Ray.Core;
+using Ray.Core.Storage;
 using Ray.EventBus.RabbitMQ;
 using Ray.Storage.PostgreSQL;
+using Ray.Storage.SQLCore.Configuration;
+using RushShopping.Grains;
 using RushShopping.Grains.ProductGrains;
 
 namespace RushShopping.Host
 {
     class Program
     {
+        private static ISiloHost _silo;
+        private static readonly ManualResetEvent SiloStopped = new ManualResetEvent(false);
+
+        static bool _siloStopping;
+        static readonly object SyncLock = new object();
         public static IConfigurationRoot Configuration;
         static void Main(string[] args)
         {
@@ -26,27 +36,19 @@ namespace RushShopping.Host
                 .SetBasePath(Directory.GetCurrentDirectory())
                 .AddJsonFile("appsettings.json");
             Configuration = builder.Build();
-        }
-
-        public static IServiceProvider GetServiceProvider()
-        {
-            var services = new ServiceCollection();
-            services.AddDbContext<RushShoppingDbContext>(option =>
-            {
-                option.UseNpgsql(Configuration.GetConnectionString("RushShoppingConnection"));
-            }, ServiceLifetime.Transient)
-            .AddEntityFrameworkNpgsql();
-            return services.BuildServiceProvider();
+            SetupApplicationShutdown();
+            _silo = CreateSilo();
+            StartSilo().Wait();
+            SiloStopped.WaitOne();
         }
 
         private static ISiloHost CreateSilo()
         {
             var builder = new SiloHostBuilder()
                 .Configure<ClusterOptions>(Configuration.GetSection("ClusterOptions"))
-                .UseLocalhostClustering()
+                .UseLocalhostClustering(11115, 30005)
                 .UseDashboard()
-                //.AddRay<Grain.Configuration>()
-                .Configure<EndpointOptions>(options => options.AdvertisedIPAddress = IPAddress.Loopback)
+                .AddRay<Configuration>()
                 .ConfigureApplicationParts(
                     parts => parts.AddApplicationPart(typeof(CustomerGrain).Assembly).WithReferences())
                 .ConfigureServices((context, serviceCollection) =>
@@ -55,25 +57,27 @@ namespace RushShopping.Host
                     serviceCollection.AddPostgreSQLStorage(config =>
                     {
                         config.ConnectionDict.Add("core_event",
-                            Configuration.GetConnectionString("CoreEvent"));
+                            Configuration.GetConnectionString("EventConnection"));
                     });
                     serviceCollection.AddPostgreSQLTxStorage(options =>
                     {
                         options.ConnectionKey = "core_event";
                         options.TableName = "Transaction_TemporaryRecord";
                     });
-                    //serviceCollection.AddAutoMapper(WorkFlowDtoMapper.CreateMapping);
-                    //serviceCollection.PSQLConfigure();
-                    //serviceCollection.AddEntityFrameworkNpgsql().AddDbContext<ApprovalDbContext>(
-                    //options =>
-                    //{
-                    //    DbContextOptionsConfigurer.Configure(options,
-                    //        _appConfiguration.GetConnectionString("Default"));
-                    //}, ServiceLifetime.Transient);
-                    //serviceCollection.Configure<RabbitOptions>(_appConfiguration.GetSection("RabbitConfig"));
+                    serviceCollection.AddTransient(typeof(ICrudHandle<>), typeof(CrudHandle<>));
+                    serviceCollection.AddAutoMapper(RushShoppingMapper.CreateMapping);
+                    serviceCollection.AddSingleton<IConfigureBuilder<Guid, CustomerGrain>>(new PSQLConfigureBuilder<Guid, CustomerGrain>((provider, id, parameter) =>
+                        new StringKeyOptions(provider, "core_event", "customer")).AutoRegistrationObserver());
+                    serviceCollection.AddSingleton<IConfigureBuilder<Guid, ProductGrain>>(new PSQLConfigureBuilder<Guid, ProductGrain>((provider, id, parameter) =>
+                        new StringKeyOptions(provider, "core_event", "product")).AutoRegistrationObserver());
+                    serviceCollection.AddEntityFrameworkNpgsql().AddDbContext<RushShoppingDbContext>(
+                    options =>
+                    {
+                        options.UseNpgsql(Configuration.GetConnectionString("RushShoppingConnection"));
+                    }, ServiceLifetime.Transient);
+                    serviceCollection.Configure<RabbitOptions>(Configuration.GetSection("RabbitConfig"));
                     serviceCollection.AddRabbitMQ(_ => { });
                 })
-                //.AddIncomingGrainCallFilter<DbContextGrainCallFilter>()
                 .Configure<GrainCollectionOptions>(options => { options.CollectionAge = TimeSpan.FromHours(2); })
                 .ConfigureLogging(logging =>
                 {
@@ -85,17 +89,32 @@ namespace RushShopping.Host
             return host;
         }
 
-        //private static async Task StartSilo()
-        //{
-        //    await _silo.StartAsync();
-        //    Console.WriteLine("Silo started");
-        //}
+        static void SetupApplicationShutdown()
+        {
+            Console.CancelKeyPress += (s, a) => {
+                a.Cancel = true;
+                lock (SyncLock)
+                {
+                    if (!_siloStopping)
+                    {
+                        _siloStopping = true;
+                        Task.Run(StopSilo).Ignore();
+                    }
+                }
+            };
+        }
 
-        //private static async Task StopSilo()
-        //{
-        //    await _silo.StopAsync();
-        //    Console.WriteLine("Silo stopped");
-        //    SiloStopped.Set();
-        //}
+        private static async Task StartSilo()
+        {
+            await _silo.StartAsync();
+            Console.WriteLine("Silo started");
+        }
+
+        private static async Task StopSilo()
+        {
+            await _silo.StopAsync();
+            Console.WriteLine("Silo stopped");
+            SiloStopped.Set();
+        }
     }
 }

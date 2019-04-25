@@ -8,7 +8,7 @@ using RushShopping.Grains.Events;
 
 namespace RushShopping.Grains
 {
-    public abstract class CrudHandle<TSnapshot> : TxEventHandler<Guid, TSnapshot>, ICrudHandle<TSnapshot>
+    public class CrudHandle<TSnapshot> : TxEventHandler<Guid, TSnapshot>, ICrudHandle<TSnapshot>
         where TSnapshot : class, new()
     {
         protected readonly IMapper Mapper;
@@ -20,23 +20,26 @@ namespace RushShopping.Grains
 
         public override void CustomApply(Snapshot<Guid, TSnapshot> snapshot, IFullyEvent<Guid> fullyEvent)
         {
-            switch (fullyEvent.Event)
-            {
-                case CreatingSnapshotEvent<TSnapshot> evt:
-                    CreatingSnapshotHandle(snapshot.State, evt);
-                    break;
-                default: break;
-            }
+            Apply(snapshot.State, fullyEvent.Event);
         }
 
-        private void CreatingSnapshotHandle(TSnapshot snapshotState, CreatingSnapshotEvent<TSnapshot> evt)
+        public void CreatingSnapshotHandle(TSnapshot snapshotState, CreatingSnapshotEvent<TSnapshot> evt)
         {
             Mapper.Map(evt.Snapshot, snapshotState);
         }
 
         #region Implementation of ICrudHandle<in TSnapshot>
 
-        public abstract Task Apply(TSnapshot snapshot, IEvent evt);
+        public virtual void Apply(TSnapshot snapshot, IEvent @event)
+        {
+            switch (@event)
+            {
+                case CreatingSnapshotEvent<TSnapshot> evt:
+                    CreatingSnapshotHandle(snapshot, evt);
+                    break;
+                default: break;
+            }
+        }
 
         #endregion
     }

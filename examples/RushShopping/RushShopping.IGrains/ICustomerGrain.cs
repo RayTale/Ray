@@ -7,8 +7,6 @@ namespace RushShopping.IGrains
     public interface ICustomerGrain<TSnapshotDto> : IGrainWithGuidKey, ICrudGrain<TSnapshotDto>
         where TSnapshotDto : class, new()
     {
-        Task Create(string name);
-
         Task AddAmount(decimal amount);
 
         Task<decimal> GetBalance();
