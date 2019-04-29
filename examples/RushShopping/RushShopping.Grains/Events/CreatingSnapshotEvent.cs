@@ -1,7 +1,9 @@
-﻿using Ray.Core.Event;
+﻿using System;
+using Ray.Core.Event;
 
 namespace RushShopping.Grains.Events
 {
+    [Serializable]
     public class CreatingSnapshotEvent<TSnapshot> : IEvent
         where TSnapshot : class, new()
     {

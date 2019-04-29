@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Dapper;
 using Ray.Storage.SQLCore;
@@ -9,21 +10,10 @@ namespace Ray.Storage.MySQL
 {
     public class MySQLBuildService : IBuildService
     {
-        private readonly StringKeyOptions stringStorageOptions;
         private readonly StorageOptions storageOptions;
-        private readonly bool stateIdIsString;
         public MySQLBuildService(StorageOptions storageOptions)
         {
             this.storageOptions = storageOptions;
-            if (storageOptions is StringKeyOptions options)
-            {
-                stateIdIsString = true;
-                stringStorageOptions = options;
-            }
-            else
-            {
-                stateIdIsString = false;
-            }
         }
         public async Task<List<EventSubTable>> GetSubTables()
         {
@@ -51,12 +41,12 @@ namespace Ray.Storage.MySQL
         }
         public async Task CreateEventTable(EventSubTable subTable)
         {
-            var stateIdSql = stateIdIsString ? $"`StateId` varchar({stringStorageOptions.StateIdLength}) NOT NULL" : "`StateId` int8 NOT NULL";
+            var stateIdSql = BuildStateIdSql();
             var sql = $@"
                     create table if not exists `{subTable.SubTable}` (
                             {stateIdSql},
                             `UniqueId` varchar(250)  NULL DEFAULT NULL,
-                            `TypeCode` varchar(100)  NOT NULL,
+                            `TypeCode` varchar(250)  NOT NULL,
                             `Data` json NOT NULL,
                             `Version` int8 NOT NULL,
                             `Timestamp` int8 NOT NULL,
@@ -85,12 +75,12 @@ namespace Ray.Storage.MySQL
         }
         public async Task CreateEventArchiveTable()
         {
-            var stateIdSql = stateIdIsString ? $"`StateId` varchar({stringStorageOptions.StateIdLength}) NOT NULL" : "`StateId` int8 NOT NULL";
+            var stateIdSql = BuildStateIdSql();
             var sql = $@"
                     create table if not exists `{storageOptions.EventArchiveTable}` (
                             {stateIdSql},
                             `UniqueId` varchar(250)  null,
-                            `TypeCode` varchar(100)  NOT NULL,
+                            `TypeCode` varchar(250)  NOT NULL,
                             `Data` json NOT NULL,
                             `Version` int8 NOT NULL,
                             `Timestamp` int8 NOT NULL,
@@ -105,7 +95,7 @@ namespace Ray.Storage.MySQL
 
         public async Task CreateObserverSnapshotTable(string observerSnapshotTable)
         {
-            var stateIdSql = stateIdIsString ? $"`StateId` varchar({stringStorageOptions.StateIdLength}) NOT NULL PRIMARY KEY" : "`StateId` int8 NOT NULL PRIMARY KEY";
+            var stateIdSql = BuildStateIdSql(true);
             var sql = $@"
                      CREATE TABLE if not exists `{observerSnapshotTable}`(
                      {stateIdSql},
@@ -119,7 +109,7 @@ namespace Ray.Storage.MySQL
 
         public async Task CreateSnapshotArchiveTable()
         {
-            var stateIdSql = stateIdIsString ? $"`StateId` varchar({stringStorageOptions.StateIdLength}) NOT NULL" : "`StateId` int8 NOT NULL";
+            var stateIdSql = BuildStateIdSql();
             var sql = $@"
                      CREATE TABLE if not exists `{storageOptions.SnapshotArchiveTable}`(
                      `Id` varchar(50) NOT NULL PRIMARY KEY,
@@ -142,7 +132,7 @@ namespace Ray.Storage.MySQL
 
         public async Task CreateSnapshotTable()
         {
-            var stateIdSql = stateIdIsString ? $"`StateId` varchar({stringStorageOptions.StateIdLength}) NOT NULL PRIMARY KEY" : "`StateId` int8 NOT NULL PRIMARY KEY";
+            var stateIdSql = BuildStateIdSql(true);
             var sql = $@"
                      CREATE TABLE if not exists `{storageOptions.SnapshotTable}`(
                      {stateIdSql},
@@ -155,6 +145,22 @@ namespace Ray.Storage.MySQL
             using (var connection = storageOptions.CreateConnection())
             {
                 await connection.ExecuteAsync(sql);
+            }
+        }
+
+        private string BuildStateIdSql(bool isPrimaryKey = false)
+        {
+            switch (storageOptions)
+            {
+                case StringKeyOptions options:
+                    return $"`StateId` varchar({options.StateIdLength}) NOT NULL" +
+                           (isPrimaryKey ? " PRIMARY KEY" : "");
+                case GuidKeyOptions options:
+                    return $"`StateId` uuid NOT NULL" + (isPrimaryKey ? " PRIMARY KEY" : "");
+                case IntegerKeyOptions options:
+                    return "`StateId` int8 NOT NULL" + (isPrimaryKey ? " PRIMARY KEY" : "");
+                default:
+                    throw new NotImplementedException(storageOptions.GetType().FullName);
             }
         }
     }

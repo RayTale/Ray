@@ -13,6 +13,7 @@ using Orleans;
 using Orleans.Configuration;
 using Orleans.Hosting;
 using Ray.Core;
+using Ray.Core.Event;
 using Ray.Core.Storage;
 using Ray.EventBus.RabbitMQ;
 using Ray.Storage.PostgreSQL;
@@ -47,7 +48,6 @@ namespace RushShopping.Host
             var builder = new SiloHostBuilder()
                 .Configure<ClusterOptions>(Configuration.GetSection("ClusterOptions"))
                 .UseLocalhostClustering(11115, 30005)
-                .UseDashboard()
                 .AddRay<Configuration>()
                 .ConfigureApplicationParts(
                     parts => parts.AddApplicationPart(typeof(CustomerGrain).Assembly).WithReferences())
@@ -64,12 +64,14 @@ namespace RushShopping.Host
                         options.ConnectionKey = "core_event";
                         options.TableName = "Transaction_TemporaryRecord";
                     });
-                    serviceCollection.AddTransient(typeof(ICrudHandle<>), typeof(CrudHandle<>));
+                    serviceCollection.AddTransient(typeof(ICrudHandle<,>), typeof(CrudHandle<,>));
+                    serviceCollection.AddSingleton(typeof(IEventHandler<,>), typeof(CrudHandle<,>));
                     serviceCollection.AddAutoMapper(RushShoppingMapper.CreateMapping);
                     serviceCollection.AddSingleton<IConfigureBuilder<Guid, CustomerGrain>>(new PSQLConfigureBuilder<Guid, CustomerGrain>((provider, id, parameter) =>
-                        new StringKeyOptions(provider, "core_event", "customer")).AutoRegistrationObserver());
+                        new GuidKeyOptions(provider, "core_event", "customer")).AutoRegistrationObserver());
                     serviceCollection.AddSingleton<IConfigureBuilder<Guid, ProductGrain>>(new PSQLConfigureBuilder<Guid, ProductGrain>((provider, id, parameter) =>
-                        new StringKeyOptions(provider, "core_event", "product")).AutoRegistrationObserver());
+                        new GuidKeyOptions(provider, "core_event", "product")).AutoRegistrationObserver());
+                    serviceCollection.AddTransient(typeof(IGrainRepository<,>),typeof(GrainEfCoreRepositoryBase<,>));
                     serviceCollection.AddEntityFrameworkNpgsql().AddDbContext<RushShoppingDbContext>(
                     options =>
                     {

@@ -1,10 +1,12 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
 using Ray.Core.Snapshot;
 using RushShopping.Repository.Entities;
 
 namespace RushShopping.Grains.States
 {
+    [Serializable]
     public class CustomerState : Customer,ICloneable<CustomerState>
     {
         #region Implementation of ICloneable<CustomerState>

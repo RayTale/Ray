@@ -8,17 +8,18 @@ using RushShopping.Grains.Events;
 
 namespace RushShopping.Grains
 {
-    public class CrudHandle<TSnapshot> : TxEventHandler<Guid, TSnapshot>, ICrudHandle<TSnapshot>
+    public class CrudHandle<TPrimaryKey, TSnapshot> : TxEventHandler<TPrimaryKey, TSnapshot>,
+        ICrudHandle<TPrimaryKey, TSnapshot>, IEventHandler<TPrimaryKey, TSnapshot>
         where TSnapshot : class, new()
     {
         protected readonly IMapper Mapper;
 
-        protected CrudHandle(IMapper mapper)
+        public CrudHandle(IMapper mapper)
         {
             Mapper = mapper;
         }
 
-        public override void CustomApply(Snapshot<Guid, TSnapshot> snapshot, IFullyEvent<Guid> fullyEvent)
+        public override void CustomApply(Snapshot<TPrimaryKey, TSnapshot> snapshot, IFullyEvent<TPrimaryKey> fullyEvent)
         {
             Apply(snapshot.State, fullyEvent.Event);
         }

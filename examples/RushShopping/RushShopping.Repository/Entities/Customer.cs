@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 namespace RushShopping.Repository.Entities
 {
+    [Serializable]
     public class Customer : IEntity<Guid>
     {
         public Customer()

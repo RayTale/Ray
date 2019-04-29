@@ -46,14 +46,10 @@ namespace RushShopping.Repository
         protected virtual Expression<Func<TEntity, bool>> CreateEqualityExpressionForId(TPrimaryKey id)
         {
             var lambdaParam = Expression.Parameter(typeof(TEntity));
-
             var leftExpression = Expression.PropertyOrField(lambdaParam, "Id");
-
             Expression<Func<object>> closure = () => id;
             var rightExpression = Expression.Convert(closure.Body, leftExpression.Type);
-
             var lambdaBody = Expression.Equal(leftExpression, rightExpression);
-
             return Expression.Lambda<Func<TEntity, bool>>(lambdaBody, lambdaParam);
         }
     }

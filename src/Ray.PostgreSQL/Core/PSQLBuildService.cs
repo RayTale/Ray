@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Dapper;
 using Ray.Storage.SQLCore;
@@ -9,21 +10,10 @@ namespace Ray.Storage.PostgreSQL
 {
     public class PSQLBuildService : IBuildService
     {
-        private readonly StringKeyOptions stringStorageOptions;
         private readonly StorageOptions storageOptions;
-        private readonly bool stateIdIsString;
         public PSQLBuildService(StorageOptions storageOptions)
         {
             this.storageOptions = storageOptions;
-            if (storageOptions is StringKeyOptions options)
-            {
-                stateIdIsString = true;
-                stringStorageOptions = options;
-            }
-            else
-            {
-                stateIdIsString = false;
-            }
         }
         public async Task<List<EventSubTable>> GetSubTables()
         {
@@ -51,12 +41,12 @@ namespace Ray.Storage.PostgreSQL
         }
         public async Task CreateEventTable(EventSubTable subTable)
         {
-            var stateIdSql = stateIdIsString ? $"StateId varchar({stringStorageOptions.StateIdLength}) not null" : "StateId int8 not null";
+            var stateIdSql = BuildStateIdSql();
             var sql = $@"
                     create table {subTable.SubTable} (
                             {stateIdSql},
                             UniqueId varchar(250)  null,
-                            TypeCode varchar(100)  not null,
+                            TypeCode varchar(250)  not null,
                             Data jsonb not null,
                             Version int8 not null,
                             Timestamp int8 not null,
@@ -85,12 +75,12 @@ namespace Ray.Storage.PostgreSQL
         }
         public async Task CreateEventArchiveTable()
         {
-            var stateIdSql = stateIdIsString ? $"StateId varchar({stringStorageOptions.StateIdLength}) not null" : "StateId int8 not null";
+            var stateIdSql = BuildStateIdSql();
             var sql = $@"
                     create table if not exists {storageOptions.EventArchiveTable} (
                             {stateIdSql},
                             UniqueId varchar(250)  null,
-                            TypeCode varchar(100)  not null,
+                            TypeCode varchar(250)  not null,
                             Data jsonb not null,
                             Version int8 not null,
                             Timestamp int8 not null,
@@ -105,7 +95,7 @@ namespace Ray.Storage.PostgreSQL
 
         public async Task CreateObserverSnapshotTable(string observerSnapshotTable)
         {
-            var stateIdSql = stateIdIsString ? $"StateId varchar({stringStorageOptions.StateIdLength}) not null PRIMARY KEY" : "StateId int8 not null PRIMARY KEY";
+            var stateIdSql = BuildStateIdSql(true);
             var sql = $@"
                      CREATE TABLE if not exists {observerSnapshotTable}(
                      {stateIdSql},
@@ -119,7 +109,7 @@ namespace Ray.Storage.PostgreSQL
 
         public async Task CreateSnapshotArchiveTable()
         {
-            var stateIdSql = stateIdIsString ? $"StateId varchar({stringStorageOptions.StateIdLength}) not null" : "StateId int8 not null";
+            var stateIdSql = BuildStateIdSql();
             var sql = $@"
                      CREATE TABLE if not exists {storageOptions.SnapshotArchiveTable}(
                      Id varchar(50) not null PRIMARY KEY,
@@ -142,7 +132,7 @@ namespace Ray.Storage.PostgreSQL
 
         public async Task CreateSnapshotTable()
         {
-            var stateIdSql = stateIdIsString ? $"StateId varchar({stringStorageOptions.StateIdLength}) not null PRIMARY KEY" : "StateId int8 not null PRIMARY KEY";
+            var stateIdSql = BuildStateIdSql(true);
             var sql = $@"
                      CREATE TABLE if not exists {storageOptions.SnapshotTable}(
                      {stateIdSql},
@@ -155,6 +145,21 @@ namespace Ray.Storage.PostgreSQL
             using (var connection = storageOptions.CreateConnection())
             {
                 await connection.ExecuteAsync(sql);
+            }
+        }
+
+        private string BuildStateIdSql(bool isPrimaryKey = false)
+        {
+            switch (storageOptions)
+            {
+                case StringKeyOptions options:
+                    return $"StateId varchar({options.StateIdLength}) not null" + (isPrimaryKey ? " PRIMARY KEY" : "");
+                case GuidKeyOptions options:
+                    return $"StateId uuid not null" + (isPrimaryKey ? " PRIMARY KEY" : "");
+                case IntegerKeyOptions options:
+                    return "StateId int8 not null" + (isPrimaryKey ? " PRIMARY KEY" : "");
+                default:
+                    throw new NotImplementedException(storageOptions.GetType().FullName);
             }
         }
     }

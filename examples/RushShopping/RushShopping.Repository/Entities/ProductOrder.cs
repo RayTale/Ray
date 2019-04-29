@@ -1,6 +1,7 @@
 ﻿using System;
 namespace RushShopping.Repository.Entities
 {
+    [Serializable]
     public class ProductOrder
     {
         public ProductOrder()
