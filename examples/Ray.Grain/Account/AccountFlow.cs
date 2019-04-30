@@ -8,11 +8,15 @@ using Ray.Grain.Events;
 
 namespace Ray.Grain
 {
-    [Observer(DefaultObserverGroup.primary,"flow", typeof(Account))]
+    [Observer(DefaultObserverGroup.primary, "flow", typeof(Account))]
     public sealed class AccountFlow : ConcurrentObserverGrain<Account, long>, IAccountFlow
     {
-        public AccountFlow(ILogger<AccountFlow> logger) : base(logger)
+        readonly IGrainFactory grainFactory;
+        public AccountFlow(
+            ILogger<AccountFlow> logger,
+            IGrainFactory grainFactory) : base(logger)
         {
+            this.grainFactory = grainFactory;
         }
         public override long GrainId => this.GetPrimaryKeyLong();
         protected override bool EventConcurrentProcessing => true;
@@ -20,13 +24,13 @@ namespace Ray.Grain
         {
             switch (fully.Event)
             {
-                case AmountTransferEvent value: await AmountAddEventHandler(value); break;
+                case AmountTransferEvent value: await AmountAddEventHandler(value, new EventUID(fully.GetEventId(), fully.Base.Timestamp)); break;
             }
         }
-        public Task AmountAddEventHandler(AmountTransferEvent value)
+        public Task AmountAddEventHandler(AmountTransferEvent value, EventUID uid)
         {
-            var toActor = GrainFactory.GetGrain<IAccount>(value.ToAccountId);
-            return toActor.AddAmount(value.Amount);
+            var toActor = grainFactory.GetGrain<IAccount>(value.ToAccountId);
+            return toActor.AddAmount(value.Amount, uid);
         }
     }
 }

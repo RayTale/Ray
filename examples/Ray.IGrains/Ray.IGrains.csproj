@@ -6,12 +6,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Orleans.CodeGenerator.MSBuild" Version="2.3.0">
+    <PackageReference Include="Microsoft.Orleans.CodeGenerator.MSBuild" Version="2.3.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
     <PackageReference Include="protobuf-net" Version="2.4.0" />
-    <PackageReference Include="SpanJson" Version="2.0.8" />
+    <PackageReference Include="SpanJson" Version="2.0.9" />
   </ItemGroup>
 
   <ItemGroup>

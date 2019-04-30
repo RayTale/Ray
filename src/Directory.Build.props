@@ -1,0 +1,11 @@
+<Project>
+  <PropertyGroup>
+    <Version>2.0-beta3</Version>
+    <PackageProjectUrl>https://github.com/RayTale/Ray</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/RayTale/Ray.git</RepositoryUrl>
+    <PackageLicenseUrl>https://github.com/RayTale/Ray/blob/master/LICENSE</PackageLicenseUrl>
+    <PackageIconUrl>https://raw.githubusercontent.com/RayTale/Ray/master/logo.png</PackageIconUrl>
+    <PackageTags>orleans,event-sourcing,actor,Ray</PackageTags>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+  </PropertyGroup>
+</Project>

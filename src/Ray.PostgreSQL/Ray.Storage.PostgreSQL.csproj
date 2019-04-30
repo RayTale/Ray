@@ -3,18 +3,11 @@
   <PropertyGroup>
     <TargetFramework>netcoreapp2.2</TargetFramework>
     <LangVersion>latest</LangVersion>
-    <Version>2.0-beta1</Version>
-    <PackageProjectUrl>https://github.com/RayTale/Ray</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/RayTale/Ray.git</RepositoryUrl>
-    <PackageLicenseUrl>https://github.com/RayTale/Ray/blob/master/LICENSE</PackageLicenseUrl>
-    <PackageIconUrl>https://raw.githubusercontent.com/RayTale/Ray/master/logo.png</PackageIconUrl>
-    <PackageTags>orleans,event-sourcing,actor,Ray</PackageTags>
-    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
   </PropertyGroup>
   
   <ItemGroup>
     <PackageReference Include="Dapper" Version="1.60.6" />
-    <PackageReference Include="Npgsql" Version="4.0.5" />
+    <PackageReference Include="Npgsql" Version="4.0.6" />
   </ItemGroup>
 
   <ItemGroup>
