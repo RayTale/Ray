@@ -10,8 +10,9 @@ using RushShopping.Repository;
 
 namespace RushShopping.Grains
 {
-    public abstract class RushShoppingGrain<TGrain, TPrimaryKey, TSnapshotType, TEntityType, TSnapshotDto> : ConcurrentTxGrain<TGrain, TPrimaryKey, TSnapshotType>
-    , ICrudGrain<TSnapshotDto>
+    public abstract class RushShoppingGrain<TPrimaryKey, TSnapshotType, TEntityType, TSnapshotDto> :
+        ConcurrentTxGrain<TPrimaryKey, TSnapshotType>
+        , ICrudGrain<TSnapshotDto>
         where TSnapshotType : class, ICloneable<TSnapshotType>, TEntityType, new()
         where TEntityType : class, IEntity<TPrimaryKey>
         where TSnapshotDto : class, new()
@@ -70,7 +71,9 @@ namespace RushShopping.Grains
         #endregion
     }
 
-    public abstract class RushShoppingGrain<TGrain, TPrimaryKey, TStateType, TSnapshotDto> : RushShoppingGrain<TGrain, TPrimaryKey, TStateType, TStateType, TSnapshotDto>
+    public abstract class
+        RushShoppingGrain<TPrimaryKey, TStateType, TSnapshotDto> : RushShoppingGrain<TPrimaryKey, TStateType, TStateType
+            , TSnapshotDto>
         where TStateType : class, ICloneable<TStateType>, IEntity<TPrimaryKey>, new()
         where TSnapshotDto : class, new()
     {

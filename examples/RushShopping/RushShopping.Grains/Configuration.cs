@@ -2,7 +2,6 @@
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Ray.Core.Abstractions;
-using Ray.Core.Configuration;
 
 namespace RushShopping.Grains
 {

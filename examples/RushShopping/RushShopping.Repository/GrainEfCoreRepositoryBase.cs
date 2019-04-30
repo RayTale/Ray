@@ -13,6 +13,7 @@ namespace RushShopping.Repository
         {
             Context = context;
         }
+
         protected RushShoppingDbContext Context { get; set; }
 
         public virtual DbSet<TEntity> Table => Context.Set<TEntity>();
@@ -25,6 +26,7 @@ namespace RushShopping.Repository
             {
                 return;
             }
+
             IsDisposed = true;
             Context.Dispose();
         }

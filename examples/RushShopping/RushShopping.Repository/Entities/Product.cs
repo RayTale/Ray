@@ -1,19 +1,14 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+
 namespace RushShopping.Repository.Entities
 {
     [Serializable]
-    public class Product :IEntity<Guid>
+    public class Product : IEntity<Guid>
     {
-        public Product()
-        {
-        }
-
         public Guid Id { get; set; }
 
-        [MaxLength(32)]
-        public string Name { get; set; }
+        [MaxLength(32)] public string Name { get; set; }
 
         public decimal Price { get; set; }
 

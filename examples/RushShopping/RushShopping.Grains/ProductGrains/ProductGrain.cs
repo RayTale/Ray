@@ -11,12 +11,8 @@ using RushShopping.Share.Dto;
 namespace RushShopping.Grains.ProductGrains
 {
     [Producer(lBCount: 4), Observable]
-    public class ProductGrain : RushShoppingGrain<ProductGrain, Guid, ProductState, Product,ProductDto>,IProductGrain<ProductDto>
+    public class ProductGrain : RushShoppingGrain<Guid, ProductState, Product, ProductDto>, IProductGrain<ProductDto>
     {
-        public ProductGrain()
-        {
-        }
-
         public override Guid GrainId => this.GetPrimaryKey();
 
         #region Implementation of IProductGrain<ProductDto>

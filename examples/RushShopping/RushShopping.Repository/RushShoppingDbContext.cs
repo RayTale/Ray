@@ -1,6 +1,6 @@
-﻿using System;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using RushShopping.Repository.Entities;
+
 namespace RushShopping.Repository
 {
     public class RushShoppingDbContext : DbContext

@@ -1,13 +1,10 @@
 ﻿using System;
+
 namespace RushShopping.Repository.Entities
 {
     [Serializable]
     public class ProductOrder
     {
-        public ProductOrder()
-        {
-        }
-
         public Guid Id { get; set; }
 
         public decimal Price { get; set; }

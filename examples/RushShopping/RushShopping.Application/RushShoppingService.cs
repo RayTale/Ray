@@ -7,7 +7,7 @@ using RushShopping.Share.Dto;
 
 namespace RushShopping.Application
 {
-    public class RushShoppingService: IRushShoppingService
+    public class RushShoppingService : IRushShoppingService
     {
         protected IClusterClient ClusterClient;
 
@@ -21,7 +21,7 @@ namespace RushShopping.Application
         public async Task<Guid> CreateCustomer(CustomerDto dto)
         {
             var grainId = Guid.NewGuid();
-            var customerGrain =ClusterClient.GetGrain<ICustomerGrain<CustomerDto>>(grainId);
+            var customerGrain = ClusterClient.GetGrain<ICustomerGrain<CustomerDto>>(grainId);
             await customerGrain.Create(dto);
             return grainId;
         }

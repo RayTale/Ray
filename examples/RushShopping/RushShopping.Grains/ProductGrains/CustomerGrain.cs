@@ -11,7 +11,8 @@ using RushShopping.Share.Dto;
 namespace RushShopping.Grains.ProductGrains
 {
     [Producer(lBCount: 4), Observable]
-    public class CustomerGrain : RushShoppingGrain<CustomerGrain, Guid, CustomerState,Customer, CustomerDto>, ICustomerGrain<CustomerDto>
+    public class CustomerGrain : RushShoppingGrain<Guid, CustomerState, Customer, CustomerDto>,
+        ICustomerGrain<CustomerDto>
     {
         #region Overrides of RayGrain<CustomerGrain,Guid,CustomerState>
 

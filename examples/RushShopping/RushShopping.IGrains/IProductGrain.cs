@@ -1,6 +1,6 @@
-﻿using System;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Orleans;
+
 namespace RushShopping.IGrains
 {
     public interface IProductGrain<TSnapshotDto> : IGrainWithGuidKey, ICrudGrain<TSnapshotDto>

@@ -6,7 +6,6 @@ using System.IO;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Orleans;
-using Orleans.Configuration;
 using Orleans.Runtime;
 using RushShopping.Application;
 using RushShopping.IGrains;
@@ -17,9 +16,10 @@ namespace RushShopping.Client.Console
     class Program
     {
         public static IConfigurationRoot Configuration;
-        static void Main(string[] args)
+
+        static void Main()
         {
-             RunMainAsync().Wait();
+            RunMainAsync().Wait();
         }
 
         private static async Task RunMainAsync()
@@ -37,16 +37,16 @@ namespace RushShopping.Client.Console
             });
             var customerDto = await customerGrain.Get();
             System.Console.WriteLine(customerDto.Name);
+            System.Console.ReadKey();
         }
 
         public static IServiceProvider GetServiceProvider()
         {
             var services = new ServiceCollection();
-            services.AddDbContext<RushShoppingDbContext>(option =>
-            {
-                option.UseNpgsql(Configuration.GetConnectionString("RushShoppingConnection"));
-            }, ServiceLifetime.Transient)
-            .AddEntityFrameworkNpgsql();
+            services.AddDbContext<RushShoppingDbContext>(
+                    option => { option.UseNpgsql(Configuration.GetConnectionString("RushShoppingConnection")); },
+                    ServiceLifetime.Transient)
+                .AddEntityFrameworkNpgsql();
             services.AddTransient<IRushShoppingService, RushShoppingService>();
             return services.BuildServiceProvider();
         }

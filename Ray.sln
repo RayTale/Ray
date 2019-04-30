@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.28315.86
+# Visual Studio 15
+VisualStudioVersion = 15.0.28307.271
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.Core", "src\Ray.Core\Ray.Core.csproj", "{B91971A4-220C-4403-BB49-21C55867F120}"
 EndProject
@@ -33,26 +33,26 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.Host", "examples\Ray.Ho
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.Client", "examples\Ray.Client\Ray.Client.csproj", "{EB545052-E6F6-42FE-A34A-CE987B8EC818}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ray.Storage.MySQL", "src\Ray.Storage.MySQL\Ray.Storage.MySQL.csproj", "{F41EFC6C-5299-477B-8301-65C1C8398D69}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.Storage.MySQL", "src\Ray.Storage.MySQL\Ray.Storage.MySQL.csproj", "{F41EFC6C-5299-477B-8301-65C1C8398D69}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "RushShopping", "RushShopping", "{830B4C41-DD3D-4B34-B4B4-E8B4C5A4337D}"
 	ProjectSection(SolutionItems) = preProject
 		examples\RushShopping\appsettings.json = examples\RushShopping\appsettings.json
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RushShopping.Share.Dto", "examples\RushShopping\RushShopping.Share.Dto\RushShopping.Share.Dto.csproj", "{24AC3806-0B1F-4077-A8A7-8B5667407DE4}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RushShopping.Share.Dto", "examples\RushShopping\RushShopping.Share.Dto\RushShopping.Share.Dto.csproj", "{24AC3806-0B1F-4077-A8A7-8B5667407DE4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RushShopping.IGrains", "examples\RushShopping\RushShopping.IGrains\RushShopping.IGrains.csproj", "{ADEB9CD8-D825-4192-A88A-25CB7C9460B3}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RushShopping.IGrains", "examples\RushShopping\RushShopping.IGrains\RushShopping.IGrains.csproj", "{ADEB9CD8-D825-4192-A88A-25CB7C9460B3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RushShopping.Repository", "examples\RushShopping\RushShopping.Repository\RushShopping.Repository.csproj", "{A1D025B5-9E81-40E8-971A-268544259EC8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RushShopping.Repository", "examples\RushShopping\RushShopping.Repository\RushShopping.Repository.csproj", "{A1D025B5-9E81-40E8-971A-268544259EC8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RushShopping.Grains", "examples\RushShopping\RushShopping.Grains\RushShopping.Grains.csproj", "{95756CA3-170C-478B-A840-6EA035F56F9A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RushShopping.Grains", "examples\RushShopping\RushShopping.Grains\RushShopping.Grains.csproj", "{95756CA3-170C-478B-A840-6EA035F56F9A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RushShopping.Application", "examples\RushShopping\RushShopping.Application\RushShopping.Application.csproj", "{5E43DDFD-E454-47F3-B58F-AD836A6691D0}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RushShopping.Application", "examples\RushShopping\RushShopping.Application\RushShopping.Application.csproj", "{5E43DDFD-E454-47F3-B58F-AD836A6691D0}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RushShopping.Client.Console", "examples\RushShopping\RushShopping.Client.Console\RushShopping.Client.Console.csproj", "{9DDBBABE-B70C-44EF-B114-7AB0CCF23D39}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RushShopping.Host", "examples\RushShopping\RushShopping.Host\RushShopping.Host.csproj", "{BAA13155-7072-414C-9A41-9D0505A61236}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RushShopping.Host", "examples\RushShopping\RushShopping.Host\RushShopping.Host.csproj", "{BAA13155-7072-414C-9A41-9D0505A61236}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RushShopping.Client.Console", "examples\RushShopping\RushShopping.Client.Console\RushShopping.Client.Console.csproj", "{F87E5EB1-FC6C-4552-BB7A-CA2950FD53A0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -214,14 +214,6 @@ Global
 		{5E43DDFD-E454-47F3-B58F-AD836A6691D0}.Release|Any CPU.Build.0 = Release|Any CPU
 		{5E43DDFD-E454-47F3-B58F-AD836A6691D0}.Release|x64.ActiveCfg = Release|Any CPU
 		{5E43DDFD-E454-47F3-B58F-AD836A6691D0}.Release|x64.Build.0 = Release|Any CPU
-		{9DDBBABE-B70C-44EF-B114-7AB0CCF23D39}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{9DDBBABE-B70C-44EF-B114-7AB0CCF23D39}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{9DDBBABE-B70C-44EF-B114-7AB0CCF23D39}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{9DDBBABE-B70C-44EF-B114-7AB0CCF23D39}.Debug|x64.Build.0 = Debug|Any CPU
-		{9DDBBABE-B70C-44EF-B114-7AB0CCF23D39}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{9DDBBABE-B70C-44EF-B114-7AB0CCF23D39}.Release|Any CPU.Build.0 = Release|Any CPU
-		{9DDBBABE-B70C-44EF-B114-7AB0CCF23D39}.Release|x64.ActiveCfg = Release|Any CPU
-		{9DDBBABE-B70C-44EF-B114-7AB0CCF23D39}.Release|x64.Build.0 = Release|Any CPU
 		{BAA13155-7072-414C-9A41-9D0505A61236}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{BAA13155-7072-414C-9A41-9D0505A61236}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BAA13155-7072-414C-9A41-9D0505A61236}.Debug|x64.ActiveCfg = Debug|Any CPU
@@ -230,6 +222,14 @@ Global
 		{BAA13155-7072-414C-9A41-9D0505A61236}.Release|Any CPU.Build.0 = Release|Any CPU
 		{BAA13155-7072-414C-9A41-9D0505A61236}.Release|x64.ActiveCfg = Release|Any CPU
 		{BAA13155-7072-414C-9A41-9D0505A61236}.Release|x64.Build.0 = Release|Any CPU
+		{F87E5EB1-FC6C-4552-BB7A-CA2950FD53A0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F87E5EB1-FC6C-4552-BB7A-CA2950FD53A0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F87E5EB1-FC6C-4552-BB7A-CA2950FD53A0}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{F87E5EB1-FC6C-4552-BB7A-CA2950FD53A0}.Debug|x64.Build.0 = Debug|Any CPU
+		{F87E5EB1-FC6C-4552-BB7A-CA2950FD53A0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F87E5EB1-FC6C-4552-BB7A-CA2950FD53A0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F87E5EB1-FC6C-4552-BB7A-CA2950FD53A0}.Release|x64.ActiveCfg = Release|Any CPU
+		{F87E5EB1-FC6C-4552-BB7A-CA2950FD53A0}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -248,8 +248,8 @@ Global
 		{A1D025B5-9E81-40E8-971A-268544259EC8} = {830B4C41-DD3D-4B34-B4B4-E8B4C5A4337D}
 		{95756CA3-170C-478B-A840-6EA035F56F9A} = {830B4C41-DD3D-4B34-B4B4-E8B4C5A4337D}
 		{5E43DDFD-E454-47F3-B58F-AD836A6691D0} = {830B4C41-DD3D-4B34-B4B4-E8B4C5A4337D}
-		{9DDBBABE-B70C-44EF-B114-7AB0CCF23D39} = {830B4C41-DD3D-4B34-B4B4-E8B4C5A4337D}
 		{BAA13155-7072-414C-9A41-9D0505A61236} = {830B4C41-DD3D-4B34-B4B4-E8B4C5A4337D}
+		{F87E5EB1-FC6C-4552-BB7A-CA2950FD53A0} = {830B4C41-DD3D-4B34-B4B4-E8B4C5A4337D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {B7F09963-06DE-499A-B620-B6EFB2FB2BE5}
