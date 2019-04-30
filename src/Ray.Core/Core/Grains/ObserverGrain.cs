@@ -156,7 +156,7 @@ namespace Ray.Core
         protected virtual async Task ReadSnapshotAsync()
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace("Start read snapshot  with Id = {0} ,state version = {1}", GrainId.ToString(), Snapshot.Version);
+                Logger.LogTrace("Start read snapshot  with Id = {0}", GrainId.ToString());
             try
             {
                 Snapshot = await ObserverSnapshotStorage.Get(GrainId);

@@ -27,8 +27,8 @@ namespace Ray.Storage.PostgreSQL
             this.config = config;
             deleteSql = $"DELETE FROM {this.config.SnapshotTable} where stateid=@StateId";
             getByIdSql = $"select * FROM {this.config.SnapshotTable} where stateid=@StateId";
-            insertSql = $"INSERT into {this.config.SnapshotTable}(stateid,data,version,StartTimestamp,LatestMinEventTimestamp,IsLatest,IsOver)VALUES(@StateId,(@Data)::jsonb,@Version,@StartTimestamp,@LatestMinEventTimestamp,@IsLatest,@IsOver)";
-            updateSql = $"update {this.config.SnapshotTable} set data=(@Data)::jsonb,version=@Version,LatestMinEventTimestamp=@LatestMinEventTimestamp,IsLatest=@IsLatest,IsOver=@IsOver where stateid=@StateId";
+            insertSql = $"INSERT into {this.config.SnapshotTable}(stateid,data,version,StartTimestamp,LatestMinEventTimestamp,IsLatest,IsOver)VALUES(@StateId,(@Data)::json,@Version,@StartTimestamp,@LatestMinEventTimestamp,@IsLatest,@IsOver)";
+            updateSql = $"update {this.config.SnapshotTable} set data=(@Data)::json,version=@Version,LatestMinEventTimestamp=@LatestMinEventTimestamp,IsLatest=@IsLatest,IsOver=@IsOver where stateid=@StateId";
             updateOverSql = $"update {this.config.SnapshotTable} set IsOver=@IsOver where stateid=@StateId";
             updateIsLatestSql = $"update {this.config.SnapshotTable} set IsLatest=@IsLatest where stateid=@StateId";
             updateLatestTimestampSql = $"update {this.config.SnapshotTable} set LatestMinEventTimestamp=@LatestMinEventTimestamp where stateid=@StateId";

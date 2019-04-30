@@ -11,8 +11,8 @@ using System.Threading.Tasks;
 
 namespace Ray.Grain
 {
-    [/*Reentrant,*/ Observable, Producer(lBCount:5)]
-    public sealed class Account : DistributedTxGrain<Account, long, AccountState>, IAccount
+    [Reentrant, Observable, Producer]
+    public sealed class Account : DistributedTxGrain<long, AccountState>, IAccount
     {
         public Account() : base()
         {

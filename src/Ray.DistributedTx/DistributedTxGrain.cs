@@ -8,7 +8,7 @@ using Ray.DistributedTransaction.Configuration;
 
 namespace Ray.DistributedTransaction
 {
-    public abstract class DistributedTxGrain<Grain, PrimaryKey, StateType> : ConcurrentTxGrain<Grain, PrimaryKey, StateType>
+    public abstract class DistributedTxGrain<PrimaryKey, StateType> : ConcurrentTxGrain<PrimaryKey, StateType>
         where StateType : class, ICloneable<StateType>, new()
     {
         public DistributedTxGrain() : base()

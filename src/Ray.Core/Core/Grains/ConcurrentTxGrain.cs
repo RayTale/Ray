@@ -10,7 +10,7 @@ using Ray.Core.Snapshot;
 
 namespace Ray.Core
 {
-    public abstract class ConcurrentTxGrain<Grain, PrimaryKey, SnapshotType> : TxGrain<Grain, PrimaryKey, SnapshotType>
+    public abstract class ConcurrentTxGrain<PrimaryKey, SnapshotType> : TxGrain<PrimaryKey, SnapshotType>
         where SnapshotType : class, ICloneable<SnapshotType>, new()
     {
         public long defaultTransactionId = 0;

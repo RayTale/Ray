@@ -18,12 +18,12 @@ using Ray.Core.Storage;
 
 namespace Ray.Core
 {
-    public abstract class RayGrain<Grain, PrimaryKey, StateType> : Orleans.Grain
+    public abstract class RayGrain<PrimaryKey, StateType> : Grain
         where StateType : class, new()
     {
         public RayGrain()
         {
-            GrainType = typeof(Grain);
+            GrainType = this.GetType();
         }
         protected CoreOptions CoreOptions { get; private set; }
         protected ArchiveOptions ArchiveOptions { get; private set; }
@@ -69,12 +69,12 @@ namespace Ray.Core
         {
             CoreOptions = ServiceProvider.GetOptionsByName<CoreOptions>(GrainType.FullName);
             ArchiveOptions = ServiceProvider.GetOptionsByName<ArchiveOptions>(GrainType.FullName);
-            Logger = ServiceProvider.GetService<ILogger<Grain>>();
+            Logger = (ILogger)ServiceProvider.GetService(typeof(ILogger<>).MakeGenericType(GrainType));
             ProducerContainer = ServiceProvider.GetService<IProducerContainer>();
             Serializer = ServiceProvider.GetService<ISerializer>();
             EventHandler = ServiceProvider.GetService<IEventHandler<PrimaryKey, StateType>>();
             ObserverUnit = ServiceProvider.GetService<IObserverUnitContainer>().GetUnit<PrimaryKey>(GrainType);
-            var configureBuilder = ServiceProvider.GetService<IConfigureBuilder<PrimaryKey, Grain>>();
+            var configureBuilder = (IConfigureBuilder<PrimaryKey>)ServiceProvider.GetService(typeof(IConfigureBuilder<,>).MakeGenericType(typeof(PrimaryKey), GrainType));
             var storageConfigTask = configureBuilder.GetConfig(ServiceProvider, GrainId);
             if (!storageConfigTask.IsCompletedSuccessfully)
                 await storageConfigTask;
@@ -183,7 +183,7 @@ namespace Ray.Core
         protected virtual async Task RecoverySnapshot()
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace("The state of id = {0} begin to recover", GrainType.FullName, GrainId.ToString());
+                Logger.LogTrace("The state of id = {0} begin to recover", GrainId.ToString());
             try
             {
                 await ReadSnapshotAsync();
@@ -246,7 +246,7 @@ namespace Ray.Core
         protected virtual async Task ReadSnapshotAsync()
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace("Start read snapshot  with Id = {0} ,state version = {1}", GrainId.ToString(), Snapshot.Base.Version);
+                Logger.LogTrace("Start read snapshot  with Id = {0}", GrainId.ToString());
             try
             {
                 //从快照中恢复状态
@@ -442,7 +442,7 @@ namespace Ray.Core
                         await saveSnapshotTask;
                     await PublishToEventBust(bytesTransport);
                     if (Logger.IsEnabled(LogLevel.Trace))
-                        Logger.LogTrace("Raise event successfully, grain Id= {0} and state version = {1}}", GrainId.ToString(), Snapshot.Base.Version);
+                        Logger.LogTrace("Raise event successfully, grain Id= {0} and state version = {1}", GrainId.ToString(), Snapshot.Base.Version);
                     return true;
                 }
                 else
