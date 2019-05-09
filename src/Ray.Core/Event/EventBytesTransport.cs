@@ -43,6 +43,10 @@ namespace Ray.Core.Event
             {
                 actorIdBytes = Encoding.Default.GetBytes(strId);
             }
+            else if (GrainId is Guid guid)
+            {
+                actorIdBytes = Encoding.Default.GetBytes(guid.ToString());
+            }
             else
             {
                 throw new PrimaryKeyTypeException(EventType);
@@ -72,6 +76,13 @@ namespace Ray.Core.Event
                 {
                     var id = BitConverter.ToInt64(bytesSpan.Slice(3 * sizeof(ushort) + 1 + sizeof(int) + eventTypeLength, actorIdBytesLength));
                     if (id is PrimaryKey actorId)
+                        return (true, actorId);
+                }
+                else if (typeof(PrimaryKey) == typeof(Guid))
+                {
+                    var id = Encoding.Default.GetString(bytesSpan.Slice(3 * sizeof(ushort) + 1 + sizeof(int) + eventTypeLength, actorIdBytesLength));
+                    var guid = Guid.Parse(id);
+                    if (guid is PrimaryKey actorId)
                         return (true, actorId);
                 }
                 else

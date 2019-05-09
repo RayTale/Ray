@@ -19,7 +19,7 @@ using Ray.EventBus.RabbitMQ;
 using Ray.Storage.PostgreSQL;
 using Ray.Storage.SQLCore.Configuration;
 using RushShopping.Grains;
-using RushShopping.Grains.ProductGrains;
+using RushShopping.Grains.Grains;
 
 namespace RushShopping.Host
 {
@@ -64,7 +64,7 @@ namespace RushShopping.Host
                         options.ConnectionKey = "core_event";
                         options.TableName = "Transaction_TemporaryRecord";
                     });
-                    serviceCollection.AddTransient(typeof(ICrudHandle<>), typeof(CrudHandle<,>));
+                    serviceCollection.AddTransient(typeof(ICrudHandle<,>), typeof(CrudHandle<,>));
                     serviceCollection.AddSingleton(typeof(IEventHandler<,>), typeof(CrudHandle<,>));
                     serviceCollection.AddAutoMapper(RushShoppingMapper.CreateMapping);
                     serviceCollection.AddSingleton<IConfigureBuilder<Guid, CustomerGrain>>(new PSQLConfigureBuilder<Guid, CustomerGrain>((provider, id, parameter) =>

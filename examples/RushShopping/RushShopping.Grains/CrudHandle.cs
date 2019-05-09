@@ -7,7 +7,7 @@ using RushShopping.Grains.Events;
 namespace RushShopping.Grains
 {
     public class CrudHandle<TPrimaryKey, TSnapshot> : TxEventHandler<TPrimaryKey, TSnapshot>,
-        ICrudHandle<TSnapshot>
+        ICrudHandle<TPrimaryKey, TSnapshot>
         where TSnapshot : class, new()
     {
         protected readonly IMapper Mapper;

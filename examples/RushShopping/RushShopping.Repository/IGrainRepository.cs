@@ -8,5 +8,13 @@ namespace RushShopping.Repository
         TEntity FirstOrDefault(TPrimaryKey id);
 
         Task<TEntity> FirstOrDefaultAsync(TPrimaryKey id);
+
+        void Insert(TEntity entity);
+
+        Task InsertAsync(TEntity entity);
+
+        void Commit();
+
+        Task CommitAsync();
     }
 }

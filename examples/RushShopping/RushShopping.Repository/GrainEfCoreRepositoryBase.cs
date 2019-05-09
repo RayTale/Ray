@@ -45,6 +45,26 @@ namespace RushShopping.Repository
             return Table.FirstOrDefaultAsync(CreateEqualityExpressionForId(id));
         }
 
+        public void Insert(TEntity entity)
+        {
+            Table.Add(entity);
+        }
+
+        public Task InsertAsync(TEntity entity)
+        {
+           return Table.AddAsync(entity);
+        }
+
+        public void Commit()
+        {
+            Context.SaveChanges();
+        }
+
+        public Task CommitAsync()
+        {
+            return Context.SaveChangesAsync();
+        }
+
         protected virtual Expression<Func<TEntity, bool>> CreateEqualityExpressionForId(TPrimaryKey id)
         {
             var lambdaParam = Expression.Parameter(typeof(TEntity));

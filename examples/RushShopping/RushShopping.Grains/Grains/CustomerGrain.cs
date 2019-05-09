@@ -8,7 +8,7 @@ using RushShopping.IGrains;
 using RushShopping.Repository.Entities;
 using RushShopping.Share.Dto;
 
-namespace RushShopping.Grains.ProductGrains
+namespace RushShopping.Grains.Grains
 {
     [Producer(lBCount: 4), Observable]
     public class CustomerGrain : RushShoppingGrain<Guid, CustomerState, Customer, CustomerDto>,
