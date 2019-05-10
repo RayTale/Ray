@@ -27,6 +27,17 @@ namespace RushShopping.Grains
             Mapper.Map(evt.Snapshot, snapshotState);
         }
 
+        public void UpdatingSnapshotHandle(TSnapshot snapshotState, UpdatingSnapshotEvent<TSnapshot> evt)
+        {
+            Mapper.Map(evt.Snapshot, snapshotState);
+        }
+
+        public void DeletingSnapshotHandle(TSnapshot snapshotState, DeletingSnapshotEvent<TPrimaryKey> evt)
+        {
+            var defaultSnapshot = new TSnapshot();
+            Mapper.Map(defaultSnapshot, snapshotState);
+        }
+
         #region Implementation of ICrudHandle<in TSnapshot>
 
         public virtual void Apply(TSnapshot snapshot, IEvent @event)
@@ -35,6 +46,12 @@ namespace RushShopping.Grains
             {
                 case CreatingSnapshotEvent<TSnapshot> evt:
                     CreatingSnapshotHandle(snapshot, evt);
+                    break;
+                case UpdatingSnapshotEvent<TSnapshot> evt:
+                    UpdatingSnapshotHandle(snapshot, evt);
+                    break;
+                case DeletingSnapshotEvent<TPrimaryKey> evt:
+                    DeletingSnapshotHandle(snapshot, evt);
                     break;
             }
         }

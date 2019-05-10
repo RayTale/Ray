@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
@@ -55,6 +56,36 @@ namespace RushShopping.Repository
            return Table.AddAsync(entity);
         }
 
+        public TEntity Update(TEntity entity)
+        {
+            AttachIfNot(entity);
+            Context.Entry(entity).State = EntityState.Modified;
+            return entity;
+        }
+
+        public void Delete(TPrimaryKey id)
+        {
+            var entity = GetFromChangeTrackerOrNull(id);
+            if (entity != null)
+            {
+                Delete(entity);
+                return;
+            }
+
+            entity = FirstOrDefault(id);
+            if (entity != null)
+            {
+                Delete(entity);
+                return;
+            }
+        }
+
+        public void Delete(TEntity entity)
+        {
+            AttachIfNot(entity);
+            Table.Remove(entity);
+        }
+
         public void Commit()
         {
             Context.SaveChanges();
@@ -63,6 +94,29 @@ namespace RushShopping.Repository
         public Task CommitAsync()
         {
             return Context.SaveChangesAsync();
+        }
+
+        protected virtual void AttachIfNot(TEntity entity)
+        {
+            var entry = Context.ChangeTracker.Entries().FirstOrDefault(ent => ent.Entity == entity);
+            if (entry != null)
+            {
+                return;
+            }
+
+            Table.Attach(entity);
+        }
+
+        private TEntity GetFromChangeTrackerOrNull(TPrimaryKey id)
+        {
+            var entry = Context.ChangeTracker.Entries()
+                .FirstOrDefault(
+                    ent =>
+                        ent.Entity is TEntity entity &&
+                        EqualityComparer<TPrimaryKey>.Default.Equals(id, entity.Id)
+                );
+
+            return entry?.Entity as TEntity;
         }
 
         protected virtual Expression<Func<TEntity, bool>> CreateEqualityExpressionForId(TPrimaryKey id)

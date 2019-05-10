@@ -13,6 +13,10 @@ namespace RushShopping.Repository
 
         Task InsertAsync(TEntity entity);
 
+        TEntity Update(TEntity entity);
+
+        void Delete(TPrimaryKey entity);
+
         void Commit();
 
         Task CommitAsync();

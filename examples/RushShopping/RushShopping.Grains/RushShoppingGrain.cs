@@ -46,9 +46,9 @@ namespace RushShopping.Grains
 
         #region Implementation of ICrudGrain<TSnapshotDto>
 
-        public Task Create(TSnapshotDto snapshotDto)
+        public Task Create(TSnapshotDto snapshot)
         {
-            var snapshotState = Mapper.Map<TSnapshotType>(snapshotDto);
+            var snapshotState = Mapper.Map<TSnapshotType>(snapshot);
             var evt = new CreatingSnapshotEvent<TSnapshotType>(snapshotState);
             return RaiseEvent(evt);
         }
@@ -60,12 +60,15 @@ namespace RushShopping.Grains
 
         public Task Update(TSnapshotDto snapshot)
         {
-            throw new NotImplementedException();
+            var snapshotState = Mapper.Map<TSnapshotType>(snapshot);
+            var evt = new UpdatingSnapshotEvent<TSnapshotType>(snapshotState);
+            return RaiseEvent(evt);
         }
 
         public Task Delete()
         {
-            throw new NotImplementedException();
+            var evt = new DeletingSnapshotEvent<TPrimaryKey>(GrainId);
+            return RaiseEvent(evt);
         }
 
         #endregion

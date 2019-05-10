@@ -37,6 +37,12 @@ namespace RushShopping.Grains
                 case CreatingSnapshotEvent<TSnapshot> evt:
                    await CreatingSnapshotHandle(evt);
                     break;
+                case UpdatingSnapshotEvent<TSnapshot> evt:
+                    await UpdatingSnapshotHandle(evt);
+                    break;
+                case DeletingSnapshotEvent<TPrimaryKey> evt:
+                    await DeletingSnapshotHandle(evt);
+                    break;
             }
             await Process(@event);
         }
@@ -47,6 +53,25 @@ namespace RushShopping.Grains
             {
                 var entity = Mapper.Map<TEntityType>(evt.Snapshot);
                 await repository.InsertAsync(entity);
+                await repository.CommitAsync();
+            }
+        }
+
+        private async Task UpdatingSnapshotHandle(UpdatingSnapshotEvent<TSnapshot> evt)
+        {
+            using (var repository = ServiceProvider.GetService<IGrainRepository<TEntityType, TPrimaryKey>>())
+            {
+                var entity = Mapper.Map<TEntityType>(evt.Snapshot);
+                repository.Update(entity);
+                await repository.CommitAsync();
+            }
+        }
+
+        private async Task DeletingSnapshotHandle(DeletingSnapshotEvent<TPrimaryKey> evt)
+        {
+            using (var repository = ServiceProvider.GetService<IGrainRepository<TEntityType, TPrimaryKey>>())
+            {
+                repository.Delete(evt.PrimaryKey);
                 await repository.CommitAsync();
             }
         }
