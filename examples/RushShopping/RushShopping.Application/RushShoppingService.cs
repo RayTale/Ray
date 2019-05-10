@@ -20,15 +20,28 @@ namespace RushShopping.Application
 
         public async Task<Guid> CreateCustomer(CustomerDto dto)
         {
-            var grainId = Guid.NewGuid();
-            var customerGrain = ClusterClient.GetGrain<ICustomerGrain<CustomerDto>>(grainId);
+            if (dto.Id == default(Guid))
+            {
+                dto.Id = Guid.NewGuid();
+            }
+            var customerGrain = ClusterClient.GetGrain<ICustomerGrain<CustomerDto>>(dto.Id);
             await customerGrain.Create(dto);
-            return grainId;
+            return dto.Id;
         }
 
         public Task<CustomerDto> GetCustomer(Guid id)
         {
-            throw new NotImplementedException();
+            return ClusterClient.GetGrain<ICustomerGrain<CustomerDto>>(id).Get();
+        }
+
+        public Task UpdateCustomer(CustomerDto dto)
+        {
+            return ClusterClient.GetGrain<ICustomerGrain<CustomerDto>>(dto.Id).Update(dto);
+        }
+
+        public Task DeleteCustomer(Guid id)
+        {
+            return ClusterClient.GetGrain<ICustomerGrain<CustomerDto>>(id).Delete();
         }
 
         public Task<List<CustomerDto>> GetCustomers()

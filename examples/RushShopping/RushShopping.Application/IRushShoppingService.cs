@@ -9,6 +9,8 @@ namespace RushShopping.Application
     {
         Task<Guid> CreateCustomer(CustomerDto dto);
         Task<CustomerDto> GetCustomer(Guid id);
+        Task UpdateCustomer(CustomerDto dto);
+        Task DeleteCustomer(Guid id);
         Task<List<CustomerDto>> GetCustomers();
 
         Task<Guid> CreateProduct(ProductDto dto);
