@@ -1,9 +1,9 @@
-﻿using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Ray.DistributedTransaction;
 using Ray.IGrains.Actors;
 using Ray.IGrains.TransactionUnits;
 using Ray.IGrains.TransactionUnits.Inputs;
+using System.Threading.Tasks;
 
 namespace Ray.Grain.TransactionUnits
 {
@@ -21,15 +21,28 @@ namespace Ray.Grain.TransactionUnits
             };
         }
 
-        public override async Task<(bool needCommit, bool needRollback, bool output)> Work(Commit<TransferInput> commit)
+        public override async Task<bool> Work(Commit<TransferInput> commit)
         {
-            var result = await GrainFactory.GetGrain<IAccount>(commit.Data.FromId).TransferDeduct(commit.Data.Amount, commit.TransactionId);
-            if (result)
+            try
             {
-                await GrainFactory.GetGrain<IAccount>(commit.Data.ToId).TransferAddAmount(commit.Data.Amount, commit.TransactionId);
-                return (true, false, true);
+                var result = await GrainFactory.GetGrain<IAccount>(commit.Data.FromId).TransferDeduct(commit.Data.Amount, commit.TransactionId);
+                if (result)
+                {
+                    await GrainFactory.GetGrain<IAccount>(commit.Data.ToId).TransferAddAmount(commit.Data.Amount, commit.TransactionId);
+                    await Commit(commit);
+                    return true;
+                }
+                else
+                {
+                    await Rollback(commit);
+                    return false;
+                }
             }
-            return (false, false, false);
+            catch
+            {
+                await Rollback(commit);
+                throw;
+            }
         }
     }
 }
