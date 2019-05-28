@@ -447,12 +447,12 @@ namespace Ray.Core
                 }
                 else
                 {
+                    Snapshot.Base.DecrementDoingVersion();//还原doing Version
                     if (Logger.IsEnabled(LogLevel.Information))
                         Logger.LogInformation("Raise event failure because of idempotency limitation, grain Id = {0},state version = {1},event type = {2} with version = {3}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, fullyEvent.Base.Version);
                     var task = OnRaiseFailed(fullyEvent);
                     if (!task.IsCompletedSuccessfully)
                         await task;
-                    Snapshot.Base.DecrementDoingVersion();//还原doing Version
                 }
             }
             catch (Exception ex)

@@ -1,12 +1,12 @@
-﻿using System;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Orleans;
+using System;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Orleans;
 
 namespace Ray.DistributedTransaction
 {
@@ -79,6 +79,10 @@ namespace Ray.DistributedTransaction
                 return task.Result;
             }
         }
+        protected Task Commit(Commit<Input> commit)
+        {
+            return Commit(commit, GetTransactionActors(commit.Data));
+        }
         private async Task Commit(Commit<Input> commit, IDistributedTx[] actors)
         {
             if (!inputDict.ContainsKey(commit.TransactionId))
@@ -107,6 +111,8 @@ namespace Ray.DistributedTransaction
         }
         private async Task Rollback(Commit<Input> commit, IDistributedTx[] actors)
         {
+            if (actors == default || actors.Length == 0)
+                throw new NotImplementedException(nameof(GetTransactionActors));
             if (commit.Status < TransactionStatus.WaitingFinish)
             {
                 await Task.WhenAll(actors.Select(a => a.RollbackTransaction(commit.TransactionId)));
@@ -121,6 +127,8 @@ namespace Ray.DistributedTransaction
         }
         private async Task AutoCommit(Commit<Input> commit, IDistributedTx[] actors)
         {
+            if (actors == default || actors.Length == 0)
+                throw new NotImplementedException(nameof(GetTransactionActors));
             if (commit.Status == TransactionStatus.Persistence ||
                 commit.Status == TransactionStatus.WaitingCommit)
             {
@@ -147,35 +155,9 @@ namespace Ray.DistributedTransaction
                 Status = TransactionStatus.None,
                 Data = input
             };
-            var actors = GetTransactionActors(commit.Data);
-            if (actors != null && actors.Length > 0)
-            {
-                (bool needCommit, bool needRollbask, Output output) result;
-                try
-                {
-                    result = await Work(commit);
-                }
-                catch
-                {
-                    await Rollback(commit, GetTransactionActors(commit.Data));
-                    throw;
-                }
-                if (result.needCommit)
-                {
-                    await Commit(commit, actors);
-                }
-                else if (result.needRollbask)
-                {
-                    await Rollback(commit, GetTransactionActors(commit.Data));
-                }
-                return result.output;
-            }
-            else
-            {
-                throw new NotImplementedException(nameof(GetTransactionActors));
-            }
+            return await Work(commit);
         }
         public abstract IDistributedTx[] GetTransactionActors(Input input);
-        public abstract Task<(bool needCommit, bool needRollback, Output output)> Work(Commit<Input> commit);
+        public abstract Task<Output> Work(Commit<Input> commit);
     }
 }
