@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Ray.Core.Event;
 using Ray.Core.Exceptions;
+using Ray.Core.Serialization;
 using Ray.Core.Snapshot;
 
 namespace Ray.Core
@@ -79,7 +80,7 @@ namespace Ray.Core
                         WaitingForTransactionTransports.Add(new EventTransport<PrimaryKey>(evt, string.Empty, evt.StateId.ToString())
                         {
                             BytesTransport = new EventBytesTransport(
-                                evt.Event.GetType().FullName,
+                                TypeContainer.GetTypeCode(evt.Event.GetType()),
                                 GrainId,
                                 evt.Base.GetBytes(),
                                 Serializer.SerializeToBytes(evt.Event)
@@ -169,7 +170,7 @@ namespace Ray.Core
                         if (!startTask.IsCompletedSuccessfully)
                             await startTask;
                         transport.BytesTransport = new EventBytesTransport(
-                            transport.FullyEvent.Event.GetType().FullName,
+                            TypeContainer.GetTypeCode(transport.FullyEvent.Event.GetType()),
                             GrainId,
                             transport.FullyEvent.Base.GetBytes(),
                             Serializer.SerializeToBytes(transport.FullyEvent.Event)

@@ -42,7 +42,7 @@ namespace Ray.Storage.PostgreSQL
                         Index int4 not null,
                         StartTime int8 not null,
                         EndTime int8 not null
-                    )WITH (OIDS=FALSE);
+                    );
                     CREATE UNIQUE INDEX IF NOT EXISTS subtable_record ON SubTable_Records USING btree(TableName, Index)";
             using (var connection = storageOptions.CreateConnection())
             {
@@ -61,7 +61,7 @@ namespace Ray.Storage.PostgreSQL
                             Version int8 not null,
                             Timestamp int8 not null,
                             constraint {subTable.SubTable}_id_unique unique(StateId,TypeCode,UniqueId)
-                            ) WITH (OIDS=FALSE);
+                            );
                             CREATE UNIQUE INDEX IF NOT EXISTS {subTable.SubTable}_Version ON {subTable.SubTable} USING btree(StateId, Version);";
             const string insertSql = "INSERT into SubTable_Records  VALUES(@TableName,@SubTable,@Index,@StartTime,@EndTime)";
             using (var connection = storageOptions.CreateConnection())
@@ -95,7 +95,7 @@ namespace Ray.Storage.PostgreSQL
                             Version int8 not null,
                             Timestamp int8 not null,
                             constraint {storageOptions.EventArchiveTable}_id_unique unique(StateId,TypeCode,UniqueId)
-                            ) WITH (OIDS=FALSE);
+                            );
                             CREATE UNIQUE INDEX IF NOT EXISTS {storageOptions.EventArchiveTable}_Version ON {storageOptions.EventArchiveTable} USING btree(StateId, Version);";
             using (var connection = storageOptions.CreateConnection())
             {
@@ -110,7 +110,7 @@ namespace Ray.Storage.PostgreSQL
                      CREATE TABLE if not exists {observerSnapshotTable}(
                      {stateIdSql},
                      StartTimestamp int8 not null,
-                     Version int8 not null)WITH (OIDS=FALSE);";
+                     Version int8 not null);";
             using (var connection = storageOptions.CreateConnection())
             {
                 await connection.ExecuteAsync(sql);
@@ -132,7 +132,7 @@ namespace Ray.Storage.PostgreSQL
                      EventIsCleared bool not null,
                      Data json not null,
                      IsOver bool not null,
-                     Version int8 not null)WITH (OIDS=FALSE);
+                     Version int8 not null);
                      CREATE INDEX IF NOT EXISTS {storageOptions.SnapshotArchiveTable}_StateId ON {storageOptions.SnapshotArchiveTable} USING btree(StateId)";
             using (var connection = storageOptions.CreateConnection())
             {
@@ -151,7 +151,7 @@ namespace Ray.Storage.PostgreSQL
                      StartTimestamp int8 not null,
                      LatestMinEventTimestamp int8 not null,
                      IsLatest bool not null,
-                     IsOver bool not null)WITH (OIDS=FALSE);";
+                     IsOver bool not null);";
             using (var connection = storageOptions.CreateConnection())
             {
                 await connection.ExecuteAsync(sql);

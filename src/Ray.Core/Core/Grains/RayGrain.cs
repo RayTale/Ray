@@ -425,7 +425,7 @@ namespace Ray.Core
                     await startTask;
                 Snapshot.Base.IncrementDoingVersion(GrainType);//标记将要处理的Version
                 var bytesTransport = new EventBytesTransport(
-                    @event.GetType().FullName,
+                   TypeContainer.GetTypeCode(@event.GetType()),
                     Snapshot.Base.StateId,
                     fullyEvent.Base.GetBytes(),
                     Serializer.SerializeToBytes(@event)
@@ -686,7 +686,7 @@ namespace Ray.Core
                 hashKey = GrainId.ToString();
             try
             {
-                var wrapper = new CommonTransport(msg.GetType().FullName, Serializer.SerializeToBytes(msg));
+                var wrapper = new CommonTransport(TypeContainer.GetTypeCode(msg.GetType()), Serializer.SerializeToBytes(msg));
                 var pubLishTask = EventBusProducer.Publish(wrapper.GetBytes(), hashKey);
                 if (!pubLishTask.IsCompletedSuccessfully)
                     await pubLishTask;

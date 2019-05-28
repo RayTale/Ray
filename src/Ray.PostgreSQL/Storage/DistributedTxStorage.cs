@@ -44,7 +44,7 @@ namespace Ray.Storage.PostgreSQL
                      UnitName varchar(500) not null,
                      TransactionId int8 not null,
                      Data json not null,
-                     Status int2 not null)WITH (OIDS=FALSE);
+                     Status int2 not null);
                      CREATE UNIQUE INDEX IF NOT EXISTS UnitName_TransId ON {options.Value.TableName} USING btree(UnitName, TransactionId)";
             using (var connection = CreateConnection())
             {

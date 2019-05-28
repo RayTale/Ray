@@ -38,7 +38,7 @@ namespace Ray.Core
             var (success, transport) = EventBytesTransport.FromBytesWithNoId(bytes.Value);
             if (success)
             {
-                var data = Serializer.Deserialize(TypeContainer.GetType(transport.EventType), transport.EventBytes);
+                var data = Serializer.Deserialize(TypeContainer.GetType(transport.EventTypeCode), transport.EventBytes);
                 if (data is IEvent @event)
                 {
                     var eventBase = EventBase.FromBytes(transport.BaseBytes);
@@ -65,7 +65,7 @@ namespace Ray.Core
                 else
                 {
                     if (Logger.IsEnabled(LogLevel.Information))
-                        Logger.LogInformation("Receive non-event messages, grain Id = {0} ,message type = {1}", GrainId.ToString(), transport.EventType);
+                        Logger.LogInformation("Receive non-event messages, grain Id = {0} ,message type = {1}", GrainId.ToString(), transport.EventTypeCode);
                 }
             }
         }

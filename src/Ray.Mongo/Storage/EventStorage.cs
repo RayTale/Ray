@@ -137,7 +137,7 @@ namespace Ray.Storage.Mongo
                     {"StateId",BsonValue.Create( wrapper.Value.Event.StateId) },
                     {"Version",wrapper.Value.Event.Base.Version },
                     {"Timestamp",wrapper.Value.Event.Base.Timestamp },
-                    {"TypeCode",wrapper.Value.Event.Event.GetType().FullName },
+                    {"TypeCode",TypeContainer.GetTypeCode( wrapper.Value.Event.Event.GetType()) },
                     {"Data",Encoding.Default.GetString(wrapper.Value.BytesTransport.EventBytes)},
                     {"UniqueId",string.IsNullOrEmpty(wrapper.Value.UniqueId) ? wrapper.Value.Event.Base.Version.ToString() : wrapper.Value.UniqueId }
                 }));
@@ -194,7 +194,7 @@ namespace Ray.Storage.Mongo
                             {"StateId", BsonValue.Create( data.FullyEvent.StateId) },
                             {"Version", data.FullyEvent.Base.Version },
                             {"Timestamp", data.FullyEvent.Base.Timestamp},
-                            {"TypeCode", data.FullyEvent.Event.GetType().FullName },
+                            {"TypeCode",TypeContainer.GetTypeCode( data.FullyEvent.Event.GetType()) },
                             {"Data", Encoding.Default.GetString(data.BytesTransport.EventBytes)},
                             {"UniqueId",string.IsNullOrEmpty(data.UniqueId) ? data.FullyEvent.Base.Version.ToString() : data.UniqueId }
                         }));
@@ -226,7 +226,7 @@ namespace Ray.Storage.Mongo
                                 {"StateId", BsonValue.Create( data.t.FullyEvent.StateId) },
                                 {"Version", data.t.FullyEvent.Base.Version },
                                 {"Timestamp", data.t.FullyEvent.Base.Timestamp},
-                                {"TypeCode", data.t.FullyEvent.Event.GetType().FullName },
+                                {"TypeCode",TypeContainer.GetTypeCode( data.t.FullyEvent.Event.GetType()) },
                                 {"Data", Encoding.Default.GetString(data.t.BytesTransport.EventBytes)},
                                 {"UniqueId",string.IsNullOrEmpty(data.t.UniqueId) ? data.t.FullyEvent.Base.Version.ToString() : data.t.UniqueId }
                             }));
