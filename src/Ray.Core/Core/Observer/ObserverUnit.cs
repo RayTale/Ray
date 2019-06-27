@@ -1,14 +1,13 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Orleans;
 using Orleans.Concurrency;
 using Ray.Core.Event;
 using Ray.Core.Serialization;
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Threading.Tasks;
 
 namespace Ray.Core
 {
@@ -116,18 +115,12 @@ namespace Ray.Core
         private IObserver GetObserver(Type ObserverType, PrimaryKey primaryKey)
         {
             var clusterClient = serviceProvider.GetService<IClusterClient>();
-            var getGrainFunc = _FuncDict.GetOrAdd(ObserverType, key =>
+            var func = _FuncDict.GetOrAdd(ObserverType, key =>
             {
-                var clientType = clusterClient.GetType();
-                var primaryKeyParams = Expression.Parameter(typeof(PrimaryKey), "primaryKey");
-                var grainClassNamePrefixParams = Expression.Parameter(typeof(string), "grainClassNamePrefix");
-                var instanceParams = Expression.Parameter(clientType);
-                var method = clientType.GetMethod("GetGrain", new Type[] { typeof(PrimaryKey), typeof(string) });
-                var body = Expression.Call(instanceParams, method.MakeGenericMethod(ObserverType), primaryKeyParams, grainClassNamePrefixParams);
-                var func = Expression.Lambda(body, instanceParams, primaryKeyParams, grainClassNamePrefixParams).Compile();
-                return (client, id) => func.DynamicInvoke(client, id, null) as IObserver;
+                var method = clusterClient.GetType().GetMethod("GetGrain", new Type[] { typeof(PrimaryKey), typeof(string) });
+                return (client, id) => method.MakeGenericMethod(ObserverType).Invoke(client, new object[] { id, null }) as IObserver;
             });
-            return getGrainFunc(clusterClient, primaryKey);
+            return func(clusterClient, primaryKey);
         }
     }
 }
