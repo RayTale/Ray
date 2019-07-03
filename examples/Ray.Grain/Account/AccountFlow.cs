@@ -19,18 +19,15 @@ namespace Ray.Grain
             this.grainFactory = grainFactory;
         }
         public override long GrainId => this.GetPrimaryKeyLong();
-        protected override bool EventConcurrentProcessing => true;
-        protected override async ValueTask OnEventDelivered(IFullyEvent<long> fully)
-        {
-            switch (fully.Event)
-            {
-                case AmountTransferEvent value: await AmountAddEventHandler(value, new EventUID(fully.GetEventId(), fully.Base.Timestamp)); break;
-            }
-        }
-        public Task AmountAddEventHandler(AmountTransferEvent value, EventUID uid)
+        protected override bool ConcurrentHandle => true;
+        public Task EventHandler(AmountTransferEvent value, EventBase eventBase)
         {
             var toActor = grainFactory.GetGrain<IAccount>(value.ToAccountId);
-            return toActor.AddAmount(value.Amount, uid);
+            return toActor.AddAmount(value.Amount, new EventUID(eventBase.GetEventId(GrainId.ToString()), eventBase.Timestamp));
+        }
+        public Task EventHandler(AmountAddEvent evt)
+        {
+            return Task.CompletedTask;
         }
     }
 }
