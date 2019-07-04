@@ -8,9 +8,6 @@ namespace Ray.Grain
 {
     public abstract class DbGrain<Main, K> : ConcurrentObserverGrain<Main, K>
     {
-        public DbGrain(ILogger logger) : base(logger)
-        {
-        }
         protected override async ValueTask EventDelivered(IFullyEvent<K> @event)
         {
             var task = base.EventDelivered(@event);

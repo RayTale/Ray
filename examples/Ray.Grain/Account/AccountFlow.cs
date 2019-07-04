@@ -12,9 +12,7 @@ namespace Ray.Grain
     public sealed class AccountFlow : ConcurrentObserverGrain<Account, long>, IAccountFlow
     {
         readonly IGrainFactory grainFactory;
-        public AccountFlow(
-            ILogger<AccountFlow> logger,
-            IGrainFactory grainFactory) : base(logger)
+        public AccountFlow(IGrainFactory grainFactory)
         {
             this.grainFactory = grainFactory;
         }

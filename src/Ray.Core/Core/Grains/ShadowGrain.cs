@@ -17,9 +17,8 @@ namespace Ray.Core
     public abstract class ShadowGrain<Main, PrimaryKey, StateType> : Grain, IObserver
         where StateType : class, new()
     {
-        public ShadowGrain(ILogger logger)
+        public ShadowGrain()
         {
-            Logger = logger;
             GrainType = GetType();
         }
         protected CoreOptions CoreOptions { get; private set; }
@@ -85,6 +84,7 @@ namespace Ray.Core
         /// </summary>
         protected async virtual ValueTask DependencyInjection()
         {
+            Logger = (ILogger)ServiceProvider.GetService(typeof(ILogger<>).MakeGenericType(GrainType));
             CoreOptions = ServiceProvider.GetOptionsByName<CoreOptions>(typeof(Main).FullName);
             ArchiveOptions = ServiceProvider.GetOptionsByName<ArchiveOptions>(typeof(Main).FullName);
             Serializer = ServiceProvider.GetService<ISerializer>();
@@ -112,9 +112,9 @@ namespace Ray.Core
         }
         public override async Task OnActivateAsync()
         {
+            var dITask = DependencyInjection();
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace("Start activation followgrain with id = {0}", GrainId.ToString());
-            var dITask = DependencyInjection();
             if (!dITask.IsCompletedSuccessfully)
                 await dITask;
             try

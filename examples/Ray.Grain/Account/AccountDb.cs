@@ -11,9 +11,6 @@ namespace Ray.Grain
     [Observer(DefaultObserverGroup.secondary, "db", typeof(Account))]
     public sealed class AccountDb : DbGrain<Account, long>, IAccountDb
     {
-        public AccountDb(ILogger<AccountDb> logger) : base(logger)
-        {
-        }
         protected override bool ConcurrentHandle => true;
         public Task EventHandler(AmountTransferEvent evt, EventBase eventBase)
         {

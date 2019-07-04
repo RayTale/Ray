@@ -11,9 +11,6 @@ namespace Ray.DistributedTransaction
     public abstract class DistributedTxGrain<PrimaryKey, StateType> : ConcurrentTxGrain<PrimaryKey, StateType>
         where StateType : class, ICloneable<StateType>, new()
     {
-        public DistributedTxGrain() : base()
-        {
-        }
         protected DistributedTxOptions TransactionOptions { get; private set; }
         protected override ValueTask DependencyInjection()
         {

@@ -13,9 +13,6 @@ namespace Ray.Grain
     [Reentrant, Observable, Producer]
     public sealed class Account : DistributedTxGrain<long, AccountState>, IAccount
     {
-        public Account() : base()
-        {
-        }
         public Task Transfer(long toAccountId, decimal amount)
         {
             var evt = new AmountTransferEvent(toAccountId, amount, Snapshot.State.Balance - amount);

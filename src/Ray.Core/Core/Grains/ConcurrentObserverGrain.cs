@@ -15,9 +15,6 @@ namespace Ray.Core
     public abstract class ConcurrentObserverGrain<Main, PrimaryKey> : ObserverGrain<Main, PrimaryKey>, IConcurrentObserver
     {
         readonly List<IFullyEvent<PrimaryKey>> UnprocessedEventList = new List<IFullyEvent<PrimaryKey>>();
-        public ConcurrentObserverGrain(ILogger logger) : base(logger)
-        {
-        }
         /// <summary>
         /// 多生产者单消费者消息信道
         /// </summary>

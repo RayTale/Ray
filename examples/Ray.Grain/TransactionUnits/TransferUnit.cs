@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
-using Ray.DistributedTransaction;
+﻿using Ray.DistributedTransaction;
 using Ray.IGrains.Actors;
 using Ray.IGrains.TransactionUnits;
 using Ray.IGrains.TransactionUnits.Inputs;
@@ -9,9 +8,6 @@ namespace Ray.Grain.TransactionUnits
 {
     public class TransferUnit : DistributedTxUnit<TransferInput, bool>, ITransferUnit
     {
-        public TransferUnit(ILogger<TransferUnit> logger) : base(logger)
-        {
-        }
         public override IDistributedTx[] GetTransactionActors(TransferInput input)
         {
             return new IDistributedTx[]

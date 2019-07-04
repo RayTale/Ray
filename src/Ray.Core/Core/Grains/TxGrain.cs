@@ -14,9 +14,6 @@ namespace Ray.Core
     public abstract class TxGrain<PrimaryKey, StateType> : RayGrain<PrimaryKey, StateType>
         where StateType : class, ICloneable<StateType>, new()
     {
-        public TxGrain() : base()
-        {
-        }
         /// <summary>
         /// 事务过程中用于回滚的备份快照
         /// </summary>

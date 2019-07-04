@@ -22,9 +22,8 @@ namespace Ray.Core
         readonly Dictionary<Type, Func<object, IEvent, Task>> _handlerDict_0 = new Dictionary<Type, Func<object, IEvent, Task>>();
         readonly Dictionary<Type, Func<object, IEvent, EventBase, Task>> _handlerDict_1 = new Dictionary<Type, Func<object, IEvent, EventBase, Task>>();
         readonly HandlerAttribute handlerAttribute;
-        public ObserverGrain(ILogger logger)
+        public ObserverGrain()
         {
-            Logger = logger;
             GrainType = GetType();
             var handlerAttributes = GrainType.GetCustomAttributes(typeof(HandlerAttribute), false);
             if (handlerAttributes.Length > 0)
@@ -137,6 +136,7 @@ namespace Ray.Core
         {
             ConfigOptions = ServiceProvider.GetOptionsByName<CoreOptions>(typeof(MainGrain).FullName);
             Serializer = ServiceProvider.GetService<ISerializer>();
+            Logger = (ILogger)ServiceProvider.GetService(typeof(ILogger<>).MakeGenericType(GrainType));
             var configureBuilder = ServiceProvider.GetService<IConfigureBuilder<PrimaryKey, MainGrain>>();
             var storageConfigTask = configureBuilder.GetConfig(ServiceProvider, GrainId);
             if (!storageConfigTask.IsCompletedSuccessfully)
@@ -158,9 +158,9 @@ namespace Ray.Core
         }
         public override async Task OnActivateAsync()
         {
+            var dITask = DependencyInjection();
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace("Start activation followgrain with id = {0}", GrainId.ToString());
-            var dITask = DependencyInjection();
             if (!dITask.IsCompletedSuccessfully)
                 await dITask;
             try
