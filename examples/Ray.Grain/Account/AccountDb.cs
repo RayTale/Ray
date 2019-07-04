@@ -14,8 +14,6 @@ namespace Ray.Grain
         public AccountDb(ILogger<AccountDb> logger) : base(logger)
         {
         }
-        public override long GrainId => this.GetPrimaryKeyLong();
-
         protected override bool ConcurrentHandle => true;
         public Task EventHandler(AmountTransferEvent evt, EventBase eventBase)
         {

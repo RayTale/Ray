@@ -18,7 +18,6 @@ namespace Ray.Grain
         {
             this.grainFactory = grainFactory;
         }
-        public override long GrainId => this.GetPrimaryKeyLong();
         protected override bool ConcurrentHandle => true;
         public Task EventHandler(AmountTransferEvent value, EventBase eventBase)
         {

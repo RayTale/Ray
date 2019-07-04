@@ -1,10 +1,9 @@
-﻿using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
-using Orleans;
+﻿using Microsoft.Extensions.Logging;
 using Ray.Core;
 using Ray.Core.Core.Grains;
 using Ray.IGrains.Actors;
 using Ray.IGrains.States;
+using System.Threading.Tasks;
 
 namespace Ray.Grain
 {
@@ -14,8 +13,6 @@ namespace Ray.Grain
         public AccountRep(ILogger<AccountRep> logger) : base(logger)
         {
         }
-        public override long GrainId => this.GetPrimaryKeyLong();
-
         public Task<decimal> GetBalance()
         {
             return Task.FromResult(Snapshot.State.Balance);

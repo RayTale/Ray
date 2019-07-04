@@ -72,7 +72,28 @@ namespace Ray.Core
                 }
             }
         }
-        public abstract PrimaryKey GrainId { get; }
+        private PrimaryKey _GrainId;
+        private bool _GrainIdAcquired = false;
+        public PrimaryKey GrainId
+        {
+            get
+            {
+                if (!_GrainIdAcquired)
+                {
+                    var type = typeof(PrimaryKey);
+                    if (type == typeof(long) && this.GetPrimaryKeyLong() is PrimaryKey longKey)
+                        _GrainId = longKey;
+                    else if (type == typeof(string) && this.GetPrimaryKeyString() is PrimaryKey stringKey)
+                        _GrainId = stringKey;
+                    else if (type == typeof(Guid) && this.GetPrimaryKey() is PrimaryKey guidKey)
+                        _GrainId = guidKey;
+                    else
+                        throw new ArgumentOutOfRangeException(typeof(PrimaryKey).FullName);
+                    _GrainIdAcquired = true;
+                }
+                return _GrainId;
+            }
+        }
         protected CoreOptions ConfigOptions { get; private set; }
         protected ILogger Logger { get; private set; }
         protected ISerializer Serializer { get; private set; }
