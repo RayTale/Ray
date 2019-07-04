@@ -23,9 +23,9 @@ namespace Ray.DistributedTransaction
         public override async Task OnActivateAsync()
         {
             await base.OnActivateAsync();
-            if (!(EventHandler is TxEventHandler<PrimaryKey, StateType>))
+            if (!(SnapshotHandler is TxSnapshotHandler<PrimaryKey, StateType>))
             {
-                throw new EventHandlerTypeException(EventHandler.GetType().FullName);
+                throw new SnapshotHandlerTypeException(SnapshotHandler.GetType().FullName);
             }
         }
         protected override ValueTask OnCommitTransaction(long transactionId)

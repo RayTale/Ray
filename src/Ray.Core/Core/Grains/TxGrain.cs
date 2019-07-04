@@ -332,7 +332,7 @@ namespace Ray.Core
                     Event = Serializer.Deserialize(fullyEvent.Event.GetType(), bytesTransport.EventBytes) as IEvent,
                     Base = EventBase.FromBytes(bytesTransport.BaseBytes)
                 };
-                EventHandler.Apply(BackupSnapshot, copiedEvent);
+                SnapshotHandler.Apply(BackupSnapshot, copiedEvent);
                 BackupSnapshot.Base.FullUpdateVersion(copiedEvent.Base, GrainType);//更新处理完成的Version
             }
             //父级涉及状态归档
@@ -370,7 +370,7 @@ namespace Ray.Core
                 else
                     fullyEvent.Base.Timestamp = uniqueId.Timestamp;
                 WaitingForTransactionTransports.Add(new EventTransport<PrimaryKey>(fullyEvent, uniqueId.UID, fullyEvent.StateId.ToString()));
-                EventHandler.Apply(Snapshot, fullyEvent);
+                SnapshotHandler.Apply(Snapshot, fullyEvent);
                 Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
             }
             catch (Exception ex)

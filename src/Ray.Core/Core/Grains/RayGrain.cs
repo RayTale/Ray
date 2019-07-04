@@ -31,7 +31,7 @@ namespace Ray.Core
         protected IProducerContainer ProducerContainer { get; private set; }
         protected ISerializer Serializer { get; private set; }
         protected Snapshot<PrimaryKey, StateType> Snapshot { get; set; }
-        protected IEventHandler<PrimaryKey, StateType> EventHandler { get; private set; }
+        protected ISnapshotHandler<PrimaryKey, StateType> SnapshotHandler { get; private set; }
         protected IObserverUnit<PrimaryKey> ObserverUnit { get; private set; }
         /// <summary>
         /// 归档存储器
@@ -93,7 +93,7 @@ namespace Ray.Core
             Logger = (ILogger)ServiceProvider.GetService(typeof(ILogger<>).MakeGenericType(GrainType));
             ProducerContainer = ServiceProvider.GetService<IProducerContainer>();
             Serializer = ServiceProvider.GetService<ISerializer>();
-            EventHandler = ServiceProvider.GetService<IEventHandler<PrimaryKey, StateType>>();
+            SnapshotHandler = ServiceProvider.GetService<ISnapshotHandler<PrimaryKey, StateType>>();
             ObserverUnit = ServiceProvider.GetService<IObserverUnitContainer>().GetUnit<PrimaryKey>(GrainType);
             var configureBuilder = (IConfigureBuilder<PrimaryKey>)ServiceProvider.GetService(typeof(IConfigureBuilder<,>).MakeGenericType(typeof(PrimaryKey), GrainType));
             var storageConfigTask = configureBuilder.GetConfig(ServiceProvider, GrainId);
@@ -214,7 +214,7 @@ namespace Ray.Core
                     foreach (var fullyEvent in eventList)
                     {
                         Snapshot.Base.IncrementDoingVersion(GrainType);//标记将要处理的Version
-                        EventHandler.Apply(Snapshot, fullyEvent);
+                        SnapshotHandler.Apply(Snapshot, fullyEvent);
                         Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
                     }
                     if (eventList.Count < CoreOptions.NumberOfEventsPerRead) break;
@@ -453,7 +453,7 @@ namespace Ray.Core
                 );
                 if (await EventStorage.Append(fullyEvent, in bytesTransport, uniqueId.UID))
                 {
-                    EventHandler.Apply(Snapshot, fullyEvent);
+                    SnapshotHandler.Apply(Snapshot, fullyEvent);
                     Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
                     var task = OnRaiseSuccessed(fullyEvent, bytesTransport);
                     if (!task.IsCompletedSuccessfully)

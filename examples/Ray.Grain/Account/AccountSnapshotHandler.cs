@@ -4,7 +4,7 @@ using Ray.IGrains.States;
 
 namespace Ray.Grain.EventHandles
 {
-    public class AccountEventHandle : TxEventHandler<long, AccountState>
+    public class AccountSnapshotHandler : TxSnapshotHandler<long, AccountState>
     {
         public static void EventHandle(AccountState state, AmountTransferEvent evt)
         {

@@ -1,18 +1,18 @@
-﻿using Ray.Core.Exceptions;
-using Ray.Core.Snapshot;
+﻿using Ray.Core.Event;
+using Ray.Core.Exceptions;
 using System;
 using System.Collections.Generic;
 using System.Reflection.Emit;
 
-namespace Ray.Core.Event
+namespace Ray.Core.Snapshot
 {
-    public class EventHandler<PrimaryKey, Snapshot> : IEventHandler<PrimaryKey, Snapshot>
+    public class SnapshotHandler<PrimaryKey, Snapshot> : ISnapshotHandler<PrimaryKey, Snapshot>
          where Snapshot : class, new()
     {
         readonly Dictionary<Type, Action<Snapshot, IEvent>> _handlerDict = new Dictionary<Type, Action<Snapshot, IEvent>>();
         readonly Dictionary<Type, Action<Snapshot, IEvent, EventBase>> _handlerDict_1 = new Dictionary<Type, Action<Snapshot, IEvent, EventBase>>();
         readonly HandlerAttribute handlerAttribute;
-        public EventHandler()
+        public SnapshotHandler()
         {
             var thisType = GetType();
             var handlerAttributes = thisType.GetCustomAttributes(typeof(HandlerAttribute), false);

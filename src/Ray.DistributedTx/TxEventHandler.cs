@@ -4,7 +4,7 @@ using Ray.Core.Snapshot;
 
 namespace Ray.DistributedTransaction
 {
-    public abstract class TxEventHandler<PrimaryKey, Snapshot> : EventHandler<PrimaryKey, Snapshot>
+    public abstract class TxSnapshotHandler<PrimaryKey, Snapshot> : SnapshotHandler<PrimaryKey, Snapshot>
           where Snapshot : class, new()
     {
         public override void Apply(Snapshot<PrimaryKey, Snapshot> snapshot, IFullyEvent<PrimaryKey> fullyEvent)

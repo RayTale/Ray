@@ -1,8 +1,8 @@
-﻿using Ray.Core.Snapshot;
+﻿using Ray.Core.Event;
 
-namespace Ray.Core.Event
+namespace Ray.Core.Snapshot
 {
-    public interface IEventHandler<PrimaryKey, Snapshot>
+    public interface ISnapshotHandler<PrimaryKey, Snapshot>
         where Snapshot : class, new()
     {
         void Apply(Snapshot<PrimaryKey, Snapshot> snapshot, IFullyEvent<PrimaryKey> fullyEvent);

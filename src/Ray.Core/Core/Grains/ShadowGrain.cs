@@ -77,7 +77,7 @@ namespace Ray.Core
         /// 归档存储器
         /// </summary>
         protected IArchiveStorage<PrimaryKey, StateType> ArchiveStorage { get; private set; }
-        protected IEventHandler<PrimaryKey, StateType> EventHandler { get; private set; }
+        protected ISnapshotHandler<PrimaryKey, StateType> SnapshotHandler { get; private set; }
         protected ArchiveBrief LastArchive { get; private set; }
         #region 初始化数据
         /// <summary>
@@ -88,7 +88,7 @@ namespace Ray.Core
             CoreOptions = ServiceProvider.GetOptionsByName<CoreOptions>(typeof(Main).FullName);
             ArchiveOptions = ServiceProvider.GetOptionsByName<ArchiveOptions>(typeof(Main).FullName);
             Serializer = ServiceProvider.GetService<ISerializer>();
-            EventHandler = ServiceProvider.GetService<IEventHandler<PrimaryKey, StateType>>();
+            SnapshotHandler = ServiceProvider.GetService<ISnapshotHandler<PrimaryKey, StateType>>();
             var configureBuilder = ServiceProvider.GetService<IConfigureBuilder<PrimaryKey, Main>>();
             var storageConfigTask = configureBuilder.GetConfig(ServiceProvider, GrainId);
             if (!storageConfigTask.IsCompletedSuccessfully)
@@ -281,7 +281,7 @@ namespace Ray.Core
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask OnEventDelivered(IFullyEvent<PrimaryKey> @event)
         {
-            EventHandler.Apply(Snapshot, @event);
+            SnapshotHandler.Apply(Snapshot, @event);
             return Consts.ValueTaskDone;
         }
     }
