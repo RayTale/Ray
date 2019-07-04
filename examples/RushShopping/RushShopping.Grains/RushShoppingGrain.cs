@@ -65,10 +65,11 @@ namespace RushShopping.Grains
             return RaiseEvent(evt);
         }
 
-        public virtual Task Delete()
+        public virtual async Task Delete()
         {
             var evt = new DeletingSnapshotEvent<TPrimaryKey>(GrainId);
-            return RaiseEvent(evt);
+            await RaiseEvent(evt);
+            await Over();
         }
 
         #endregion
