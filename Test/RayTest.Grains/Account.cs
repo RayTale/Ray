@@ -7,16 +7,8 @@ using System.Threading.Tasks;
 
 namespace RayTest.Grains
 {
-    public sealed class Account :
-        TxGrain<long, AccountState>, IAccount
+    public sealed class Account : TxGrain<long, AccountState>, IAccount
     {
-        public Account() : base()
-        {
-        }
-        public override async Task OnActivateAsync()
-        {
-            await base.OnActivateAsync();
-        }
         public Task Transfer(long toAccountId, decimal amount)
         {
             var evt = new AmountTransferEvent(toAccountId, amount, Snapshot.State.Balance - amount);
