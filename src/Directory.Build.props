@@ -1,11 +1,16 @@
 <Project>
   <PropertyGroup>
-    <Version>2.0-beta5</Version>
+    <Version>2.0-preview1</Version>
     <PackageProjectUrl>https://github.com/RayTale/Ray</PackageProjectUrl>
     <RepositoryUrl>https://github.com/RayTale/Ray.git</RepositoryUrl>
     <PackageLicenseUrl>https://github.com/RayTale/Ray/blob/master/LICENSE</PackageLicenseUrl>
     <PackageIconUrl>https://raw.githubusercontent.com/RayTale/Ray/master/logo.png</PackageIconUrl>
     <PackageTags>orleans,event-sourcing,actor,Ray</PackageTags>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0-beta2-19351-01" PrivateAssets="All"/>
+  </ItemGroup>
 </Project>
