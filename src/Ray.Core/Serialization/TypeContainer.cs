@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Linq;
 using Ray.Core.Event;
 using Ray.Core.Exceptions;
@@ -8,8 +8,8 @@ namespace Ray.Core.Serialization
 {
     public static class TypeContainer
     {
-        private static readonly Dictionary<string, Type> _CodeDict = new Dictionary<string, Type>();
-        private static readonly Dictionary<Type, string> _TypeDict = new Dictionary<Type, string>();
+        private static readonly ConcurrentDictionary<string, Type> _CodeDict = new ConcurrentDictionary<string, Type>();
+        private static readonly ConcurrentDictionary<Type, string> _TypeDict = new ConcurrentDictionary<Type, string>();
         static TypeContainer()
         {
             var assemblyList = AppDomain.CurrentDomain.GetAssemblies().Where(a => !a.IsDynamic);
@@ -24,14 +24,20 @@ namespace Ray.Core.Serialization
                         var attribute = type.GetCustomAttributes(attributeType, false).FirstOrDefault();
                         if (attribute != default && attribute is TCodeAttribute tCode)
                         {
-                            _CodeDict.Add(tCode.Code, type);
-                            _TypeDict.Add(type, tCode.Code);
+                            if (!_CodeDict.TryAdd(tCode.Code, type))
+                            {
+                                throw new TypeCodeRepeatedException(tCode.Code, type.FullName);
+                            }
+                            _TypeDict.TryAdd(type, tCode.Code);
                         }
                         else
                         {
-                            _TypeDict.Add(type, type.FullName);
+                            _TypeDict.TryAdd(type, type.FullName);
                         }
-                        _CodeDict.Add(type.FullName, type);
+                        if (!_CodeDict.TryAdd(type.FullName, type))
+                        {
+                            throw new TypeCodeRepeatedException(type.FullName, type.FullName);
+                        }
                     }
                 }
             }
@@ -43,7 +49,20 @@ namespace Ray.Core.Serialization
         /// <returns></returns>
         public static Type GetType(string typeCode)
         {
-            if (!_CodeDict.TryGetValue(typeCode, out var value))
+            var value = _CodeDict.GetOrAdd(typeCode, key =>
+            {
+                var assemblyList = AppDomain.CurrentDomain.GetAssemblies().Where(a => !a.IsDynamic);
+                foreach (var assembly in assemblyList)
+                {
+                    var type = assembly.GetType(typeCode, false);
+                    if (type != default)
+                    {
+                        return type;
+                    }
+                }
+                return Type.GetType(typeCode, false);
+            });
+            if (value == default)
                 throw new UnknowTypeCodeException(typeCode);
             return value;
         }
