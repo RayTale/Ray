@@ -12,17 +12,17 @@ namespace Ray.DistributedTransaction
 {
     public abstract class DistributedTxUnit<Input, Output> : Grain, IDistributedTxUnit<Input, Output>
     {
-        public DistributedTxUnit(ILogger logger)
+        public DistributedTxUnit()
         {
-            Logger = logger;
+            GrainType = GetType();
         }
-        private Type GrainType;
+        protected Type GrainType { get; }
         private IDistributedTxStorage transactionStorage;
         protected ILogger Logger { get; private set; }
         private readonly ConcurrentDictionary<long, Commit<Input>> inputDict = new ConcurrentDictionary<long, Commit<Input>>();
         public override async Task OnActivateAsync()
         {
-            GrainType = GetType();
+            Logger = (ILogger)ServiceProvider.GetService(typeof(ILogger<>).MakeGenericType(GrainType));
             transactionStorage = ServiceProvider.GetService<IDistributedTxStorage>();
             var inputList = await transactionStorage.GetList<Input>(GrainType.FullName);
             foreach (var input in inputList)

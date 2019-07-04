@@ -61,7 +61,7 @@ namespace Ray.Core
                 var (success, transport) = EventBytesTransport.FromBytes<PrimaryKey>(bytes);
                 if (success)
                 {
-                    var data = serializer.Deserialize(TypeContainer.GetType(transport.EventType), transport.EventBytes);
+                    var data = serializer.Deserialize(TypeContainer.GetType(transport.EventTypeCode), transport.EventBytes);
                     if (data is IEvent @event && transport.GrainId is PrimaryKey actorId)
                     {
                         var eventBase = EventBase.FromBytes(transport.BaseBytes);
@@ -112,22 +112,44 @@ namespace Ray.Core
             this.Observer(group, typeof(Observer));
             return this;
         }
-        static readonly ConcurrentDictionary<Type, Func<IClusterClient, PrimaryKey, IObserver>> _FuncDict = new ConcurrentDictionary<Type, Func<IClusterClient, PrimaryKey, IObserver>>();
+        static readonly ConcurrentDictionary<Type, Func<IClusterClient, PrimaryKey, string, IObserver>> _FuncDict = new ConcurrentDictionary<Type, Func<IClusterClient, PrimaryKey, string, IObserver>>();
         private IObserver GetObserver(Type ObserverType, PrimaryKey primaryKey)
         {
-            var clusterClient = serviceProvider.GetService<IClusterClient>();
-            var getGrainFunc = _FuncDict.GetOrAdd(ObserverType, key =>
+            var client = serviceProvider.GetService<IClusterClient>();
+            var func = _FuncDict.GetOrAdd(ObserverType, key =>
             {
-                var clientType = clusterClient.GetType();
+                var clientType = typeof(IClusterClient);
+                var clientParams = Expression.Parameter(clientType, "client");
                 var primaryKeyParams = Expression.Parameter(typeof(PrimaryKey), "primaryKey");
                 var grainClassNamePrefixParams = Expression.Parameter(typeof(string), "grainClassNamePrefix");
-                var instanceParams = Expression.Parameter(clientType);
-                var method = clientType.GetMethod("GetGrain", new Type[] { typeof(PrimaryKey), typeof(string) });
-                var body = Expression.Call(instanceParams, method.MakeGenericMethod(ObserverType), primaryKeyParams, grainClassNamePrefixParams);
-                var func = Expression.Lambda(body, instanceParams, primaryKeyParams, grainClassNamePrefixParams).Compile();
-                return (client, id) => func.DynamicInvoke(client, id, null) as IObserver;
+                var method = typeof(ClusterClientExtensions).GetMethod("GetGrain", new Type[] { clientType, typeof(PrimaryKey), typeof(string) });
+                var body = Expression.Call(method.MakeGenericMethod(ObserverType), clientParams, primaryKeyParams, grainClassNamePrefixParams);
+                return Expression.Lambda<Func<IClusterClient, PrimaryKey, string, IObserver>>(body, clientParams, primaryKeyParams, grainClassNamePrefixParams).Compile();
             });
-            return getGrainFunc(clusterClient, primaryKey);
+            return func(client, primaryKey, null);
+        }
+    }
+    public static class ClusterClientExtensions
+    {
+        public static TGrainInterface GetGrain<TGrainInterface>(IClusterClient client, Guid primaryKey, string grainClassNamePrefix = null) where TGrainInterface : IGrainWithGuidKey
+        {
+            return client.GetGrain<TGrainInterface>(primaryKey, grainClassNamePrefix);
+        }
+        public static TGrainInterface GetGrain<TGrainInterface>(IClusterClient client, long primaryKey, string grainClassNamePrefix = null) where TGrainInterface : IGrainWithIntegerKey
+        {
+            return client.GetGrain<TGrainInterface>(primaryKey, grainClassNamePrefix);
+        }
+        public static TGrainInterface GetGrain<TGrainInterface>(IClusterClient client, string primaryKey, string grainClassNamePrefix = null) where TGrainInterface : IGrainWithStringKey
+        {
+            return client.GetGrain<TGrainInterface>(primaryKey, grainClassNamePrefix);
+        }
+        public static TGrainInterface GetGrain<TGrainInterface>(IClusterClient client, Guid primaryKey, string keyExtension, string grainClassNamePrefix = null) where TGrainInterface : IGrainWithGuidCompoundKey
+        {
+            return client.GetGrain<TGrainInterface>(primaryKey, grainClassNamePrefix);
+        }
+        public static TGrainInterface GetGrain<TGrainInterface>(IClusterClient client, long primaryKey, string keyExtension, string grainClassNamePrefix = null) where TGrainInterface : IGrainWithIntegerCompoundKey
+        {
+            return client.GetGrain<TGrainInterface>(primaryKey, grainClassNamePrefix);
         }
     }
 }

@@ -44,6 +44,11 @@ namespace Ray.Core
             snapshot.DoingVersion -= 1;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static string GetEventId(this EventBase eventBase, string stateId)
+        {
+            return $"{stateId}_{eventBase.Version.ToString()}";
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string GetEventId<PrimaryKey>(this IFullyEvent<PrimaryKey> @event)
         {
             return $"{@event.StateId.ToString()}_{@event.Base.Version.ToString()}";

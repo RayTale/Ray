@@ -8,17 +8,17 @@ namespace Ray.Core.Event
 {
     public readonly struct EventBytesTransport
     {
-        public EventBytesTransport(string eventType, object grainId, byte[] baseBytes, byte[] eventBytes)
+        public EventBytesTransport(string eventCode, object grainId, byte[] baseBytes, byte[] eventBytes)
         {
-            EventType = eventType;
+            EventTypeCode = eventCode;
             GrainId = grainId;
             BaseBytes = baseBytes;
             EventBytes = eventBytes;
         }
         /// <summary>
-        /// 事件TypeFullName
+        /// 事件TypeCode
         /// </summary>
-        public string EventType { get; }
+        public string EventTypeCode { get; }
         /// <summary>
         /// 事件GrainId
         /// </summary>
@@ -33,7 +33,7 @@ namespace Ray.Core.Event
         public byte[] EventBytes { get; }
         public byte[] GetBytes()
         {
-            var eventTypeBytes = Encoding.Default.GetBytes(EventType);
+            var eventTypeBytes = Encoding.Default.GetBytes(EventTypeCode);
             byte[] actorIdBytes;
             if (GrainId is long id)
             {
@@ -49,7 +49,7 @@ namespace Ray.Core.Event
             }
             else
             {
-                throw new PrimaryKeyTypeException(EventType);
+                throw new PrimaryKeyTypeException(EventTypeCode);
             }
             using (var ms = new PooledMemoryStream())
             {

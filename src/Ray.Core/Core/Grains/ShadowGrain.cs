@@ -17,9 +17,8 @@ namespace Ray.Core
     public abstract class ShadowGrain<Main, PrimaryKey, StateType> : Grain, IObserver
         where StateType : class, new()
     {
-        public ShadowGrain(ILogger logger)
+        public ShadowGrain()
         {
-            Logger = logger;
             GrainType = GetType();
         }
         protected CoreOptions CoreOptions { get; private set; }
@@ -27,7 +26,28 @@ namespace Ray.Core
         protected ILogger Logger { get; private set; }
         protected ISerializer Serializer { get; private set; }
         protected Snapshot<PrimaryKey, StateType> Snapshot { get; set; }
-        public abstract PrimaryKey GrainId { get; }
+        private PrimaryKey _GrainId;
+        private bool _GrainIdAcquired = false;
+        public PrimaryKey GrainId
+        {
+            get
+            {
+                if (!_GrainIdAcquired)
+                {
+                    var type = typeof(PrimaryKey);
+                    if (type == typeof(long) && this.GetPrimaryKeyLong() is PrimaryKey longKey)
+                        _GrainId = longKey;
+                    else if (type == typeof(string) && this.GetPrimaryKeyString() is PrimaryKey stringKey)
+                        _GrainId = stringKey;
+                    else if (type == typeof(Guid) && this.GetPrimaryKey() is PrimaryKey guidKey)
+                        _GrainId = guidKey;
+                    else
+                        throw new ArgumentOutOfRangeException(typeof(PrimaryKey).FullName);
+                    _GrainIdAcquired = true;
+                }
+                return _GrainId;
+            }
+        }
         /// <summary>
         /// 分批次批量读取事件的时候每次读取的数据量
         /// </summary>
@@ -56,7 +76,7 @@ namespace Ray.Core
         /// 归档存储器
         /// </summary>
         protected IArchiveStorage<PrimaryKey, StateType> ArchiveStorage { get; private set; }
-        protected IEventHandler<PrimaryKey, StateType> EventHandler { get; private set; }
+        protected ISnapshotHandler<PrimaryKey, StateType> SnapshotHandler { get; private set; }
         protected ArchiveBrief LastArchive { get; private set; }
         #region 初始化数据
         /// <summary>
@@ -64,10 +84,11 @@ namespace Ray.Core
         /// </summary>
         protected async virtual ValueTask DependencyInjection()
         {
+            Logger = (ILogger)ServiceProvider.GetService(typeof(ILogger<>).MakeGenericType(GrainType));
             CoreOptions = ServiceProvider.GetOptionsByName<CoreOptions>(typeof(Main).FullName);
             ArchiveOptions = ServiceProvider.GetOptionsByName<ArchiveOptions>(typeof(Main).FullName);
             Serializer = ServiceProvider.GetService<ISerializer>();
-            EventHandler = ServiceProvider.GetService<IEventHandler<PrimaryKey, StateType>>();
+            SnapshotHandler = ServiceProvider.GetService<ISnapshotHandler<PrimaryKey, StateType>>();
             var configureBuilder = ServiceProvider.GetService<IConfigureBuilder<PrimaryKey, Main>>();
             var storageConfigTask = configureBuilder.GetConfig(ServiceProvider, GrainId);
             if (!storageConfigTask.IsCompletedSuccessfully)
@@ -91,9 +112,9 @@ namespace Ray.Core
         }
         public override async Task OnActivateAsync()
         {
+            var dITask = DependencyInjection();
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace("Start activation followgrain with id = {0}", GrainId.ToString());
-            var dITask = DependencyInjection();
             if (!dITask.IsCompletedSuccessfully)
                 await dITask;
             try
@@ -180,7 +201,7 @@ namespace Ray.Core
             var (success, transport) = EventBytesTransport.FromBytesWithNoId(bytes.Value);
             if (success)
             {
-                var eventType = TypeContainer.GetType(transport.EventType);
+                var eventType = TypeContainer.GetType(transport.EventTypeCode);
                 var data = Serializer.Deserialize(eventType, transport.EventBytes);
                 if (data is IEvent @event)
                 {
@@ -200,7 +221,7 @@ namespace Ray.Core
                 else
                 {
                     if (Logger.IsEnabled(LogLevel.Information))
-                        Logger.LogInformation("Receive non-event messages, grain Id = {0} ,message type = {1}", GrainId.ToString(), transport.EventType);
+                        Logger.LogInformation("Receive non-event messages, grain Id = {0} ,message type = {1}", GrainId.ToString(), transport.EventTypeCode);
                 }
             }
             return Task.CompletedTask;
@@ -260,7 +281,7 @@ namespace Ray.Core
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask OnEventDelivered(IFullyEvent<PrimaryKey> @event)
         {
-            EventHandler.Apply(Snapshot, @event);
+            SnapshotHandler.Apply(Snapshot, @event);
             return Consts.ValueTaskDone;
         }
     }

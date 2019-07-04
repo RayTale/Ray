@@ -1,8 +1,10 @@
 ﻿using ProtoBuf;
 using Ray.Core.Event;
+using Ray.Core.Serialization;
 
 namespace Ray.Grain.Events
 {
+    [TCode(nameof(AmountAddEvent))]
     [ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
     public class AmountAddEvent : IEvent
     {

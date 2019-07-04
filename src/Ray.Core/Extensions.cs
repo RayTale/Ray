@@ -2,9 +2,8 @@
 using Orleans.Hosting;
 using Ray.Core.Abstractions;
 using Ray.Core.Channels;
-using Ray.Core.Event;
 using Ray.Core.Serialization;
-using Ray.Core.Storage;
+using Ray.Core.Snapshot;
 
 namespace Ray.Core
 {
@@ -16,7 +15,7 @@ namespace Ray.Core
             var startupConfig = new StartupConfig();
             startupConfig.Configure(serviceCollection);
             serviceCollection.AddSingleton<IStartupConfig>(startupConfig);
-            serviceCollection.AutoAddEventHandler();
+            serviceCollection.AutoAddSnapshotHandler();
             serviceCollection.AddTransient(typeof(IMpscChannel<>), typeof(MpscChannel<>));
             serviceCollection.AddSingleton<ISerializer, DefaultJsonSerializer>();
             serviceCollection.AddSingleton<IObserverUnitContainer, ObserverUnitContainer>();
