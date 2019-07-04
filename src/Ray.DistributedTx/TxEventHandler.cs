@@ -4,10 +4,10 @@ using Ray.Core.Snapshot;
 
 namespace Ray.DistributedTransaction
 {
-    public abstract class TxEventHandler<PrimaryKey, Snapshot> : IEventHandler<PrimaryKey, Snapshot>
+    public abstract class TxSnapshotHandler<PrimaryKey, Snapshot> : SnapshotHandler<PrimaryKey, Snapshot>
           where Snapshot : class, new()
     {
-        public void Apply(Snapshot<PrimaryKey, Snapshot> snapshot, IFullyEvent<PrimaryKey> fullyEvent)
+        public override void Apply(Snapshot<PrimaryKey, Snapshot> snapshot, IFullyEvent<PrimaryKey> fullyEvent)
         {
             switch (fullyEvent.Event)
             {
@@ -40,6 +40,9 @@ namespace Ray.DistributedTransaction
                     }; break;
             }
         }
-        public abstract void CustomApply(Snapshot<PrimaryKey, Snapshot> snapshot, IFullyEvent<PrimaryKey> fullyEvent);
+        public virtual void CustomApply(Snapshot<PrimaryKey, Snapshot> snapshot, IFullyEvent<PrimaryKey> fullyEvent)
+        {
+            base.Apply(snapshot, fullyEvent);
+        }
     }
 }

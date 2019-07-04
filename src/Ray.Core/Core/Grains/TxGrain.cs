@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Ray.Core.Event;
 using Ray.Core.Exceptions;
+using Ray.Core.Serialization;
 using Ray.Core.Snapshot;
 
 namespace Ray.Core
@@ -13,9 +14,6 @@ namespace Ray.Core
     public abstract class TxGrain<PrimaryKey, StateType> : RayGrain<PrimaryKey, StateType>
         where StateType : class, ICloneable<StateType>, new()
     {
-        public TxGrain() : base()
-        {
-        }
         /// <summary>
         /// 事务过程中用于回滚的备份快照
         /// </summary>
@@ -79,7 +77,7 @@ namespace Ray.Core
                         WaitingForTransactionTransports.Add(new EventTransport<PrimaryKey>(evt, string.Empty, evt.StateId.ToString())
                         {
                             BytesTransport = new EventBytesTransport(
-                                evt.Event.GetType().FullName,
+                                TypeContainer.GetTypeCode(evt.Event.GetType()),
                                 GrainId,
                                 evt.Base.GetBytes(),
                                 Serializer.SerializeToBytes(evt.Event)
@@ -169,7 +167,7 @@ namespace Ray.Core
                         if (!startTask.IsCompletedSuccessfully)
                             await startTask;
                         transport.BytesTransport = new EventBytesTransport(
-                            transport.FullyEvent.Event.GetType().FullName,
+                            TypeContainer.GetTypeCode(transport.FullyEvent.Event.GetType()),
                             GrainId,
                             transport.FullyEvent.Base.GetBytes(),
                             Serializer.SerializeToBytes(transport.FullyEvent.Event)
@@ -331,7 +329,7 @@ namespace Ray.Core
                     Event = Serializer.Deserialize(fullyEvent.Event.GetType(), bytesTransport.EventBytes) as IEvent,
                     Base = EventBase.FromBytes(bytesTransport.BaseBytes)
                 };
-                EventHandler.Apply(BackupSnapshot, copiedEvent);
+                SnapshotHandler.Apply(BackupSnapshot, copiedEvent);
                 BackupSnapshot.Base.FullUpdateVersion(copiedEvent.Base, GrainType);//更新处理完成的Version
             }
             //父级涉及状态归档
@@ -369,7 +367,7 @@ namespace Ray.Core
                 else
                     fullyEvent.Base.Timestamp = uniqueId.Timestamp;
                 WaitingForTransactionTransports.Add(new EventTransport<PrimaryKey>(fullyEvent, uniqueId.UID, fullyEvent.StateId.ToString()));
-                EventHandler.Apply(Snapshot, fullyEvent);
+                SnapshotHandler.Apply(Snapshot, fullyEvent);
                 Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
             }
             catch (Exception ex)

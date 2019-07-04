@@ -1,5 +1,4 @@
-﻿using Orleans;
-using Orleans.Concurrency;
+﻿using Orleans.Concurrency;
 using Ray.Core;
 using Ray.Core.Event;
 using Ray.DistributedTransaction;
@@ -14,10 +13,6 @@ namespace Ray.Grain
     [Reentrant, Observable, Producer]
     public sealed class Account : DistributedTxGrain<long, AccountState>, IAccount
     {
-        public Account() : base()
-        {
-        }
-        public override long GrainId => this.GetPrimaryKeyLong();
         public Task Transfer(long toAccountId, decimal amount)
         {
             var evt = new AmountTransferEvent(toAccountId, amount, Snapshot.State.Balance - amount);

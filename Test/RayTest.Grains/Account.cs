@@ -1,24 +1,14 @@
-﻿using System.Threading.Tasks;
-using Orleans;
-using Ray.Core;
+﻿using Ray.Core;
 using Ray.Core.Event;
 using RayTest.IGrains.Actors;
 using RayTest.IGrains.Events;
 using RayTest.IGrains.States;
+using System.Threading.Tasks;
 
 namespace RayTest.Grains
 {
-    public sealed class Account :
-        TxGrain<long, AccountState>, IAccount
+    public sealed class Account : TxGrain<long, AccountState>, IAccount
     {
-        public Account() : base()
-        {
-        }
-        public override long GrainId => this.GetPrimaryKeyLong();
-        public override async Task OnActivateAsync()
-        {
-            await base.OnActivateAsync();
-        }
         public Task Transfer(long toAccountId, decimal amount)
         {
             var evt = new AmountTransferEvent(toAccountId, amount, Snapshot.State.Balance - amount);

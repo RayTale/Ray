@@ -14,9 +14,6 @@ namespace Ray.Core
         where SnapshotType : class, ICloneable<SnapshotType>, new()
     {
         public long defaultTransactionId = 0;
-        public ConcurrentTxGrain() : base()
-        {
-        }
         protected IMpscChannel<ConcurrentTransport<Snapshot<PrimaryKey, SnapshotType>>> ConcurrentChannel { get; private set; }
 
         public override async Task OnActivateAsync()

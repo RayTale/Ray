@@ -31,7 +31,7 @@ namespace Ray.Core
         protected IProducerContainer ProducerContainer { get; private set; }
         protected ISerializer Serializer { get; private set; }
         protected Snapshot<PrimaryKey, StateType> Snapshot { get; set; }
-        protected IEventHandler<PrimaryKey, StateType> EventHandler { get; private set; }
+        protected ISnapshotHandler<PrimaryKey, StateType> SnapshotHandler { get; private set; }
         protected IObserverUnit<PrimaryKey> ObserverUnit { get; private set; }
         /// <summary>
         /// 归档存储器
@@ -41,7 +41,28 @@ namespace Ray.Core
         protected ArchiveBrief LastArchive { get; private set; }
         protected ArchiveBrief NewArchive { get; private set; }
         protected ArchiveBrief ClearedArchive { get; private set; }
-        public abstract PrimaryKey GrainId { get; }
+        private PrimaryKey _GrainId;
+        private bool _GrainIdAcquired = false;
+        public PrimaryKey GrainId
+        {
+            get
+            {
+                if (!_GrainIdAcquired)
+                {
+                    var type = typeof(PrimaryKey);
+                    if (type == typeof(long) && this.GetPrimaryKeyLong() is PrimaryKey longKey)
+                        _GrainId = longKey;
+                    else if (type == typeof(string) && this.GetPrimaryKeyString() is PrimaryKey stringKey)
+                        _GrainId = stringKey;
+                    else if (type == typeof(Guid) && this.GetPrimaryKey() is PrimaryKey guidKey)
+                        _GrainId = guidKey;
+                    else
+                        throw new ArgumentOutOfRangeException(typeof(PrimaryKey).FullName);
+                    _GrainIdAcquired = true;
+                }
+                return _GrainId;
+            }
+        }
         /// <summary>
         /// 快照的事件版本号
         /// </summary>
@@ -72,7 +93,7 @@ namespace Ray.Core
             Logger = (ILogger)ServiceProvider.GetService(typeof(ILogger<>).MakeGenericType(GrainType));
             ProducerContainer = ServiceProvider.GetService<IProducerContainer>();
             Serializer = ServiceProvider.GetService<ISerializer>();
-            EventHandler = ServiceProvider.GetService<IEventHandler<PrimaryKey, StateType>>();
+            SnapshotHandler = ServiceProvider.GetService<ISnapshotHandler<PrimaryKey, StateType>>();
             ObserverUnit = ServiceProvider.GetService<IObserverUnitContainer>().GetUnit<PrimaryKey>(GrainType);
             var configureBuilder = (IConfigureBuilder<PrimaryKey>)ServiceProvider.GetService(typeof(IConfigureBuilder<,>).MakeGenericType(typeof(PrimaryKey), GrainType));
             var storageConfigTask = configureBuilder.GetConfig(ServiceProvider, GrainId);
@@ -193,7 +214,7 @@ namespace Ray.Core
                     foreach (var fullyEvent in eventList)
                     {
                         Snapshot.Base.IncrementDoingVersion(GrainType);//标记将要处理的Version
-                        EventHandler.Apply(Snapshot, fullyEvent);
+                        SnapshotHandler.Apply(Snapshot, fullyEvent);
                         Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
                     }
                     if (eventList.Count < CoreOptions.NumberOfEventsPerRead) break;
@@ -425,14 +446,14 @@ namespace Ray.Core
                     await startTask;
                 Snapshot.Base.IncrementDoingVersion(GrainType);//标记将要处理的Version
                 var bytesTransport = new EventBytesTransport(
-                    @event.GetType().FullName,
+                   TypeContainer.GetTypeCode(@event.GetType()),
                     Snapshot.Base.StateId,
                     fullyEvent.Base.GetBytes(),
                     Serializer.SerializeToBytes(@event)
                 );
                 if (await EventStorage.Append(fullyEvent, in bytesTransport, uniqueId.UID))
                 {
-                    EventHandler.Apply(Snapshot, fullyEvent);
+                    SnapshotHandler.Apply(Snapshot, fullyEvent);
                     Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
                     var task = OnRaiseSuccessed(fullyEvent, bytesTransport);
                     if (!task.IsCompletedSuccessfully)
@@ -686,7 +707,7 @@ namespace Ray.Core
                 hashKey = GrainId.ToString();
             try
             {
-                var wrapper = new CommonTransport(msg.GetType().FullName, Serializer.SerializeToBytes(msg));
+                var wrapper = new CommonTransport(TypeContainer.GetTypeCode(msg.GetType()), Serializer.SerializeToBytes(msg));
                 var pubLishTask = EventBusProducer.Publish(wrapper.GetBytes(), hashKey);
                 if (!pubLishTask.IsCompletedSuccessfully)
                     await pubLishTask;

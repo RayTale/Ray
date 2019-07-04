@@ -15,14 +15,11 @@ namespace Ray.Core
     public abstract class ConcurrentObserverGrain<Main, PrimaryKey> : ObserverGrain<Main, PrimaryKey>, IConcurrentObserver
     {
         readonly List<IFullyEvent<PrimaryKey>> UnprocessedEventList = new List<IFullyEvent<PrimaryKey>>();
-        public ConcurrentObserverGrain(ILogger logger) : base(logger)
-        {
-        }
         /// <summary>
         /// 多生产者单消费者消息信道
         /// </summary>
         protected IMpscChannel<AsyncInputEvent<IFullyEvent<PrimaryKey>, bool>> ConcurrentChannel { get; private set; }
-        protected override bool EventConcurrentProcessing => true;
+        protected override bool ConcurrentHandle => true;
         public override Task OnActivateAsync()
         {
             ConcurrentChannel = ServiceProvider.GetService<IMpscChannel<AsyncInputEvent<IFullyEvent<PrimaryKey>, bool>>>().BindConsumer(BatchInputProcessing);
@@ -38,7 +35,7 @@ namespace Ray.Core
             var (success, transport) = EventBytesTransport.FromBytesWithNoId(bytes.Value);
             if (success)
             {
-                var data = Serializer.Deserialize(TypeContainer.GetType(transport.EventType), transport.EventBytes);
+                var data = Serializer.Deserialize(TypeContainer.GetType(transport.EventTypeCode), transport.EventBytes);
                 if (data is IEvent @event)
                 {
                     var eventBase = EventBase.FromBytes(transport.BaseBytes);
@@ -65,11 +62,11 @@ namespace Ray.Core
                 else
                 {
                     if (Logger.IsEnabled(LogLevel.Information))
-                        Logger.LogInformation("Receive non-event messages, grain Id = {0} ,message type = {1}", GrainId.ToString(), transport.EventType);
+                        Logger.LogInformation("Receive non-event messages, grain Id = {0} ,message type = {1}", GrainId.ToString(), transport.EventTypeCode);
                 }
             }
         }
-        private async Task BatchInputProcessing(List<AsyncInputEvent<IFullyEvent<PrimaryKey>, bool>> events)
+        private async Task BatchInputProcessing(List<AsyncInputEvent<IFullyEvent<PrimaryKey>, bool>> eventInputs)
         {
             var evtList = new List<IFullyEvent<PrimaryKey>>();
             var startVersion = Snapshot.Version;
@@ -81,28 +78,28 @@ namespace Ray.Core
             TaskCompletionSource<bool> maxRequest = default;
             try
             {
-                foreach (var wrap in events)
+                foreach (var input in eventInputs)
                 {
-                    if (wrap.Value.Base.Version == startVersion)
+                    if (input.Value.Base.Version == startVersion)
                     {
-                        maxRequest = wrap.TaskSource;
+                        maxRequest = input.TaskSource;
                     }
-                    else if (wrap.Value.Base.Version < startVersion)
+                    else if (input.Value.Base.Version < startVersion)
                     {
-                        wrap.TaskSource.TrySetResult(true);
+                        input.TaskSource.TrySetResult(true);
                     }
                     else
                     {
-                        evtList.Add(wrap.Value);
-                        if (wrap.Value.Base.Version > maxVersion)
+                        evtList.Add(input.Value);
+                        if (input.Value.Base.Version > maxVersion)
                         {
                             maxRequest?.TrySetResult(true);
-                            maxVersion = wrap.Value.Base.Version;
-                            maxRequest = wrap.TaskSource;
+                            maxVersion = input.Value.Base.Version;
+                            maxRequest = input.TaskSource;
                         }
                         else
                         {
-                            wrap.TaskSource.TrySetResult(true);
+                            input.TaskSource.TrySetResult(true);
                         }
                     }
                 }
@@ -126,7 +123,7 @@ namespace Ray.Core
                 {
                     await Task.WhenAll(UnprocessedEventList.Select(async @event =>
                     {
-                        var task = OnEventDelivered(@event);
+                        var task = EventDelivered(@event);
                         if (!task.IsCompletedSuccessfully)
                             await task;
                     }));
