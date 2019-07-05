@@ -16,6 +16,7 @@ namespace RushShopping.Grains
         where TSnapshotType : class, ICloneable<TSnapshotType>, TEntityType, new()
         where TEntityType : class, IEntity<TPrimaryKey>
         where TSnapshotDto : class, new()
+        where TPrimaryKey : new()
     {
         protected IMapper Mapper { get; private set; }
 
@@ -69,7 +70,11 @@ namespace RushShopping.Grains
         {
             var evt = new DeletingSnapshotEvent<TPrimaryKey>(GrainId);
             await RaiseEvent(evt);
-            //await Over();
+        }
+
+        public new Task Over()
+        {
+            return base.Over();
         }
 
         #endregion
@@ -80,6 +85,7 @@ namespace RushShopping.Grains
             , TSnapshotDto>
         where TStateType : class, ICloneable<TStateType>, IEntity<TPrimaryKey>, new()
         where TSnapshotDto : class, new()
+        where TPrimaryKey : new()
     {
 
     }

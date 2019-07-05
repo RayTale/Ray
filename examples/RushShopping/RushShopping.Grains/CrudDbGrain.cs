@@ -1,8 +1,10 @@
-﻿using System.Runtime.ExceptionServices;
+﻿using System;
+using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Orleans;
 using Ray.Core;
 using Ray.Core.Event;
 using RushShopping.Grains.Events;
@@ -11,15 +13,24 @@ using RushShopping.Repository;
 
 namespace RushShopping.Grains
 {
-    public abstract class CrudDbGrain<TMain, TSnapshot, TPrimaryKey, TEntityType> : ConcurrentObserverGrain<TMain, TPrimaryKey>, ICrudDbGrain<TPrimaryKey>
-        where TSnapshot : class, new() where TEntityType : class, IEntity<TPrimaryKey>
+    public abstract class
+       CrudDbGrain<TMain, TSnapshot, TPrimaryKey, TEntityType> :
+            ConcurrentObserverGrain<TMain, TPrimaryKey>, ICrudDbGrain<TPrimaryKey>
+        where TSnapshot : class, new()
+        where TEntityType : class, IEntity<TPrimaryKey>
     {
-        protected ICrudHandle<TPrimaryKey,TSnapshot> CrudHandle;
+        protected ICrudHandle<TPrimaryKey, TSnapshot> CrudHandle;
         protected IMapper Mapper;
+        protected readonly IGrainFactory grainFactory;
+
+        protected CrudDbGrain(IGrainFactory grainFactory)
+        {
+            this.grainFactory = grainFactory;
+        }
 
         protected override ValueTask DependencyInjection()
         {
-            CrudHandle = ServiceProvider.GetService<ICrudHandle<TPrimaryKey,TSnapshot>>();
+            CrudHandle = ServiceProvider.GetService<ICrudHandle<TPrimaryKey, TSnapshot>>();
             Mapper = ServiceProvider.GetService<IMapper>();
             return base.DependencyInjection();
         }
@@ -31,7 +42,7 @@ namespace RushShopping.Grains
             switch (@event.Event)
             {
                 case CreatingSnapshotEvent<TSnapshot> evt:
-                   await CreatingSnapshotHandle(evt);
+                    await CreatingSnapshotHandle(evt);
                     break;
                 case UpdatingSnapshotEvent<TSnapshot> evt:
                     await UpdatingSnapshotHandle(evt);
@@ -40,6 +51,7 @@ namespace RushShopping.Grains
                     await DeletingSnapshotHandle(evt);
                     break;
             }
+
             await Process(@event);
         }
 
@@ -71,7 +83,6 @@ namespace RushShopping.Grains
                 await repository.CommitAsync();
             }
         }
-
         #endregion
 
         public abstract Task Process(IFullyEvent<TPrimaryKey> @event);

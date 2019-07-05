@@ -7,6 +7,7 @@ using Ray.Core.Event;
 using RushShopping.Grains.States;
 using RushShopping.IGrains;
 using RushShopping.Repository.Entities;
+using RushShopping.Share.Dto;
 
 namespace RushShopping.Grains.Grains
 {
@@ -21,5 +22,9 @@ namespace RushShopping.Grains.Grains
         }
 
         #endregion
+
+        public ProductDbGrain(IGrainFactory grainFactory) : base(grainFactory)
+        {
+        }
     }
 }

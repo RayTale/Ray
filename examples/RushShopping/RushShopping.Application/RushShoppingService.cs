@@ -39,9 +39,11 @@ namespace RushShopping.Application
             return ClusterClient.GetGrain<ICustomerGrain<CustomerDto>>(dto.Id).Update(dto);
         }
 
-        public Task DeleteCustomer(Guid id)
+        public async Task DeleteCustomer(Guid id)
         {
-            return ClusterClient.GetGrain<ICustomerGrain<CustomerDto>>(id).Delete();
+            await ClusterClient.GetGrain<ICustomerGrain<CustomerDto>>(id).Delete();
+            await Task.Delay(500);
+            await ClusterClient.GetGrain<ICustomerGrain<CustomerDto>>(id).Over();
         }
 
         public Task<List<CustomerDto>> GetCustomers()

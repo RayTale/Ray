@@ -13,5 +13,7 @@ namespace RushShopping.IGrains
         Task Update(TSnapshotDto snapshot);
 
         Task Delete();
+
+        Task Over();
     }
 }

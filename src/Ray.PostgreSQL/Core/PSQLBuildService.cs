@@ -80,7 +80,7 @@ namespace Ray.Storage.PostgreSQL
                     create table if not exists {storageOptions.EventArchiveTable} (
                             {stateIdSql},
                             UniqueId varchar(250)  null,
-                            TypeCode varchar(100)  not null,
+                            TypeCode varchar(250)  not null,
                             Data jsonb not null,
                             Version int8 not null,
                             Timestamp int8 not null,
