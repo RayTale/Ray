@@ -6,7 +6,7 @@ using RushShopping.Grains.Events;
 
 namespace RushShopping.Grains
 {
-    public class CrudHandle<TPrimaryKey, TSnapshot> : TxEventHandler<TPrimaryKey, TSnapshot>,
+    public class CrudHandle<TPrimaryKey, TSnapshot> : TxSnapshotHandler<TPrimaryKey, TSnapshot>,
         ICrudHandle<TPrimaryKey, TSnapshot>
         where TSnapshot : class, new()
     {

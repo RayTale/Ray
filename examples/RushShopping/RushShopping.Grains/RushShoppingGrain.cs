@@ -69,7 +69,7 @@ namespace RushShopping.Grains
         {
             var evt = new DeletingSnapshotEvent<TPrimaryKey>(GrainId);
             await RaiseEvent(evt);
-            await Over();
+            //await Over();
         }
 
         #endregion

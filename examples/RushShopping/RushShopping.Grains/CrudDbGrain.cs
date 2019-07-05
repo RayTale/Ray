@@ -16,14 +16,10 @@ namespace RushShopping.Grains
     {
         protected ICrudHandle<TPrimaryKey,TSnapshot> CrudHandle;
         protected IMapper Mapper;
-        protected CrudDbGrain(ILogger logger) : base(logger)
-        {
-        }
-
 
         protected override ValueTask DependencyInjection()
         {
-            CrudHandle = ServiceProvider.GetService<ICrudHandle<TPrimaryKey,TSnapshot >> ();
+            CrudHandle = ServiceProvider.GetService<ICrudHandle<TPrimaryKey,TSnapshot>>();
             Mapper = ServiceProvider.GetService<IMapper>();
             return base.DependencyInjection();
         }

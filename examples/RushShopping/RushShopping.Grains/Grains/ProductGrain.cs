@@ -13,7 +13,6 @@ namespace RushShopping.Grains.Grains
     [Producer(lBCount: 4), Observable]
     public class ProductGrain : RushShoppingGrain<Guid, ProductState, Product, ProductDto>, IProductGrain<ProductDto>
     {
-        public override Guid GrainId => this.GetPrimaryKey();
 
         #region Implementation of IProductGrain<ProductDto>
 

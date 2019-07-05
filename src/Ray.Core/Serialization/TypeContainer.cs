@@ -44,7 +44,27 @@ namespace Ray.Core.Serialization
         public static Type GetType(string typeCode)
         {
             if (!_CodeDict.TryGetValue(typeCode, out var value))
-                throw new UnknowTypeCodeException(typeCode);
+            {
+                var type = Type.GetType(typeCode, false);
+                if (type == default)
+                {
+                    var assemblyList = AppDomain.CurrentDomain.GetAssemblies().Where(a => !a.IsDynamic);
+                    foreach (var assembly in assemblyList)
+                    {
+                        type = assembly.GetType(typeCode, false);
+                        if (type != default)
+                        {
+                            break;
+                        }
+                    }
+                }
+                if (type == default)
+                {
+                    throw new UnknowTypeCodeException(typeCode);
+                }
+                _CodeDict.TryAdd(typeCode, type);
+                return type;
+            }
             return value;
         }
         /// <summary>

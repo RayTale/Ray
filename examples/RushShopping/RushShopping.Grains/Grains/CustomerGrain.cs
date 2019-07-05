@@ -14,12 +14,6 @@ namespace RushShopping.Grains.Grains
     public class CustomerGrain : RushShoppingGrain<Guid, CustomerState, Customer, CustomerDto>,
         ICustomerGrain<CustomerDto>
     {
-        #region Overrides of RayGrain<CustomerGrain,Guid,CustomerState>
-
-        public override Guid GrainId => this.GetPrimaryKey();
-
-        #endregion
-
         #region Implementation of ICustomerGrain<CustomerDto>
 
         public Task AddAmount(decimal amount)

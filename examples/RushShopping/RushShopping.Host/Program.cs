@@ -14,7 +14,9 @@ using Orleans.Configuration;
 using Orleans.Hosting;
 using Ray.Core;
 using Ray.Core.Event;
+using Ray.Core.Snapshot;
 using Ray.Core.Storage;
+using Ray.DistributedTransaction;
 using Ray.EventBus.RabbitMQ;
 using Ray.Storage.PostgreSQL;
 using Ray.Storage.SQLCore.Configuration;
@@ -65,7 +67,7 @@ namespace RushShopping.Host
                         options.TableName = "Transaction_TemporaryRecord";
                     });
                     serviceCollection.AddTransient(typeof(ICrudHandle<,>), typeof(CrudHandle<,>));
-                    serviceCollection.AddSingleton(typeof(IEventHandler<,>), typeof(CrudHandle<,>));
+                    serviceCollection.AddSingleton(typeof(ISnapshotHandler<,>), typeof(CrudHandle<,>));
                     serviceCollection.AddAutoMapper(RushShoppingMapper.CreateMapping);
                     serviceCollection.AddSingleton<IConfigureBuilder<Guid, CustomerGrain>>(new PSQLConfigureBuilder<Guid, CustomerGrain>((provider, id, parameter) =>
                         new GuidKeyOptions(provider, "core_event", "customer")).AutoRegistrationObserver());
