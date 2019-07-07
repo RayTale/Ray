@@ -16,6 +16,7 @@ namespace Ray.Core
     {
         readonly IServiceProvider serviceProvider;
         readonly ISerializer serializer;
+        readonly IClusterClient clusterClient;
         readonly Dictionary<string, List<Func<byte[], Task>>> eventHandlerGroups = new Dictionary<string, List<Func<byte[], Task>>>();
         readonly List<Func<byte[], Task>> eventHandlers = new List<Func<byte[], Task>>();
         readonly List<Func<PrimaryKey, long, Task<long>>> observerVersionHandlers = new List<Func<PrimaryKey, long, Task<long>>>();
@@ -24,6 +25,7 @@ namespace Ray.Core
         public ObserverUnit(IServiceProvider serviceProvider, Type grainType)
         {
             this.serviceProvider = serviceProvider;
+            clusterClient = serviceProvider.GetService<IClusterClient>();
             serializer = serviceProvider.GetService<ISerializer>();
             GrainType = grainType;
         }
@@ -115,7 +117,6 @@ namespace Ray.Core
         static readonly ConcurrentDictionary<Type, Func<IClusterClient, PrimaryKey, string, IObserver>> _FuncDict = new ConcurrentDictionary<Type, Func<IClusterClient, PrimaryKey, string, IObserver>>();
         private IObserver GetObserver(Type ObserverType, PrimaryKey primaryKey)
         {
-            var client = serviceProvider.GetService<IClusterClient>();
             var func = _FuncDict.GetOrAdd(ObserverType, key =>
             {
                 var clientType = typeof(IClusterClient);
@@ -126,7 +127,7 @@ namespace Ray.Core
                 var body = Expression.Call(method.MakeGenericMethod(ObserverType), clientParams, primaryKeyParams, grainClassNamePrefixParams);
                 return Expression.Lambda<Func<IClusterClient, PrimaryKey, string, IObserver>>(body, clientParams, primaryKeyParams, grainClassNamePrefixParams).Compile();
             });
-            return func(client, primaryKey, null);
+            return func(clusterClient, primaryKey, null);
         }
     }
     public static class ClusterClientExtensions

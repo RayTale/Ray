@@ -8,6 +8,7 @@ using Ray.Core.Exceptions;
 using Ray.Core.Serialization;
 using Ray.Core.Snapshot;
 using Ray.Core.Storage;
+using Ray.Core.Utils.Emit;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,8 +20,7 @@ namespace Ray.Core
 {
     public abstract class ObserverGrain<MainGrain, PrimaryKey> : Grain, IObserver
     {
-        readonly Dictionary<Type, Func<object, IEvent, Task>> _handlerDict_0 = new Dictionary<Type, Func<object, IEvent, Task>>();
-        readonly Dictionary<Type, Func<object, IEvent, EventBase, Task>> _handlerDict_1 = new Dictionary<Type, Func<object, IEvent, EventBase, Task>>();
+        readonly Func<object, IEvent, EventBase, Task> handlerInvokeFunc;
         readonly HandlerAttribute handlerAttribute;
         public ObserverGrain()
         {
@@ -30,43 +30,124 @@ namespace Ray.Core
                 handlerAttribute = (HandlerAttribute)handlerAttributes[0];
             else
                 handlerAttribute = default;
-            foreach (var method in GrainType.GetMethods())
+            var methods = GetType().GetMethods().Where(m =>
             {
-                var parameters = method.GetParameters();
-                if (parameters.Length >= 1 &&
-                    typeof(IEvent).IsAssignableFrom(parameters[0].ParameterType))
+                var parameters = m.GetParameters();
+                return parameters.Length >= 1 && parameters.Any(p => typeof(IEvent).IsAssignableFrom(p.ParameterType));
+            }).ToList();
+            var dynamicMethod = new DynamicMethod($"Handler_Invoke", typeof(Task), new Type[] { typeof(object), typeof(IEvent), typeof(EventBase) }, GrainType, true);
+            var ilGen = dynamicMethod.GetILGenerator();
+            var items = new List<SwitchMethodEmit>();
+            for (int i = 0; i < methods.Count; i++)
+            {
+                var method = methods[i];
+                var methodParams = method.GetParameters();
+                var caseType = methodParams.Single(p => typeof(IEvent).IsAssignableFrom(p.ParameterType)).ParameterType;
+                items.Add(new SwitchMethodEmit
                 {
-                    var evtType = parameters[0].ParameterType;
-                    if (parameters.Length == 2 && parameters[1].ParameterType == typeof(EventBase))
+                    Mehod = method,
+                    CaseType = caseType,
+                    DeclareLocal = ilGen.DeclareLocal(caseType),
+                    Lable = ilGen.DefineLabel(),
+                    Parameters = methodParams,
+                    Index = i
+                });
+            }
+            var defaultLabel = ilGen.DefineLabel();
+            var lastLable = ilGen.DefineLabel();
+            var declare_1 = ilGen.DeclareLocal(typeof(Task));
+            foreach (var item in items)
+            {
+                ilGen.Emit(OpCodes.Ldarg_1);
+                ilGen.Emit(OpCodes.Isinst, item.CaseType);
+                if (item.Index > 3)
+                {
+                    ilGen.Emit(OpCodes.Stloc_S, item.DeclareLocal);
+                    ilGen.Emit(OpCodes.Ldloc_S, item.DeclareLocal);
+                }
+                else
+                {
+                    if (item.Index == 0)
                     {
-                        var dynamicMethod = new DynamicMethod($"{evtType.Name}_handler", typeof(Task), new Type[] { typeof(object), typeof(IEvent), typeof(EventBase) }, GrainType, true);
-                        var ilGen = dynamicMethod.GetILGenerator();//IL生成器
-                        ilGen.DeclareLocal(evtType);
-                        ilGen.Emit(OpCodes.Ldarg_1);
-                        ilGen.Emit(OpCodes.Castclass, evtType);
                         ilGen.Emit(OpCodes.Stloc_0);
-                        ilGen.Emit(OpCodes.Ldarg_0);
                         ilGen.Emit(OpCodes.Ldloc_0);
-                        ilGen.Emit(OpCodes.Ldarg_2);
-                        ilGen.Emit(OpCodes.Call, method);
-                        ilGen.Emit(OpCodes.Ret);
-                        var func = (Func<object, IEvent, EventBase, Task>)dynamicMethod.CreateDelegate(typeof(Func<object, IEvent, EventBase, Task>));
-                        _handlerDict_1.Add(evtType, func);
+                    }
+                    else if (item.Index == 1)
+                    {
+                        ilGen.Emit(OpCodes.Stloc_1);
+                        ilGen.Emit(OpCodes.Ldloc_1);
+                    }
+                    else if (item.Index == 2)
+                    {
+                        ilGen.Emit(OpCodes.Stloc_2);
+                        ilGen.Emit(OpCodes.Ldloc_2);
                     }
                     else
                     {
-                        var dynamicMethod = new DynamicMethod($"{evtType.Name}_handler", typeof(Task), new Type[] { typeof(object), typeof(IEvent) }, GrainType, true);
-                        var ilGen = dynamicMethod.GetILGenerator();//IL生成器
-                        ilGen.DeclareLocal(evtType);
-                        ilGen.Emit(OpCodes.Ldarg_1);
-                        ilGen.Emit(OpCodes.Castclass, evtType);
-                        ilGen.Emit(OpCodes.Stloc_0);
-                        ilGen.Emit(OpCodes.Ldarg_0);
-                        ilGen.Emit(OpCodes.Ldloc_0);
-                        ilGen.Emit(OpCodes.Call, method);
-                        ilGen.Emit(OpCodes.Ret);
-                        var func = (Func<object, IEvent, Task>)dynamicMethod.CreateDelegate(typeof(Func<object, IEvent, Task>));
-                        _handlerDict_0.Add(evtType, func);
+                        ilGen.Emit(OpCodes.Stloc_3);
+                        ilGen.Emit(OpCodes.Ldloc_3);
+                    }
+                }
+
+                ilGen.Emit(OpCodes.Brtrue_S, item.Lable);
+            }
+            ilGen.Emit(OpCodes.Br_S, defaultLabel);
+            foreach (var item in items)
+            {
+                ilGen.MarkLabel(item.Lable);
+                ilGen.Emit(OpCodes.Ldarg_0);
+                //加载第一个参数
+                if (item.Parameters[0].ParameterType == item.CaseType)
+                    LdEventArgs(item, ilGen);
+                else if (item.Parameters[0].ParameterType == typeof(EventBase))
+                    ilGen.Emit(OpCodes.Ldarg_2);
+                //加载第二个参数
+                if (item.Parameters.Length == 2)
+                {
+                    if (item.Parameters[1].ParameterType == item.CaseType)
+                        LdEventArgs(item, ilGen);
+                    else if (item.Parameters[1].ParameterType == typeof(EventBase))
+                        ilGen.Emit(OpCodes.Ldarg_2);
+                }
+                ilGen.Emit(OpCodes.Call, item.Mehod);
+                ilGen.Emit(OpCodes.Stloc_S, declare_1);
+                ilGen.Emit(OpCodes.Br_S, lastLable);
+            }
+            ilGen.MarkLabel(defaultLabel);
+            ilGen.Emit(OpCodes.Ldarg_0);
+            ilGen.Emit(OpCodes.Ldarg_1);
+            ilGen.Emit(OpCodes.Call, GrainType.GetMethod(nameof(DefaultHandler)));
+            ilGen.Emit(OpCodes.Stloc_S, declare_1);
+            ilGen.Emit(OpCodes.Br_S, lastLable);
+            //last
+            ilGen.MarkLabel(lastLable);
+            ilGen.Emit(OpCodes.Ldloc_S, declare_1);
+            ilGen.Emit(OpCodes.Ret);
+            handlerInvokeFunc = (Func<object, IEvent, EventBase, Task>)dynamicMethod.CreateDelegate(typeof(Func<object, IEvent, EventBase, Task>));
+            //加载Event参数
+            void LdEventArgs(SwitchMethodEmit item, ILGenerator gen)
+            {
+                if (item.Index > 3)
+                {
+                    gen.Emit(OpCodes.Ldloc_S, item.DeclareLocal);
+                }
+                else
+                {
+                    if (item.Index == 0)
+                    {
+                        gen.Emit(OpCodes.Ldloc_0);
+                    }
+                    else if (item.Index == 1)
+                    {
+                        gen.Emit(OpCodes.Ldloc_1);
+                    }
+                    else if (item.Index == 2)
+                    {
+                        gen.Emit(OpCodes.Ldloc_2);
+                    }
+                    else
+                    {
+                        gen.Emit(OpCodes.Ldloc_3);
                     }
                 }
             }
@@ -358,22 +439,17 @@ namespace Ray.Core
             if (!task.IsCompletedSuccessfully)
                 await task;
         }
+        public Task DefaultHandler(IEvent evt)
+        {
+            if (handlerAttribute == default || !handlerAttribute.Ignores.Contains(evt.GetType()))
+            {
+                throw new EventNotFoundHandlerException(evt.GetType());
+            }
+            return Task.CompletedTask;
+        }
         protected virtual ValueTask OnEventDelivered(IFullyEvent<PrimaryKey> fullyEvent)
         {
-            var eventType = fullyEvent.Event.GetType();
-            if (_handlerDict_0.TryGetValue(eventType, out var func))
-            {
-                return new ValueTask(func(this, fullyEvent.Event));
-            }
-            else if (_handlerDict_1.TryGetValue(eventType, out var func_1))
-            {
-                return new ValueTask(func_1(this, fullyEvent.Event, fullyEvent.Base));
-            }
-            else if (handlerAttribute == default || !handlerAttribute.Ignores.Contains(eventType))
-            {
-                throw new EventNotFoundHandlerException(eventType);
-            }
-            return Consts.ValueTaskDone;
+            return new ValueTask(handlerInvokeFunc(this, fullyEvent.Event, fullyEvent.Base));
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask OnSaveSnapshot() => Consts.ValueTaskDone;
