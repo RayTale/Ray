@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Orleans;
@@ -9,8 +7,9 @@ using Ray.Core;
 using Ray.EventBus.RabbitMQ;
 using Ray.Storage.PostgreSQL;
 using RayTest.Grains;
-using RayTest.Grains.Account;
 using RayTest.IGrains.Actors;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace RayCore.Tests
