@@ -1,6 +1,6 @@
-﻿using System;
-using Ray.Core;
+﻿using Ray.Core;
 using Ray.Core.Storage;
+using System;
 
 namespace Ray.Storage.SQLCore.Configuration
 {
@@ -21,17 +21,11 @@ namespace Ray.Storage.SQLCore.Configuration
         }
         public SQLConfigureBuilder<Factory, PrimaryKey, Grain> AutoRegistrationObserver()
         {
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (var (type, observer) in ObserverAttribute.AllObserverAttribute)
             {
-                foreach (var type in assembly.GetTypes())
+                if (observer.Observable == typeof(Grain))
                 {
-                    foreach (var attribute in type.GetCustomAttributes(false))
-                    {
-                        if (attribute is ObserverAttribute observer && observer.Observable == typeof(Grain))
-                        {
-                            Observe(type, (provider, id, parameter) => new ObserverStorageOptions { ObserverName = observer.Name });
-                        }
-                    }
+                    Observe(type, (provider, id, parameter) => new ObserverStorageOptions { ObserverName = observer.Name });
                 }
             }
             return this;

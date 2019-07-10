@@ -1,9 +1,9 @@
-﻿using System;
-using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Ray.Core;
 using Ray.Core.Abstractions;
 using RayTest.Grains;
+using System;
+using System.Threading.Tasks;
 
 namespace RayCore.Tests
 {
@@ -11,7 +11,6 @@ namespace RayCore.Tests
     {
         public void Configure(IServiceCollection serviceCollection)
         {
-
         }
 
         public Task ConfigureObserverUnit(IServiceProvider serviceProvider, IObserverUnitContainer followUnitContainer)

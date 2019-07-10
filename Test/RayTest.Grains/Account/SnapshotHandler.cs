@@ -2,9 +2,9 @@
 using RayTest.IGrains.Events;
 using RayTest.IGrains.States;
 
-namespace RayTest.Grains.EventHandles
+namespace RayTest.Grains
 {
-    public class AccountSnapshotHandler : SnapshotHandler<long, AccountState>
+    public class SnapshotHandler : SnapshotHandler<long, AccountState>
     {
         public void AmountTransferEventHandle(AccountState state, AmountTransferEvent evt)
         {

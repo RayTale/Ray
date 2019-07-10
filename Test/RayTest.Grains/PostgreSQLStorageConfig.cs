@@ -10,7 +10,7 @@ namespace RayTest.Grains
         public static IServiceCollection PSQLConfigure(this IServiceCollection serviceCollection)
         {
             serviceCollection.AddSingleton<IConfigureBuilder<long, Account>>(new PSQLConfigureBuilder<long, Account>((provider, id, parameter) =>
-            new IntegerKeyOptions(provider, "core_event", "account")));
+            new IntegerKeyOptions(provider, "core_event", "account")).AutoRegistrationObserver());
 
             return serviceCollection;
         }

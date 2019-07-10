@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Ray.Core
 {
@@ -22,9 +24,49 @@ namespace Ray.Core
             Observable = observable;
             Observer = observer;
         }
+        /// <summary>
+        /// 监听者分组
+        /// </summary>
         public string Group { get; set; }
+        /// <summary>
+        /// 监听者名称(如果是shadow请设置为null)
+        /// </summary>
         public string Name { get; set; }
+        /// <summary>
+        /// 被监听的Type
+        /// </summary>
         public Type Observable { get; set; }
+        /// <summary>
+        /// 监听者的Type
+        /// </summary>
         public Type Observer { get; set; }
+        static List<(Type type, ObserverAttribute observer)> _AllObserverAttribute;
+        /// <summary>
+        /// 获取所有标记为Observer的Grain信息
+        /// </summary>
+        public static List<(Type type, ObserverAttribute observer)> AllObserverAttribute
+        {
+            get
+            {
+                if (_AllObserverAttribute == default)
+                {
+                    _AllObserverAttribute = new List<(Type type, ObserverAttribute observer)>();
+                    foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+                    {
+                        foreach (var type in assembly.GetTypes().Where(t => typeof(IObserver).IsAssignableFrom(t)))
+                        {
+                            foreach (var attribute in type.GetCustomAttributes(false))
+                            {
+                                if (attribute is ObserverAttribute observer)
+                                {
+                                    _AllObserverAttribute.Add((type, observer));
+                                }
+                            }
+                        }
+                    }
+                }
+                return _AllObserverAttribute;
+            }
+        }
     }
 }

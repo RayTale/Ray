@@ -1,6 +1,7 @@
-﻿using System;
+﻿using Ray.Core;
 using Ray.Core.Storage;
 using Ray.Storage.Mongo.Configuration;
+using System;
 
 namespace Ray.Storage.Mongo
 {
@@ -16,6 +17,17 @@ namespace Ray.Storage.Mongo
             where FollowGrain : Orleans.Grain
         {
             Observe<FollowGrain>((provider, id, parameter) => new ObserverStorageOptions { ObserverName = observerName });
+            return this;
+        }
+        public MongoConfigureBuilder<PrimaryKey, Grain> AutoRegistrationObserver()
+        {
+            foreach (var (type, observer) in ObserverAttribute.AllObserverAttribute)
+            {
+                if (observer.Observable == typeof(Grain))
+                {
+                    Observe(type, (provider, id, parameter) => new ObserverStorageOptions { ObserverName = observer.Name });
+                }
+            }
             return this;
         }
     }

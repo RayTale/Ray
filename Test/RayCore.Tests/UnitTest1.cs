@@ -9,6 +9,7 @@ using Ray.Core;
 using Ray.EventBus.RabbitMQ;
 using Ray.Storage.PostgreSQL;
 using RayTest.Grains;
+using RayTest.Grains.Account;
 using RayTest.IGrains.Actors;
 using Xunit;
 
