@@ -455,7 +455,7 @@ namespace Ray.Core
                 {
                     SnapshotHandler.Apply(Snapshot, fullyEvent);
                     Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
-                    var task = OnRaiseSuccessed(fullyEvent, bytesTransport);
+                    var task = OnRaised(fullyEvent, bytesTransport);
                     if (!task.IsCompletedSuccessfully)
                         await task;
                     var saveSnapshotTask = SaveSnapshotAsync();
@@ -574,7 +574,7 @@ namespace Ray.Core
                 LastArchive = BriefArchiveList.LastOrDefault();
             }
         }
-        protected virtual ValueTask OnRaiseSuccessed(IFullyEvent<PrimaryKey> @event, EventBytesTransport bytesTransport)
+        protected virtual ValueTask OnRaised(IFullyEvent<PrimaryKey> @event, EventBytesTransport transport)
         {
             if (ArchiveOptions.On)
             {

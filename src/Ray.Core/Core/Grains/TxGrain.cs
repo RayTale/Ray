@@ -226,7 +226,7 @@ namespace Ray.Core
                 //如果副本快照没有更新，则更新副本集
                 foreach (var transport in WaitingForTransactionTransports)
                 {
-                    var task = OnRaiseSuccessed(transport.FullyEvent, transport.BytesTransport);
+                    var task = OnRaised(transport.FullyEvent, transport.BytesTransport);
                     if (!task.IsCompletedSuccessfully)
                         await task;
                 }
@@ -320,20 +320,20 @@ namespace Ray.Core
         /// </summary>
         /// <param name="fullyEvent">事件本体</param>
         /// <param name="bytes">事件序列化之后的二进制数据</param>
-        protected override ValueTask OnRaiseSuccessed(IFullyEvent<PrimaryKey> fullyEvent, EventBytesTransport bytesTransport)
+        protected override ValueTask OnRaised(IFullyEvent<PrimaryKey> fullyEvent, EventBytesTransport transport)
         {
             if (BackupSnapshot.Base.Version + 1 == fullyEvent.Base.Version)
             {
                 var copiedEvent = new FullyEvent<PrimaryKey>
                 {
-                    Event = Serializer.Deserialize(fullyEvent.Event.GetType(), bytesTransport.EventBytes) as IEvent,
-                    Base = EventBase.FromBytes(bytesTransport.BaseBytes)
+                    Event = Serializer.Deserialize(fullyEvent.Event.GetType(), transport.EventBytes) as IEvent,
+                    Base = EventBase.FromBytes(transport.BaseBytes)
                 };
                 SnapshotHandler.Apply(BackupSnapshot, copiedEvent);
                 BackupSnapshot.Base.FullUpdateVersion(copiedEvent.Base, GrainType);//更新处理完成的Version
             }
             //父级涉及状态归档
-            return base.OnRaiseSuccessed(fullyEvent, bytesTransport);
+            return base.OnRaised(fullyEvent, transport);
         }
         /// <summary>
         /// 事务性事件提交
