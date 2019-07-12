@@ -19,7 +19,7 @@ using System.Threading.Tasks;
 
 namespace Ray.Core
 {
-    public abstract class ObserverGrain<MainGrain, PrimaryKey> : Grain, IObserver, IConcurrentObserver
+    public abstract class ObserverGrain<MainGrain, PrimaryKey> : Grain, IConcurrentObserver
     {
         readonly Func<object, IEvent, EventBase, Task> handlerInvokeFunc;
         readonly HandlerAttribute handlerAttribute;

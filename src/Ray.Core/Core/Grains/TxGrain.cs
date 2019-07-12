@@ -102,7 +102,7 @@ namespace Ray.Core
             CurrentTransactionStartVersion = -1;
             TransactionStartMilliseconds = 0;
         }
-        private SemaphoreSlim _transactionTimeoutLock { get; } = new SemaphoreSlim(1, 1);
+        private SemaphoreSlim TransactionTimeoutLock { get; } = new SemaphoreSlim(1, 1);
         protected async Task BeginTransaction(long transactionId)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
@@ -110,7 +110,7 @@ namespace Ray.Core
             if (TransactionStartMilliseconds != 0 &&
                 DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - TransactionStartMilliseconds > CoreOptions.TransactionMillisecondsTimeout)
             {
-                if (await _transactionTimeoutLock.WaitAsync(CoreOptions.TransactionMillisecondsTimeout))
+                if (await TransactionTimeoutLock.WaitAsync(CoreOptions.TransactionMillisecondsTimeout))
                 {
                     try
                     {
@@ -123,7 +123,7 @@ namespace Ray.Core
                     }
                     finally
                     {
-                        _transactionTimeoutLock.Release();
+                        TransactionTimeoutLock.Release();
                     }
                 }
             }

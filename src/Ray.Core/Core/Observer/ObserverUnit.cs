@@ -85,17 +85,23 @@ namespace Ray.Core
             var funcs = GetEventHandlers(group);
             funcs.Add(func);
             eventHandlers.Add(func);
-            observerVersionHandlers.Add((actorId, version) => GetObserver(observerType, actorId).GetAndSaveVersion(version));
+            observerVersionHandlers.Add((actorId, version) => GetVersion(observerType, actorId).GetAndSaveVersion(version));
             //内部函数
             Task func(byte[] bytes)
             {
                 var (success, actorId) = EventBytesTransport.GetActorId<PrimaryKey>(bytes);
                 if (success)
                 {
-                    var observer = GetObserver(observerType, actorId);
-                    if (observer is IConcurrentObserver concurrentObserver)
-                        return concurrentObserver.OnNext(new Immutable<byte[]>(bytes));
-                    return observer.OnNext(new Immutable<byte[]>(bytes));
+                    if (typeof(IObserver).IsAssignableFrom(observerType))
+                    {
+                        return GetObserver(observerType, actorId).OnNext(new Immutable<byte[]>(bytes));
+                    }
+                    else if (typeof(IConcurrentObserver).IsAssignableFrom(observerType))
+                    {
+                        return GetConcurrentObserver(observerType, actorId).OnNext(new Immutable<byte[]>(bytes));
+                    }
+                    else
+                        throw new NotSupportedException($"{observerType.FullName} must inheritance from 'IConcurrentObserver' or 'IObserver'");
                 }
                 return Task.CompletedTask;
             }
@@ -114,10 +120,23 @@ namespace Ray.Core
             this.Observer(group, typeof(Observer));
             return this;
         }
-        static readonly ConcurrentDictionary<Type, Func<IClusterClient, PrimaryKey, string, IObserver>> _FuncDict = new ConcurrentDictionary<Type, Func<IClusterClient, PrimaryKey, string, IObserver>>();
+        private IVersion GetVersion(Type observerType, PrimaryKey primaryKey)
+        {
+            if (typeof(IObserver).IsAssignableFrom(observerType))
+            {
+                return GetObserver(observerType, primaryKey);
+            }
+            else if (typeof(IConcurrentObserver).IsAssignableFrom(observerType))
+            {
+                return GetConcurrentObserver(observerType, primaryKey);
+            }
+            else
+                throw new NotSupportedException($"{observerType.FullName} must inheritance from 'IConcurrentObserver' or 'IObserver'");
+        }
+        static readonly ConcurrentDictionary<Type, Func<IClusterClient, PrimaryKey, string, IObserver>> _observerGeneratorDict = new ConcurrentDictionary<Type, Func<IClusterClient, PrimaryKey, string, IObserver>>();
         private IObserver GetObserver(Type ObserverType, PrimaryKey primaryKey)
         {
-            var func = _FuncDict.GetOrAdd(ObserverType, key =>
+            var func = _observerGeneratorDict.GetOrAdd(ObserverType, key =>
             {
                 var clientType = typeof(IClusterClient);
                 var clientParams = Expression.Parameter(clientType, "client");
@@ -126,6 +145,21 @@ namespace Ray.Core
                 var method = typeof(ClusterClientExtensions).GetMethod("GetGrain", new Type[] { clientType, typeof(PrimaryKey), typeof(string) });
                 var body = Expression.Call(method.MakeGenericMethod(ObserverType), clientParams, primaryKeyParams, grainClassNamePrefixParams);
                 return Expression.Lambda<Func<IClusterClient, PrimaryKey, string, IObserver>>(body, clientParams, primaryKeyParams, grainClassNamePrefixParams).Compile();
+            });
+            return func(clusterClient, primaryKey, null);
+        }
+        static readonly ConcurrentDictionary<Type, Func<IClusterClient, PrimaryKey, string, IConcurrentObserver>> _ConcurrentObserverGeneratorDict = new ConcurrentDictionary<Type, Func<IClusterClient, PrimaryKey, string, IConcurrentObserver>>();
+        private IConcurrentObserver GetConcurrentObserver(Type ObserverType, PrimaryKey primaryKey)
+        {
+            var func = _ConcurrentObserverGeneratorDict.GetOrAdd(ObserverType, key =>
+            {
+                var clientType = typeof(IClusterClient);
+                var clientParams = Expression.Parameter(clientType, "client");
+                var primaryKeyParams = Expression.Parameter(typeof(PrimaryKey), "primaryKey");
+                var grainClassNamePrefixParams = Expression.Parameter(typeof(string), "grainClassNamePrefix");
+                var method = typeof(ClusterClientExtensions).GetMethod("GetGrain", new Type[] { clientType, typeof(PrimaryKey), typeof(string) });
+                var body = Expression.Call(method.MakeGenericMethod(ObserverType), clientParams, primaryKeyParams, grainClassNamePrefixParams);
+                return Expression.Lambda<Func<IClusterClient, PrimaryKey, string, IConcurrentObserver>>(body, clientParams, primaryKeyParams, grainClassNamePrefixParams).Compile();
             });
             return func(clusterClient, primaryKey, null);
         }

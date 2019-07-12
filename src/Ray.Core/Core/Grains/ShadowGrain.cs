@@ -20,6 +20,8 @@ namespace Ray.Core
         public ShadowGrain()
         {
             GrainType = GetType();
+            if (typeof(IConcurrentObserver).IsAssignableFrom(GrainType))
+                throw new NotSupportedException("ShadowGrain not supported inheritance from 'IConcurrentObserver'");
         }
         protected CoreOptions CoreOptions { get; private set; }
         protected ArchiveOptions ArchiveOptions { get; private set; }

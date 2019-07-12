@@ -3,10 +3,8 @@ using Orleans.Concurrency;
 
 namespace Ray.Core
 {
-    public interface IObserver
+    public interface IObserver : IVersion
     {
         Task OnNext(Immutable<byte[]> bytes);
-        Task<long> GetVersion();
-        Task<long> GetAndSaveVersion(long compareVersion);
     }
 }

@@ -53,7 +53,7 @@ namespace Ray.Core
                     _AllObserverAttribute = new List<(Type type, ObserverAttribute observer)>();
                     foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
                     {
-                        foreach (var type in assembly.GetTypes().Where(t => typeof(IObserver).IsAssignableFrom(t)))
+                        foreach (var type in assembly.GetTypes().Where(t => typeof(IObserver).IsAssignableFrom(t) || typeof(IConcurrentObserver).IsAssignableFrom(t)))
                         {
                             foreach (var attribute in type.GetCustomAttributes(false))
                             {
