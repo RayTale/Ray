@@ -84,6 +84,10 @@ namespace Ray.Core
         /// </summary>
         protected IProducer EventBusProducer { get; private set; }
         /// <summary>
+        /// 事件处理器
+        /// </summary>
+        protected List<Func<byte[], Task>> ObserverEventHandlers { get; private set; }
+        /// <summary>
         /// 依赖注入统一方法
         /// </summary>
         protected async virtual ValueTask DependencyInjection()
@@ -95,6 +99,7 @@ namespace Ray.Core
             Serializer = ServiceProvider.GetService<ISerializer>();
             SnapshotHandler = ServiceProvider.GetService<ISnapshotHandler<PrimaryKey, StateType>>();
             ObserverUnit = ServiceProvider.GetService<IObserverUnitContainer>().GetUnit<PrimaryKey>(GrainType);
+            ObserverEventHandlers = ObserverUnit.GetAllEventHandlers();
             var configureBuilder = (IConfigureBuilder<PrimaryKey>)ServiceProvider.GetService(typeof(IConfigureBuilder<,>).MakeGenericType(typeof(PrimaryKey), GrainType));
             var storageConfigTask = configureBuilder.GetConfig(ServiceProvider, GrainId);
             if (!storageConfigTask.IsCompletedSuccessfully)
@@ -461,7 +466,7 @@ namespace Ray.Core
                     var saveSnapshotTask = SaveSnapshotAsync();
                     if (!saveSnapshotTask.IsCompletedSuccessfully)
                         await saveSnapshotTask;
-                    await PublishToEventBust(bytesTransport);
+                    await PublishToEventBust(bytesTransport.GetBytes(), GrainId.ToString());
                     if (Logger.IsEnabled(LogLevel.Trace))
                         Logger.LogTrace("Raise event successfully, grain Id= {0} and state version = {1}", GrainId.ToString(), Snapshot.Base.Version);
                     return true;
@@ -484,53 +489,51 @@ namespace Ray.Core
                 throw;
             }
             return false;
-            //发送事件到EventBus中
-            async Task PublishToEventBust(EventBytesTransport bytesTransport)
+        }
+        //发送事件到EventBus中
+        protected async Task PublishToEventBust(byte[] bytes, string hashKey)
+        {
+            if (ObserverEventHandlers.Count > 0)
             {
-                var handlers = ObserverUnit.GetAllEventHandlers();
-                if (handlers.Count > 0)
+                try
                 {
-                    try
+                    if (CoreOptions.PriorityAsyncEventBus)
                     {
-                        if (CoreOptions.PriorityAsyncEventBus)
+                        try
                         {
-                            try
-                            {
-                                var publishTask = EventBusProducer.Publish(bytesTransport.GetBytes(), GrainId.ToString());
-                                if (!publishTask.IsCompletedSuccessfully)
-                                    await publishTask;
-                            }
-                            catch (Exception ex)
-                            {
-                                Logger.LogError(ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
-                                //当消息队列出现问题的时候同步推送
-                                await Task.WhenAll(handlers.Select(func => func(bytesTransport.GetBytes())));
-                            }
+                            var publishTask = EventBusProducer.Publish(bytes, hashKey);
+                            if (!publishTask.IsCompletedSuccessfully)
+                                await publishTask;
                         }
-                        else
+                        catch (Exception ex)
                         {
-                            try
-                            {
-                                await Task.WhenAll(handlers.Select(func => func(bytesTransport.GetBytes())));
-                            }
-                            catch (Exception ex)
-                            {
-                                Logger.LogError(ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
-                                //当消息队列出现问题的时候异步推送
-                                var publishTask = EventBusProducer.Publish(bytesTransport.GetBytes(), GrainId.ToString());
-                                if (!publishTask.IsCompletedSuccessfully)
-                                    await publishTask;
-                            }
+                            Logger.LogError(ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
+                            //当消息队列出现问题的时候同步推送
+                            await Task.WhenAll(ObserverEventHandlers.Select(func => func(bytes)));
                         }
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        Logger.LogError(ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
+                        try
+                        {
+                            await Task.WhenAll(ObserverEventHandlers.Select(func => func(bytes)));
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.LogError(ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
+                            //当消息队列出现问题的时候异步推送
+                            var publishTask = EventBusProducer.Publish(bytes, hashKey);
+                            if (!publishTask.IsCompletedSuccessfully)
+                                await publishTask;
+                        }
                     }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "EventBus error,state  Id ={0}, version ={1}", GrainId.ToString(), Snapshot.Base.Version);
                 }
             }
         }
-
         protected virtual async ValueTask OnRaiseStart(IFullyEvent<PrimaryKey> @event)
         {
             if (Snapshot.Base.Version == 0)

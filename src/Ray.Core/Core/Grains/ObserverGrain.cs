@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using Orleans;
 using Orleans.Concurrency;
+using Ray.Core.Channels;
 using Ray.Core.Configuration;
 using Ray.Core.Event;
 using Ray.Core.Exceptions;
@@ -18,13 +19,15 @@ using System.Threading.Tasks;
 
 namespace Ray.Core
 {
-    public abstract class ObserverGrain<MainGrain, PrimaryKey> : Grain, IObserver
+    public abstract class ObserverGrain<MainGrain, PrimaryKey> : Grain, IObserver, IConcurrentObserver
     {
         readonly Func<object, IEvent, EventBase, Task> handlerInvokeFunc;
         readonly HandlerAttribute handlerAttribute;
+        readonly bool concurrent;
         public ObserverGrain()
         {
             GrainType = GetType();
+            concurrent = typeof(IConcurrentObserver).IsAssignableFrom(GrainType);
             var handlerAttributes = GrainType.GetCustomAttributes(typeof(HandlerAttribute), false);
             if (handlerAttributes.Length > 0)
                 handlerAttribute = (HandlerAttribute)handlerAttributes[0];
@@ -152,7 +155,14 @@ namespace Ray.Core
                 }
             }
         }
-
+        /// <summary>
+        /// 未处理事件列表
+        /// </summary>
+        private List<IFullyEvent<PrimaryKey>> UnprocessedEventList { get; set; }
+        /// <summary>
+        /// 多生产者单消费者消息信道
+        /// </summary>
+        protected IMpscChannel<AsyncInputEvent<IFullyEvent<PrimaryKey>, bool>> ConcurrentChannel { get; private set; }
         protected new IGrainFactory GrainFactory { get; private set; }
         private PrimaryKey _GrainId;
         private bool _GrainIdAcquired = false;
@@ -243,10 +253,15 @@ namespace Ray.Core
         public override async Task OnActivateAsync()
         {
             var dITask = DependencyInjection();
-            if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace("Start activation followgrain with id = {0}", GrainId.ToString());
             if (!dITask.IsCompletedSuccessfully)
                 await dITask;
+            if (Logger.IsEnabled(LogLevel.Trace))
+                Logger.LogTrace("Start activation followgrain with id = {0}", GrainId.ToString());
+            if (concurrent)
+            {
+                ConcurrentChannel = ServiceProvider.GetService<IMpscChannel<AsyncInputEvent<IFullyEvent<PrimaryKey>, bool>>>().BindConsumer(ConcurrentTell);
+                UnprocessedEventList = new List<IFullyEvent<PrimaryKey>>();
+            }
             try
             {
                 await ReadSnapshotAsync();
@@ -303,6 +318,8 @@ namespace Ray.Core
             var needSaveSnap = Snapshot.Version - SnapshotEventVersion >= 1;
             if (Logger.IsEnabled(LogLevel.Information))
                 Logger.LogInformation("Followgrain start deactivation with id = {0} ,{1}", GrainId.ToString(), needSaveSnap ? "updated snapshot" : "no update snapshot");
+            if (concurrent)
+                ConcurrentChannel.Complete();
             if (needSaveSnap)
                 return SaveSnapshotAsync(true).AsTask();
             else
@@ -344,7 +361,7 @@ namespace Ray.Core
             return Consts.ValueTaskDone;
         }
         #endregion
-        public Task OnNext(Immutable<byte[]> bytes)
+        public async Task OnNext(Immutable<byte[]> bytes)
         {
             var (success, transport) = EventBytesTransport.FromBytesWithNoId(bytes.Value);
             if (success)
@@ -355,14 +372,36 @@ namespace Ray.Core
                     var eventBase = EventBase.FromBytes(transport.BaseBytes);
                     if (eventBase.Version > Snapshot.Version)
                     {
-                        var tellTask = Tell(new FullyEvent<PrimaryKey>
+                        if (concurrent)
                         {
-                            StateId = GrainId,
-                            Base = eventBase,
-                            Event = @event
-                        });
-                        if (!tellTask.IsCompletedSuccessfully)
-                            return tellTask.AsTask();
+                            var input = new AsyncInputEvent<IFullyEvent<PrimaryKey>, bool>(new FullyEvent<PrimaryKey>
+                            {
+                                StateId = GrainId,
+                                Base = eventBase,
+                                Event = @event
+                            });
+                            var writeTask = ConcurrentChannel.WriteAsync(input);
+                            if (!writeTask.IsCompletedSuccessfully)
+                                await writeTask;
+                            if (!writeTask.Result)
+                            {
+                                var ex = new ChannelUnavailabilityException(GrainId.ToString(), GrainType);
+                                Logger.LogError(ex, ex.Message);
+                                throw ex;
+                            }
+                            await input.TaskSource.Task;
+                        }
+                        else
+                        {
+                            var tellTask = Tell(new FullyEvent<PrimaryKey>
+                            {
+                                StateId = GrainId,
+                                Base = eventBase,
+                                Event = @event
+                            });
+                            if (!tellTask.IsCompletedSuccessfully)
+                                await tellTask;
+                        }
                     }
                 }
                 else
@@ -371,7 +410,6 @@ namespace Ray.Core
                         Logger.LogInformation("Receive non-event messages, grain Id = {0} ,message type = {1}", GrainId.ToString(), transport.EventTypeCode);
                 }
             }
-            return Task.CompletedTask;
         }
         public Task<long> GetVersion()
         {
@@ -428,6 +466,81 @@ namespace Ray.Core
             {
                 Logger.LogCritical(ex, "FollowGrain Event handling failed with Id = {0},event = {1}", GrainId.ToString(), Serializer.SerializeToString(fullyEvent));
                 throw;
+            }
+        }
+        private async Task ConcurrentTell(List<AsyncInputEvent<IFullyEvent<PrimaryKey>, bool>> inputs)
+        {
+            var evtList = new List<IFullyEvent<PrimaryKey>>();
+            var startVersion = Snapshot.Version;
+            if (UnprocessedEventList.Count > 0)
+            {
+                startVersion = UnprocessedEventList.Last().Base.Version;
+            }
+            var maxVersion = startVersion;
+            TaskCompletionSource<bool> maxRequest = default;
+            try
+            {
+                foreach (var input in inputs)
+                {
+                    if (input.Value.Base.Version == startVersion)
+                    {
+                        maxRequest = input.TaskSource;
+                    }
+                    else if (input.Value.Base.Version < startVersion)
+                    {
+                        input.TaskSource.TrySetResult(true);
+                    }
+                    else
+                    {
+                        evtList.Add(input.Value);
+                        if (input.Value.Base.Version > maxVersion)
+                        {
+                            maxRequest?.TrySetResult(true);
+                            maxVersion = input.Value.Base.Version;
+                            maxRequest = input.TaskSource;
+                        }
+                        else
+                        {
+                            input.TaskSource.TrySetResult(true);
+                        }
+                    }
+                }
+
+                if (evtList.Count > 0)
+                {
+                    var orderList = evtList.OrderBy(e => e.Base.Version).ToList();
+                    var inputLast = orderList.Last();
+                    if (startVersion + orderList.Count < inputLast.Base.Version)
+                    {
+                        var loadList = await EventStorage.GetList(GrainId, 0, startVersion + 1, inputLast.Base.Version - 1);
+                        UnprocessedEventList.AddRange(loadList);
+                        UnprocessedEventList.Add(inputLast);
+                    }
+                    else
+                    {
+                        UnprocessedEventList.AddRange(orderList.Select(w => w));
+                    }
+                }
+                if (UnprocessedEventList.Count > 0)
+                {
+                    await Task.WhenAll(UnprocessedEventList.Select(async @event =>
+                    {
+                        var task = EventDelivered(@event);
+                        if (!task.IsCompletedSuccessfully)
+                            await task;
+                    }));
+                    Snapshot.UnsafeUpdateVersion(UnprocessedEventList.Last().Base);
+                    var saveTask = SaveSnapshotAsync();
+                    if (!saveTask.IsCompletedSuccessfully)
+                        await saveTask;
+                    UnprocessedEventList.Clear();
+                    maxRequest?.TrySetResult(true);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "FollowGrain event handling failed with Id {1}", GrainId.ToString());
+                maxRequest?.TrySetException(ex);
             }
         }
         protected virtual async ValueTask EventDelivered(IFullyEvent<PrimaryKey> fullyEvent)

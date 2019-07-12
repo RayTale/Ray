@@ -3,9 +3,9 @@ using Orleans.Concurrency;
 
 namespace Ray.Core
 {
-    public interface IConcurrentObserver : IObserver
+    public interface IConcurrentObserver
     {
         [AlwaysInterleave]
-        Task ConcurrentOnNext(Immutable<byte[]> bytes);
+        Task OnNext(Immutable<byte[]> bytes);
     }
 }

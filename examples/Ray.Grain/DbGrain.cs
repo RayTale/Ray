@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Ray.Grain
 {
-    public abstract class DbGrain<Main, K> : ConcurrentObserverGrain<Main, K>
+    public abstract class DbGrain<Main, K> : ObserverGrain<Main, K>
     {
         protected override async ValueTask EventDelivered(IFullyEvent<K> @event)
         {

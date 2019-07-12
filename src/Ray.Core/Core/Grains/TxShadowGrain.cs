@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
-using Ray.Core.Snapshot;
+﻿using Ray.Core.Snapshot;
 using System.Threading.Tasks;
 
 namespace Ray.Core.Core.Grains

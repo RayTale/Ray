@@ -94,7 +94,7 @@ namespace Ray.Core
                 {
                     var observer = GetObserver(observerType, actorId);
                     if (observer is IConcurrentObserver concurrentObserver)
-                        return concurrentObserver.ConcurrentOnNext(new Immutable<byte[]>(bytes));
+                        return concurrentObserver.OnNext(new Immutable<byte[]>(bytes));
                     return observer.OnNext(new Immutable<byte[]>(bytes));
                 }
                 return Task.CompletedTask;

@@ -243,37 +243,7 @@ namespace Ray.Core
                     {
                         foreach (var transport in WaitingForTransactionTransports)
                         {
-                            if (CoreOptions.PriorityAsyncEventBus)
-                            {
-                                try
-                                {
-                                    var publishTask = EventBusProducer.Publish(transport.BytesTransport.GetBytes(), transport.HashKey);
-                                    if (!publishTask.IsCompletedSuccessfully)
-                                        await publishTask;
-                                }
-                                catch (Exception ex)
-                                {
-                                    Logger.LogError(ex, ex.Message);
-
-                                    //当消息队列出现问题的时候同步推送
-                                    await Task.WhenAll(handlers.Select(func => func(transport.BytesTransport.GetBytes())));
-                                }
-                            }
-                            else
-                            {
-                                try
-                                {
-                                    await Task.WhenAll(handlers.Select(func => func(transport.BytesTransport.GetBytes())));
-                                }
-                                catch (Exception ex)
-                                {
-                                    Logger.LogError(ex, ex.Message);
-                                    //当消息队列出现问题的时候异步推送
-                                    var publishTask = EventBusProducer.Publish(transport.BytesTransport.GetBytes(), transport.HashKey);
-                                    if (!publishTask.IsCompletedSuccessfully)
-                                        await publishTask;
-                                }
-                            }
+                            await PublishToEventBust(transport.BytesTransport.GetBytes(), transport.HashKey);
                         }
                     }
                     catch (Exception ex)

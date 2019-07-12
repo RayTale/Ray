@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 namespace Ray.Grain
 {
     [Observer(DefaultObserverGroup.primary, "flow", typeof(Account))]
-    public sealed class AccountFlow : ConcurrentObserverGrain<Account, long>, IAccountFlow
+    public sealed class AccountFlow : ObserverGrain<Account, long>, IAccountFlow
     {
         protected override bool ConcurrentHandle => true;
         public Task EventHandler(AmountTransferEvent value, EventBase eventBase)
