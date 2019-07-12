@@ -15,14 +15,16 @@ using System.Threading.Tasks;
 namespace Ray.Core
 {
     public abstract class ShadowGrain<Main, PrimaryKey, StateType> : Grain, IObserver
-        where StateType : class, new()
+        where StateType : class, ICloneable<StateType>, new()
     {
         public ShadowGrain()
         {
             GrainType = GetType();
             if (typeof(IConcurrentObserver).IsAssignableFrom(GrainType))
                 throw new NotSupportedException("ShadowGrain not supported inheritance from 'IConcurrentObserver'");
+            IsTxShadow = typeof(TxGrain<PrimaryKey, StateType>).IsAssignableFrom(typeof(Main));
         }
+        protected bool IsTxShadow { get; }
         protected CoreOptions CoreOptions { get; private set; }
         protected ArchiveOptions ArchiveOptions { get; private set; }
         protected ILogger Logger { get; private set; }
@@ -178,6 +180,14 @@ namespace Ray.Core
                     if (!createTask.IsCompletedSuccessfully)
                         await createTask;
                 }
+                else if (IsTxShadow)
+                {
+                    Snapshot = new TxSnapshot<PrimaryKey, StateType>()
+                    {
+                        Base = new TxSnapshotBase<PrimaryKey>(Snapshot.Base),
+                        State = Snapshot.State
+                    };
+                }
                 if (Logger.IsEnabled(LogLevel.Trace))
                     Logger.LogTrace("The snapshot of id = {0} read completed, state version = {1}", GrainId.ToString(), this.Snapshot.Base.Version);
             }
@@ -194,7 +204,14 @@ namespace Ray.Core
         /// <returns></returns>
         protected virtual ValueTask CreateSnapshot()
         {
-            Snapshot = new Snapshot<PrimaryKey, StateType>(GrainId);
+            if (IsTxShadow)
+            {
+                Snapshot = new TxSnapshot<PrimaryKey, StateType>(GrainId);
+            }
+            else
+            {
+                Snapshot = new Snapshot<PrimaryKey, StateType>(GrainId);
+            }
             return Consts.ValueTaskDone;
         }
         #endregion
