@@ -58,7 +58,7 @@ namespace Ray.Core
             eventHandlers.Add(func);
             return this;
             //内部函数
-            Task func(byte[] bytes)
+            Task func(byte[]  bytes)
             {
                 var (success, transport) = EventBytesTransport.FromBytes<PrimaryKey>(bytes);
                 if (success)
