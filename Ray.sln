@@ -33,7 +33,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.Host", "examples\Ray.Ho
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.Client", "examples\Ray.Client\Ray.Client.csproj", "{EB545052-E6F6-42FE-A34A-CE987B8EC818}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ray.Storage.MySQL", "src\Ray.Storage.MySQL\Ray.Storage.MySQL.csproj", "{F41EFC6C-5299-477B-8301-65C1C8398D69}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.Storage.MySQL", "src\Ray.Storage.MySQL\Ray.Storage.MySQL.csproj", "{F41EFC6C-5299-477B-8301-65C1C8398D69}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ray.EventBus.Kafka", "Ray.EventBus.Kafka\Ray.EventBus.Kafka.csproj", "{56377603-62D7-426E-870E-7D8B03FE86E5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -155,6 +157,14 @@ Global
 		{F41EFC6C-5299-477B-8301-65C1C8398D69}.Release|Any CPU.Build.0 = Release|Any CPU
 		{F41EFC6C-5299-477B-8301-65C1C8398D69}.Release|x64.ActiveCfg = Release|Any CPU
 		{F41EFC6C-5299-477B-8301-65C1C8398D69}.Release|x64.Build.0 = Release|Any CPU
+		{56377603-62D7-426E-870E-7D8B03FE86E5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{56377603-62D7-426E-870E-7D8B03FE86E5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{56377603-62D7-426E-870E-7D8B03FE86E5}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{56377603-62D7-426E-870E-7D8B03FE86E5}.Debug|x64.Build.0 = Debug|Any CPU
+		{56377603-62D7-426E-870E-7D8B03FE86E5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{56377603-62D7-426E-870E-7D8B03FE86E5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{56377603-62D7-426E-870E-7D8B03FE86E5}.Release|x64.ActiveCfg = Release|Any CPU
+		{56377603-62D7-426E-870E-7D8B03FE86E5}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
