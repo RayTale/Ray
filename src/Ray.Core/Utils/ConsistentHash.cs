@@ -28,7 +28,7 @@ namespace Ray.Core.Utils
 
             foreach (string node in nodes)
             {
-                this.Add(node, false);
+                Add(node, false);
             }
             ayKeys = circle.Keys.ToArray();
         }
@@ -78,10 +78,9 @@ namespace Ray.Core.Utils
                 return 0;
             }
 
-            int mid = begin;
             while (end - begin > 1)
             {
-                mid = (end + begin) / 2;
+                int mid = (end + begin) / 2;
                 if (ay[mid] >= val)
                 {
                     end = mid;
@@ -102,14 +101,7 @@ namespace Ray.Core.Utils
 
         public string GetNode(string key)
         {
-            //return GetNode_slow(key);
-
-            int hash = BetterHash(key);
-
-            int first = First_ge(ayKeys, hash);
-
-            //int diff = circle.Keys[first] - hash;
-
+            int first = First_ge(ayKeys, BetterHash(key));
             return circle[ayKeys[first]];
         }
 
@@ -120,5 +112,4 @@ namespace Ray.Core.Utils
             return (int)hash;
         }
     }
-
 }

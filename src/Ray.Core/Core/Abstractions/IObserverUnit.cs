@@ -1,7 +1,7 @@
-﻿using System;
+﻿using Ray.Core.Abstractions;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Ray.Core.Abstractions;
 
 namespace Ray.Core
 {
