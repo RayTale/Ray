@@ -1,7 +1,6 @@
-﻿using System;
+﻿using Ray.Core.EventBus;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
-using Ray.Core.EventBus;
 
 namespace Ray.EventBus.RabbitMQ
 {
@@ -11,17 +10,13 @@ namespace Ray.EventBus.RabbitMQ
         readonly IRabbitMQClient rabbitMQClient;
         public RabbitProducer(
             IRabbitMQClient rabbitMQClient,
-            RabbitEventBus publisher,
-            Type grainType)
+            RabbitEventBus publisher)
         {
-            GrainType = grainType;
             this.publisher = publisher;
             this.rabbitMQClient = rabbitMQClient;
         }
 
         readonly ConcurrentDictionary<string, ModelWrapper> modelDict = new ConcurrentDictionary<string, ModelWrapper>();
-
-        public Type GrainType { get; }
 
         public async ValueTask<ModelWrapper> PullModel(string route)
         {
