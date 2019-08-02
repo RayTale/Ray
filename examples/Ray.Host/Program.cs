@@ -9,6 +9,7 @@ using Orleans.Configuration;
 using Orleans.Hosting;
 using Ray.Core;
 using Ray.EventBus.RabbitMQ;
+using Ray.EventBus.Kafka;
 using Ray.Grain;
 using Ray.Grain.EventHandles;
 using Ray.Storage.Mongo;
@@ -89,14 +90,26 @@ namespace Ray.MongoHost
                     //    options.CollectionName = "Transaction_TemporaryRecord";
                     //});
                     //servicecollection.MongoConfigure();
-                    servicecollection.AddRabbitMQ(config =>
-                    {
-                        config.UserName = "admin";
-                        config.Password = "admin";
-                        config.Hosts = new[] { "127.0.0.1:5672" };
-                        config.MaxPoolSize = 100;
-                        config.VirtualHost = "/";
-                    });
+                    //servicecollection.AddRabbitMQ(config =>
+                    //{
+                    //    config.UserName = "admin";
+                    //    config.Password = "admin";
+                    //    config.Hosts = new[] { "127.0.0.1:5672" };
+                    //    config.MaxPoolSize = 100;
+                    //    config.VirtualHost = "/";
+                    //});
+                    servicecollection.AddKafkaMQ(
+                        config => { },
+                        config =>
+                        {
+                            config.BootstrapServers = "192.168.1.2:9092";
+                        }, config =>
+                        {
+                            config.BootstrapServers = "192.168.1.2:9092";
+                        }, async container =>
+                        {
+                            await container.CreateEventBus<Account>(nameof(Account), 5).DefaultConsumer<long>();
+                        });
                     //servicecollection.AddRabbitMQ(config =>
                     //{
                     //    config.UserName = "admin";

@@ -1,31 +1,29 @@
-﻿using System;
-using System.Linq;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using Orleans;
-using RabbitMQ.Client;
+﻿using Orleans;
 using Ray.Core;
 using Ray.Core.Abstractions;
 using Ray.Core.EventBus;
 using Ray.Core.Exceptions;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
-namespace Ray.EventBus.RabbitMQ
+namespace Ray.EventBus.Kafka
 {
-    public class EventBusContainer : IRabbitEventBusContainer, IProducerContainer
+    public class EventBusContainer : IKafkaEventBusContainer, IProducerContainer
     {
-        private readonly ConcurrentDictionary<Type, RabbitEventBus> eventBusDictionary = new ConcurrentDictionary<Type, RabbitEventBus>();
-        private readonly List<RabbitEventBus> eventBusList = new List<RabbitEventBus>();
-        readonly IRabbitMQClient rabbitMQClient;
+        private readonly ConcurrentDictionary<Type, KafkaEventBus> eventBusDictionary = new ConcurrentDictionary<Type, KafkaEventBus>();
+        private readonly List<KafkaEventBus> eventBusList = new List<KafkaEventBus>();
+        readonly IKafkaClient Client;
         readonly IServiceProvider serviceProvider;
         private readonly IObserverUnitContainer observerUnitContainer;
         public EventBusContainer(
             IServiceProvider serviceProvider,
             IObserverUnitContainer observerUnitContainer,
-            IRabbitMQClient rabbitMQClient)
+            IKafkaClient client)
         {
             this.serviceProvider = serviceProvider;
-            this.rabbitMQClient = rabbitMQClient;
+            Client = client;
             this.observerUnitContainer = observerUnitContainer;
         }
         public async Task AutoRegister()
@@ -47,16 +45,14 @@ namespace Ray.EventBus.RabbitMQ
             }
             foreach (var (type, config) in observableList)
             {
-                var groupsConfig = serviceProvider.GetOptionsByName<GroupsOptions>(type.FullName);
-                var eventBus = CreateEventBus(string.IsNullOrEmpty(config.Exchange) ? type.Name : config.Exchange, string.IsNullOrEmpty(config.RoutePrefix) ? type.Name : config.RoutePrefix, config.LBCount, config.MinQos, config.IncQos, config.MaxQos, config.AutoAck, config.Reenqueue).BindProducer(type);
+                var eventBus = CreateEventBus(string.IsNullOrEmpty(config.Topic) ? type.Name : config.Topic, config.LBCount).BindProducer(type);
                 if (typeof(IGrainWithIntegerKey).IsAssignableFrom(type))
                 {
                     var observerUnit = observerUnitContainer.GetUnit(type) as IObserverUnit<long>;
                     var groups = observerUnit.GetGroups();
                     foreach (var group in groups)
                     {
-                        var groupConfig = groupsConfig.Configs?.SingleOrDefault(c => c.Group == group);
-                        eventBus.CreateConsumer<long>(group, groupConfig?.Config);
+                        eventBus.CreateConsumer<long>(group);
                     }
                 }
                 else if (typeof(IGrainWithStringKey).IsAssignableFrom(type))
@@ -65,8 +61,7 @@ namespace Ray.EventBus.RabbitMQ
                     var groups = observerUnit.GetGroups();
                     foreach (var group in groups)
                     {
-                        var groupConfig = groupsConfig.Configs?.SingleOrDefault(c => c.Group == group);
-                        eventBus.CreateConsumer<string>(group, groupConfig?.Config);
+                        eventBus.CreateConsumer<string>(group);
                     }
                 }
                 else
@@ -74,26 +69,23 @@ namespace Ray.EventBus.RabbitMQ
                 await Work(eventBus);
             }
         }
-        public RabbitEventBus CreateEventBus(string exchange, string routePrefix, int lBCount = 1, ushort minQos = 100, ushort incQos = 100, ushort maxQos = 300, bool autoAck = false, bool reenqueue = false)
+        public KafkaEventBus CreateEventBus(string topic, int lBCount = 1)
         {
-            return new RabbitEventBus(serviceProvider, this, exchange, routePrefix, lBCount, minQos, incQos, maxQos, autoAck, reenqueue);
+            return new KafkaEventBus(serviceProvider, this, topic, lBCount);
         }
-        public RabbitEventBus CreateEventBus<MainGrain>(string exchange, string routePrefix, int lBCount = 1, ushort minQos = 100, ushort incQos = 100, ushort maxQos = 300, bool autoAck = false, bool reenqueue = false)
+        public KafkaEventBus CreateEventBus<MainGrain>(string topic, int lBCount = 1)
         {
-            return CreateEventBus(exchange, routePrefix, lBCount, minQos, incQos, maxQos, autoAck, reenqueue).BindProducer<MainGrain>();
+            return CreateEventBus(topic, lBCount).BindProducer<MainGrain>();
         }
-        public async Task Work(RabbitEventBus bus)
+        public Task Work(KafkaEventBus bus)
         {
             if (eventBusDictionary.TryAdd(bus.ProducerType, bus))
             {
                 eventBusList.Add(bus);
-                using (var channel = await rabbitMQClient.PullModel())
-                {
-                    channel.Model.ExchangeDeclare(bus.Exchange, "direct", true);
-                }
             }
             else
                 throw new EventBusRepeatException(bus.ProducerType.FullName);
+            return Task.CompletedTask;
         }
 
         readonly ConcurrentDictionary<Type, IProducer> producerDict = new ConcurrentDictionary<Type, IProducer>();
@@ -104,7 +96,7 @@ namespace Ray.EventBus.RabbitMQ
             {
                 return new ValueTask<IProducer>(producerDict.GetOrAdd(type, key =>
                 {
-                    return new RabbitProducer(rabbitMQClient, eventBus);
+                    return new KafkaProducer(Client, eventBus);
                 }));
             }
             else

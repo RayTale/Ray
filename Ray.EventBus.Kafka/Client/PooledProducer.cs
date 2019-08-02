@@ -4,9 +4,9 @@ using System;
 
 namespace Ray.EventBus.Kafka
 {
-    public class RayProducer : IDisposable
+    public class PooledProducer : IDisposable
     {
-        public DefaultObjectPool<RayProducer> Pool { get; set; }
+        public DefaultObjectPool<PooledProducer> Pool { get; set; }
         public IProducer<string, byte[]> Handler { get; set; }
 
         public void Dispose()

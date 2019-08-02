@@ -12,6 +12,7 @@
     <PackageReference Include="OrleansDashboard" Version="2.3.6" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\Ray.EventBus.Kafka\Ray.EventBus.Kafka.csproj" />
     <ProjectReference Include="..\Ray.Grain\Ray.Grain.csproj" />
   </ItemGroup>
 

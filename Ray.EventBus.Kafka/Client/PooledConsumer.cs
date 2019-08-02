@@ -1,11 +1,12 @@
 ﻿using Confluent.Kafka;
 using Microsoft.Extensions.ObjectPool;
+using System;
 
 namespace Ray.EventBus.Kafka
 {
-    public class RayConsumer
+    public class PooledConsumer : IDisposable
     {
-        public DefaultObjectPool<RayConsumer> Pool { get; set; }
+        public DefaultObjectPool<PooledConsumer> Pool { get; set; }
         public IConsumer<string, byte[]> Handler { get; set; }
 
         public void Dispose()
