@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Ray.EventBus.Kafka
@@ -31,7 +32,7 @@ namespace Ray.EventBus.Kafka
             {
                 using (var consumer = Client.GetConsumer(Consumer.Group))
                 {
-                    consumer.Handler.Subscribe(Topic);
+                    consumer.Handler.Subscribe(new List<string> { Topic });
                     while (!closed)
                     {
                         try
