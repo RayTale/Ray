@@ -1,4 +1,5 @@
 ﻿using Confluent.Kafka;
+using Ray.Core;
 using Ray.Core.EventBus;
 using System.Threading.Tasks;
 
@@ -25,7 +26,7 @@ namespace Ray.EventBus.Kafka
             {
                 producer.Handler.Produce(topic, new Message<string, byte[]> { Key = hashKey, Value = bytes });
             }
-            return new ValueTask(Task.CompletedTask);
+            return Consts.ValueTaskDone;
 
         }
     }
