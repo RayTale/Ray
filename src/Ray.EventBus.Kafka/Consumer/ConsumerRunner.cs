@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Ray.EventBus.Kafka
@@ -25,10 +26,9 @@ namespace Ray.EventBus.Kafka
         public DateTimeOffset StartTime { get; set; }
         bool IsHeath = true;
         bool closed = false;
-        Task runningTask;
         public Task Run()
         {
-            runningTask = Task.Factory.StartNew(async () =>
+            ThreadPool.QueueUserWorkItem(async state =>
             {
                 using (var consumer = Client.GetConsumer(Consumer.Group))
                 {
@@ -49,7 +49,6 @@ namespace Ray.EventBus.Kafka
                     IsHeath = false;
                     consumer.Handler.Unsubscribe();
                 }
-                runningTask.Dispose();
             });
             return Task.CompletedTask;
         }
