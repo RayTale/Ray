@@ -1,5 +1,4 @@
-﻿using System;
-using System.Data.Common;
+﻿using System.Data.Common;
 
 namespace Ray.Storage.MySQL
 {
@@ -18,11 +17,7 @@ namespace Ray.Storage.MySQL
         }
         protected static DbProviderFactory GetPostgreSqlFactory()
         {
-            return GetFactory("MySql.Data.MySqlClient.MySqlClientFactory, MySql.Data, Culture=neutral, PublicKeyToken=c5687fc88969c44d");
-        }
-        protected static DbProviderFactory GetFactory(string assemblyQualifiedName)
-        {
-            return (DbProviderFactory)Type.GetType(assemblyQualifiedName).GetField("Instance").GetValue(null);
+            return MySql.Data.MySqlClient.MySqlClientFactory.Instance;
         }
     }
 }

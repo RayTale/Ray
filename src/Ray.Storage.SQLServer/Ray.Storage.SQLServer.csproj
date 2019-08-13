@@ -2,19 +2,20 @@
 
   <PropertyGroup>
     <TargetFramework>netcoreapp2.2</TargetFramework>
-    <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MySql.Data" Version="8.0.17" />
     <PackageReference Include="Dapper" Version="1.60.6" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="1.0.19189.1-Preview" />
   </ItemGroup>
+
   <ItemGroup>
-    <ProjectReference Include="..\Ray.Core\Ray.Core.csproj" />
     <ProjectReference Include="..\Ray.DistributedTx\Ray.DistributedTx.csproj" />
     <ProjectReference Include="..\Ray.Storage.SQLCore\Ray.Storage.SQLCore.csproj" />
   </ItemGroup>
+
   <ItemGroup>
     <PackageReference Update="Microsoft.SourceLink.GitHub" Version="1.0.0-beta2-19367-01" />
   </ItemGroup>
+
 </Project>

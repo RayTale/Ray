@@ -39,6 +39,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{85A2DBEC-97E
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.EventBus.Kafka", "src\Ray.EventBus.Kafka\Ray.EventBus.Kafka.csproj", "{C5A41587-5C4F-46A4-A4E9-97BDB0F24C13}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ray.Storage.SQLServer", "src\Ray.Storage.SQLServer\Ray.Storage.SQLServer.csproj", "{83A0C19C-B972-463A-A0F2-B5E90762112E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -167,6 +169,14 @@ Global
 		{C5A41587-5C4F-46A4-A4E9-97BDB0F24C13}.Release|Any CPU.Build.0 = Release|Any CPU
 		{C5A41587-5C4F-46A4-A4E9-97BDB0F24C13}.Release|x64.ActiveCfg = Release|Any CPU
 		{C5A41587-5C4F-46A4-A4E9-97BDB0F24C13}.Release|x64.Build.0 = Release|Any CPU
+		{83A0C19C-B972-463A-A0F2-B5E90762112E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{83A0C19C-B972-463A-A0F2-B5E90762112E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{83A0C19C-B972-463A-A0F2-B5E90762112E}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{83A0C19C-B972-463A-A0F2-B5E90762112E}.Debug|x64.Build.0 = Debug|Any CPU
+		{83A0C19C-B972-463A-A0F2-B5E90762112E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{83A0C19C-B972-463A-A0F2-B5E90762112E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{83A0C19C-B972-463A-A0F2-B5E90762112E}.Release|x64.ActiveCfg = Release|Any CPU
+		{83A0C19C-B972-463A-A0F2-B5E90762112E}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -187,6 +197,7 @@ Global
 		{EB545052-E6F6-42FE-A34A-CE987B8EC818} = {B04C458E-E534-482E-9E44-716A9580133D}
 		{F41EFC6C-5299-477B-8301-65C1C8398D69} = {85A2DBEC-97E7-4565-8A7C-8B44935D7F3E}
 		{C5A41587-5C4F-46A4-A4E9-97BDB0F24C13} = {85A2DBEC-97E7-4565-8A7C-8B44935D7F3E}
+		{83A0C19C-B972-463A-A0F2-B5E90762112E} = {85A2DBEC-97E7-4565-8A7C-8B44935D7F3E}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {B7F09963-06DE-499A-B620-B6EFB2FB2BE5}

@@ -424,10 +424,10 @@ namespace Ray.Core
                 SnapshotEventVersion = 0;
             }
         }
-        protected virtual async Task<bool> RaiseEvent(IEvent @event, EventUID uniqueId = null)
+        protected virtual async Task<bool> RaiseEvent(IEvent @event, EventUID eUID = null)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace("Start raise event, grain Id ={0} and state version = {1},event type = {2} ,event ={3},uniqueueId= {4}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, Serializer.SerializeToString(@event), uniqueId);
+                Logger.LogTrace("Start raise event, grain Id ={0} and state version = {1},event type = {2} ,event ={3},uniqueueId= {4}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, Serializer.SerializeToString(@event), eUID);
             if (Snapshot.Base.IsOver)
                 throw new StateIsOverException(Snapshot.Base.StateId.ToString(), GrainType);
             try
@@ -441,11 +441,17 @@ namespace Ray.Core
                     },
                     StateId = Snapshot.Base.StateId
                 };
-                if (uniqueId == default) uniqueId = EventUID.Empty;
-                if (string.IsNullOrEmpty(uniqueId.UID))
+                string unique = default;
+                if (eUID == default)
+                {
                     fullyEvent.Base.Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    unique = fullyEvent.GetEventId();
+                }
                 else
-                    fullyEvent.Base.Timestamp = uniqueId.Timestamp;
+                {
+                    fullyEvent.Base.Timestamp = eUID.Timestamp;
+                    unique = eUID.UID;
+                }
                 var startTask = OnRaiseStart(fullyEvent);
                 if (!startTask.IsCompletedSuccessfully)
                     await startTask;
@@ -456,7 +462,7 @@ namespace Ray.Core
                     fullyEvent.Base.GetBytes(),
                     Serializer.SerializeToBytes(@event)
                 );
-                if (await EventStorage.Append(fullyEvent, in bytesTransport, uniqueId.UID))
+                if (await EventStorage.Append(fullyEvent, in bytesTransport, unique))
                 {
                     SnapshotHandler.Apply(Snapshot, fullyEvent);
                     Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version

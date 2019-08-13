@@ -196,7 +196,7 @@ namespace Ray.Storage.Mongo
                             {"Timestamp", data.FullyEvent.Base.Timestamp},
                             {"TypeCode",TypeContainer.GetTypeCode( data.FullyEvent.Event.GetType()) },
                             {"Data", Encoding.Default.GetString(data.BytesTransport.EventBytes)},
-                            {"UniqueId",string.IsNullOrEmpty(data.UniqueId) ? data.FullyEvent.Base.Version.ToString() : data.UniqueId }
+                            {"UniqueId",data.UniqueId }
                         }));
                     await session.CommitTransactionAsync();
                 }
@@ -228,7 +228,7 @@ namespace Ray.Storage.Mongo
                                 {"Timestamp", data.t.FullyEvent.Base.Timestamp},
                                 {"TypeCode",TypeContainer.GetTypeCode( data.t.FullyEvent.Event.GetType()) },
                                 {"Data", Encoding.Default.GetString(data.t.BytesTransport.EventBytes)},
-                                {"UniqueId",string.IsNullOrEmpty(data.t.UniqueId) ? data.t.FullyEvent.Base.Version.ToString() : data.t.UniqueId }
+                                {"UniqueId", data.t.UniqueId }
                             }));
                     }
                     await session.CommitTransactionAsync();

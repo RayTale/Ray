@@ -15,6 +15,7 @@ using Ray.Grain.EventHandles;
 using Ray.Storage.Mongo;
 using Ray.Storage.MySQL;
 using Ray.Storage.PostgreSQL;
+using Ray.Storage.SQLServer;
 
 namespace Ray.MongoHost
 {
@@ -58,16 +59,26 @@ namespace Ray.MongoHost
                 .ConfigureServices((context, servicecollection) =>
                 {
                     //注册postgresql为事件存储库
-                    servicecollection.AddPostgreSQLStorage(config =>
+                    //servicecollection.AddPostgreSQLStorage(config =>
+                    //{
+                    //    config.ConnectionDict.Add("core_event", "Server=127.0.0.1;Port=5432;Database=Ray;User Id=postgres;Password=extop;Pooling=true;MaxPoolSize=20;");
+                    //});
+                    //servicecollection.AddPostgreSQLTxStorage(options =>
+                    //{
+                    //    options.ConnectionKey = "core_event";
+                    //    options.TableName = "Transaction_TemporaryRecord";
+                    //});
+                    //servicecollection.PSQLConfigure();
+                    servicecollection.AddSQLServerStorage(config =>
                     {
-                        config.ConnectionDict.Add("core_event", "Server=127.0.0.1;Port=5432;Database=Ray;User Id=postgres;Password=extop;Pooling=true;MaxPoolSize=20;");
+                        config.ConnectionDict.Add("core_event", "Server=127.0.0.1,1433;Database=Ray;User Id=sa;Password=luohuazhiyu;Pooling=true;max pool size=20;");
                     });
-                    servicecollection.AddPostgreSQLTxStorage(options =>
+                    servicecollection.AddSQLServerTxStorage(options =>
                     {
                         options.ConnectionKey = "core_event";
                         options.TableName = "Transaction_TemporaryRecord";
                     });
-                    servicecollection.PSQLConfigure();
+                    servicecollection.SQLServerConfigure();
                     //注册mysql作为事件存储库
                     //servicecollection.AddMySQLStorage(config =>
                     //{
@@ -90,26 +101,26 @@ namespace Ray.MongoHost
                     //    options.CollectionName = "Transaction_TemporaryRecord";
                     //});
                     //servicecollection.MongoConfigure();
-                    //servicecollection.AddRabbitMQ(config =>
-                    //{
-                    //    config.UserName = "admin";
-                    //    config.Password = "admin";
-                    //    config.Hosts = new[] { "127.0.0.1:5672" };
-                    //    config.MaxPoolSize = 100;
-                    //    config.VirtualHost = "/";
-                    //});
-                    servicecollection.AddKafkaMQ(
-                        config => { },
-                        config =>
-                        {
-                            config.BootstrapServers = "192.168.1.2:9092";
-                        }, config =>
-                        {
-                            config.BootstrapServers = "192.168.1.2:9092";
-                        }, async container =>
-                        {
-                            await container.CreateEventBus<Account>(nameof(Account), 5).DefaultConsumer<long>();
-                        });
+                    servicecollection.AddRabbitMQ(config =>
+                    {
+                        config.UserName = "admin";
+                        config.Password = "admin";
+                        config.Hosts = new[] { "127.0.0.1:5672" };
+                        config.MaxPoolSize = 100;
+                        config.VirtualHost = "/";
+                    });
+                    //servicecollection.AddKafkaMQ(
+                    //    config => { },
+                    //    config =>
+                    //    {
+                    //        config.BootstrapServers = "192.168.1.2:9092";
+                    //    }, config =>
+                    //    {
+                    //        config.BootstrapServers = "192.168.1.2:9092";
+                    //    }, async container =>
+                    //    {
+                    //        await container.CreateEventBus<Account>(nameof(Account), 5).DefaultConsumer<long>();
+                    //    });
                     //servicecollection.AddRabbitMQ(config =>
                     //{
                     //    config.UserName = "admin";
