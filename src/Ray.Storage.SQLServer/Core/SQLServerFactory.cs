@@ -1,11 +1,11 @@
 ﻿using System.Data.Common;
 
-namespace Ray.Storage.PostgreSQL
+namespace Ray.Storage.SQLServer
 {
-    public class PSQLFactory
+    public class SQLServerFactory
     {
         static readonly DbProviderFactory dbFactory;
-        static PSQLFactory()
+        static SQLServerFactory()
         {
             dbFactory = GetPostgreSqlFactory();
         }
@@ -17,7 +17,7 @@ namespace Ray.Storage.PostgreSQL
         }
         protected static DbProviderFactory GetPostgreSqlFactory()
         {
-            return Npgsql.NpgsqlFactory.Instance;
+            return Microsoft.Data.SqlClient.SqlClientFactory.Instance;
         }
     }
 }

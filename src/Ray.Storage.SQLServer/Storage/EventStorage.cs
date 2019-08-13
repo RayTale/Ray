@@ -1,7 +1,6 @@
 ﻿using Dapper;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Ray.Core;
 using Ray.Core.Channels;
 using Ray.Core.Event;
 using Ray.Core.Serialization;
@@ -11,11 +10,14 @@ using Ray.Storage.SQLCore.Configuration;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using SqlBulkCopy = Microsoft.Data.SqlClient.SqlBulkCopy;
+using SqlConnection = Microsoft.Data.SqlClient.SqlConnection;
 
-namespace Ray.Storage.MySQL
+namespace Ray.Storage.SQLServer
 {
     public class EventStorage<PrimaryKey> : IEventStorage<PrimaryKey>
     {
@@ -82,7 +84,7 @@ namespace Ray.Storage.MySQL
                     await conn.OpenAsync();
                     foreach (var table in getTableListTask.Result)
                     {
-                        var sql = $"SELECT data,version,timestamp from {table.SubTable} WHERE stateid=@StateId and typecode=@TypeCode and version>=@StartVersion order by version asc limit @Limit";
+                        var sql = $"SELECT top(@Limit) data,version,timestamp from {table.SubTable} WHERE stateid=@StateId and typecode=@TypeCode and version>=@StartVersion order by version asc";
                         var originList = await conn.QueryAsync<EventModel>(sql, new
                         {
                             StateId = stateId,
@@ -152,31 +154,33 @@ namespace Ray.Storage.MySQL
             {
                 try
                 {
-                    var copySql = copySaveSqlDict.GetOrAdd(tableName,
-                         key => $"INSERT INTO {key}(stateid,uniqueId,typecode,data,version,timestamp) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version,@Timestamp)");
-                    using (var conn = config.CreateConnection())
+                    using (var conn = config.CreateConnection() as SqlConnection)
                     {
-                        await conn.OpenAsync();
-                        using (var trans = conn.BeginTransaction())
+                        using (var bulkCopy = new SqlBulkCopy(conn))
                         {
-                            try
+                            bulkCopy.DestinationTableName = tableName;
+                            bulkCopy.BatchSize = wrapperList.Count;
+                            using (var dt = new DataTable())
                             {
-                                await conn.ExecuteAsync(copySql, list.Select(wrapper => new
+                                dt.Columns.Add("stateid", typeof(PrimaryKey));
+                                dt.Columns.Add("uniqueId", typeof(string));
+                                dt.Columns.Add("typecode", typeof(string));
+                                dt.Columns.Add("data", typeof(string));
+                                dt.Columns.Add("version", typeof(long));
+                                dt.Columns.Add("timestamp", typeof(long));
+                                foreach (var item in wrapperList)
                                 {
-                                    StateId = wrapper.Value.Event.StateId.ToString(),
-                                    wrapper.Value.UniqueId,
-                                    TypeCode = TypeContainer.GetTypeCode(wrapper.Value.Event.Event.GetType()),
-                                    Data = Encoding.Default.GetString(wrapper.Value.BytesTransport.EventBytes),
-                                    wrapper.Value.Event.Base.Version,
-                                    wrapper.Value.Event.Base.Timestamp
-                                }).ToList(), trans);
-                                trans.Commit();
-                                list.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
-                            }
-                            catch
-                            {
-                                trans.Rollback();
-                                throw;
+                                    var row = dt.NewRow();
+                                    row["stateid"] = item.Value.Event.StateId;
+                                    row["uniqueId"] = item.Value.UniqueId;
+                                    row["typecode"] = TypeContainer.GetTypeCode(item.Value.Event.Event.GetType());
+                                    row["data"] = Encoding.Default.GetString(item.Value.BytesTransport.EventBytes);
+                                    row["version"] = item.Value.Event.Base.Version;
+                                    row["timestamp"] = item.Value.Event.Base.Timestamp;
+                                    dt.Rows.Add(row);
+                                }
+                                await conn.OpenAsync();
+                                await bulkCopy.WriteToServerAsync(dt);
                             }
                         }
                     }
@@ -186,7 +190,7 @@ namespace Ray.Storage.MySQL
                 {
                     logger.LogError(ex, ex.Message);
                     var saveSql = saveSqlDict.GetOrAdd(tableName,
-                        key => $"INSERT ignore INTO {key}(stateid,uniqueId,typecode,data,version,timestamp) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version,@Timestamp)");
+                        key => $"if NOT EXISTS(select * from {key} where StateId=@StateId and TypeCode=@TypeCode and UniqueId=@UniqueId)INSERT INTO {key}(stateid,uniqueId,typecode,data,version,timestamp) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version,@Timestamp)");
                     await BatchInsert(saveSql, wrapperList);
                 }
             }
@@ -254,41 +258,82 @@ namespace Ray.Storage.MySQL
             var minTask = config.GetTable(minTimestamp);
             if (!minTask.IsCompletedSuccessfully)
                 await minTask;
-            var groups = (await Task.WhenAll(list.Select(async t =>
+            if (minTask.Result.EndTime > maxTimestamp)
             {
-                var task = config.GetTable(t.FullyEvent.Base.Timestamp);
-                if (!task.IsCompletedSuccessfully)
-                    await task;
-                return (task.Result.SubTable, t);
-            }))).GroupBy(t => t.SubTable);
-            using (var conn = config.CreateConnection())
-            {
-                await conn.OpenAsync();
-                using (var trans = conn.BeginTransaction())
+                var saveSql = copySaveSqlDict.GetOrAdd(minTask.Result.SubTable,
+                    key => $"copy {key}(stateid,uniqueId,typecode,data,version,timestamp) FROM STDIN (FORMAT BINARY)");
+                await Task.Run(async () =>
                 {
-                    try
+                    using (var conn = config.CreateConnection() as SqlConnection)
                     {
-                        foreach (var group in groups)
+                        using (var bulkCopy = new SqlBulkCopy(conn))
                         {
-                            var saveSql = saveSqlDict.GetOrAdd(group.Key,
-                                key => $"INSERT INTO {key}(stateid,uniqueId,typecode,data,version,timestamp) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version,@Timestamp)");
-                            await conn.ExecuteAsync(saveSql, group.Select(g => new
+                            bulkCopy.DestinationTableName = minTask.Result.SubTable;
+                            bulkCopy.BatchSize = list.Count;
+                            using (var dt = new DataTable())
                             {
-                                g.t.FullyEvent.StateId,
-                                g.t.UniqueId,
-                                TypeCode = TypeContainer.GetTypeCode(g.t.FullyEvent.Event.GetType()),
-                                Data = Encoding.Default.GetString(g.t.BytesTransport.EventBytes),
-                                g.t.FullyEvent.Base.Version,
-                                g.t.FullyEvent.Base.Timestamp
-                            }), trans);
+                                dt.Columns.Add("stateid", typeof(PrimaryKey));
+                                dt.Columns.Add("uniqueId", typeof(string));
+                                dt.Columns.Add("typecode", typeof(string));
+                                dt.Columns.Add("data", typeof(string));
+                                dt.Columns.Add("version", typeof(long));
+                                dt.Columns.Add("timestamp", typeof(long));
+                                foreach (var item in list)
+                                {
+                                    var row = dt.NewRow();
+                                    row["stateid"] = item.FullyEvent.StateId;
+                                    row["uniqueId"] = item.UniqueId;
+                                    row["typecode"] = TypeContainer.GetTypeCode(item.FullyEvent.Event.GetType());
+                                    row["data"] = Encoding.Default.GetString(item.BytesTransport.EventBytes);
+                                    row["version"] = item.FullyEvent.Base.Version;
+                                    row["timestamp"] = item.FullyEvent.Base.Timestamp;
+                                    dt.Rows.Add(row);
+                                }
+                                await conn.OpenAsync();
+                                await bulkCopy.WriteToServerAsync(dt);
+                            }
                         }
-                        trans.Commit();
                     }
-                    catch (Exception ex)
+                });
+            }
+            else
+            {
+                var groups = (await Task.WhenAll(list.Select(async t =>
+                {
+                    var task = config.GetTable(t.FullyEvent.Base.Timestamp);
+                    if (!task.IsCompletedSuccessfully)
+                        await task;
+                    return (task.Result.SubTable, t);
+                }))).GroupBy(t => t.SubTable);
+                using (var conn = config.CreateConnection())
+                {
+                    await conn.OpenAsync();
+                    using (var trans = conn.BeginTransaction())
                     {
-                        trans.Rollback();
-                        logger.LogError(ex, nameof(TransactionBatchAppend));
-                        throw;
+                        try
+                        {
+                            foreach (var group in groups)
+                            {
+                                var saveSql = saveSqlDict.GetOrAdd(group.Key,
+                                    key => $"INSERT INTO {key}(stateid,uniqueId,typecode,data,version,timestamp) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version,@Timestamp)");
+                                await conn.ExecuteAsync(saveSql, group.Select(g => new
+                                {
+                                    g.t.FullyEvent.StateId,
+                                    g.t.UniqueId,
+                                    TypeCode = TypeContainer.GetTypeCode(g.t.FullyEvent.Event.GetType()),
+                                    Data = Encoding.Default.GetString(g.t.BytesTransport.EventBytes),
+                                    g.t.FullyEvent.Base.Version,
+                                    g.t.FullyEvent.Base.Timestamp
+                                }), trans);
+                            }
+                            trans.Commit();
+                        }
+                        catch (Exception ex)
+                        {
+                            trans.Rollback();
+                            logger.LogError(ex, nameof(TransactionBatchAppend));
+                            throw;
+                        }
                     }
                 }
             }

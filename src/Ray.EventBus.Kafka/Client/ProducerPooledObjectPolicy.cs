@@ -9,6 +9,7 @@ namespace Ray.EventBus.Kafka
         public ProducerPooledObjectPolicy(ProducerConfig producerConfig)
         {
             this.producerConfig = producerConfig;
+            this.producerConfig.EnableDeliveryReports = false;
         }
         public PooledProducer Create()
         {

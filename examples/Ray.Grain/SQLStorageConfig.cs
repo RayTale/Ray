@@ -3,6 +3,7 @@ using Ray.Core.Storage;
 using Ray.Storage.PostgreSQL;
 using Ray.Storage.MySQL;
 using Ray.Storage.SQLCore.Configuration;
+using Ray.Storage.SQLServer;
 
 namespace Ray.Grain
 {
@@ -18,6 +19,13 @@ namespace Ray.Grain
         public static IServiceCollection MySQLConfigure(this IServiceCollection serviceCollection)
         {
             serviceCollection.AddSingleton<IConfigureBuilder<long, Account>>(new MySQLConfigureBuilder<long, Account>((provider, id, parameter) =>
+            new IntegerKeyOptions(provider, "core_event", "account")).AutoRegistrationObserver());
+
+            return serviceCollection;
+        }
+        public static IServiceCollection SQLServerConfigure(this IServiceCollection serviceCollection)
+        {
+            serviceCollection.AddSingleton<IConfigureBuilder<long, Account>>(new SQLServerConfigureBuilder<long, Account>((provider, id, parameter) =>
             new IntegerKeyOptions(provider, "core_event", "account")).AutoRegistrationObserver());
 
             return serviceCollection;

@@ -309,11 +309,11 @@ namespace Ray.Core
         /// 使用该函数前必须开启事务，不然会出现异常
         /// </summary>
         /// <param name="event"></param>
-        /// <param name="uniqueId"></param>
-        protected void TxRaiseEvent(IEvent @event, EventUID uniqueId = null)
+        /// <param name="eUID"></param>
+        protected void TxRaiseEvent(IEvent @event, EventUID eUID = null)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace("Start transactionRaiseEvent, grain Id ={0} and state version = {1},event type = {2} ,event = {3},uniqueueId = {4}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, Serializer.SerializeToString(@event), uniqueId);
+                Logger.LogTrace("Start transactionRaiseEvent, grain Id ={0} and state version = {1},event type = {2} ,event = {3},uniqueueId = {4}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, Serializer.SerializeToString(@event), eUID);
             try
             {
                 if (CurrentTransactionStartVersion == -1)
@@ -330,12 +330,18 @@ namespace Ray.Core
                         Version = Snapshot.Base.Version + 1
                     }
                 };
-                if (uniqueId == default) uniqueId = EventUID.Empty;
-                if (string.IsNullOrEmpty(uniqueId.UID))
+                string unique = default;
+                if (eUID == default)
+                {
                     fullyEvent.Base.Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    unique = fullyEvent.GetEventId();
+                }
                 else
-                    fullyEvent.Base.Timestamp = uniqueId.Timestamp;
-                WaitingForTransactionTransports.Add(new EventTransport<PrimaryKey>(fullyEvent, uniqueId.UID, fullyEvent.StateId.ToString()));
+                {
+                    fullyEvent.Base.Timestamp = eUID.Timestamp;
+                    unique = eUID.UID;
+                }
+                WaitingForTransactionTransports.Add(new EventTransport<PrimaryKey>(fullyEvent, unique, fullyEvent.StateId.ToString()));
                 SnapshotHandler.Apply(Snapshot, fullyEvent);
                 Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
             }
