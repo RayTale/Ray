@@ -1,4 +1,5 @@
 ﻿using Confluent.Kafka;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.ObjectPool;
 using Microsoft.Extensions.Options;
 using Ray.Core.Serialization;
@@ -13,16 +14,22 @@ namespace Ray.EventBus.Kafka
         readonly ConsumerConfig consumerConfig;
         readonly RayKafkaOptions rayKafkaOptions;
         readonly ISerializer serializer;
+        readonly ILogger<KafkaClient> logger;
         public KafkaClient(
             IOptions<ProducerConfig> producerConfig,
-             IOptions<ConsumerConfig> consumerConfig,
+            IOptions<ConsumerConfig> consumerConfig,
             IOptions<RayKafkaOptions> options,
+            ILogger<KafkaClient> logger,
             ISerializer serializer)
         {
-            producerObjectPool = new DefaultObjectPool<PooledProducer>(new ProducerPooledObjectPolicy(producerConfig.Value), options.Value.ProducerMaxPoolSize);
+            producerObjectPool = new DefaultObjectPool<PooledProducer>(new ProducerPooledObjectPolicy(producerConfig.Value, logger), options.Value.ProducerMaxPoolSize);
             this.consumerConfig = consumerConfig.Value;
+            this.consumerConfig.EnableAutoCommit = false;
+            this.consumerConfig.AutoOffsetReset = AutoOffsetReset.Earliest;
+            this.consumerConfig.EnablePartitionEof = true;
             this.serializer = serializer;
             rayKafkaOptions = options.Value;
+            this.logger = logger;
         }
         public PooledProducer GetProducer()
         {
@@ -37,7 +44,7 @@ namespace Ray.EventBus.Kafka
              {
                  var config = serializer.Deserialize<ConsumerConfig>(serializer.SerializeToBytes(consumerConfig));
                  config.GroupId = group;
-                 return new DefaultObjectPool<PooledConsumer>(new ConsumerPooledObjectPolicy(config), rayKafkaOptions.ConsumerMaxPoolSize);
+                 return new DefaultObjectPool<PooledConsumer>(new ConsumerPooledObjectPolicy(config, logger), rayKafkaOptions.ConsumerMaxPoolSize);
              });
             var result = consumerObjectPool.Get();
             if (result.Pool == default)
