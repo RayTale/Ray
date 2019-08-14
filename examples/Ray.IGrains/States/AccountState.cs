@@ -1,9 +1,7 @@
-﻿using ProtoBuf;
-using Ray.Core.Snapshot;
+﻿using Ray.Core.Snapshot;
 
 namespace Ray.IGrains.States
 {
-    [ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
     public class AccountState : ICloneable<AccountState>
     {
         public decimal Balance { get; set; }
