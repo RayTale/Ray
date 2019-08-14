@@ -21,8 +21,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Ray.Core\Ray.Core.csproj" />
-    <ProjectReference Include="..\..\src\Ray.Postgresql\Ray.Storage.PostgreSQL.csproj" />
-    <ProjectReference Include="..\..\src\Ray.RabbitMQ\Ray.EventBus.RabbitMQ.csproj" />
+    <ProjectReference Include="..\..\src\Ray.EventBus.RabbitMQ\Ray.EventBus.RabbitMQ.csproj" />
+    <ProjectReference Include="..\..\src\Ray.Storage.PostgreSQL\Ray.Storage.PostgreSQL.csproj" />
     <ProjectReference Include="..\RayTest.Grains\RayTest.Grains.csproj" />
     <ProjectReference Include="..\RayTest.IGrains\RayTest.IGrains.csproj" />
   </ItemGroup>

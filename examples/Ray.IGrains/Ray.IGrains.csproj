@@ -17,7 +17,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Ray.Core\Ray.Core.csproj" />
     <ProjectReference Include="..\..\src\Ray.DistributedTx\Ray.DistributedTx.csproj" />
-    <ProjectReference Include="..\..\src\Ray.RabbitMQ\Ray.EventBus.RabbitMQ.csproj" />
+    <ProjectReference Include="..\..\src\Ray.EventBus.RabbitMQ\Ray.EventBus.RabbitMQ.csproj" />
   </ItemGroup>
 
 </Project>
