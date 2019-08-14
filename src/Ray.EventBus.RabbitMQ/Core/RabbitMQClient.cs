@@ -1,12 +1,10 @@
-﻿using System;
+﻿using Microsoft.Extensions.Options;
+using RabbitMQ.Client;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Options;
-using ProtoBuf;
-using RabbitMQ.Client;
-using Ray.Core.Utils;
 
 namespace Ray.EventBus.RabbitMQ
 {
@@ -47,31 +45,6 @@ namespace Ray.EventBus.RabbitMQ
         public void Dispose()
         {
             Connection.Client.PushModel(this);
-        }
-        /// <summary>
-        /// 发送消息到消息队列
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="data"></param>
-        /// <param name="exchange"></param>
-        /// <param name="routingKey"></param>
-        /// <returns></returns>
-        public void Publish<T>(T data, string exchange, string routingKey, bool persistent = true)
-        {
-            using (var ms = new PooledMemoryStream())
-            {
-                Serializer.Serialize(ms, data);
-                Publish(ms.ToArray(), exchange, routingKey, persistent);
-            }
-        }
-        public void PublishByCmd<T>(ushort cmd, T data, string exchange, string routingKey, bool persistent = false)
-        {
-            using (var ms = new PooledMemoryStream())
-            {
-                ms.Write(BitConverter.GetBytes(cmd), 0, 2);
-                Serializer.Serialize(ms, data);
-                Publish(ms.ToArray(), exchange, routingKey, persistent);
-            }
         }
         public void Publish(byte[] msg, string exchange, string routingKey, bool persistent = true)
         {

@@ -1,9 +1,7 @@
-﻿using ProtoBuf;
-using Ray.Core.Event;
+﻿using Ray.Core.Event;
 
 namespace RayTest.IGrains.Events
 {
-    [ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
     public class AmountTransferEvent : IEvent
     {
         public long ToAccountId { get; set; }

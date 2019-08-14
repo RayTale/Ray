@@ -1,9 +1,5 @@
-﻿using ProtoBuf;
-using System;
-
-namespace Ray.IGrains.Model
+﻿namespace Ray.IGrains.Model
 {
-    [ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
     public class Transfer
     {
         public string Id { get; set; }
