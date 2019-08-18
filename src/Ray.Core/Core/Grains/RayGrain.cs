@@ -605,7 +605,7 @@ namespace Ray.Core
             {
                 NewArchive = new ArchiveBrief
                 {
-                    Id = await ServiceProvider.GetService<IGrainFactory>().GetGrain<IUID>(GrainType.FullName).NewUtcID(),
+                    Id = (await ServiceProvider.GetService<IGrainFactory>().GetGrain<IUtcUID>(GrainType.FullName).NewID()),
                     StartTimestamp = @event.Base.Timestamp,
                     StartVersion = @event.Base.Version,
                     Index = LastArchive != default ? LastArchive.Index + 1 : 0,

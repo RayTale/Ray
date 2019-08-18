@@ -1,5 +1,8 @@
 ﻿namespace Ray.Core.Configuration
 {
+    /// <summary>
+    /// 归档配置
+    /// </summary>
     public class ArchiveOptions
     {
         /// <summary>
@@ -41,9 +44,18 @@
         /// </summary>
         public bool ArchiveEventOnOver { get; set; } = true;
     }
+    /// <summary>
+    /// 事件归档类型
+    /// </summary>
     public enum EventArchiveType : byte
     {
+        /// <summary>
+        /// 转移到归档表
+        /// </summary>
         Transfer = 0,
+        /// <summary>
+        /// 直接删除
+        /// </summary>
         Delete = 1
     }
 }
