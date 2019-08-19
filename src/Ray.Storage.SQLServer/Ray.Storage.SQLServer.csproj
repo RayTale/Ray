@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <PackageReference Include="Dapper" Version="1.60.6" />
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="1.0.19189.1-Preview" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="1.0.19221.1-Preview" />
   </ItemGroup>
 
   <ItemGroup>

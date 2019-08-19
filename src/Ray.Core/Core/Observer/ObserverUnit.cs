@@ -58,7 +58,7 @@ namespace Ray.Core
             eventHandlers.Add(func);
             return this;
             //内部函数
-            Task func(byte[]  bytes)
+            Task func(byte[] bytes)
             {
                 var (success, transport) = EventBytesTransport.FromBytes<PrimaryKey>(bytes);
                 if (success)
@@ -180,11 +180,11 @@ namespace Ray.Core
         }
         public static TGrainInterface GetGrain<TGrainInterface>(IClusterClient client, Guid primaryKey, string keyExtension, string grainClassNamePrefix = null) where TGrainInterface : IGrainWithGuidCompoundKey
         {
-            return client.GetGrain<TGrainInterface>(primaryKey, grainClassNamePrefix);
+            return client.GetGrain<TGrainInterface>(primaryKey, keyExtension, grainClassNamePrefix);
         }
         public static TGrainInterface GetGrain<TGrainInterface>(IClusterClient client, long primaryKey, string keyExtension, string grainClassNamePrefix = null) where TGrainInterface : IGrainWithIntegerCompoundKey
         {
-            return client.GetGrain<TGrainInterface>(primaryKey, grainClassNamePrefix);
+            return client.GetGrain<TGrainInterface>(primaryKey, keyExtension, grainClassNamePrefix);
         }
     }
 }

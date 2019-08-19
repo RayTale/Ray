@@ -119,7 +119,7 @@ namespace Ray.Core.Snapshot
             ilGen.Emit(OpCodes.Ret);
             handlerInvokeFunc = (Action<object, Snapshot, IEvent, EventBase>)dynamicMethod.CreateDelegate(typeof(Action<object, Snapshot, IEvent, EventBase>));
             //加载Event参数
-            void LdEventArgs(SwitchMethodEmit item, ILGenerator gen)
+            static void LdEventArgs(SwitchMethodEmit item, ILGenerator gen)
             {
                 if (item.Index > 3)
                 {

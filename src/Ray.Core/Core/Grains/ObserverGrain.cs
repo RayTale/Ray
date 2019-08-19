@@ -128,7 +128,7 @@ namespace Ray.Core
             ilGen.Emit(OpCodes.Ret);
             handlerInvokeFunc = (Func<object, IEvent, EventBase, Task>)dynamicMethod.CreateDelegate(typeof(Func<object, IEvent, EventBase, Task>));
             //加载Event参数
-            void LdEventArgs(SwitchMethodEmit item, ILGenerator gen)
+            static void LdEventArgs(SwitchMethodEmit item, ILGenerator gen)
             {
                 if (item.Index > 3)
                 {

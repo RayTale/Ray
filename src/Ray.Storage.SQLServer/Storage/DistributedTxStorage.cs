@@ -49,10 +49,8 @@ namespace Ray.Storage.SQLServer
                      Status int not null,
                      INDEX UnitName_TransId UNIQUE(UnitName, TransactionId)
                     );";
-            using (var connection = CreateConnection())
-            {
-                connection.Execute(sql);
-            }
+            using var connection = CreateConnection();
+            connection.Execute(sql);
         }
         public Task Append<Input>(string unitName, Commit<Input> commit)
         {
@@ -74,95 +72,81 @@ namespace Ray.Storage.SQLServer
 
         public async Task Delete(string unitName, long transactionId)
         {
-            using (var conn = CreateConnection())
-            {
-                var sql = $"delete from {options.Value.TableName} WHERE UnitName=@UnitName and TransactionId=@TransactionId";
-                await conn.ExecuteAsync(sql, new { UnitName = unitName, TransactionId = transactionId });
-            }
+            using var conn = CreateConnection();
+            var sql = $"delete from {options.Value.TableName} WHERE UnitName=@UnitName and TransactionId=@TransactionId";
+            await conn.ExecuteAsync(sql, new { UnitName = unitName, TransactionId = transactionId });
         }
         public async Task<IList<Commit<Input>>> GetList<Input>(string unitName)
         {
             var getListSql = $"select * from {options.Value.TableName} WHERE UnitName=@UnitName";
-            using (var conn = CreateConnection())
+            using var conn = CreateConnection();
+            return (await conn.QueryAsync<CommitModel>(getListSql, new
             {
-                return (await conn.QueryAsync<CommitModel>(getListSql, new
-                {
-                    UnitName = unitName
-                })).Select(model => new Commit<Input>
-                {
-                    TransactionId = model.TransactionId,
-                    Status = model.Status,
-                    Data = serializer.Deserialize<Input>(model.Data)
-                }).AsList();
-            }
+                UnitName = unitName
+            })).Select(model => new Commit<Input>
+            {
+                TransactionId = model.TransactionId,
+                Status = model.Status,
+                Data = serializer.Deserialize<Input>(model.Data)
+            }).AsList();
         }
 
         public async Task<bool> Update(string unitName, long transactionId, TransactionStatus status)
         {
             var sql = $"update {options.Value.TableName} set Status=@Status where UnitName=@UnitName and TransactionId=@TransactionId";
-            using (var conn = CreateConnection())
-            {
-                return await conn.ExecuteAsync(sql, new { UnitName = unitName, TransactionId = transactionId, Status = status }) > 0;
-            }
+            using var conn = CreateConnection();
+            return await conn.ExecuteAsync(sql, new { UnitName = unitName, TransactionId = transactionId, Status = status }) > 0;
         }
         private async Task BatchProcessing(List<AsyncInputEvent<AppendInput, bool>> wrapperList)
         {
             try
             {
-                using (var conn = CreateConnection() as SqlConnection)
+                using var conn = CreateConnection() as SqlConnection;
+                using var bulkCopy = new SqlBulkCopy(conn)
                 {
-                    using (var bulkCopy = new SqlBulkCopy(conn))
-                    {
-                        bulkCopy.DestinationTableName = options.Value.TableName;
-                        bulkCopy.BatchSize = wrapperList.Count;
-                        using (var dt = new DataTable())
-                        {
-                            dt.Columns.Add("UnitName", typeof(string));
-                            dt.Columns.Add("TransactionId", typeof(long));
-                            dt.Columns.Add("Data", typeof(string));
-                            dt.Columns.Add("Status", typeof(int));
-                            foreach (var item in wrapperList)
-                            {
-                                var row = dt.NewRow();
-                                row["UnitName"] = item.Value.UnitName;
-                                row["TransactionId"] = item.Value.TransactionId;
-                                row["Data"] = item.Value.Data;
-                                row["Status"] = (int)item.Value.Status;
-                                dt.Rows.Add(row);
-                            }
-                            await conn.OpenAsync();
-                            await bulkCopy.WriteToServerAsync(dt);
-                        }
-                    }
+                    DestinationTableName = options.Value.TableName,
+                    BatchSize = wrapperList.Count
+                };
+                using var dt = new DataTable();
+                dt.Columns.Add("UnitName", typeof(string));
+                dt.Columns.Add("TransactionId", typeof(long));
+                dt.Columns.Add("Data", typeof(string));
+                dt.Columns.Add("Status", typeof(int));
+                foreach (var item in wrapperList)
+                {
+                    var row = dt.NewRow();
+                    row["UnitName"] = item.Value.UnitName;
+                    row["TransactionId"] = item.Value.TransactionId;
+                    row["Data"] = item.Value.Data;
+                    row["Status"] = (int)item.Value.Status;
+                    dt.Rows.Add(row);
                 }
+                await conn.OpenAsync();
+                await bulkCopy.WriteToServerAsync(dt);
                 wrapperList.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
             }
             catch
             {
                 var saveSql = $"if NOT EXISTS(SELECT * FROM {options.Value.TableName} where UnitName=@UnitName and TransactionId=@TransactionId)INSERT INTO {options.Value.TableName}(UnitName,TransactionId,Data,Status) VALUES(@UnitName,@TransactionId,@Data,@Status)";
-                using (var conn = CreateConnection())
+                using var conn = CreateConnection();
+                await conn.OpenAsync();
+                using var trans = conn.BeginTransaction();
+                try
                 {
-                    await conn.OpenAsync();
-                    using (var trans = conn.BeginTransaction())
+                    await conn.ExecuteAsync(saveSql, wrapperList.Select(wrapper => new
                     {
-                        try
-                        {
-                            await conn.ExecuteAsync(saveSql, wrapperList.Select(wrapper => new
-                            {
-                                wrapper.Value.UnitName,
-                                wrapper.Value.TransactionId,
-                                wrapper.Value.Data,
-                                Status = (short)wrapper.Value.Status
-                            }).ToList(), trans);
-                            trans.Commit();
-                            wrapperList.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
-                        }
-                        catch (Exception e)
-                        {
-                            trans.Rollback();
-                            wrapperList.ForEach(wrap => wrap.TaskSource.TrySetException(e));
-                        }
-                    }
+                        wrapper.Value.UnitName,
+                        wrapper.Value.TransactionId,
+                        wrapper.Value.Data,
+                        Status = (short)wrapper.Value.Status
+                    }).ToList(), trans);
+                    trans.Commit();
+                    wrapperList.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
+                }
+                catch (Exception e)
+                {
+                    trans.Rollback();
+                    wrapperList.ForEach(wrap => wrap.TaskSource.TrySetException(e));
                 }
             }
         }

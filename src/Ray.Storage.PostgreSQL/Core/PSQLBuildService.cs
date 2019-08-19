@@ -28,10 +28,8 @@ namespace Ray.Storage.PostgreSQL
         public async Task<List<EventSubTable>> GetSubTables()
         {
             string sql = "SELECT * FROM SubTable_Records where TableName=@TableName";
-            using (var connection = storageOptions.CreateConnection())
-            {
-                return (await connection.QueryAsync<EventSubTable>(sql, new { TableName = storageOptions.EventTable })).AsList();
-            }
+            using var connection = storageOptions.CreateConnection();
+            return (await connection.QueryAsync<EventSubTable>(sql, new { TableName = storageOptions.EventTable })).AsList();
         }
         public async Task<bool> CreateEventSubTable()
         {
@@ -44,10 +42,8 @@ namespace Ray.Storage.PostgreSQL
                         EndTime int8 not null
                     );
                     CREATE UNIQUE INDEX IF NOT EXISTS subtable_record ON SubTable_Records USING btree(TableName, Index)";
-            using (var connection = storageOptions.CreateConnection())
-            {
-                return await connection.ExecuteAsync(sql) > 0;
-            }
+            using var connection = storageOptions.CreateConnection();
+            return await connection.ExecuteAsync(sql) > 0;
         }
         public async Task CreateEventTable(EventSubTable subTable)
         {
@@ -64,23 +60,19 @@ namespace Ray.Storage.PostgreSQL
                             );
                             CREATE UNIQUE INDEX IF NOT EXISTS {subTable.SubTable}_Version ON {subTable.SubTable} USING btree(StateId, Version);";
             const string insertSql = "INSERT into SubTable_Records  VALUES(@TableName,@SubTable,@Index,@StartTime,@EndTime)";
-            using (var connection = storageOptions.CreateConnection())
+            using var connection = storageOptions.CreateConnection();
+            await connection.OpenAsync();
+            using var trans = connection.BeginTransaction();
+            try
             {
-                await connection.OpenAsync();
-                using (var trans = connection.BeginTransaction())
-                {
-                    try
-                    {
-                        await connection.ExecuteAsync(sql, transaction: trans);
-                        await connection.ExecuteAsync(insertSql, subTable, trans);
-                        trans.Commit();
-                    }
-                    catch
-                    {
-                        trans.Rollback();
-                        throw;
-                    }
-                }
+                await connection.ExecuteAsync(sql, transaction: trans);
+                await connection.ExecuteAsync(insertSql, subTable, trans);
+                trans.Commit();
+            }
+            catch
+            {
+                trans.Rollback();
+                throw;
             }
         }
         public async Task CreateEventArchiveTable()
@@ -97,10 +89,8 @@ namespace Ray.Storage.PostgreSQL
                             constraint {storageOptions.EventArchiveTable}_id_unique unique(StateId,TypeCode,UniqueId)
                             );
                             CREATE UNIQUE INDEX IF NOT EXISTS {storageOptions.EventArchiveTable}_Version ON {storageOptions.EventArchiveTable} USING btree(StateId, Version);";
-            using (var connection = storageOptions.CreateConnection())
-            {
-                await connection.ExecuteAsync(sql);
-            }
+            using var connection = storageOptions.CreateConnection();
+            await connection.ExecuteAsync(sql);
         }
 
         public async Task CreateObserverSnapshotTable(string observerSnapshotTable)
@@ -111,10 +101,8 @@ namespace Ray.Storage.PostgreSQL
                      {stateIdSql},
                      StartTimestamp int8 not null,
                      Version int8 not null);";
-            using (var connection = storageOptions.CreateConnection())
-            {
-                await connection.ExecuteAsync(sql);
-            }
+            using var connection = storageOptions.CreateConnection();
+            await connection.ExecuteAsync(sql);
         }
 
         public async Task CreateSnapshotArchiveTable()
@@ -134,10 +122,8 @@ namespace Ray.Storage.PostgreSQL
                      IsOver bool not null,
                      Version int8 not null);
                      CREATE INDEX IF NOT EXISTS {storageOptions.SnapshotArchiveTable}_StateId ON {storageOptions.SnapshotArchiveTable} USING btree(StateId)";
-            using (var connection = storageOptions.CreateConnection())
-            {
-                await connection.ExecuteAsync(sql);
-            }
+            using var connection = storageOptions.CreateConnection();
+            await connection.ExecuteAsync(sql);
         }
 
         public async Task CreateSnapshotTable()
@@ -152,10 +138,8 @@ namespace Ray.Storage.PostgreSQL
                      LatestMinEventTimestamp int8 not null,
                      IsLatest bool not null,
                      IsOver bool not null);";
-            using (var connection = storageOptions.CreateConnection())
-            {
-                await connection.ExecuteAsync(sql);
-            }
+            using var connection = storageOptions.CreateConnection();
+            await connection.ExecuteAsync(sql);
         }
     }
 }

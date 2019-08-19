@@ -28,10 +28,8 @@ namespace Ray.Storage.MySQL
         public async Task<List<EventSubTable>> GetSubTables()
         {
             string sql = "SELECT * FROM SubTable_Records where TableName=@TableName";
-            using (var connection = storageOptions.CreateConnection())
-            {
-                return (await connection.QueryAsync<EventSubTable>(sql, new { TableName = storageOptions.EventTable })).AsList();
-            }
+            using var connection = storageOptions.CreateConnection();
+            return (await connection.QueryAsync<EventSubTable>(sql, new { TableName = storageOptions.EventTable })).AsList();
         }
         public async Task<bool> CreateEventSubTable()
         {
@@ -44,10 +42,8 @@ namespace Ray.Storage.MySQL
                                       `Index` int(255) NULL DEFAULT NULL,
                                       UNIQUE INDEX `subtable_record`(`TableName`, `Index`) USING BTREE
                                     );";
-            using (var connection = storageOptions.CreateConnection())
-            {
-                return await connection.ExecuteAsync(sql) > 0;
-            }
+            using var connection = storageOptions.CreateConnection();
+            return await connection.ExecuteAsync(sql) > 0;
         }
         public async Task CreateEventTable(EventSubTable subTable)
         {
@@ -64,23 +60,19 @@ namespace Ray.Storage.MySQL
                             UNIQUE INDEX `Version`(`StateId`, `Version`) USING BTREE
                             );";
             const string insertSql = "INSERT INTO SubTable_Records(TableName,SubTable,`Index`,StartTime,EndTime)  VALUES(@TableName,@SubTable,@Index,@StartTime,@EndTime)";
-            using (var connection = storageOptions.CreateConnection())
+            using var connection = storageOptions.CreateConnection();
+            await connection.OpenAsync();
+            using var trans = connection.BeginTransaction();
+            try
             {
-                await connection.OpenAsync();
-                using (var trans = connection.BeginTransaction())
-                {
-                    try
-                    {
-                        await connection.ExecuteAsync(sql, transaction: trans);
-                        await connection.ExecuteAsync(insertSql, subTable, trans);
-                        trans.Commit();
-                    }
-                    catch
-                    {
-                        trans.Rollback();
-                        throw;
-                    }
-                }
+                await connection.ExecuteAsync(sql, transaction: trans);
+                await connection.ExecuteAsync(insertSql, subTable, trans);
+                trans.Commit();
+            }
+            catch
+            {
+                trans.Rollback();
+                throw;
             }
         }
         public async Task CreateEventArchiveTable()
@@ -97,10 +89,8 @@ namespace Ray.Storage.MySQL
                             UNIQUE INDEX `id_unique`(`StateId`, `TypeCode`, `UniqueId`) USING BTREE,
                             UNIQUE INDEX `Version`(`StateId`, `Version`) USING BTREE
                             );";
-            using (var connection = storageOptions.CreateConnection())
-            {
-                await connection.ExecuteAsync(sql);
-            }
+            using var connection = storageOptions.CreateConnection();
+            await connection.ExecuteAsync(sql);
         }
 
         public async Task CreateObserverSnapshotTable(string observerSnapshotTable)
@@ -111,10 +101,8 @@ namespace Ray.Storage.MySQL
                      {stateIdSql},
                      `StartTimestamp` int8 NOT NULL,
                      `Version` int8 NOT NULL);";
-            using (var connection = storageOptions.CreateConnection())
-            {
-                await connection.ExecuteAsync(sql);
-            }
+            using var connection = storageOptions.CreateConnection();
+            await connection.ExecuteAsync(sql);
         }
 
         public async Task CreateSnapshotArchiveTable()
@@ -134,10 +122,8 @@ namespace Ray.Storage.MySQL
                      `IsOver` bool NOT NULL,
                      `Version` int8 NOT NULL,
                      INDEX `StateId`(`StateId`) USING BTREE);";
-            using (var connection = storageOptions.CreateConnection())
-            {
-                await connection.ExecuteAsync(sql);
-            }
+            using var connection = storageOptions.CreateConnection();
+            await connection.ExecuteAsync(sql);
         }
 
         public async Task CreateSnapshotTable()
@@ -152,10 +138,8 @@ namespace Ray.Storage.MySQL
                      `LatestMinEventTimestamp` int8 NOT NULL,
                      `IsLatest` bool NOT NULL,
                      `IsOver` bool NOT NULL);";
-            using (var connection = storageOptions.CreateConnection())
-            {
-                await connection.ExecuteAsync(sql);
-            }
+            using var connection = storageOptions.CreateConnection();
+            await connection.ExecuteAsync(sql);
         }
     }
 }

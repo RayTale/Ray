@@ -39,29 +39,27 @@ namespace Ray.Storage.MySQL
                 if (!getTableListTask.IsCompletedSuccessfully)
                     await getTableListTask;
                 var stateIdStr = typeof(PrimaryKey) == typeof(long) ? stateId.ToString() : $"'{stateId.ToString()}'";
-                using (var conn = config.CreateConnection())
+                using var conn = config.CreateConnection();
+                await conn.OpenAsync();
+                foreach (var table in getTableListTask.Result.Where(t => t.EndTime >= latestTimestamp))
                 {
-                    await conn.OpenAsync();
-                    foreach (var table in getTableListTask.Result.Where(t => t.EndTime >= latestTimestamp))
+                    var sql = $"SELECT typecode,data,version,timestamp from {table.SubTable} WHERE stateid=@StateId and version>=@StartVersion and version<=@EndVersion order by version asc";
+                    var originList = await conn.QueryAsync<EventModel>(sql, new
                     {
-                        var sql = $"SELECT typecode,data,version,timestamp from {table.SubTable} WHERE stateid=@StateId and version>=@StartVersion and version<=@EndVersion order by version asc";
-                        var originList = await conn.QueryAsync<EventModel>(sql, new
+                        StateId = stateId,
+                        StartVersion = startVersion,
+                        EndVersion = endVersion
+                    });
+                    foreach (var item in originList)
+                    {
+                        if (serializer.Deserialize(TypeContainer.GetType(item.TypeCode), Encoding.Default.GetBytes(item.Data)) is IEvent evt)
                         {
-                            StateId = stateId,
-                            StartVersion = startVersion,
-                            EndVersion = endVersion
-                        });
-                        foreach (var item in originList)
-                        {
-                            if (serializer.Deserialize(TypeContainer.GetType(item.TypeCode), Encoding.Default.GetBytes(item.Data)) is IEvent evt)
+                            list.Add(new FullyEvent<PrimaryKey>
                             {
-                                list.Add(new FullyEvent<PrimaryKey>
-                                {
-                                    StateId = stateId,
-                                    Event = evt,
-                                    Base = new EventBase(item.Version, item.Timestamp)
-                                });
-                            }
+                                StateId = stateId,
+                                Event = evt,
+                                Base = new EventBase(item.Version, item.Timestamp)
+                            });
                         }
                     }
                 }
@@ -77,34 +75,32 @@ namespace Ray.Storage.MySQL
                 var getTableListTask = config.GetSubTables();
                 if (!getTableListTask.IsCompletedSuccessfully)
                     await getTableListTask;
-                using (var conn = config.CreateConnection())
+                using var conn = config.CreateConnection();
+                await conn.OpenAsync();
+                foreach (var table in getTableListTask.Result)
                 {
-                    await conn.OpenAsync();
-                    foreach (var table in getTableListTask.Result)
+                    var sql = $"SELECT data,version,timestamp from {table.SubTable} WHERE stateid=@StateId and typecode=@TypeCode and version>=@StartVersion order by version asc limit @Limit";
+                    var originList = await conn.QueryAsync<EventModel>(sql, new
                     {
-                        var sql = $"SELECT data,version,timestamp from {table.SubTable} WHERE stateid=@StateId and typecode=@TypeCode and version>=@StartVersion order by version asc limit @Limit";
-                        var originList = await conn.QueryAsync<EventModel>(sql, new
+                        StateId = stateId,
+                        TypeCode = typeCode,
+                        StartVersion = startVersion,
+                        Limit = limit
+                    });
+                    foreach (var item in originList)
+                    {
+                        if (serializer.Deserialize(type, Encoding.Default.GetBytes(item.Data)) is IEvent evt)
                         {
-                            StateId = stateId,
-                            TypeCode = typeCode,
-                            StartVersion = startVersion,
-                            Limit = limit
-                        });
-                        foreach (var item in originList)
-                        {
-                            if (serializer.Deserialize(type, Encoding.Default.GetBytes(item.Data)) is IEvent evt)
+                            list.Add(new FullyEvent<PrimaryKey>
                             {
-                                list.Add(new FullyEvent<PrimaryKey>
-                                {
-                                    StateId = stateId,
-                                    Event = evt,
-                                    Base = new EventBase(item.Version, item.Timestamp)
-                                });
-                            }
+                                StateId = stateId,
+                                Event = evt,
+                                Base = new EventBase(item.Version, item.Timestamp)
+                            });
                         }
-                        if (list.Count >= limit)
-                            break;
                     }
+                    if (list.Count >= limit)
+                        break;
                 }
             });
             return list.OrderBy(e => e.Base.Version).ToList();
@@ -154,31 +150,27 @@ namespace Ray.Storage.MySQL
                 {
                     var copySql = copySaveSqlDict.GetOrAdd(tableName,
                          key => $"INSERT INTO {key}(stateid,uniqueId,typecode,data,version,timestamp) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version,@Timestamp)");
-                    using (var conn = config.CreateConnection())
+                    using var conn = config.CreateConnection();
+                    await conn.OpenAsync();
+                    using var trans = conn.BeginTransaction();
+                    try
                     {
-                        await conn.OpenAsync();
-                        using (var trans = conn.BeginTransaction())
+                        await conn.ExecuteAsync(copySql, list.Select(wrapper => new
                         {
-                            try
-                            {
-                                await conn.ExecuteAsync(copySql, list.Select(wrapper => new
-                                {
-                                    StateId = wrapper.Value.Event.StateId.ToString(),
-                                    wrapper.Value.UniqueId,
-                                    TypeCode = TypeContainer.GetTypeCode(wrapper.Value.Event.Event.GetType()),
-                                    Data = Encoding.Default.GetString(wrapper.Value.BytesTransport.EventBytes),
-                                    wrapper.Value.Event.Base.Version,
-                                    wrapper.Value.Event.Base.Timestamp
-                                }).ToList(), trans);
-                                trans.Commit();
-                                list.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
-                            }
-                            catch
-                            {
-                                trans.Rollback();
-                                throw;
-                            }
-                        }
+                            StateId = wrapper.Value.Event.StateId.ToString(),
+                            wrapper.Value.UniqueId,
+                            TypeCode = TypeContainer.GetTypeCode(wrapper.Value.Event.Event.GetType()),
+                            Data = Encoding.Default.GetString(wrapper.Value.BytesTransport.EventBytes),
+                            wrapper.Value.Event.Base.Version,
+                            wrapper.Value.Event.Base.Timestamp
+                        }).ToList(), trans);
+                        trans.Commit();
+                        list.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
+                    }
+                    catch
+                    {
+                        trans.Rollback();
+                        throw;
                     }
                     list.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
                 }
@@ -193,54 +185,50 @@ namespace Ray.Storage.MySQL
             async Task BatchInsert(string saveSql, List<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>> list)
             {
                 bool isSuccess = false;
-                using (var conn = config.CreateConnection())
+                using var conn = config.CreateConnection();
+                await conn.OpenAsync();
+                using var trans = conn.BeginTransaction();
+                try
                 {
-                    await conn.OpenAsync();
-                    using (var trans = conn.BeginTransaction())
+                    foreach (var wrapper in list)
+                    {
+                        wrapper.Value.ReturnValue = await conn.ExecuteAsync(saveSql, new
+                        {
+                            StateId = wrapper.Value.Event.StateId.ToString(),
+                            wrapper.Value.UniqueId,
+                            TypeCode = TypeContainer.GetTypeCode(wrapper.Value.Event.Event.GetType()),
+                            Data = Encoding.Default.GetString(wrapper.Value.BytesTransport.EventBytes),
+                            wrapper.Value.Event.Base.Version,
+                            wrapper.Value.Event.Base.Timestamp
+                        }, trans) > 0;
+                    }
+                    trans.Commit();
+                    isSuccess = true;
+                    list.ForEach(wrap => wrap.TaskSource.TrySetResult(wrap.Value.ReturnValue));
+                }
+                catch
+                {
+                    trans.Rollback();
+                }
+                if (!isSuccess)
+                {
+                    foreach (var wrapper in list)
                     {
                         try
                         {
-                            foreach (var wrapper in list)
+                            wrapper.TaskSource.TrySetResult(await conn.ExecuteAsync(saveSql, new
                             {
-                                wrapper.Value.ReturnValue = await conn.ExecuteAsync(saveSql, new
-                                {
-                                    StateId = wrapper.Value.Event.StateId.ToString(),
-                                    wrapper.Value.UniqueId,
-                                    TypeCode = TypeContainer.GetTypeCode(wrapper.Value.Event.Event.GetType()),
-                                    Data = Encoding.Default.GetString(wrapper.Value.BytesTransport.EventBytes),
-                                    wrapper.Value.Event.Base.Version,
-                                    wrapper.Value.Event.Base.Timestamp
-                                }, trans) > 0;
-                            }
-                            trans.Commit();
-                            isSuccess = true;
-                            list.ForEach(wrap => wrap.TaskSource.TrySetResult(wrap.Value.ReturnValue));
+                                wrapper.Value.Event.StateId,
+                                wrapper.Value.UniqueId,
+                                TypeCode = TypeContainer.GetTypeCode(wrapper.Value.Event.Event.GetType()),
+                                Data = Encoding.Default.GetString(wrapper.Value.BytesTransport.EventBytes),
+                                wrapper.Value.Event.Base.Version,
+                                wrapper.Value.Event.Base.Timestamp
+                            }) > 0);
                         }
-                        catch
+                        catch (Exception ex)
                         {
-                            trans.Rollback();
-                        }
-                    }
-                    if (!isSuccess)
-                    {
-                        foreach (var wrapper in list)
-                        {
-                            try
-                            {
-                                wrapper.TaskSource.TrySetResult(await conn.ExecuteAsync(saveSql, new
-                                {
-                                    wrapper.Value.Event.StateId,
-                                    wrapper.Value.UniqueId,
-                                    TypeCode = TypeContainer.GetTypeCode(wrapper.Value.Event.Event.GetType()),
-                                    Data = Encoding.Default.GetString(wrapper.Value.BytesTransport.EventBytes),
-                                    wrapper.Value.Event.Base.Version,
-                                    wrapper.Value.Event.Base.Timestamp
-                                }) > 0);
-                            }
-                            catch (Exception ex)
-                            {
-                                wrapper.TaskSource.TrySetException(ex);
-                            }
+                            wrapper.TaskSource.TrySetException(ex);
                         }
                     }
                 }
@@ -261,36 +249,32 @@ namespace Ray.Storage.MySQL
                     await task;
                 return (task.Result.SubTable, t);
             }))).GroupBy(t => t.SubTable);
-            using (var conn = config.CreateConnection())
+            using var conn = config.CreateConnection();
+            await conn.OpenAsync();
+            using var trans = conn.BeginTransaction();
+            try
             {
-                await conn.OpenAsync();
-                using (var trans = conn.BeginTransaction())
+                foreach (var group in groups)
                 {
-                    try
+                    var saveSql = saveSqlDict.GetOrAdd(group.Key,
+                        key => $"INSERT INTO {key}(stateid,uniqueId,typecode,data,version,timestamp) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version,@Timestamp)");
+                    await conn.ExecuteAsync(saveSql, group.Select(g => new
                     {
-                        foreach (var group in groups)
-                        {
-                            var saveSql = saveSqlDict.GetOrAdd(group.Key,
-                                key => $"INSERT INTO {key}(stateid,uniqueId,typecode,data,version,timestamp) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version,@Timestamp)");
-                            await conn.ExecuteAsync(saveSql, group.Select(g => new
-                            {
-                                g.t.FullyEvent.StateId,
-                                g.t.UniqueId,
-                                TypeCode = TypeContainer.GetTypeCode(g.t.FullyEvent.Event.GetType()),
-                                Data = Encoding.Default.GetString(g.t.BytesTransport.EventBytes),
-                                g.t.FullyEvent.Base.Version,
-                                g.t.FullyEvent.Base.Timestamp
-                            }), trans);
-                        }
-                        trans.Commit();
-                    }
-                    catch (Exception ex)
-                    {
-                        trans.Rollback();
-                        logger.LogError(ex, nameof(TransactionBatchAppend));
-                        throw;
-                    }
+                        g.t.FullyEvent.StateId,
+                        g.t.UniqueId,
+                        TypeCode = TypeContainer.GetTypeCode(g.t.FullyEvent.Event.GetType()),
+                        Data = Encoding.Default.GetString(g.t.BytesTransport.EventBytes),
+                        g.t.FullyEvent.Base.Version,
+                        g.t.FullyEvent.Base.Timestamp
+                    }), trans);
                 }
+                trans.Commit();
+            }
+            catch (Exception ex)
+            {
+                trans.Rollback();
+                logger.LogError(ex, nameof(TransactionBatchAppend));
+                throw;
             }
         }
 
@@ -302,26 +286,22 @@ namespace Ray.Storage.MySQL
                 if (!getTableListTask.IsCompletedSuccessfully)
                     await getTableListTask;
                 var tableList = getTableListTask.Result.Where(t => t.EndTime >= startTimestamp);
-                using (var conn = config.CreateConnection())
+                using var conn = config.CreateConnection();
+                await conn.OpenAsync();
+                using var trans = conn.BeginTransaction();
+                try
                 {
-                    await conn.OpenAsync();
-                    using (var trans = conn.BeginTransaction())
+                    foreach (var table in tableList)
                     {
-                        try
-                        {
-                            foreach (var table in tableList)
-                            {
-                                var sql = $"delete from {table.SubTable} WHERE stateid=@StateId and version<=@EndVersion";
-                                await conn.ExecuteAsync(sql, new { StateId = stateId, EndVersion = endVersion }, transaction: trans);
-                            }
-                            trans.Commit();
-                        }
-                        catch
-                        {
-                            trans.Rollback();
-                            throw;
-                        }
+                        var sql = $"delete from {table.SubTable} WHERE stateid=@StateId and version<=@EndVersion";
+                        await conn.ExecuteAsync(sql, new { StateId = stateId, EndVersion = endVersion }, transaction: trans);
                     }
+                    trans.Commit();
+                }
+                catch
+                {
+                    trans.Rollback();
+                    throw;
                 }
             });
         }
@@ -334,26 +314,22 @@ namespace Ray.Storage.MySQL
                 if (!getTableListTask.IsCompletedSuccessfully)
                     await getTableListTask;
                 var tableList = getTableListTask.Result.Where(t => t.EndTime >= startTimestamp);
-                using (var conn = config.CreateConnection())
+                using var conn = config.CreateConnection();
+                await conn.OpenAsync();
+                using var trans = conn.BeginTransaction();
+                try
                 {
-                    await conn.OpenAsync();
-                    using (var trans = conn.BeginTransaction())
+                    foreach (var table in tableList)
                     {
-                        try
-                        {
-                            foreach (var table in tableList)
-                            {
-                                var sql = $"delete from {table.SubTable} WHERE stateid=@StateId and version>=@StartVersion";
-                                await conn.ExecuteAsync(sql, new { StateId = stateId, StartVersion = startVersion });
-                            }
-                            trans.Commit();
-                        }
-                        catch
-                        {
-                            trans.Rollback();
-                            throw;
-                        }
+                        var sql = $"delete from {table.SubTable} WHERE stateid=@StateId and version>=@StartVersion";
+                        await conn.ExecuteAsync(sql, new { StateId = stateId, StartVersion = startVersion });
                     }
+                    trans.Commit();
+                }
+                catch
+                {
+                    trans.Rollback();
+                    throw;
                 }
             });
         }

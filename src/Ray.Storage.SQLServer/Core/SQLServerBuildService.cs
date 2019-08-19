@@ -28,10 +28,8 @@ namespace Ray.Storage.SQLServer
         public async Task<List<EventSubTable>> GetSubTables()
         {
             string sql = "SELECT * FROM SubTable_Records where TableName=@TableName";
-            using (var connection = storageOptions.CreateConnection())
-            {
-                return (await connection.QueryAsync<EventSubTable>(sql, new { TableName = storageOptions.EventTable })).AsList();
-            }
+            using var connection = storageOptions.CreateConnection();
+            return (await connection.QueryAsync<EventSubTable>(sql, new { TableName = storageOptions.EventTable })).AsList();
         }
         public async Task<bool> CreateEventSubTable()
         {
@@ -46,10 +44,8 @@ namespace Ray.Storage.SQLServer
 	                        EndTime bigint NOT NULL,
                             INDEX subtable_record UNIQUE(TableName, [Index])
                         )";
-            using (var connection = storageOptions.CreateConnection())
-            {
-                return await connection.ExecuteAsync(sql) > 0;
-            }
+            using var connection = storageOptions.CreateConnection();
+            return await connection.ExecuteAsync(sql) > 0;
         }
         public async Task CreateEventTable(EventSubTable subTable)
         {
@@ -66,23 +62,19 @@ namespace Ray.Storage.SQLServer
 							INDEX account_event_Version unique(StateId, Version)
                             );";
             const string insertSql = "INSERT into SubTable_Records  VALUES(@TableName,@SubTable,@Index,@StartTime,@EndTime)";
-            using (var connection = storageOptions.CreateConnection())
+            using var connection = storageOptions.CreateConnection();
+            await connection.OpenAsync();
+            using var trans = connection.BeginTransaction();
+            try
             {
-                await connection.OpenAsync();
-                using (var trans = connection.BeginTransaction())
-                {
-                    try
-                    {
-                        await connection.ExecuteAsync(sql, transaction: trans);
-                        await connection.ExecuteAsync(insertSql, subTable, trans);
-                        trans.Commit();
-                    }
-                    catch
-                    {
-                        trans.Rollback();
-                        throw;
-                    }
-                }
+                await connection.ExecuteAsync(sql, transaction: trans);
+                await connection.ExecuteAsync(insertSql, subTable, trans);
+                trans.Commit();
+            }
+            catch
+            {
+                trans.Rollback();
+                throw;
             }
         }
         public async Task CreateEventArchiveTable()
@@ -100,10 +92,8 @@ namespace Ray.Storage.SQLServer
                             INDEX {storageOptions.EventArchiveTable}_id_unique unique(StateId,TypeCode,UniqueId),
                             INDEX {storageOptions.EventArchiveTable}_Version unique(StateId, Version)
                             );";
-            using (var connection = storageOptions.CreateConnection())
-            {
-                await connection.ExecuteAsync(sql);
-            }
+            using var connection = storageOptions.CreateConnection();
+            await connection.ExecuteAsync(sql);
         }
 
         public async Task CreateObserverSnapshotTable(string observerSnapshotTable)
@@ -115,10 +105,8 @@ namespace Ray.Storage.SQLServer
                      {stateIdSql},
                      StartTimestamp bigint not null,
                      Version bigint not null);";
-            using (var connection = storageOptions.CreateConnection())
-            {
-                await connection.ExecuteAsync(sql);
-            }
+            using var connection = storageOptions.CreateConnection();
+            await connection.ExecuteAsync(sql);
         }
 
         public async Task CreateSnapshotArchiveTable()
@@ -140,10 +128,8 @@ namespace Ray.Storage.SQLServer
                      Version bigint not null,
                      INDEX {storageOptions.SnapshotArchiveTable}_StateId NONCLUSTERED(StateId)
                       );";
-            using (var connection = storageOptions.CreateConnection())
-            {
-                await connection.ExecuteAsync(sql);
-            }
+            using var connection = storageOptions.CreateConnection();
+            await connection.ExecuteAsync(sql);
         }
 
         public async Task CreateSnapshotTable()
@@ -159,10 +145,8 @@ namespace Ray.Storage.SQLServer
                      LatestMinEventTimestamp bigint not null,
                      IsLatest bit not null,
                      IsOver bit not null);";
-            using (var connection = storageOptions.CreateConnection())
-            {
-                await connection.ExecuteAsync(sql);
-            }
+            using var connection = storageOptions.CreateConnection();
+            await connection.ExecuteAsync(sql);
         }
     }
 }

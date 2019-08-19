@@ -46,10 +46,8 @@ namespace Ray.Storage.PostgreSQL
                      Data json not null,
                      Status int2 not null);
                      CREATE UNIQUE INDEX IF NOT EXISTS UnitName_TransId ON {options.Value.TableName} USING btree(UnitName, TransactionId)";
-            using (var connection = CreateConnection())
-            {
-                connection.Execute(sql);
-            }
+            using var connection = CreateConnection();
+            connection.Execute(sql);
         }
         public Task Append<Input>(string unitName, Commit<Input> commit)
         {
@@ -71,86 +69,72 @@ namespace Ray.Storage.PostgreSQL
 
         public async Task Delete(string unitName, long transactionId)
         {
-            using (var conn = CreateConnection())
-            {
-                var sql = $"delete from {options.Value.TableName} WHERE UnitName=@UnitName and TransactionId=@TransactionId";
-                await conn.ExecuteAsync(sql, new { UnitName = unitName, TransactionId = transactionId });
-            }
+            using var conn = CreateConnection();
+            var sql = $"delete from {options.Value.TableName} WHERE UnitName=@UnitName and TransactionId=@TransactionId";
+            await conn.ExecuteAsync(sql, new { UnitName = unitName, TransactionId = transactionId });
         }
         public async Task<IList<Commit<Input>>> GetList<Input>(string unitName)
         {
             var getListSql = $"select * from {options.Value.TableName} WHERE UnitName=@UnitName";
-            using (var conn = CreateConnection())
+            using var conn = CreateConnection();
+            return (await conn.QueryAsync<CommitModel>(getListSql, new
             {
-                return (await conn.QueryAsync<CommitModel>(getListSql, new
-                {
-                    UnitName = unitName
-                })).Select(model => new Commit<Input>
-                {
-                    TransactionId = model.TransactionId,
-                    Status = model.Status,
-                    Data = serializer.Deserialize<Input>(model.Data)
-                }).AsList();
-            }
+                UnitName = unitName
+            })).Select(model => new Commit<Input>
+            {
+                TransactionId = model.TransactionId,
+                Status = model.Status,
+                Data = serializer.Deserialize<Input>(model.Data)
+            }).AsList();
         }
 
         public async Task<bool> Update(string unitName, long transactionId, TransactionStatus status)
         {
             var sql = $"update {options.Value.TableName} set Status=@Status where UnitName=@UnitName and TransactionId=@TransactionId";
-            using (var conn = CreateConnection())
-            {
-                return await conn.ExecuteAsync(sql, new { UnitName = unitName, TransactionId = transactionId, Status = status }) > 0;
-            }
+            using var conn = CreateConnection();
+            return await conn.ExecuteAsync(sql, new { UnitName = unitName, TransactionId = transactionId, Status = status }) > 0;
         }
         private async Task BatchProcessing(List<AsyncInputEvent<AppendInput, bool>> wrapperList)
         {
             var copySql = $"copy {options.Value.TableName}(UnitName,TransactionId,Data,Status) FROM STDIN (FORMAT BINARY)";
             try
             {
-                using (var conn = CreateConnection() as NpgsqlConnection)
+                using var conn = CreateConnection() as NpgsqlConnection;
+                await conn.OpenAsync();
+                using var writer = conn.BeginBinaryImport(copySql);
+                foreach (var wrapper in wrapperList)
                 {
-                    await conn.OpenAsync();
-                    using (var writer = conn.BeginBinaryImport(copySql))
-                    {
-                        foreach (var wrapper in wrapperList)
-                        {
-                            writer.StartRow();
-                            writer.Write(wrapper.Value.UnitName, NpgsqlDbType.Varchar);
-                            writer.Write(wrapper.Value.TransactionId, NpgsqlDbType.Bigint);
-                            writer.Write(wrapper.Value.Data, NpgsqlDbType.Json);
-                            writer.Write((short)wrapper.Value.Status, NpgsqlDbType.Smallint);
-                        }
-                        writer.Complete();
-                    }
+                    writer.StartRow();
+                    writer.Write(wrapper.Value.UnitName, NpgsqlDbType.Varchar);
+                    writer.Write(wrapper.Value.TransactionId, NpgsqlDbType.Bigint);
+                    writer.Write(wrapper.Value.Data, NpgsqlDbType.Json);
+                    writer.Write((short)wrapper.Value.Status, NpgsqlDbType.Smallint);
                 }
+                writer.Complete();
                 wrapperList.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
             }
             catch
             {
                 var saveSql = $"INSERT INTO {options.Value.TableName}(UnitName,TransactionId,Data,Status) VALUES(@UnitName,@TransactionId,(@Data)::json,@Status) ON CONFLICT ON CONSTRAINT UnitName_TransId DO NOTHING";
-                using (var conn = CreateConnection())
+                using var conn = CreateConnection();
+                await conn.OpenAsync();
+                using var trans = conn.BeginTransaction();
+                try
                 {
-                    await conn.OpenAsync();
-                    using (var trans = conn.BeginTransaction())
+                    await conn.ExecuteAsync(saveSql, wrapperList.Select(wrapper => new
                     {
-                        try
-                        {
-                            await conn.ExecuteAsync(saveSql, wrapperList.Select(wrapper => new
-                            {
-                                wrapper.Value.UnitName,
-                                wrapper.Value.TransactionId,
-                                wrapper.Value.Data,
-                                Status = (short)wrapper.Value.Status
-                            }).ToList(), trans);
-                            trans.Commit();
-                            wrapperList.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
-                        }
-                        catch (Exception e)
-                        {
-                            trans.Rollback();
-                            wrapperList.ForEach(wrap => wrap.TaskSource.TrySetException(e));
-                        }
-                    }
+                        wrapper.Value.UnitName,
+                        wrapper.Value.TransactionId,
+                        wrapper.Value.Data,
+                        Status = (short)wrapper.Value.Status
+                    }).ToList(), trans);
+                    trans.Commit();
+                    wrapperList.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
+                }
+                catch (Exception e)
+                {
+                    trans.Rollback();
+                    wrapperList.ForEach(wrap => wrap.TaskSource.TrySetException(e));
                 }
             }
         }

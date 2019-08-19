@@ -36,109 +36,93 @@ namespace Ray.Storage.SQLServer
         }
         public async Task Delete(PrimaryKey id)
         {
-            using (var conn = config.CreateConnection())
+            using var conn = config.CreateConnection();
+            await conn.ExecuteAsync(deleteSql, new
             {
-                await conn.ExecuteAsync(deleteSql, new
-                {
-                    StateId = id
-                });
-            }
+                StateId = id
+            });
         }
         public async Task Insert(Snapshot<PrimaryKey, StateType> snapshot)
         {
-            using (var connection = config.CreateConnection())
+            using var connection = config.CreateConnection();
+            await connection.ExecuteAsync(insertSql, new
             {
-                await connection.ExecuteAsync(insertSql, new
-                {
-                    snapshot.Base.StateId,
-                    Data = serializer.SerializeToString(snapshot.State),
-                    snapshot.Base.Version,
-                    snapshot.Base.StartTimestamp,
-                    snapshot.Base.LatestMinEventTimestamp,
-                    snapshot.Base.IsLatest,
-                    snapshot.Base.IsOver
-                });
-            }
+                snapshot.Base.StateId,
+                Data = serializer.SerializeToString(snapshot.State),
+                snapshot.Base.Version,
+                snapshot.Base.StartTimestamp,
+                snapshot.Base.LatestMinEventTimestamp,
+                snapshot.Base.IsLatest,
+                snapshot.Base.IsOver
+            });
         }
         public async Task Update(Snapshot<PrimaryKey, StateType> snapshot)
         {
-            using (var connection = config.CreateConnection())
+            using var connection = config.CreateConnection();
+            await connection.ExecuteAsync(updateSql, new
             {
-                await connection.ExecuteAsync(updateSql, new
-                {
-                    snapshot.Base.StateId,
-                    Data = serializer.SerializeToString(snapshot.State),
-                    snapshot.Base.Version,
-                    snapshot.Base.LatestMinEventTimestamp,
-                    snapshot.Base.IsLatest,
-                    snapshot.Base.IsOver
-                });
-            }
+                snapshot.Base.StateId,
+                Data = serializer.SerializeToString(snapshot.State),
+                snapshot.Base.Version,
+                snapshot.Base.LatestMinEventTimestamp,
+                snapshot.Base.IsLatest,
+                snapshot.Base.IsOver
+            });
         }
         public async Task Over(PrimaryKey id, bool isOver)
         {
-            using (var connection = config.CreateConnection())
-            {
-                await connection.ExecuteAsync(updateOverSql, new { StateId = id, IsOver = isOver });
-            }
+            using var connection = config.CreateConnection();
+            await connection.ExecuteAsync(updateOverSql, new { StateId = id, IsOver = isOver });
         }
         public async Task UpdateIsLatest(PrimaryKey id, bool isLatest)
         {
-            using (var connection = config.CreateConnection())
+            using var connection = config.CreateConnection();
+            await connection.ExecuteAsync(updateIsLatestSql, new
             {
-                await connection.ExecuteAsync(updateIsLatestSql, new
-                {
-                    StateId = id,
-                    IsLatest = isLatest
-                });
-            }
+                StateId = id,
+                IsLatest = isLatest
+            });
         }
 
         public async Task UpdateLatestMinEventTimestamp(PrimaryKey id, long timestamp)
         {
-            using (var connection = config.CreateConnection())
+            using var connection = config.CreateConnection();
+            await connection.ExecuteAsync(updateLatestTimestampSql, new
             {
-                await connection.ExecuteAsync(updateLatestTimestampSql, new
-                {
-                    StateId = id,
-                    LatestMinEventTimestamp = timestamp
-                });
-            }
+                StateId = id,
+                LatestMinEventTimestamp = timestamp
+            });
         }
         public async Task UpdateStartTimestamp(PrimaryKey id, long timestamp)
         {
-            using (var connection = config.CreateConnection())
+            using var connection = config.CreateConnection();
+            await connection.ExecuteAsync(updateStartTimestampSql, new
             {
-                await connection.ExecuteAsync(updateStartTimestampSql, new
-                {
-                    StateId = id,
-                    StartTimestamp = timestamp
-                });
-            }
+                StateId = id,
+                StartTimestamp = timestamp
+            });
         }
 
         public async Task<Snapshot<PrimaryKey, StateType>> Get(PrimaryKey id)
         {
-            using (var conn = config.CreateConnection())
+            using var conn = config.CreateConnection();
+            var data = await conn.QuerySingleOrDefaultAsync<SnapshotModel<PrimaryKey>>(getByIdSql, new { StateId = id });
+            if (data != default)
             {
-                var data = await conn.QuerySingleOrDefaultAsync<SnapshotModel<PrimaryKey>>(getByIdSql, new { StateId = id });
-                if (data != default)
+                return new Snapshot<PrimaryKey, StateType>()
                 {
-                    return new Snapshot<PrimaryKey, StateType>()
+                    Base = new SnapshotBase<PrimaryKey>
                     {
-                        Base = new SnapshotBase<PrimaryKey>
-                        {
-                            StateId = id,
-                            Version = data.Version,
-                            DoingVersion = data.Version,
-                            IsLatest = data.IsLatest,
-                            IsOver = data.IsOver,
-                            StartTimestamp = data.StartTimestamp,
-                            LatestMinEventTimestamp = data.LatestMinEventTimestamp
-                        },
-                        State = serializer.Deserialize<StateType>(data.Data)
-                    };
-                }
+                        StateId = id,
+                        Version = data.Version,
+                        DoingVersion = data.Version,
+                        IsLatest = data.IsLatest,
+                        IsOver = data.IsOver,
+                        StartTimestamp = data.StartTimestamp,
+                        LatestMinEventTimestamp = data.LatestMinEventTimestamp
+                    },
+                    State = serializer.Deserialize<StateType>(data.Data)
+                };
             }
             return default;
         }

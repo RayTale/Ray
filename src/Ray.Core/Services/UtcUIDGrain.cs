@@ -13,11 +13,11 @@ namespace Ray.Core.Services
         int start_id = 1;
         string start_string;
         long start_long;
-        const int length = 20;
+        const int length = 19;
         public UtcUIDGrain()
         {
             start_string = DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss");
-            start_long = long.Parse(start_string); ;
+            start_long = long.Parse(start_string); 
         }
         public Task<string> NewID()
         {
@@ -34,7 +34,7 @@ namespace Ray.Core.Services
                 }
                 var builder = new Span<char>(new char[length]);
                 var newTimes = Interlocked.Increment(ref start_id);
-                if (newTimes <= 999999)
+                if (newTimes <= 99999)
                 {
                     start_string.AsSpan().CopyTo(builder);
 

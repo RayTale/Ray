@@ -30,25 +30,23 @@ namespace Ray.EventBus.Kafka
         {
             ThreadPool.QueueUserWorkItem(async state =>
             {
-                using (var consumer = Client.GetConsumer(Consumer.Group))
+                using var consumer = Client.GetConsumer(Consumer.Group);
+                consumer.Handler.Subscribe(new List<string> { Topic });
+                while (!closed)
                 {
-                    consumer.Handler.Subscribe(new List<string> { Topic });
-                    while (!closed)
+                    try
                     {
-                        try
-                        {
-                            IsHeath = true;
-                            var data = consumer.Handler.Consume();
-                            await Consumer.Notice(data.Value);
-                        }
-                        catch (Exception exception)
-                        {
-                            Logger.LogError(exception.InnerException ?? exception, $"An error occurred in {Topic}");
-                        }
+                        IsHeath = true;
+                        var data = consumer.Handler.Consume();
+                        await Consumer.Notice(data.Value);
                     }
-                    IsHeath = false;
-                    consumer.Handler.Unsubscribe();
+                    catch (Exception exception)
+                    {
+                        Logger.LogError(exception.InnerException ?? exception, $"An error occurred in {Topic}");
+                    }
                 }
+                IsHeath = false;
+                consumer.Handler.Unsubscribe();
             });
             return Task.CompletedTask;
         }

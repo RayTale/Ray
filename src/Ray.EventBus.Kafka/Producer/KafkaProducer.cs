@@ -22,10 +22,8 @@ namespace Ray.EventBus.Kafka
         public ValueTask Publish(byte[] bytes, string hashKey)
         {
             var topic = publisher.GetRoute(hashKey);
-            using (var producer = client.GetProducer())
-            {
-                producer.Handler.Produce(topic, new Message<string, byte[]> { Key = hashKey, Value = bytes });
-            }
+            using var producer = client.GetProducer();
+            producer.Handler.Produce(topic, new Message<string, byte[]> { Key = hashKey, Value = bytes });
             return Consts.ValueTaskDone;
 
         }

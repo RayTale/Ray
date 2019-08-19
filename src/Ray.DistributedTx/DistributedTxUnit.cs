@@ -4,7 +4,6 @@ using Orleans;
 using System;
 using System.Collections.Concurrent;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,9 +11,15 @@ namespace Ray.DistributedTransaction
 {
     public abstract class DistributedTxUnit<Input, Output> : Grain, IDistributedTxUnit<Input, Output>
     {
+        int start_id = 1;
+        string start_string;
+        long start_long;
+        const int length = 19;
         public DistributedTxUnit()
         {
             GrainType = GetType();
+            start_string = DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss");
+            start_long = long.Parse(start_string);
         }
         protected Type GrainType { get; }
         private IDistributedTxStorage transactionStorage;
@@ -46,37 +51,37 @@ namespace Ray.DistributedTransaction
                 }
             }, null, new TimeSpan(0, 5, 0), new TimeSpan(0, 1, 0));
         }
-        int newStringByUtcTimes = 1;
-        long newStringByUtcStart = long.Parse(DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss"));
-        protected async ValueTask<string> NewTransactionId()
+        private string NewID()
         {
-            var nowTimestamp = long.Parse(DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss"));
-            if (nowTimestamp > newStringByUtcStart)
+            var now_string = DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss");
+            var now_Long = long.Parse(now_string);
+            if (now_Long > start_long)
             {
-                Interlocked.Exchange(ref newStringByUtcStart, nowTimestamp);
-                Interlocked.Exchange(ref newStringByUtcTimes, 0);
+                Interlocked.Exchange(ref start_string, now_string);
+                Interlocked.Exchange(ref start_long, now_Long);
+                Interlocked.Exchange(ref start_id, 0);
             }
-            var utcBuilder = new StringBuilder(22);
-            var newTimes = Interlocked.Increment(ref newStringByUtcTimes);
-            if (newTimes <= 999999)
+            var builder = new Span<char>(new char[length]);
+            var newTimes = Interlocked.Increment(ref start_id);
+            if (newTimes <= 99999)
             {
-                utcBuilder.Clear();
-                utcBuilder.Append(newStringByUtcStart.ToString());
+                start_string.AsSpan().CopyTo(builder);
+
                 var timesString = newTimes.ToString();
-                for (int i = 0; i < 4 - timesString.Length; i++)
+                for (int i = start_string.Length; i < length - timesString.Length; i++)
                 {
-                    utcBuilder.Append("0");
+                    builder[i] = '0';
                 }
-                utcBuilder.Append(timesString);
-                return utcBuilder.ToString();
+                var span = length - timesString.Length;
+                for (int i = span; i < length; i++)
+                {
+                    builder[i] = timesString[i - span];
+                }
+                return builder.ToString();
             }
             else
             {
-                await Task.Delay(1000);
-                var task = NewTransactionId();
-                if (!task.IsCompletedSuccessfully)
-                    await task;
-                return task.Result;
+                return NewID();
             }
         }
         protected Task Commit(Commit<Input> commit)
@@ -146,12 +151,9 @@ namespace Ray.DistributedTransaction
         }
         public async Task<Output> Ask(Input input)
         {
-            var newIdTask = NewTransactionId();
-            if (!newIdTask.IsCompletedSuccessfully)
-                await newIdTask;
             var commit = new Commit<Input>
             {
-                TransactionId = long.Parse(newIdTask.Result),
+                TransactionId = long.Parse(NewID()),
                 Status = TransactionStatus.None,
                 Data = input
             };

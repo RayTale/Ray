@@ -47,19 +47,17 @@ namespace Ray.Core.Event
             {
                 throw new PrimaryKeyTypeException(EventTypeCode);
             }
-            using (var ms = new PooledMemoryStream())
-            {
-                ms.WriteByte((byte)TransportType.Event);
-                ms.Write(BitConverter.GetBytes((ushort)eventTypeBytes.Length));
-                ms.Write(BitConverter.GetBytes((ushort)actorIdBytes.Length));
-                ms.Write(BitConverter.GetBytes((ushort)BaseBytes.Length));
-                ms.Write(BitConverter.GetBytes(EventBytes.Length));
-                ms.Write(eventTypeBytes);
-                ms.Write(actorIdBytes);
-                ms.Write(BaseBytes);
-                ms.Write(EventBytes);
-                return ms.ToArray();
-            }
+            using var ms = new PooledMemoryStream();
+            ms.WriteByte((byte)TransportType.Event);
+            ms.Write(BitConverter.GetBytes((ushort)eventTypeBytes.Length));
+            ms.Write(BitConverter.GetBytes((ushort)actorIdBytes.Length));
+            ms.Write(BitConverter.GetBytes((ushort)BaseBytes.Length));
+            ms.Write(BitConverter.GetBytes(EventBytes.Length));
+            ms.Write(eventTypeBytes);
+            ms.Write(actorIdBytes);
+            ms.Write(BaseBytes);
+            ms.Write(EventBytes);
+            return ms.ToArray();
         }
         public static (bool success, PrimaryKey actorId) GetActorId<PrimaryKey>(byte[] bytes)
         {

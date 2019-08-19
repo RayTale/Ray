@@ -15,12 +15,10 @@ namespace Ray.Core.Event
         public long Timestamp { get; set; }
         public byte[] GetBytes()
         {
-            using (var ms = new PooledMemoryStream())
-            {
-                ms.Write(BitConverter.GetBytes(Version));
-                ms.Write(BitConverter.GetBytes(Timestamp));
-                return ms.ToArray();
-            }
+            using var ms = new PooledMemoryStream();
+            ms.Write(BitConverter.GetBytes(Version));
+            ms.Write(BitConverter.GetBytes(Timestamp));
+            return ms.ToArray();
         }
         public static EventBase FromBytes(byte[] bytes)
         {

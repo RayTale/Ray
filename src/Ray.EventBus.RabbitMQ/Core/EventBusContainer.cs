@@ -87,10 +87,8 @@ namespace Ray.EventBus.RabbitMQ
             if (eventBusDictionary.TryAdd(bus.ProducerType, bus))
             {
                 eventBusList.Add(bus);
-                using (var channel = await rabbitMQClient.PullModel())
-                {
-                    channel.Model.ExchangeDeclare(bus.Exchange, "direct", true);
-                }
+                using var channel = await rabbitMQClient.PullModel();
+                channel.Model.ExchangeDeclare(bus.Exchange, "direct", true);
             }
             else
                 throw new EventBusRepeatException(bus.ProducerType.FullName);
