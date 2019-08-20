@@ -2,9 +2,9 @@
 
 namespace Ray.Core.Exceptions
 {
-    public class UnMatchObserverUnitException : Exception
+    public class UnmatchObserverUnitException : Exception
     {
-        public UnMatchObserverUnitException(string grainName, string unitName) : base($"{unitName} and {grainName} do not match")
+        public UnmatchObserverUnitException(string grainName, string unitName) : base($"{unitName} and {grainName} do not match")
         {
         }
     }

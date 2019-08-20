@@ -4,7 +4,7 @@ namespace Ray.Core.Exceptions
 {
     public class UnfindEventHandlerException : Exception
     {
-        public UnfindEventHandlerException(Type eventType) : base($"not found {eventType.FullName}'s handler")
+        public UnfindEventHandlerException(Type eventType) : base(eventType.FullName)
         {
 
         }

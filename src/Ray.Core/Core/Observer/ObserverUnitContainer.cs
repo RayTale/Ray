@@ -78,7 +78,7 @@ namespace Ray.Core
                     return result;
                 }
                 else
-                    throw new UnMatchObserverUnitException(grainType.FullName, unit.GetType().FullName);
+                    throw new UnmatchObserverUnitException(grainType.FullName, unit.GetType().FullName);
             }
             else
                 throw new UnfindObserverUnitException(grainType.FullName);
