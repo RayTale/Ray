@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using Orleans;
 using Orleans.Concurrency;
+using Orleans.Runtime;
 using Ray.Core.Channels;
 using Ray.Core.Configuration;
 using Ray.Core.Event;
@@ -559,7 +560,7 @@ namespace Ray.Core
         {
             if (handlerAttribute == default || !handlerAttribute.Ignores.Contains(evt.GetType()))
             {
-                throw new EventNotFoundHandlerException(evt.GetType());
+                throw new UnfindEventHandlerException(evt.GetType());
             }
             return Task.CompletedTask;
         }

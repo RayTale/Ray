@@ -154,7 +154,7 @@ namespace Ray.Core.Snapshot
         {
             if (handlerAttribute == default || !handlerAttribute.Ignores.Contains(evt.GetType()))
             {
-                throw new EventNotFoundHandlerException(evt.GetType());
+                throw new UnfindEventHandlerException(evt.GetType());
             }
         }
     }
