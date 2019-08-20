@@ -1,13 +1,13 @@
 # Ray
-这是一个集成Actor,Event Sourcing(事件溯源),Eventual consistency(最终一致性)的无数据库事务，高性能分布式云框架(构建集群请参阅:http://dotnet.github.io/orleans/) 
+这是一个集成Actor,Event Sourcing,Eventual consistency的高性能分布式框架(构建分布式集群请参阅:http://dotnet.github.io/orleans/) 
 
 ### 案例启动步骤
 
-案例里是一个简单的无事务转账功能。还有很多给力的功能，后面会持续放出文档
+案例里是一个简单的无事务转账功能
 
-一、安装mongodb,rabbitmq.
+一、安装(mongodb or postgresql or mysql or sqlserver) and (rabbitmq or kafka)。
 
-二、修改Host代码中的mongodb和rabbitmq的配置信息.
+二、在Ray.Host项目的Program.cs中选择事件持久化方式和EventBus。
 
 ```csharp
     var builder = new SiloHostBuilder()
@@ -15,15 +15,24 @@
         .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(Account).Assembly).WithReferences())
         .ConfigureServices((context, servicecollection) =>
         {
-            servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
-            servicecollection.AddMongoES();//注册MongoDB为事件库
-            servicecollection.AddRabbitMQ<MessageInfo>();//注册RabbitMq为默认消息队列
+                    //注册postgresql为事件存储库
+                    servicecollection.AddPostgreSQLStorage(config =>
+                    {
+                        config.ConnectionDict.Add("core_event", "Server=127.0.0.1;Port=5432;Database=Ray;User Id=postgres;Password=XXXX;Pooling=true;MaxPoolSize=20;");
+                    });
+                    //配置分布式事务管理器(非必须，需要分布式事务才需设置)
+                    servicecollection.AddPostgreSQLTxStorage(options =>
+                    {
+                        options.ConnectionKey = "core_event";
+                        options.TableName = "Transaction_TemporaryRecord";
+                    });
+                    servicecollection.PSQLConfigure();
         })
         .Configure<MongoConfig>(c => c.Connection = "mongodb://127.0.0.1:28888")
         .Configure<RabbitConfig>(c =>
         {
             c.UserName = "admin";
-            c.Password = "luohuazhiyu";
+            c.Password = "XXXX";
             c.Hosts = new[] { "127.0.0.1:5672" };
             c.MaxPoolSize = 100;
             c.VirtualHost = "/";
@@ -31,7 +40,7 @@
         .ConfigureLogging(logging => logging.AddConsole());
 ```
 
-三、修改client代码中的rabbitmq的配置信息.
+三、修改Ray.Client的配置信息.
 
 ```csharp
     var config = ClientConfiguration.LocalhostSilo();
@@ -39,33 +48,11 @@
         .UseConfiguration(config)
         .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IAccount).Assembly).WithReferences())
         .ConfigureLogging(logging => logging.AddConsole())
-        .ConfigureServices((servicecollection) =>
-        {
-            servicecollection.AddSingleton<ISerializer, ProtobufSerializer>();//注册序列化组件
-            servicecollection.AddRabbitMQ<MessageInfo>();//注册RabbitMq为默认消息队列
-            servicecollection.PostConfigure<RabbitConfig>(c =>
-            {
-                c.UserName = "admin";
-                c.Password = "luohuazhiyu";
-                c.Hosts = new[] { "127.0.0.1:5672" };
-                c.MaxPoolSize = 100;
-                c.VirtualHost = "/";
-            });
-        })
         .Build();
+    await client.Connect();
 ```
 四、启动Ray.Host
 
 五、启动Ray.Client
 
----
-
-Note:
-
-Docker开发环境:
-使用Docker可以方便搭建测试环境，调整对应参数，运行示例
-```
-docker run -d -p 5672:5672 -p 15672:15672 --hostname rabbit --name rabbit -e RABBITMQ_DEFAULT_USER=admin -e RABBITMQ_DEFAULT_PASS=admin  rabbitmq:3-management
-docker run -d -p 27017:27017 --name mongo -td mongo 
-docker run -d -p 5432:5432 --name postgres -e POSTGRES_PASSWORD=123456  postgres
 ```
