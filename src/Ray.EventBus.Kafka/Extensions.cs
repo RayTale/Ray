@@ -12,14 +12,14 @@ namespace Ray.EventBus.RabbitMQ
     {
         public static void AddKafkaMQ(
             this IServiceCollection serviceCollection,
-            Action<RayKafkaOptions> ConfigAction,
+            Action<RayKafkaOptions> configAction,
             Action<ProducerConfig> producerConfigAction,
             Action<ConsumerConfig> consumerConfigAction,
             Func<IKafkaEventBusContainer, Task> eventBusConfigFunc = default)
         {
             serviceCollection.Configure<ProducerConfig>(config => producerConfigAction(config));
             serviceCollection.Configure<ConsumerConfig>(config => consumerConfigAction(config));
-            serviceCollection.Configure<RayKafkaOptions>(config => ConfigAction(config));
+            serviceCollection.Configure<RayKafkaOptions>(config => configAction(config));
             serviceCollection.AddSingleton<IKafkaClient, KafkaClient>();
             serviceCollection.AddSingleton<IConsumerManager, ConsumerManager>();
             serviceCollection.AddSingleton<IKafkaEventBusContainer, EventBusContainer>();
