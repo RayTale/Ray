@@ -15,18 +15,18 @@
         .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(Account).Assembly).WithReferences())
         .ConfigureServices((context, servicecollection) =>
         {
-                    //注册postgresql为事件存储库
-                    servicecollection.AddPostgreSQLStorage(config =>
-                    {
-                        config.ConnectionDict.Add("core_event", "Server=127.0.0.1;Port=5432;Database=Ray;User Id=postgres;Password=XXXX;Pooling=true;MaxPoolSize=20;");
-                    });
-                    //配置分布式事务管理器(非必须，需要分布式事务才需设置)
-                    servicecollection.AddPostgreSQLTxStorage(options =>
-                    {
-                        options.ConnectionKey = "core_event";
-                        options.TableName = "Transaction_TemporaryRecord";
-                    });
-                    servicecollection.PSQLConfigure();
+            //注册postgresql为事件存储库
+            servicecollection.AddPostgreSQLStorage(config =>
+            {
+                config.ConnectionDict.Add("core_event", "Server=127.0.0.1;Port=5432;Database=Ray;User Id=postgres;Password=XXXX;Pooling=true;MaxPoolSize=20;");
+            });
+            //配置分布式事务管理器(非必须，需要分布式事务才需设置)
+            servicecollection.AddPostgreSQLTxStorage(options =>
+            {
+                options.ConnectionKey = "core_event";
+                options.TableName = "Transaction_TemporaryRecord";
+            });
+            servicecollection.PSQLConfigure();
         })
         .Configure<MongoConfig>(c => c.Connection = "mongodb://127.0.0.1:28888")
         .Configure<RabbitConfig>(c =>
