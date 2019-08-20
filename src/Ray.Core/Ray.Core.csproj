@@ -10,7 +10,6 @@
     <PackageReference Include="Microsoft.Orleans.Runtime.Abstractions" Version="3.0.0-beta1" />
     <PackageReference Include="SpanJson" Version="2.0.14" />
     <PackageReference Include="System.Buffers" Version="4.5.0" />
-    <PackageReference Include="System.Threading.Channels" Version="4.6.0-preview8.19405.3" />
     <PackageReference Include="System.Threading.Tasks.Dataflow" Version="4.10.0-preview8.19405.3" />
     <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.6.0-preview.18571.3" />
   </ItemGroup>
