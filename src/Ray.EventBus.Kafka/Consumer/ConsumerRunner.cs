@@ -26,16 +26,28 @@ namespace Ray.EventBus.Kafka
         public DateTimeOffset StartTime { get; set; }
         bool IsHeath = true;
         bool closed = false;
+        static TimeSpan timeoutTime = TimeSpan.FromSeconds(30);
+        DateTimeOffset lastCommitTime=DateTimeOffset.UtcNow;
         public Task Run()
         {
             ThreadPool.QueueUserWorkItem(async state =>
             {
                 using var consumer = Client.GetConsumer(Consumer.Group);
                 consumer.Handler.Subscribe(Topic);
+                bool needCommit = false;
                 while (!closed)
                 {
-                    var consumerResult = consumer.Handler.Consume();
-                    if (consumerResult.IsPartitionEOF || consumerResult.Value == null) continue;
+                    var consumerResult = consumer.Handler.Consume(timeoutTime);
+                    if (consumerResult == default || consumerResult.IsPartitionEOF || consumerResult.Value == null)
+                    {
+                        if (needCommit)
+                        {
+                            consumer.Handler.Commit();
+                            needCommit = false;
+                            lastCommitTime = DateTimeOffset.UtcNow;
+                        }
+                        continue;
+                    }
                     try
                     {
                         IsHeath = true;
@@ -49,7 +61,17 @@ namespace Ray.EventBus.Kafka
                     }
                     finally
                     {
-                        consumer.Handler.Commit(consumerResult);
+                        var nowTime = DateTimeOffset.UtcNow;
+                        if ((nowTime - lastCommitTime).TotalSeconds>1)
+                        {
+                            consumer.Handler.Commit(consumerResult);
+                            needCommit = false;
+                            lastCommitTime = nowTime;
+                        }
+                        else
+                        {
+                            needCommit = true;
+                        }
                     }
                 }
                 IsHeath = false;
