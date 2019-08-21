@@ -15,7 +15,7 @@ namespace Ray.EventBus.RabbitMQ
             Action<RayKafkaOptions> configAction,
             Action<ProducerConfig> producerConfigAction,
             Action<ConsumerConfig> consumerConfigAction,
-            Func<IKafkaEventBusContainer, Task> eventBusConfigFunc = default)
+            Func<IKafkaEventBusContainer, Task> eventBusConfig = default)
         {
             serviceCollection.Configure<ProducerConfig>(config => producerConfigAction(config));
             serviceCollection.Configure<ConsumerConfig>(config => consumerConfigAction(config));
@@ -27,9 +27,10 @@ namespace Ray.EventBus.RabbitMQ
             Startup.Register(async serviceProvider =>
             {
                 var container = serviceProvider.GetService<IKafkaEventBusContainer>();
-                if (eventBusConfigFunc != default)
-                    await eventBusConfigFunc(container);
-                await container.AutoRegister();
+                if (eventBusConfig != default)
+                    await eventBusConfig(container);
+                else
+                    await container.AutoRegister();
             });
         }
     }

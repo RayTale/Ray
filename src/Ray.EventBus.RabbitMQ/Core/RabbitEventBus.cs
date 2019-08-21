@@ -15,7 +15,7 @@ namespace Ray.EventBus.RabbitMQ
         public RabbitEventBus(
             IServiceProvider serviceProvider,
             IRabbitEventBusContainer eventBusContainer,
-            string exchange, string routePrefix, int lBCount = 1, ushort minQos = 100, ushort incQos = 100, ushort maxQos = 300, bool autoAck = false, bool reenqueue = false)
+            string exchange, string routePrefix, int lBCount = 1, ushort minQos = 100, ushort incQos = 100, ushort maxQos = 300, bool autoAck = false, bool reenqueue = true)
         {
             if (string.IsNullOrEmpty(exchange))
                 throw new ArgumentNullException(nameof(exchange));

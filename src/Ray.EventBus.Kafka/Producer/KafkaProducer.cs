@@ -25,7 +25,6 @@ namespace Ray.EventBus.Kafka
             using var producer = client.GetProducer();
             producer.Handler.Produce(topic, new Message<string, byte[]> { Key = hashKey, Value = bytes });
             return Consts.ValueTaskDone;
-
         }
     }
 }

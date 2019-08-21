@@ -11,7 +11,7 @@ namespace Ray.EventBus.RabbitMQ
         public static void AddRabbitMQ(
             this IServiceCollection serviceCollection,
             Action<RabbitOptions> rabbitConfigAction,
-            Func<IRabbitEventBusContainer, Task> eventBusConfigFunc = default)
+            Func<IRabbitEventBusContainer, Task> eventBusConfig = default)
         {
             serviceCollection.Configure<RabbitOptions>(config => rabbitConfigAction(config));
             serviceCollection.AddSingleton<IRabbitMQClient, RabbitMQClient>();
@@ -21,9 +21,10 @@ namespace Ray.EventBus.RabbitMQ
             Startup.Register(async serviceProvider =>
             {
                 var container = serviceProvider.GetService<IRabbitEventBusContainer>();
-                if (eventBusConfigFunc != default)
-                    await eventBusConfigFunc(container);
-                await container.AutoRegister();
+                if (eventBusConfig != default)
+                    await eventBusConfig(container);
+                else
+                    await container.AutoRegister();
             });
         }
     }

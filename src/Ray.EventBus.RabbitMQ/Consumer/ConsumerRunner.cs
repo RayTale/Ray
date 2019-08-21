@@ -48,7 +48,7 @@ namespace Ray.EventBus.RabbitMQ
             child.BasicConsumer = new EventingBasicConsumer(child.Channel.Model);
             child.BasicConsumer.Received += async (ch, ea) =>
             {
-                await Process(child, ea, 0);
+                await Process(child, ea);
             };
             child.BasicConsumer.ConsumerTag = child.Channel.Model.BasicConsume(Queue.Queue, Consumer.Config.AutoAck, child.BasicConsumer);
             child.NeedRestart = false;
@@ -70,7 +70,7 @@ namespace Ray.EventBus.RabbitMQ
                 child.BasicConsumer = new EventingBasicConsumer(child.Channel.Model);
                 child.BasicConsumer.Received += async (ch, ea) =>
                 {
-                    await Process(child, ea, 0);
+                    await Process(child, ea);
                 };
                 child.BasicConsumer.ConsumerTag = child.Channel.Model.BasicConsume(Queue.Queue, Consumer.Config.AutoAck, child.BasicConsumer);
                 child.NeedRestart = false;
@@ -100,10 +100,8 @@ namespace Ray.EventBus.RabbitMQ
                 await ExpandQos();//扩容操作
             }
         }
-        private async Task Process(ConsumerRunnerSlice consumerChild, BasicDeliverEventArgs ea, int count)
+        private async Task Process(ConsumerRunnerSlice consumerChild, BasicDeliverEventArgs ea)
         {
-            if (count > 0)
-                await Task.Delay(count * 1000);
             try
             {
                 await Consumer.Notice(ea.Body);
@@ -128,10 +126,7 @@ namespace Ray.EventBus.RabbitMQ
                 }
                 else
                 {
-                    if (count > 3)
-                        consumerChild.NeedRestart = true;
-                    else
-                        await Process(consumerChild, ea, count + 1);
+                    consumerChild.NeedRestart = true;
                 }
             }
         }

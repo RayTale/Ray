@@ -1,6 +1,6 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Confluent.Kafka;
+using Microsoft.Extensions.Logging;
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -31,18 +31,25 @@ namespace Ray.EventBus.Kafka
             ThreadPool.QueueUserWorkItem(async state =>
             {
                 using var consumer = Client.GetConsumer(Consumer.Group);
-                consumer.Handler.Subscribe(new List<string> { Topic });
+                consumer.Handler.Subscribe(Topic);
                 while (!closed)
                 {
+                    var consumerResult = consumer.Handler.Consume();
+                    if (consumerResult.IsPartitionEOF || consumerResult.Value == null) continue;
                     try
                     {
                         IsHeath = true;
-                        var data = consumer.Handler.Consume();
-                        await Consumer.Notice(data.Value);
+                        await Consumer.Notice(consumerResult.Value);
                     }
                     catch (Exception exception)
                     {
                         Logger.LogError(exception.InnerException ?? exception, $"An error occurred in {Topic}");
+                        using var producer = Client.GetProducer();
+                        producer.Handler.Produce(Topic, new Message<string, byte[]> { Key = consumerResult.Key, Value = consumerResult.Value });
+                    }
+                    finally
+                    {
+                        consumer.Handler.Commit(consumerResult);
                     }
                 }
                 IsHeath = false;

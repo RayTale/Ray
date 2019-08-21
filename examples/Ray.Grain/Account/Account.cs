@@ -2,6 +2,7 @@
 using Ray.Core;
 using Ray.Core.Event;
 using Ray.DistributedTransaction;
+//using Ray.EventBus.Kafka;
 using Ray.EventBus.RabbitMQ;
 using Ray.Grain.Events;
 using Ray.IGrains.Actors;

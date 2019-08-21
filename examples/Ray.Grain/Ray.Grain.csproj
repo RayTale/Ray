@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Ray.DistributedTx\Ray.DistributedTx.csproj" />
+    <ProjectReference Include="..\..\src\Ray.EventBus.Kafka\Ray.EventBus.Kafka.csproj" />
     <ProjectReference Include="..\..\src\Ray.EventBus.RabbitMQ\Ray.EventBus.RabbitMQ.csproj" />
     <ProjectReference Include="..\..\src\Ray.Storage.Mongo\Ray.Storage.Mongo.csproj" />
     <ProjectReference Include="..\..\src\Ray.Storage.MySQL\Ray.Storage.MySQL.csproj" />
