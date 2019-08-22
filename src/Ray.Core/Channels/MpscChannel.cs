@@ -92,10 +92,18 @@ namespace Ray.Core.Channels
             if (waitToReadTask.IsCompletedSuccessfully && waitToReadTask.Result)
             {
                 var dataList = new List<T>();
+                var startTime = DateTimeOffset.UtcNow;
                 while (buffer.TryReceive(out var value))
                 {
                     dataList.Add(value);
-                    if (dataList.Count > options.Value.MaxSizeOfBatch) break;
+                    if (dataList.Count > options.Value.MaxBatchSize)
+                    {
+                        break;
+                    }
+                    else if ((DateTimeOffset.UtcNow - startTime).TotalMilliseconds > options.Value.MaxMillisecondsDelay)
+                    {
+                        break;
+                    }
                 }
                 if (dataList.Count > 0)
                     await consumer(dataList);
