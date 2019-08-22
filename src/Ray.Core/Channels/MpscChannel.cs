@@ -44,7 +44,7 @@ namespace Ray.Core.Channels
 
         public async ValueTask<bool> WriteAsync(T data)
         {
-            if (!IsChildren && !(_autoConsuming != 0))
+            if (!IsChildren && _autoConsuming == 0)
                 ActiveAutoConsumer();
             if (!buffer.Post(data))
                 return await buffer.SendAsync(data);
@@ -52,7 +52,7 @@ namespace Ray.Core.Channels
         }
         private void ActiveAutoConsumer()
         {
-            if (!IsChildren && !(_autoConsuming != 0))
+            if (!IsChildren && _autoConsuming == 0)
                 ThreadPool.QueueUserWorkItem(ActiveConsumer);
             async void ActiveConsumer(object state)
             {
