@@ -472,7 +472,7 @@ namespace Ray.Core
                     var saveSnapshotTask = SaveSnapshotAsync();
                     if (!saveSnapshotTask.IsCompletedSuccessfully)
                         await saveSnapshotTask;
-                    await PublishToEventBust(bytesTransport.GetBytes(), GrainId.ToString());
+                    await PublishToEventBus(bytesTransport.GetBytes(), GrainId.ToString());
                     if (Logger.IsEnabled(LogLevel.Trace))
                         Logger.LogTrace("Raise event successfully, grain Id= {0} and state version = {1}", GrainId.ToString(), Snapshot.Base.Version);
                     return true;
@@ -497,7 +497,7 @@ namespace Ray.Core
             return false;
         }
         //发送事件到EventBus中
-        protected async Task PublishToEventBust(byte[] bytes, string hashKey)
+        protected async Task PublishToEventBus(byte[] bytes, string hashKey)
         {
             if (ObserverEventHandlers.Count > 0)
             {
