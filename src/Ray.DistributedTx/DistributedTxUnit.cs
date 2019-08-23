@@ -49,7 +49,7 @@ namespace Ray.DistributedTransaction
                         Logger.LogCritical(ex, ex.Message);
                     }
                 }
-            }, null, new TimeSpan(0, 5, 0), new TimeSpan(0, 1, 0));
+            }, null, new TimeSpan(0, 0, 5), new TimeSpan(0, 5, 0));
         }
         private string NewID()
         {

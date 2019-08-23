@@ -296,7 +296,7 @@ namespace Ray.Storage.PostgreSQL
             }
         }
 
-        public Task DeleteStart(PrimaryKey stateId, long endVersion, long startTimestamp)
+        public Task DeletePrevious(PrimaryKey stateId, long toVersion, long startTimestamp)
         {
             return Task.Run(async () =>
             {
@@ -312,7 +312,7 @@ namespace Ray.Storage.PostgreSQL
                     foreach (var table in tableList)
                     {
                         var sql = $"delete from {table.SubTable} WHERE stateid=@StateId and version<=@EndVersion";
-                        await conn.ExecuteAsync(sql, new { StateId = stateId, EndVersion = endVersion }, transaction: trans);
+                        await conn.ExecuteAsync(sql, new { StateId = stateId, EndVersion = toVersion }, transaction: trans);
                     }
                     trans.Commit();
                 }
@@ -324,7 +324,7 @@ namespace Ray.Storage.PostgreSQL
             });
         }
 
-        public Task DeleteEnd(PrimaryKey stateId, long startVersion, long startTimestamp)
+        public Task DeleteAfter(PrimaryKey stateId, long fromVersion, long startTimestamp)
         {
             return Task.Run(async () =>
             {
@@ -340,7 +340,7 @@ namespace Ray.Storage.PostgreSQL
                     foreach (var table in tableList)
                     {
                         var sql = $"delete from {table.SubTable} WHERE stateid=@StateId and version>=@StartVersion";
-                        await conn.ExecuteAsync(sql, new { StateId = stateId, StartVersion = startVersion });
+                        await conn.ExecuteAsync(sql, new { StateId = stateId, StartVersion = fromVersion });
                     }
                     trans.Commit();
                 }
@@ -349,6 +349,19 @@ namespace Ray.Storage.PostgreSQL
                     trans.Rollback();
                     throw;
                 }
+            });
+        }
+        public Task DeleteByVersion(PrimaryKey stateId, long version, long timestamp)
+        {
+            return Task.Run(async () =>
+            {
+                var getTableListTask = config.GetSubTables();
+                if (!getTableListTask.IsCompletedSuccessfully)
+                    await getTableListTask;
+                var table = getTableListTask.Result.SingleOrDefault(t => t.StartTime <= timestamp && t.EndTime >= timestamp);
+                using var conn = config.CreateConnection();
+                var sql = $"delete from {table.SubTable} WHERE stateid=@StateId and version=@Version";
+                await conn.ExecuteAsync(sql, new { StateId = stateId, Version = version });
             });
         }
     }

@@ -42,17 +42,25 @@ namespace Ray.Core.Storage
         /// 删除指定版本号之前的事件
         /// </summary>
         /// <param name="stateId">状态Id，相当于GrainId</param>
-        /// <param name="endVersion">结束版本号</param>
+        /// <param name="toVersion">结束版本号</param>
         /// <param name="startTimestamp">当前删除的开始时间戳</param>
         /// <returns></returns>
-        Task DeleteStart(PrimaryKey stateId, long endVersion, long startTimestamp);
+        Task DeletePrevious(PrimaryKey stateId, long toVersion, long startTimestamp);
         /// <summary>
         /// 删除指定版本号之后的事件
         /// </summary>
         /// <param name="stateId">状态Id，相当于GrainId</param>
-        /// <param name="startVersion">结束版本号</param>
+        /// <param name="fromVersion">结束版本号</param>
         /// <param name="startTimestamp">当前删除的开始时间戳</param>
         /// <returns></returns>
-        Task DeleteEnd(PrimaryKey stateId, long startVersion, long startTimestamp);
+        Task DeleteAfter(PrimaryKey stateId, long fromVersion, long startTimestamp);
+        /// <summary>
+        /// 删除指定版本号的事件
+        /// </summary>
+        /// <param name="stateId">状态编号</param>
+        /// <param name="version">版本号</param>
+        /// <param name="timestamp">事件的时间戳</param>
+        /// <returns></returns>
+        Task DeleteByVersion(PrimaryKey stateId, long version, long timestamp);
     }
 }

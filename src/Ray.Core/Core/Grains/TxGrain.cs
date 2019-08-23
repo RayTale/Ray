@@ -201,7 +201,7 @@ namespace Ray.Core
                     else
                     {
                         if (BackupSnapshot.Base.Version >= CurrentTransactionStartVersion)
-                            await EventStorage.DeleteEnd(Snapshot.Base.StateId, CurrentTransactionStartVersion, Snapshot.Base.LatestMinEventTimestamp);
+                            await EventStorage.DeleteAfter(Snapshot.Base.StateId, CurrentTransactionStartVersion, Snapshot.Base.LatestMinEventTimestamp);
                         await RecoverySnapshot();
                     }
 

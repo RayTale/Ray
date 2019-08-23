@@ -60,7 +60,8 @@ namespace Ray.Storage.Mongo
                 { "IsLatest", snapshot.Base.IsLatest },
                 { "IsOver", snapshot.Base.IsOver }
             };
-            await grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotCollection).InsertOneAsync(doc, null, new CancellationTokenSource(3000).Token);
+            using var tokenSource = new CancellationTokenSource(3000);
+            await grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotCollection).InsertOneAsync(doc, null, tokenSource.Token);
         }
 
         public Task Over(PrimaryKey id, bool isOver)
@@ -76,7 +77,12 @@ namespace Ray.Storage.Mongo
             var json = serializer.SerializeToString(snapshot.State);
             if (!string.IsNullOrEmpty(json))
             {
-                var update = Builders<BsonDocument>.Update.Set("Data", json).Set("Version", snapshot.Base.Version);
+                var update = 
+                    Builders<BsonDocument>.Update.Set("Data", json).
+                    Set("Version", snapshot.Base.Version).
+                    Set("LatestMinEventTimestamp", snapshot.Base.LatestMinEventTimestamp).
+                    Set("IsLatest", snapshot.Base.IsLatest).
+                    Set("IsOver", snapshot.Base.IsOver);
                 await grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotCollection).UpdateOneAsync(filter, update, null, new CancellationTokenSource(3000).Token);
             }
         }

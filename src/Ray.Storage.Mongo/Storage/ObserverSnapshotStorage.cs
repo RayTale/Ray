@@ -55,7 +55,10 @@ namespace Ray.Storage.Mongo
         public Task Update(ObserverSnapshot<PrimaryKey> snapshot)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", snapshot.StateId);
-            var update = Builders<BsonDocument>.Update.Set("Version", snapshot.Version).Set("StartTimestamp", snapshot.StartTimestamp);
+            var update =
+                Builders<BsonDocument>.Update.
+                Set("Version", snapshot.Version).
+                Set("StartTimestamp", snapshot.StartTimestamp);
             var baseConfig = grainConfig.Config as StorageOptions;
             return baseConfig.Client.GetCollection<BsonDocument>(baseConfig.DataBase, grainConfig.ObserverSnapshotTable).UpdateOneAsync(filter, update);
         }

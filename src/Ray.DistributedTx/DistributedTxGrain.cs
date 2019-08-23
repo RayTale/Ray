@@ -40,11 +40,11 @@ namespace Ray.DistributedTransaction
             {
                 if (!TransactionOptions.RetainTxEvents)
                 {
-                    //删除最后一个TransactionCommitEvent
-                    await EventStorage.DeleteEnd(Snapshot.Base.StateId, Snapshot.Base.Version, Snapshot.Base.LatestMinEventTimestamp);
                     if (Snapshot.Base is TxSnapshotBase<PrimaryKey> snapshotBase &&
                         BackupSnapshot.Base is TxSnapshotBase<PrimaryKey> backupSnapshotBase)
                     {
+                        //删除最后一个TransactionCommitEvent
+                        await EventStorage.DeleteByVersion(Snapshot.Base.StateId, snapshotBase.TransactionStartVersion, snapshotBase.TransactionStartTimestamp);
                         snapshotBase.ClearTransactionInfo(true);
                         backupSnapshotBase.ClearTransactionInfo(true);
                     }

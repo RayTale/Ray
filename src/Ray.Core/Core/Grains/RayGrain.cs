@@ -372,7 +372,7 @@ namespace Ray.Core
             {
                 await ArchiveStorage.DeleteAll(Snapshot.Base.StateId);
                 if (ArchiveOptions.EventArchiveType == EventArchiveType.Delete)
-                    await EventStorage.DeleteStart(Snapshot.Base.StateId, Snapshot.Base.Version, Snapshot.Base.StartTimestamp);
+                    await EventStorage.DeletePrevious(Snapshot.Base.StateId, Snapshot.Base.Version, Snapshot.Base.StartTimestamp);
                 else
                     await ArchiveStorage.EventArichive(Snapshot.Base.StateId, Snapshot.Base.Version, Snapshot.Base.StartTimestamp);
             }
@@ -681,7 +681,7 @@ namespace Ray.Core
                                 await saveTask;
                         }
                         if (ArchiveOptions.EventArchiveType == EventArchiveType.Delete)
-                            await EventStorage.DeleteStart(Snapshot.Base.StateId, minArchive.EndVersion, Snapshot.Base.StartTimestamp);
+                            await EventStorage.DeletePrevious(Snapshot.Base.StateId, minArchive.EndVersion, Snapshot.Base.StartTimestamp);
                         else
                             await ArchiveStorage.EventArichive(Snapshot.Base.StateId, minArchive.EndVersion, Snapshot.Base.StartTimestamp);
                         ClearedArchive = minArchive;

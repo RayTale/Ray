@@ -242,9 +242,9 @@ namespace Ray.Storage.Mongo
             }
         }
 
-        public async Task DeleteStart(PrimaryKey stateId, long endVersion, long startTimestamp)
+        public async Task DeletePrevious(PrimaryKey stateId, long toVersion, long startTimestamp)
         {
-            var filter = Builders<BsonDocument>.Filter.Eq("StateId", stateId) & Builders<BsonDocument>.Filter.Lte("Version", endVersion);
+            var filter = Builders<BsonDocument>.Filter.Eq("StateId", stateId) & Builders<BsonDocument>.Filter.Lte("Version", toVersion);
             var collectionListTask = grainConfig.GetCollectionList();
             if (!collectionListTask.IsCompletedSuccessfully)
                 await collectionListTask;
@@ -265,10 +265,10 @@ namespace Ray.Storage.Mongo
             }
         }
 
-        public async Task DeleteEnd(PrimaryKey stateId, long startVersion, long startTimestamp)
+        public async Task DeleteAfter(PrimaryKey stateId, long fromVersion, long startTimestamp)
         {
             var filterBuilder = Builders<BsonDocument>.Filter;
-            var filter = filterBuilder.Eq("StateId", stateId) & filterBuilder.Gte("Version", startVersion);
+            var filter = filterBuilder.Eq("StateId", stateId) & filterBuilder.Gte("Version", fromVersion);
             var collectionListTask = grainConfig.GetCollectionList();
             if (!collectionListTask.IsCompletedSuccessfully)
                 await collectionListTask;
@@ -287,6 +287,17 @@ namespace Ray.Storage.Mongo
                 await session.AbortTransactionAsync();
                 throw;
             }
+        }
+
+        public async Task DeleteByVersion(PrimaryKey stateId, long version, long timestamp)
+        {
+            var filterBuilder = Builders<BsonDocument>.Filter;
+            var filter = filterBuilder.Eq("StateId", stateId) & filterBuilder.Eq("Version", version);
+            var collectionListTask = grainConfig.GetCollectionList();
+            if (!collectionListTask.IsCompletedSuccessfully)
+                await collectionListTask;
+            var collection = collectionListTask.Result.SingleOrDefault(t => t.StartTime <= timestamp && t.EndTime >= timestamp);
+            await grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, collection.SubTable).DeleteOneAsync(filter);
         }
     }
 }
