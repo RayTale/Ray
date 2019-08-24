@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Ray.Grain.TransactionUnits
 {
-    public class TransferUnit : DistributedTxUnit<TransferInput, bool>, ITransferUnit
+    public class TransferUnit : DTxUnitGrain<TransferInput, bool>, ITransferUnit
     {
         public override IDistributedTx[] GetTransactionActors(TransferInput input)
         {

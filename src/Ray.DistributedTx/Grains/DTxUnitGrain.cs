@@ -9,13 +9,18 @@ using System.Threading.Tasks;
 
 namespace Ray.DistributedTransaction
 {
-    public abstract class DistributedTxUnit<Input, Output> : Grain, IDistributedTxUnit<Input, Output>
+    /// <summary>
+    /// 分布式事务处理单元
+    /// </summary>
+    /// <typeparam name="Input">输出类型</typeparam>
+    /// <typeparam name="Output">输出类型</typeparam>
+    public abstract class DTxUnitGrain<Input, Output> : Grain, IDistributedTxUnit<Input, Output>
     {
         int start_id = 1;
         string start_string;
         long start_long;
         const int length = 19;
-        public DistributedTxUnit()
+        public DTxUnitGrain()
         {
             GrainType = GetType();
             start_string = DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss");

@@ -1,12 +1,11 @@
-﻿using Microsoft.Extensions.Logging;
-using Ray.Core;
-using Ray.Core.Event;
+﻿using Ray.Core.Event;
+using Ray.DistributedTx;
 using System;
 using System.Threading.Tasks;
 
 namespace Ray.Grain
 {
-    public abstract class DbGrain<Main, K> : ObserverGrain<Main, K>
+    public abstract class DbGrain<Main, K> : DTxObserverGrain<Main, K>
     {
         protected override async ValueTask EventDelivered(IFullyEvent<K> @event)
         {

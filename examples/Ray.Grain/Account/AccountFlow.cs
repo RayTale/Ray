@@ -1,6 +1,7 @@
 ﻿using Orleans;
 using Ray.Core;
 using Ray.Core.Event;
+using Ray.DistributedTx;
 using Ray.Grain.Events;
 using Ray.IGrains.Actors;
 using System.Threading.Tasks;
@@ -8,7 +9,7 @@ using System.Threading.Tasks;
 namespace Ray.Grain
 {
     [Observer(DefaultObserverGroup.primary, "flow", typeof(Account))]
-    public sealed class AccountFlow : ObserverGrain<Account, long>, IAccountFlow
+    public sealed class AccountFlow : DTxObserverGrain<Account, long>, IAccountFlow
     {
         protected override bool ConcurrentHandle => true;
         public Task EventHandler(AmountTransferEvent value, EventBase eventBase)
@@ -17,6 +18,10 @@ namespace Ray.Grain
             return toActor.AddAmount(value.Amount, new EventUID(eventBase.GetEventId(GrainId.ToString()), eventBase.Timestamp));
         }
         public Task EventHandler(AmountAddEvent evt)
+        {
+            return Task.CompletedTask;
+        }
+        public Task EventHandle(AmountDeductEvent evt)
         {
             return Task.CompletedTask;
         }

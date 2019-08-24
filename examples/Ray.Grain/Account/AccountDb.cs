@@ -20,5 +20,9 @@ namespace Ray.Grain
             //Console.WriteLine($"更新数据库->用户转账到账,用户ID:{evt.StateId},到账金额:{evt.Amount},当前余额为:{evt.Balance}");
             return Task.CompletedTask;
         }
+        public Task EventHandle(AmountDeductEvent evt)
+        {
+            return Task.CompletedTask;
+        }
     }
 }

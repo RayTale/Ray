@@ -8,7 +8,7 @@ using Ray.DistributedTransaction.Configuration;
 
 namespace Ray.DistributedTransaction
 {
-    public abstract class DistributedTxGrain<PrimaryKey, StateType> : ConcurrentTxGrain<PrimaryKey, StateType>
+    public abstract class DTxGrain<PrimaryKey, StateType> : ConcurrentTxGrain<PrimaryKey, StateType>
         where StateType : class, ICloneable<StateType>, new()
     {
         protected DistributedTxOptions TransactionOptions { get; private set; }
@@ -20,7 +20,7 @@ namespace Ray.DistributedTransaction
         public override async Task OnActivateAsync()
         {
             await base.OnActivateAsync();
-            if (!(SnapshotHandler is TxSnapshotHandler<PrimaryKey, StateType>))
+            if (!(SnapshotHandler is DTxSnapshotHandler<PrimaryKey, StateType>))
             {
                 throw new SnapshotHandlerTypeException(SnapshotHandler.GetType().FullName);
             }
@@ -45,6 +45,8 @@ namespace Ray.DistributedTransaction
                     {
                         //删除最后一个TransactionCommitEvent
                         await EventStorage.DeleteByVersion(Snapshot.Base.StateId, snapshotBase.TransactionStartVersion, snapshotBase.TransactionStartTimestamp);
+                        var txCommitEvent = WaitingForTransactionTransports.Single(o => o.FullyEvent.Base.Version == snapshotBase.TransactionStartVersion);
+                        WaitingForTransactionTransports.Remove(txCommitEvent);
                         snapshotBase.ClearTransactionInfo(true);
                         backupSnapshotBase.ClearTransactionInfo(true);
                     }

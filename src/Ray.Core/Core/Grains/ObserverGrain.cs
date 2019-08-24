@@ -268,7 +268,12 @@ namespace Ray.Core
                 await ReadSnapshotAsync();
                 if (FullyActive)
                 {
-                    await FullActive();
+                    while (true)
+                    {
+                        var eventList = await EventStorage.GetList(GrainId, Snapshot.StartTimestamp, Snapshot.Version + 1, Snapshot.Version + ConfigOptions.NumberOfEventsPerRead);
+                        await UnsafeTell(eventList);
+                        if (eventList.Count < ConfigOptions.NumberOfEventsPerRead) break;
+                    };
                 }
                 if (Logger.IsEnabled(LogLevel.Trace))
                     Logger.LogTrace("Followgrain activation completed with id = {0}", GrainId.ToString());
@@ -278,41 +283,6 @@ namespace Ray.Core
                 Logger.LogCritical(ex, "Followgrain activation failed with Id = {0}", GrainId.ToString());
                 throw;
             }
-        }
-        private async Task FullActive()
-        {
-            while (true)
-            {
-                var eventList = await EventStorage.GetList(GrainId, Snapshot.StartTimestamp, Snapshot.Version + 1, Snapshot.Version + ConfigOptions.NumberOfEventsPerRead);
-                if (ConcurrentHandle)
-                {
-                    await Task.WhenAll(eventList.Select(@event =>
-                    {
-                        var task = EventDelivered(@event);
-                        if (!task.IsCompletedSuccessfully)
-                            return task.AsTask();
-                        else
-                            return Task.CompletedTask;
-                    }));
-                    var lastEvt = eventList.Last();
-                    Snapshot.UnsafeUpdateVersion(lastEvt.Base);
-                }
-                else
-                {
-                    foreach (var @event in eventList)
-                    {
-                        Snapshot.IncrementDoingVersion(GrainType);//标记将要处理的Version
-                        var task = EventDelivered(@event);
-                        if (!task.IsCompletedSuccessfully)
-                            await task;
-                        Snapshot.UpdateVersion(@event.Base, GrainType);//更新处理完成的Version
-                    }
-                }
-                var saveTask = SaveSnapshotAsync();
-                if (!saveTask.IsCompletedSuccessfully)
-                    await saveTask;
-                if (eventList.Count < ConfigOptions.NumberOfEventsPerRead) break;
-            };
         }
         public override Task OnDeactivateAsync()
         {
@@ -325,6 +295,36 @@ namespace Ray.Core
                 return SaveSnapshotAsync(true).AsTask();
             else
                 return Task.CompletedTask;
+        }
+        protected virtual async Task UnsafeTell(IEnumerable<IFullyEvent<PrimaryKey>> eventList)
+        {
+            if (ConcurrentHandle)
+            {
+                await Task.WhenAll(eventList.Select(@event =>
+                {
+                    var task = EventDelivered(@event);
+                    if (!task.IsCompletedSuccessfully)
+                        return task.AsTask();
+                    else
+                        return Task.CompletedTask;
+                }));
+                var lastEvt = eventList.Last();
+                Snapshot.UnsafeUpdateVersion(lastEvt.Base);
+            }
+            else
+            {
+                foreach (var @event in eventList)
+                {
+                    Snapshot.IncrementDoingVersion(GrainType);//标记将要处理的Version
+                    var task = EventDelivered(@event);
+                    if (!task.IsCompletedSuccessfully)
+                        await task;
+                    Snapshot.UpdateVersion(@event.Base, GrainType);//更新处理完成的Version
+                }
+            }
+            var saveTask = SaveSnapshotAsync();
+            if (!saveTask.IsCompletedSuccessfully)
+                await saveTask;
         }
         protected virtual async Task ReadSnapshotAsync()
         {
