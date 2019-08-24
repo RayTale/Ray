@@ -7,7 +7,7 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="3.0.0-preview8.19405.4" />
     <PackageReference Include="Microsoft.Orleans.OrleansProviders" Version="3.0.0-beta1" />
     <PackageReference Include="Microsoft.Orleans.OrleansRuntime" Version="3.0.0-beta1" />
-    <PackageReference Include="OrleansDashboard" Version="2.4.3" />
+    <PackageReference Include="OrleansDashboard" Version="2.4.4" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Ray.EventBus.Kafka\Ray.EventBus.Kafka.csproj" />
