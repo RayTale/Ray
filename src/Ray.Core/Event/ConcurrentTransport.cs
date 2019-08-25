@@ -5,18 +5,26 @@ namespace Ray.Core.Event
 {
     public class ConcurrentTransport<Snapshot>
     {
+        readonly TaskCompletionSource<bool> taskCompletionSource;
         public ConcurrentTransport(
+            long transactionId,
             Func<Snapshot, Func<IEvent, EventUID, Task>, Task> handler,
-            Func<bool, ValueTask> completedHandler,
-            Action<Exception> exceptionHandler)
+            TaskCompletionSource<bool> taskCompletionSource)
         {
+            TransactionId = transactionId;
             Handler = handler;
-            ExceptionHandler = exceptionHandler;
-            CompletedHandler = completedHandler;
+            this.taskCompletionSource = taskCompletionSource;
         }
+        public long TransactionId { get; set; }
         public bool Executed { get; set; }
         public Func<Snapshot, Func<IEvent, EventUID, Task>, Task> Handler { get; }
-        public Func<bool, ValueTask> CompletedHandler { get; }
-        public Action<Exception> ExceptionHandler { get; }
+        public void Completed(bool result)
+        {
+            taskCompletionSource.TrySetResult(result);
+        }
+        public void Exception(Exception ex)
+        {
+            taskCompletionSource.TrySetException(ex);
+        }
     }
 }

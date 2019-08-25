@@ -1,6 +1,6 @@
 ﻿using Ray.Core.Event;
 
-namespace Ray.DistributedTransaction
+namespace Ray.DistributedTx
 {
     public class TxFinishedEvent : IEvent
     {

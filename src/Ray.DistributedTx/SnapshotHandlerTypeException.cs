@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Ray.DistributedTransaction
+namespace Ray.DistributedTx
 {
     public class SnapshotHandlerTypeException : Exception
     {

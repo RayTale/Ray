@@ -1,6 +1,6 @@
 ﻿using System;
 using Microsoft.Extensions.DependencyInjection;
-using Ray.DistributedTransaction;
+using Ray.DistributedTx;
 using Ray.Storage.Mongo.Core;
 using Ray.Storage.Mongo.Storage;
 

@@ -2,8 +2,8 @@
 using Ray.Core;
 using Ray.Core.Event;
 using Ray.Core.Snapshot;
-using Ray.DistributedTransaction;
-using Ray.DistributedTransaction.Configuration;
+using Ray.DistributedTx;
+using Ray.DistributedTx.Configuration;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;

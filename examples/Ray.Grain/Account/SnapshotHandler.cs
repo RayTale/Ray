@@ -1,4 +1,4 @@
-﻿using Ray.DistributedTransaction;
+﻿using Ray.DistributedTx;
 using Ray.Grain.Events;
 using Ray.IGrains.States;
 

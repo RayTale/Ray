@@ -1,6 +1,6 @@
 ﻿using System;
 using Microsoft.Extensions.DependencyInjection;
-using Ray.DistributedTransaction;
+using Ray.DistributedTx;
 
 namespace Ray.Storage.PostgreSQL
 {

@@ -27,7 +27,7 @@ namespace Ray.Storage.PostgreSQL
         {
             logger = serviceProvider.GetService<ILogger<EventStorage<PrimaryKey>>>();
             serializer = serviceProvider.GetService<ISerializer>();
-            mpscChannel = serviceProvider.GetService<IMpscChannel<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>>>().BindConsumer(BatchProcessing);
+            mpscChannel = serviceProvider.GetService<IMpscChannel<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>>>().BindConsumer(BatchInsertExecuter);
             this.config = config;
         }
         public async Task<IList<IFullyEvent<PrimaryKey>>> GetList(PrimaryKey stateId, long latestTimestamp, long startVersion, long endVersion)
@@ -120,7 +120,7 @@ namespace Ray.Storage.PostgreSQL
                 return await wrap.TaskSource.Task;
             });
         }
-        private async Task BatchProcessing(List<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>> wrapperList)
+        private async Task BatchInsertExecuter(List<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>> wrapperList)
         {
             var minTimestamp = wrapperList.Min(t => t.Value.Event.Base.Timestamp);
             var maxTimestamp = wrapperList.Max(t => t.Value.Event.Base.Timestamp);

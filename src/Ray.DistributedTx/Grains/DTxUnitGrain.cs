@@ -7,7 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Ray.DistributedTransaction
+namespace Ray.DistributedTx
 {
     /// <summary>
     /// 分布式事务处理单元

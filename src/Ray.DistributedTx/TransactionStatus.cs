@@ -1,4 +1,4 @@
-﻿namespace Ray.DistributedTransaction
+﻿namespace Ray.DistributedTx
 {
     /// <summary>
     /// 事务状态

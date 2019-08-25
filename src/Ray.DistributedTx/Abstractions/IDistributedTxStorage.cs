@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace Ray.DistributedTransaction
+namespace Ray.DistributedTx
 {
     public interface IDistributedTxStorage
     {

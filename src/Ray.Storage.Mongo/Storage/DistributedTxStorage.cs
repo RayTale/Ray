@@ -4,7 +4,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using Ray.Core.Channels;
 using Ray.Core.Serialization;
-using Ray.DistributedTransaction;
+using Ray.DistributedTx;
 using Ray.Storage.Mongo.Core;
 using System;
 using System.Collections.Generic;
@@ -30,7 +30,7 @@ namespace Ray.Storage.Mongo.Storage
             mpscChannel = serviceProvider.GetService<IMpscChannel<AsyncInputEvent<AppendInput, bool>>>();
             serializer = serviceProvider.GetService<ISerializer>();
             serviceProvider.GetService<IIndexBuildService>().CreateTransactionStorageIndex(client, transactionOptions.Value.Database, transactionOptions.Value.CollectionName).GetAwaiter().GetResult();
-            mpscChannel.BindConsumer(BatchProcessing);
+            mpscChannel.BindConsumer(BatchInsertExecuter);
         }
         public Task Append<Input>(string unitName, Commit<Input> commit)
         {
@@ -80,7 +80,7 @@ namespace Ray.Storage.Mongo.Storage
             await client.GetCollection<BsonDocument>(transactionOptions.Value.Database, transactionOptions.Value.CollectionName).UpdateOneAsync(filter, update, null, new CancellationTokenSource(3000).Token);
             return true;
         }
-        private async Task BatchProcessing(List<AsyncInputEvent<AppendInput, bool>> wrapperList)
+        private async Task BatchInsertExecuter(List<AsyncInputEvent<AppendInput, bool>> wrapperList)
         {
             var collection = client.GetCollection<BsonDocument>(transactionOptions.Value.Database, transactionOptions.Value.CollectionName);
             var documents = wrapperList.Select(wrapper => (wrapper, new BsonDocument

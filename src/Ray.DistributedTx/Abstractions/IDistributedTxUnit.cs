@@ -2,7 +2,7 @@
 using Orleans;
 using Orleans.Concurrency;
 
-namespace Ray.DistributedTransaction
+namespace Ray.DistributedTx
 {
     public interface IDistributedTxUnit<Input, Output> : IGrainWithIntegerKey
     {

@@ -1,4 +1,4 @@
-﻿namespace Ray.DistributedTransaction
+﻿namespace Ray.DistributedTx
 {
     public class Commit<Input>
     {

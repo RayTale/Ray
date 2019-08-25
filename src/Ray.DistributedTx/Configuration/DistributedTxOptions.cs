@@ -1,4 +1,4 @@
-﻿namespace Ray.DistributedTransaction.Configuration
+﻿namespace Ray.DistributedTx.Configuration
 {
     public class DistributedTxOptions
     {

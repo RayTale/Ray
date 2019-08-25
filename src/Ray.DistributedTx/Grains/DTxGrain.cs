@@ -4,9 +4,9 @@ using Orleans;
 using Ray.Core;
 using Ray.Core.Exceptions;
 using Ray.Core.Snapshot;
-using Ray.DistributedTransaction.Configuration;
+using Ray.DistributedTx.Configuration;
 
-namespace Ray.DistributedTransaction
+namespace Ray.DistributedTx
 {
     public abstract class DTxGrain<PrimaryKey, StateType> : ConcurrentTxGrain<PrimaryKey, StateType>
         where StateType : class, ICloneable<StateType>, new()

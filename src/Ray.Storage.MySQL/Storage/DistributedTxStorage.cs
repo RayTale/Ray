@@ -3,13 +3,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Ray.Core.Channels;
 using Ray.Core.Serialization;
-using Ray.DistributedTransaction;
+using Ray.DistributedTx;
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
 using System.Threading.Tasks;
-using TransactionStatus = Ray.DistributedTransaction.TransactionStatus;
+using TransactionStatus = Ray.DistributedTx.TransactionStatus;
 
 namespace Ray.Storage.MySQL
 {
@@ -29,7 +29,7 @@ namespace Ray.Storage.MySQL
             CreateEventSubRecordTable().GetAwaiter().GetResult();
             mpscChannel = serviceProvider.GetService<IMpscChannel<AsyncInputEvent<AppendInput, bool>>>();
             serializer = serviceProvider.GetService<ISerializer>();
-            mpscChannel.BindConsumer(BatchProcessing);
+            mpscChannel.BindConsumer(BatchInsertExecuter);
         }
         public DbConnection CreateConnection()
         {
@@ -92,7 +92,7 @@ namespace Ray.Storage.MySQL
             using var conn = CreateConnection();
             return await conn.ExecuteAsync(sql, new { UnitName = unitName, TransactionId = transactionId, Status = status }) > 0;
         }
-        private async Task BatchProcessing(List<AsyncInputEvent<AppendInput, bool>> wrapperList)
+        private async Task BatchInsertExecuter(List<AsyncInputEvent<AppendInput, bool>> wrapperList)
         {
             var saveSql = $"INSERT IGNORE INTO {options.Value.TableName}(UnitName,TransactionId,Data,Status) VALUES(@UnitName,@TransactionId,@Data,@Status)";
             using var conn = CreateConnection();

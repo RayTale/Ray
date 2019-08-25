@@ -2,7 +2,7 @@
 using Orleans;
 using Orleans.Concurrency;
 using Ray.Core.Event;
-using Ray.DistributedTransaction;
+using Ray.DistributedTx;
 
 namespace Ray.IGrains.Actors
 {

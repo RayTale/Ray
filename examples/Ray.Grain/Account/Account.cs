@@ -1,7 +1,7 @@
 ﻿using Orleans.Concurrency;
 using Ray.Core;
 using Ray.Core.Event;
-using Ray.DistributedTransaction;
+using Ray.DistributedTx;
 //using Ray.EventBus.Kafka;
 using Ray.EventBus.RabbitMQ;
 using Ray.Grain.Events;
@@ -21,15 +21,16 @@ namespace Ray.Grain
         }
         public async Task<bool> TransferDeduct(decimal amount, long transactionId)
         {
-            if (Snapshot.State.Balance > amount)
-            {
-                await TxRaiseEvent(transactionId, new AmountDeductEvent(amount, Snapshot.State.Balance - amount));
-                return true;
-            }
-            else
-            {
-                return false;
-            }
+            bool result = false;
+            await ConcurrentTxRaiseEvent(transactionId, async (snapshot, func) =>
+             {
+                 if (snapshot.State.Balance > amount)
+                 {
+                     await func(new AmountDeductEvent(amount, snapshot.State.Balance - amount), null);
+                     result = true;
+                 }
+             });
+            return result;
         }
         public async Task TransferAddAmount(decimal amount, long transactionId)
         {

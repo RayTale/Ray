@@ -3,7 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Ray.Core.Channels;
 using Ray.Core.Serialization;
-using Ray.DistributedTransaction;
+using Ray.DistributedTx;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -12,7 +12,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using SqlBulkCopy = Microsoft.Data.SqlClient.SqlBulkCopy;
 using SqlConnection = Microsoft.Data.SqlClient.SqlConnection;
-using TransactionStatus = Ray.DistributedTransaction.TransactionStatus;
+using TransactionStatus = Ray.DistributedTx.TransactionStatus;
 
 namespace Ray.Storage.SQLServer
 {
@@ -32,7 +32,7 @@ namespace Ray.Storage.SQLServer
             CreateEventSubRecordTable();
             mpscChannel = serviceProvider.GetService<IMpscChannel<AsyncInputEvent<AppendInput, bool>>>();
             serializer = serviceProvider.GetService<ISerializer>();
-            mpscChannel.BindConsumer(BatchProcessing);
+            mpscChannel.BindConsumer(BatchInsertExecuter);
         }
         public DbConnection CreateConnection()
         {
@@ -97,7 +97,7 @@ namespace Ray.Storage.SQLServer
             using var conn = CreateConnection();
             return await conn.ExecuteAsync(sql, new { UnitName = unitName, TransactionId = transactionId, Status = status }) > 0;
         }
-        private async Task BatchProcessing(List<AsyncInputEvent<AppendInput, bool>> wrapperList)
+        private async Task BatchInsertExecuter(List<AsyncInputEvent<AppendInput, bool>> wrapperList)
         {
             try
             {

@@ -2,7 +2,7 @@
 using Ray.Core.Exceptions;
 using Ray.Core.Snapshot;
 
-namespace Ray.DistributedTransaction
+namespace Ray.DistributedTx
 {
     public abstract class DTxSnapshotHandler<PrimaryKey, Snapshot> : SnapshotHandler<PrimaryKey, Snapshot>
           where Snapshot : class, new()

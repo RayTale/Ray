@@ -1,4 +1,4 @@
-﻿using Ray.DistributedTransaction;
+﻿using Ray.DistributedTx;
 using Ray.IGrains.TransactionUnits.Inputs;
 
 namespace Ray.IGrains.TransactionUnits
