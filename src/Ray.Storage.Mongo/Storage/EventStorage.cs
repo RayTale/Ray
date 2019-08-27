@@ -48,7 +48,7 @@ namespace Ray.Storage.Mongo
                     var version = document["Version"].AsInt64;
                     if (version <= endVersion && version >= startVersion)
                     {
-                        if (serializer.Deserialize(TypeContainer.GetType(typeCode), Encoding.Default.GetBytes(data)) is IEvent evt)
+                        if (serializer.Deserialize(TypeContainer.GetType(typeCode), Encoding.UTF8.GetBytes(data)) is IEvent evt)
                         {
                             list.Add(new FullyEvent<PrimaryKey>
                             {
@@ -77,7 +77,7 @@ namespace Ray.Storage.Mongo
                     var data = document["Data"].AsString;
                     var timestamp = document["Timestamp"].AsInt64;
                     var version = document["Version"].AsInt64;
-                    if (version >= startVersion && serializer.Deserialize(TypeContainer.GetType(typeCode), Encoding.Default.GetBytes(data)) is IEvent evt)
+                    if (version >= startVersion && serializer.Deserialize(TypeContainer.GetType(typeCode), Encoding.UTF8.GetBytes(data)) is IEvent evt)
                     {
                         list.Add(new FullyEvent<PrimaryKey>
                         {
@@ -138,7 +138,7 @@ namespace Ray.Storage.Mongo
                     {"Version",wrapper.Value.Event.Base.Version },
                     {"Timestamp",wrapper.Value.Event.Base.Timestamp },
                     {"TypeCode",TypeContainer.GetTypeCode( wrapper.Value.Event.Event.GetType()) },
-                    {"Data",Encoding.Default.GetString(wrapper.Value.BytesTransport.EventBytes)},
+                    {"Data",Encoding.UTF8.GetString(wrapper.Value.BytesTransport.EventBytes)},
                     {"UniqueId",string.IsNullOrEmpty(wrapper.Value.UniqueId) ? wrapper.Value.Event.Base.Version.ToString() : wrapper.Value.UniqueId }
                 }));
                 var session = await grainConfig.Client.Client.StartSessionAsync();
@@ -195,7 +195,7 @@ namespace Ray.Storage.Mongo
                             {"Version", data.FullyEvent.Base.Version },
                             {"Timestamp", data.FullyEvent.Base.Timestamp},
                             {"TypeCode",TypeContainer.GetTypeCode( data.FullyEvent.Event.GetType()) },
-                            {"Data", Encoding.Default.GetString(data.BytesTransport.EventBytes)},
+                            {"Data", Encoding.UTF8.GetString(data.BytesTransport.EventBytes)},
                             {"UniqueId",data.UniqueId }
                         }));
                     await session.CommitTransactionAsync();
@@ -227,7 +227,7 @@ namespace Ray.Storage.Mongo
                                 {"Version", data.t.FullyEvent.Base.Version },
                                 {"Timestamp", data.t.FullyEvent.Base.Timestamp},
                                 {"TypeCode",TypeContainer.GetTypeCode( data.t.FullyEvent.Event.GetType()) },
-                                {"Data", Encoding.Default.GetString(data.t.BytesTransport.EventBytes)},
+                                {"Data", Encoding.UTF8.GetString(data.t.BytesTransport.EventBytes)},
                                 {"UniqueId", data.t.UniqueId }
                             }));
                     }

@@ -54,7 +54,7 @@ namespace Ray.Storage.Mongo
             {
                 { "StateId", BsonValue.Create(snapshot.Base.StateId) },
                 { "Version", snapshot.Base.Version },
-                { "Data",  serializer.SerializeToString(snapshot.State) },
+                { "Data",  serializer.Serialize(snapshot.State) },
                 { "StartTimestamp", snapshot.Base.StartTimestamp },
                 { "LatestMinEventTimestamp", snapshot.Base.LatestMinEventTimestamp },
                 { "IsLatest", snapshot.Base.IsLatest },
@@ -74,7 +74,7 @@ namespace Ray.Storage.Mongo
         public async Task Update(Snapshot<PrimaryKey, StateType> snapshot)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", snapshot.Base.StateId);
-            var json = serializer.SerializeToString(snapshot.State);
+            var json = serializer.Serialize(snapshot.State);
             if (!string.IsNullOrEmpty(json))
             {
                 var update = 

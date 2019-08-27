@@ -107,7 +107,7 @@ namespace Ray.Storage.SQLServer
                 brief.EndTimestamp,
                 brief.Index,
                 brief.EventIsCleared,
-                Data = serializer.SerializeToString(snapshot.State),
+                Data = serializer.Serialize(snapshot.State),
                 snapshot.Base.IsOver,
                 snapshot.Base.Version
             });

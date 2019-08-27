@@ -427,7 +427,7 @@ namespace Ray.Core
         protected virtual async Task<bool> RaiseEvent(IEvent @event, EventUID eUID = null)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace("Start raise event, grain Id ={0} and state version = {1},event type = {2} ,event ={3},uniqueueId= {4}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, Serializer.SerializeToString(@event), eUID);
+                Logger.LogTrace("Start raise event, grain Id ={0} and state version = {1},event type = {2} ,event ={3},uniqueueId= {4}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, Serializer.Serialize(@event), eUID);
             if (Snapshot.Base.IsOver)
                 throw new StateIsOverException(Snapshot.Base.StateId.ToString(), GrainType);
             try
@@ -460,7 +460,7 @@ namespace Ray.Core
                    TypeContainer.GetTypeCode(@event.GetType()),
                     Snapshot.Base.StateId,
                     fullyEvent.Base.GetBytes(),
-                    Serializer.SerializeToBytes(@event)
+                    Serializer.SerializeToUtf8Bytes(@event)
                 );
                 if (await EventStorage.Append(fullyEvent, in bytesTransport, unique))
                 {
@@ -490,7 +490,7 @@ namespace Ray.Core
             catch (Exception ex)
             {
                 if (Logger.IsEnabled(LogLevel.Error))
-                    Logger.LogError(ex, "Raise event produces errors, state Id = {0}, version ={1},event type = {2},event = {3}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, Serializer.SerializeToString(@event));
+                    Logger.LogError(ex, "Raise event produces errors, state Id = {0}, version ={1},event type = {2},event = {3}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, Serializer.Serialize(@event));
                 await RecoverySnapshot();//还原状态
                 throw;
             }
@@ -551,7 +551,7 @@ namespace Ray.Core
             }
             if (ClearedArchive != default && @event.Base.Timestamp < ClearedArchive.StartTimestamp)
             {
-                throw new EventIsClearedException(@event.GetType().FullName, Serializer.SerializeToString(@event), ClearedArchive.Index);
+                throw new EventIsClearedException(@event.GetType().FullName, Serializer.Serialize(@event), ClearedArchive.Index);
             }
             if (SnapshotEventVersion > 0)
             {
@@ -711,19 +711,19 @@ namespace Ray.Core
         protected async ValueTask Publish<T>(T msg, string hashKey = null)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace("Start publishing, grain Id= {0}, message type = {1},message = {2},hashkey={3}", GrainId.ToString(), msg.GetType().FullName, Serializer.SerializeToString(msg), hashKey);
+                Logger.LogTrace("Start publishing, grain Id= {0}, message type = {1},message = {2},hashkey={3}", GrainId.ToString(), msg.GetType().FullName, Serializer.Serialize(msg), hashKey);
             if (string.IsNullOrEmpty(hashKey))
                 hashKey = GrainId.ToString();
             try
             {
-                var wrapper = new CommonTransport(TypeContainer.GetTypeCode(msg.GetType()), Serializer.SerializeToBytes(msg));
+                var wrapper = new CommonTransport(TypeContainer.GetTypeCode(msg.GetType()), Serializer.SerializeToUtf8Bytes(msg));
                 var pubLishTask = EventBusProducer.Publish(wrapper.GetBytes(), hashKey);
                 if (!pubLishTask.IsCompletedSuccessfully)
                     await pubLishTask;
             }
             catch (Exception ex)
             {
-                Logger.LogError(ex, "Publish message errors, grain Id= {0}, message type = {1},message = {2},hashkey={3}", GrainId.ToString(), msg.GetType().FullName, Serializer.SerializeToString(msg), hashKey);
+                Logger.LogError(ex, "Publish message errors, grain Id= {0}, message type = {1},message = {2},hashkey={3}", GrainId.ToString(), msg.GetType().FullName, Serializer.Serialize(msg), hashKey);
                 throw;
             }
         }

@@ -48,7 +48,7 @@ namespace Ray.Storage.SQLServer
             await connection.ExecuteAsync(insertSql, new
             {
                 snapshot.Base.StateId,
-                Data = serializer.SerializeToString(snapshot.State),
+                Data = serializer.Serialize(snapshot.State),
                 snapshot.Base.Version,
                 snapshot.Base.StartTimestamp,
                 snapshot.Base.LatestMinEventTimestamp,
@@ -62,7 +62,7 @@ namespace Ray.Storage.SQLServer
             await connection.ExecuteAsync(updateSql, new
             {
                 snapshot.Base.StateId,
-                Data = serializer.SerializeToString(snapshot.State),
+                Data = serializer.Serialize(snapshot.State),
                 snapshot.Base.Version,
                 snapshot.Base.LatestMinEventTimestamp,
                 snapshot.Base.IsLatest,

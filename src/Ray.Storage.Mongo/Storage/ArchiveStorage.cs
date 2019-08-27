@@ -116,7 +116,7 @@ namespace Ray.Storage.Mongo
                 { "EndTimestamp", brief.EndTimestamp },
                 { "Index", brief.Index },
                 { "EventIsCleared", brief.EventIsCleared },
-                { "Data", serializer.SerializeToString(snapshot.State) },
+                { "Data", serializer.Serialize(snapshot.State) },
                 { "IsOver", snapshot.Base.IsOver },
                 { "Version", snapshot.Base.Version }
             };

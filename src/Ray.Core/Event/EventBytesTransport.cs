@@ -33,7 +33,7 @@ namespace Ray.Core.Event
         public byte[] EventBytes { get; }
         public byte[] GetBytes()
         {
-            var eventTypeBytes = Encoding.Default.GetBytes(EventTypeCode);
+            var eventTypeBytes = Encoding.UTF8.GetBytes(EventTypeCode);
             byte[] actorIdBytes;
             if (GrainId is long id)
             {
@@ -41,7 +41,7 @@ namespace Ray.Core.Event
             }
             else if (GrainId is string strId)
             {
-                actorIdBytes = Encoding.Default.GetBytes(strId);
+                actorIdBytes = Encoding.UTF8.GetBytes(strId);
             }
             else
             {
@@ -74,7 +74,7 @@ namespace Ray.Core.Event
                 }
                 else
                 {
-                    var id = Encoding.Default.GetString(bytesSpan.Slice(3 * sizeof(ushort) + 1 + sizeof(int) + eventTypeLength, actorIdBytesLength));
+                    var id = Encoding.UTF8.GetString(bytesSpan.Slice(3 * sizeof(ushort) + 1 + sizeof(int) + eventTypeLength, actorIdBytesLength));
                     if (id is PrimaryKey actorId)
                         return (true, actorId);
                 }
@@ -92,7 +92,7 @@ namespace Ray.Core.Event
                 var eventBytesLength = BitConverter.ToInt32(bytesSpan.Slice(3 * sizeof(ushort) + 1, sizeof(int)));
                 var skipLength = 3 * sizeof(ushort) + 1 + sizeof(int);
                 return (true, new EventBytesTransport(
-                    Encoding.Default.GetString(bytesSpan.Slice(skipLength, eventTypeLength)),
+                    Encoding.UTF8.GetString(bytesSpan.Slice(skipLength, eventTypeLength)),
                     null,
                     bytesSpan.Slice(skipLength + eventTypeLength + actorIdBytesLength, baseBytesLength).ToArray(),
                     bytesSpan.Slice(skipLength + eventTypeLength + actorIdBytesLength + baseBytesLength, eventBytesLength).ToArray()
@@ -114,7 +114,7 @@ namespace Ray.Core.Event
                 {
                     var actorId = BitConverter.ToInt64(bytesSpan.Slice(3 * sizeof(ushort) + 1 + sizeof(int) + eventTypeLength, actorIdBytesLength));
                     return (true, new EventBytesTransport(
-                        Encoding.Default.GetString(bytesSpan.Slice(skipLength, eventTypeLength)),
+                        Encoding.UTF8.GetString(bytesSpan.Slice(skipLength, eventTypeLength)),
                         actorId,
                         bytesSpan.Slice(skipLength + eventTypeLength + actorIdBytesLength, baseBytesLength).ToArray(),
                         bytesSpan.Slice(skipLength + eventTypeLength + actorIdBytesLength + baseBytesLength, eventBytesLength).ToArray()
@@ -122,9 +122,9 @@ namespace Ray.Core.Event
                 }
                 else
                 {
-                    var actorId = Encoding.Default.GetString(bytesSpan.Slice(skipLength + eventTypeLength, actorIdBytesLength));
+                    var actorId = Encoding.UTF8.GetString(bytesSpan.Slice(skipLength + eventTypeLength, actorIdBytesLength));
                     return (true, new EventBytesTransport(
-                        Encoding.Default.GetString(bytesSpan.Slice(skipLength, eventTypeLength)),
+                        Encoding.UTF8.GetString(bytesSpan.Slice(skipLength, eventTypeLength)),
                         actorId,
                         bytesSpan.Slice(skipLength + eventTypeLength + actorIdBytesLength, baseBytesLength).ToArray(),
                         bytesSpan.Slice(skipLength + eventTypeLength + actorIdBytesLength + baseBytesLength, eventBytesLength).ToArray()

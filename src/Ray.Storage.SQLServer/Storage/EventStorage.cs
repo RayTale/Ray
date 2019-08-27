@@ -54,7 +54,7 @@ namespace Ray.Storage.SQLServer
                     });
                     foreach (var item in originList)
                     {
-                        if (serializer.Deserialize(TypeContainer.GetType(item.TypeCode), Encoding.Default.GetBytes(item.Data)) is IEvent evt)
+                        if (serializer.Deserialize(TypeContainer.GetType(item.TypeCode), Encoding.UTF8.GetBytes(item.Data)) is IEvent evt)
                         {
                             list.Add(new FullyEvent<PrimaryKey>
                             {
@@ -91,7 +91,7 @@ namespace Ray.Storage.SQLServer
                     });
                     foreach (var item in originList)
                     {
-                        if (serializer.Deserialize(type, Encoding.Default.GetBytes(item.Data)) is IEvent evt)
+                        if (serializer.Deserialize(type, Encoding.UTF8.GetBytes(item.Data)) is IEvent evt)
                         {
                             list.Add(new FullyEvent<PrimaryKey>
                             {
@@ -169,7 +169,7 @@ namespace Ray.Storage.SQLServer
                         row["stateid"] = item.Value.Event.StateId;
                         row["uniqueId"] = item.Value.UniqueId;
                         row["typecode"] = TypeContainer.GetTypeCode(item.Value.Event.Event.GetType());
-                        row["data"] = Encoding.Default.GetString(item.Value.BytesTransport.EventBytes);
+                        row["data"] = Encoding.UTF8.GetString(item.Value.BytesTransport.EventBytes);
                         row["version"] = item.Value.Event.Base.Version;
                         row["timestamp"] = item.Value.Event.Base.Timestamp;
                         dt.Rows.Add(row);
@@ -201,7 +201,7 @@ namespace Ray.Storage.SQLServer
                             StateId = wrapper.Value.Event.StateId.ToString(),
                             wrapper.Value.UniqueId,
                             TypeCode = TypeContainer.GetTypeCode(wrapper.Value.Event.Event.GetType()),
-                            Data = Encoding.Default.GetString(wrapper.Value.BytesTransport.EventBytes),
+                            Data = Encoding.UTF8.GetString(wrapper.Value.BytesTransport.EventBytes),
                             wrapper.Value.Event.Base.Version,
                             wrapper.Value.Event.Base.Timestamp
                         }, trans) > 0;
@@ -225,7 +225,7 @@ namespace Ray.Storage.SQLServer
                                 wrapper.Value.Event.StateId,
                                 wrapper.Value.UniqueId,
                                 TypeCode = TypeContainer.GetTypeCode(wrapper.Value.Event.Event.GetType()),
-                                Data = Encoding.Default.GetString(wrapper.Value.BytesTransport.EventBytes),
+                                Data = Encoding.UTF8.GetString(wrapper.Value.BytesTransport.EventBytes),
                                 wrapper.Value.Event.Base.Version,
                                 wrapper.Value.Event.Base.Timestamp
                             }) > 0);
@@ -271,7 +271,7 @@ namespace Ray.Storage.SQLServer
                         row["stateid"] = item.FullyEvent.StateId;
                         row["uniqueId"] = item.UniqueId;
                         row["typecode"] = TypeContainer.GetTypeCode(item.FullyEvent.Event.GetType());
-                        row["data"] = Encoding.Default.GetString(item.BytesTransport.EventBytes);
+                        row["data"] = Encoding.UTF8.GetString(item.BytesTransport.EventBytes);
                         row["version"] = item.FullyEvent.Base.Version;
                         row["timestamp"] = item.FullyEvent.Base.Timestamp;
                         dt.Rows.Add(row);
@@ -303,7 +303,7 @@ namespace Ray.Storage.SQLServer
                             g.t.FullyEvent.StateId,
                             g.t.UniqueId,
                             TypeCode = TypeContainer.GetTypeCode(g.t.FullyEvent.Event.GetType()),
-                            Data = Encoding.Default.GetString(g.t.BytesTransport.EventBytes),
+                            Data = Encoding.UTF8.GetString(g.t.BytesTransport.EventBytes),
                             g.t.FullyEvent.Base.Version,
                             g.t.FullyEvent.Base.Timestamp
                         }), trans);

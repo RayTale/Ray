@@ -192,7 +192,7 @@ namespace Ray.Core
                     };
                 }
                 if (Logger.IsEnabled(LogLevel.Trace))
-                    Logger.LogTrace("Snapshot load completion:{0}", Serializer.SerializeToString(Snapshot));
+                    Logger.LogTrace("Snapshot load completion:{0}", Serializer.Serialize(Snapshot));
             }
             catch (Exception ex)
             {
@@ -243,7 +243,7 @@ namespace Ray.Core
                 else
                 {
                     if (Logger.IsEnabled(LogLevel.Information))
-                        Logger.LogInformation("Non-event messages:{0}({1})", eventType, Serializer.SerializeToString(data));
+                        Logger.LogInformation("Non-event messages:{0}({1})", eventType, Serializer.Serialize(data));
                 }
             }
             return Task.CompletedTask;
@@ -292,7 +292,7 @@ namespace Ray.Core
             }
             catch (Exception ex)
             {
-                Logger.LogCritical(ex, "{0}({1})", @event.GetType().FullName, Serializer.SerializeToString(@event));
+                Logger.LogCritical(ex, "{0}({1})", @event.GetType().FullName, Serializer.Serialize(@event));
                 throw;
             }
         }
@@ -300,7 +300,7 @@ namespace Ray.Core
         protected virtual ValueTask OnEventDelivered(IFullyEvent<PrimaryKey> @event)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace("OnEventDelivered: {0}({1})", @event.GetType().FullName, Serializer.SerializeToString(@event));
+                Logger.LogTrace("OnEventDelivered: {0}({1})", @event.GetType().FullName, Serializer.Serialize(@event));
             SnapshotHandler.Apply(Snapshot, @event);
             return Consts.ValueTaskDone;
         }

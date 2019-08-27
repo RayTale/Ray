@@ -52,7 +52,7 @@ namespace Ray.Storage.MySQL
                     });
                     foreach (var item in originList)
                     {
-                        if (serializer.Deserialize(TypeContainer.GetType(item.TypeCode), Encoding.Default.GetBytes(item.Data)) is IEvent evt)
+                        if (serializer.Deserialize(TypeContainer.GetType(item.TypeCode), Encoding.UTF8.GetBytes(item.Data)) is IEvent evt)
                         {
                             list.Add(new FullyEvent<PrimaryKey>
                             {
@@ -89,7 +89,7 @@ namespace Ray.Storage.MySQL
                     });
                     foreach (var item in originList)
                     {
-                        if (serializer.Deserialize(type, Encoding.Default.GetBytes(item.Data)) is IEvent evt)
+                        if (serializer.Deserialize(type, Encoding.UTF8.GetBytes(item.Data)) is IEvent evt)
                         {
                             list.Add(new FullyEvent<PrimaryKey>
                             {
@@ -160,7 +160,7 @@ namespace Ray.Storage.MySQL
                             StateId = wrapper.Value.Event.StateId.ToString(),
                             wrapper.Value.UniqueId,
                             TypeCode = TypeContainer.GetTypeCode(wrapper.Value.Event.Event.GetType()),
-                            Data = Encoding.Default.GetString(wrapper.Value.BytesTransport.EventBytes),
+                            Data = Encoding.UTF8.GetString(wrapper.Value.BytesTransport.EventBytes),
                             wrapper.Value.Event.Base.Version,
                             wrapper.Value.Event.Base.Timestamp
                         }).ToList(), trans);
@@ -197,7 +197,7 @@ namespace Ray.Storage.MySQL
                             StateId = wrapper.Value.Event.StateId.ToString(),
                             wrapper.Value.UniqueId,
                             TypeCode = TypeContainer.GetTypeCode(wrapper.Value.Event.Event.GetType()),
-                            Data = Encoding.Default.GetString(wrapper.Value.BytesTransport.EventBytes),
+                            Data = Encoding.UTF8.GetString(wrapper.Value.BytesTransport.EventBytes),
                             wrapper.Value.Event.Base.Version,
                             wrapper.Value.Event.Base.Timestamp
                         }, trans) > 0;
@@ -221,7 +221,7 @@ namespace Ray.Storage.MySQL
                                 wrapper.Value.Event.StateId,
                                 wrapper.Value.UniqueId,
                                 TypeCode = TypeContainer.GetTypeCode(wrapper.Value.Event.Event.GetType()),
-                                Data = Encoding.Default.GetString(wrapper.Value.BytesTransport.EventBytes),
+                                Data = Encoding.UTF8.GetString(wrapper.Value.BytesTransport.EventBytes),
                                 wrapper.Value.Event.Base.Version,
                                 wrapper.Value.Event.Base.Timestamp
                             }) > 0);
@@ -263,7 +263,7 @@ namespace Ray.Storage.MySQL
                         g.t.FullyEvent.StateId,
                         g.t.UniqueId,
                         TypeCode = TypeContainer.GetTypeCode(g.t.FullyEvent.Event.GetType()),
-                        Data = Encoding.Default.GetString(g.t.BytesTransport.EventBytes),
+                        Data = Encoding.UTF8.GetString(g.t.BytesTransport.EventBytes),
                         g.t.FullyEvent.Base.Version,
                         g.t.FullyEvent.Base.Timestamp
                     }), trans);

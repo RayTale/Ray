@@ -53,7 +53,7 @@ namespace Ray.Storage.PostgreSQL
                         var timestamp = reader.Read<long>(NpgsqlDbType.Bigint);
                         if (version <= endVersion && version >= startVersion)
                         {
-                            if (serializer.Deserialize(TypeContainer.GetType(typeCode), Encoding.Default.GetBytes(data)) is IEvent evt)
+                            if (serializer.Deserialize(TypeContainer.GetType(typeCode), Encoding.UTF8.GetBytes(data)) is IEvent evt)
                             {
                                 list.Add(new FullyEvent<PrimaryKey>
                                 {
@@ -90,7 +90,7 @@ namespace Ray.Storage.PostgreSQL
                         var data = reader.Read<string>(NpgsqlDbType.Json);
                         var version = reader.Read<long>(NpgsqlDbType.Bigint);
                         var timestamp = reader.Read<long>(NpgsqlDbType.Bigint);
-                        if (version >= startVersion && serializer.Deserialize(type, Encoding.Default.GetBytes(data)) is IEvent evt)
+                        if (version >= startVersion && serializer.Deserialize(type, Encoding.UTF8.GetBytes(data)) is IEvent evt)
                         {
                             list.Add(new FullyEvent<PrimaryKey>
                             {
@@ -160,7 +160,7 @@ namespace Ray.Storage.PostgreSQL
                         writer.Write(wrapper.Value.Event.StateId);
                         writer.Write(wrapper.Value.UniqueId, NpgsqlDbType.Varchar);
                         writer.Write(TypeContainer.GetTypeCode(wrapper.Value.Event.Event.GetType()), NpgsqlDbType.Varchar);
-                        writer.Write(Encoding.Default.GetString(wrapper.Value.BytesTransport.EventBytes), NpgsqlDbType.Json);
+                        writer.Write(Encoding.UTF8.GetString(wrapper.Value.BytesTransport.EventBytes), NpgsqlDbType.Json);
                         writer.Write(wrapper.Value.Event.Base.Version, NpgsqlDbType.Bigint);
                         writer.Write(wrapper.Value.Event.Base.Timestamp, NpgsqlDbType.Bigint);
                     }
@@ -190,7 +190,7 @@ namespace Ray.Storage.PostgreSQL
                             StateId = wrapper.Value.Event.StateId.ToString(),
                             wrapper.Value.UniqueId,
                             TypeCode = TypeContainer.GetTypeCode(wrapper.Value.Event.Event.GetType()),
-                            Data = Encoding.Default.GetString(wrapper.Value.BytesTransport.EventBytes),
+                            Data = Encoding.UTF8.GetString(wrapper.Value.BytesTransport.EventBytes),
                             wrapper.Value.Event.Base.Version,
                             wrapper.Value.Event.Base.Timestamp
                         }, trans) > 0;
@@ -214,7 +214,7 @@ namespace Ray.Storage.PostgreSQL
                                 wrapper.Value.Event.StateId,
                                 wrapper.Value.UniqueId,
                                 TypeCode = TypeContainer.GetTypeCode(wrapper.Value.Event.Event.GetType()),
-                                Data = Encoding.Default.GetString(wrapper.Value.BytesTransport.EventBytes),
+                                Data = Encoding.UTF8.GetString(wrapper.Value.BytesTransport.EventBytes),
                                 wrapper.Value.Event.Base.Version,
                                 wrapper.Value.Event.Base.Timestamp
                             }) > 0);
@@ -250,7 +250,7 @@ namespace Ray.Storage.PostgreSQL
                         writer.Write(wrapper.FullyEvent.StateId);
                         writer.Write(wrapper.UniqueId, NpgsqlDbType.Varchar);
                         writer.Write(TypeContainer.GetTypeCode(wrapper.FullyEvent.Event.GetType()), NpgsqlDbType.Varchar);
-                        writer.Write(Encoding.Default.GetString(wrapper.BytesTransport.EventBytes), NpgsqlDbType.Json);
+                        writer.Write(Encoding.UTF8.GetString(wrapper.BytesTransport.EventBytes), NpgsqlDbType.Json);
                         writer.Write(wrapper.FullyEvent.Base.Version, NpgsqlDbType.Bigint);
                         writer.Write(wrapper.FullyEvent.Base.Timestamp, NpgsqlDbType.Bigint);
                     }
@@ -280,7 +280,7 @@ namespace Ray.Storage.PostgreSQL
                             g.t.FullyEvent.StateId,
                             g.t.UniqueId,
                             TypeCode = TypeContainer.GetTypeCode(g.t.FullyEvent.Event.GetType()),
-                            Data = Encoding.Default.GetString(g.t.BytesTransport.EventBytes),
+                            Data = Encoding.UTF8.GetString(g.t.BytesTransport.EventBytes),
                             g.t.FullyEvent.Base.Version,
                             g.t.FullyEvent.Base.Timestamp
                         }), trans);

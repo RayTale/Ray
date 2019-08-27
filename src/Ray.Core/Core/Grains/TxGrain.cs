@@ -79,7 +79,7 @@ namespace Ray.Core
                                 TypeContainer.GetTypeCode(evt.Event.GetType()),
                                 GrainId,
                                 evt.Base.GetBytes(),
-                                Serializer.SerializeToBytes(evt.Event)
+                                Serializer.SerializeToUtf8Bytes(evt.Event)
                             )
                         });
                     }
@@ -169,7 +169,7 @@ namespace Ray.Core
                             TypeContainer.GetTypeCode(transport.FullyEvent.Event.GetType()),
                             GrainId,
                             transport.FullyEvent.Base.GetBytes(),
-                            Serializer.SerializeToBytes(transport.FullyEvent.Event)
+                            Serializer.SerializeToUtf8Bytes(transport.FullyEvent.Event)
                         );
                     }
                     await EventStorage.TransactionBatchAppend(WaitingForTransactionTransports);
@@ -313,7 +313,7 @@ namespace Ray.Core
         protected void TxRaiseEvent(IEvent @event, EventUID eUID = null)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace("Start transactionRaiseEvent, grain Id ={0} and state version = {1},event type = {2} ,event = {3},uniqueueId = {4}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, Serializer.SerializeToString(@event), eUID);
+                Logger.LogTrace("Start transactionRaiseEvent, grain Id ={0} and state version = {1},event type = {2} ,event = {3},uniqueueId = {4}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, Serializer.Serialize(@event), eUID);
             try
             {
                 if (CurrentTransactionStartVersion == -1)
@@ -347,7 +347,7 @@ namespace Ray.Core
             }
             catch (Exception ex)
             {
-                Logger.LogCritical(ex, "Grain Id = {0},event type = {1} and event = {2}", GrainId.ToString(), @event.GetType().FullName, Serializer.SerializeToString(@event));
+                Logger.LogCritical(ex, "Grain Id = {0},event type = {1} and event = {2}", GrainId.ToString(), @event.GetType().FullName, Serializer.Serialize(@event));
                 Snapshot.Base.DecrementDoingVersion();//还原doing Version
                 throw;
             }

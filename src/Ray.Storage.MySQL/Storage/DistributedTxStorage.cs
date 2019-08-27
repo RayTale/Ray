@@ -55,7 +55,7 @@ namespace Ray.Storage.MySQL
                 {
                     UnitName = unitName,
                     TransactionId = commit.TransactionId,
-                    Data = serializer.SerializeToString(commit.Data),
+                    Data = serializer.Serialize(commit.Data),
                     Status = commit.Status
                 });
                 var writeTask = mpscChannel.WriteAsync(wrap);

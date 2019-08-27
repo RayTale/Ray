@@ -98,7 +98,7 @@ namespace Ray.Storage.SQLCore.Configuration
                         }
                         catch (Exception ex)
                         {
-                            logger.LogCritical(ex, serializer.SerializeToString(subTable));
+                            logger.LogCritical(ex, serializer.Serialize(subTable));
                             subTable = default;
                             _subTables = (await BuildRepository.GetSubTables()).OrderBy(table => table.EndTime).ToList();
                         }

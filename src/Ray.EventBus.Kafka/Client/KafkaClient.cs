@@ -4,6 +4,7 @@ using Microsoft.Extensions.ObjectPool;
 using Microsoft.Extensions.Options;
 using Ray.Core.Serialization;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 
 namespace Ray.EventBus.Kafka
 {
@@ -42,8 +43,11 @@ namespace Ray.EventBus.Kafka
         {
             var consumerObjectPool = consumerPoolDict.GetOrAdd(group, key =>
              {
-                 var config = serializer.Deserialize<ConsumerConfig>(serializer.SerializeToBytes(consumerConfig));
-                 config.GroupId = group;
+                 var configDict = serializer.Deserialize<IEnumerable<KeyValuePair<string, string>>>(serializer.Serialize(consumerConfig));
+                 var config = new ConsumerConfig(configDict)
+                 {
+                     GroupId = group
+                 };
                  return new DefaultObjectPool<PooledConsumer>(new ConsumerPooledObjectPolicy(config, logger), rayKafkaOptions.ConsumerMaxPoolSize);
              });
             var result = consumerObjectPool.Get();
