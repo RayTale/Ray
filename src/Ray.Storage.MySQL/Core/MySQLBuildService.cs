@@ -34,13 +34,13 @@ namespace Ray.Storage.MySQL
         public async Task<bool> CreateEventSubTable()
         {
             const string sql = @"
-                                    CREATE TABLE if not exists `subtable_records`  (
+                                    CREATE TABLE if not exists `SubTable_Records`  (
                                       `TableName` varchar(255) NOT NULL,
                                       `SubTable` varchar(255) NOT NULL,
                                       `StartTime` bigint(20) NULL DEFAULT NULL,
                                       `EndTime` bigint(20) NULL DEFAULT NULL,
                                       `Index` int(255) NULL DEFAULT NULL,
-                                      UNIQUE INDEX `subtable_record`(`TableName`, `Index`) USING BTREE
+                                      UNIQUE INDEX `SubTable_Records`(`TableName`, `Index`) USING BTREE
                                     );";
             using var connection = storageOptions.CreateConnection();
             return await connection.ExecuteAsync(sql) > 0;

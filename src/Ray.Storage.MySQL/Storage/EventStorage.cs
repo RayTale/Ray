@@ -1,7 +1,6 @@
 ﻿using Dapper;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Ray.Core;
 using Ray.Core.Channels;
 using Ray.Core.Event;
 using Ray.Core.Serialization;
@@ -43,7 +42,7 @@ namespace Ray.Storage.MySQL
                 await conn.OpenAsync();
                 foreach (var table in getTableListTask.Result.Where(t => t.EndTime >= latestTimestamp))
                 {
-                    var sql = $"SELECT typecode,data,version,timestamp from {table.SubTable} WHERE stateid=@StateId and version>=@StartVersion and version<=@EndVersion order by version asc";
+                    var sql = $"SELECT TypeCode,Data,Version,Timestamp from {table.SubTable} WHERE StateId=@StateId and Version>=@StartVersion and Version<=@EndVersion order by Version asc";
                     var originList = await conn.QueryAsync<EventModel>(sql, new
                     {
                         StateId = stateId,
@@ -79,7 +78,7 @@ namespace Ray.Storage.MySQL
                 await conn.OpenAsync();
                 foreach (var table in getTableListTask.Result)
                 {
-                    var sql = $"SELECT data,version,timestamp from {table.SubTable} WHERE stateid=@StateId and typecode=@TypeCode and version>=@StartVersion order by version asc limit @Limit";
+                    var sql = $"SELECT Data,Version,Timestamp from {table.SubTable} WHERE StateId=@StateId and TypeCode=@TypeCode and Version>=@StartVersion order by Version asc limit @Limit";
                     var originList = await conn.QueryAsync<EventModel>(sql, new
                     {
                         StateId = stateId,
@@ -119,6 +118,11 @@ namespace Ray.Storage.MySQL
                 return await wrap.TaskSource.Task;
             });
         }
+        private string GetSaveSql(string tableName)
+        {
+            return saveSqlDict.GetOrAdd(tableName,
+                             key => $"INSERT ignore INTO {key}(StateId,UniqueId,TypeCode,Data,Version,Timestamp) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version,@Timestamp)");
+        }
         private async Task BatchInsertExecuter(List<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>> wrapperList)
         {
             var minTimestamp = wrapperList.Min(t => t.Value.Event.Base.Timestamp);
@@ -128,7 +132,7 @@ namespace Ray.Storage.MySQL
                 await minTask;
             if (minTask.Result.EndTime > maxTimestamp)
             {
-                await BatchCopy(minTask.Result.SubTable, wrapperList);
+                await BatchInsert(GetSaveSql(minTask.Result.SubTable), wrapperList);
             }
             else
             {
@@ -141,45 +145,7 @@ namespace Ray.Storage.MySQL
                 }))).GroupBy(t => t.SubTable);
                 foreach (var group in groups)
                 {
-                    await BatchCopy(group.Key, group.Select(t => t.t).ToList());
-                }
-            }
-            async Task BatchCopy(string tableName, List<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>> list)
-            {
-                try
-                {
-                    var copySql = copySaveSqlDict.GetOrAdd(tableName,
-                         key => $"INSERT INTO {key}(stateid,uniqueId,typecode,data,version,timestamp) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version,@Timestamp)");
-                    using var conn = config.CreateConnection();
-                    await conn.OpenAsync();
-                    using var trans = conn.BeginTransaction();
-                    try
-                    {
-                        await conn.ExecuteAsync(copySql, list.Select(wrapper => new
-                        {
-                            StateId = wrapper.Value.Event.StateId.ToString(),
-                            wrapper.Value.UniqueId,
-                            TypeCode = TypeContainer.GetTypeCode(wrapper.Value.Event.Event.GetType()),
-                            Data = Encoding.UTF8.GetString(wrapper.Value.BytesTransport.EventBytes),
-                            wrapper.Value.Event.Base.Version,
-                            wrapper.Value.Event.Base.Timestamp
-                        }).ToList(), trans);
-                        trans.Commit();
-                        list.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
-                    }
-                    catch
-                    {
-                        trans.Rollback();
-                        throw;
-                    }
-                    list.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex, ex.Message);
-                    var saveSql = saveSqlDict.GetOrAdd(tableName,
-                        key => $"INSERT ignore INTO {key}(stateid,uniqueId,typecode,data,version,timestamp) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version,@Timestamp)");
-                    await BatchInsert(saveSql, wrapperList);
+                    await BatchInsert(GetSaveSql(group.Key), group.Select(t => t.t).ToList());
                 }
             }
             async Task BatchInsert(string saveSql, List<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>> list)
@@ -234,7 +200,6 @@ namespace Ray.Storage.MySQL
                 }
             }
         }
-        static readonly ConcurrentDictionary<string, string> copySaveSqlDict = new ConcurrentDictionary<string, string>();
         public async Task TransactionBatchAppend(List<EventTransport<PrimaryKey>> list)
         {
             var minTimestamp = list.Min(t => t.FullyEvent.Base.Timestamp);
@@ -256,9 +221,7 @@ namespace Ray.Storage.MySQL
             {
                 foreach (var group in groups)
                 {
-                    var saveSql = saveSqlDict.GetOrAdd(group.Key,
-                        key => $"INSERT INTO {key}(stateid,uniqueId,typecode,data,version,timestamp) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version,@Timestamp)");
-                    await conn.ExecuteAsync(saveSql, group.Select(g => new
+                    await conn.ExecuteAsync(GetSaveSql(group.Key), group.Select(g => new
                     {
                         g.t.FullyEvent.StateId,
                         g.t.UniqueId,
@@ -293,7 +256,7 @@ namespace Ray.Storage.MySQL
                 {
                     foreach (var table in tableList)
                     {
-                        var sql = $"delete from {table.SubTable} WHERE stateid=@StateId and version<=@EndVersion";
+                        var sql = $"delete from {table.SubTable} WHERE StateId=@StateId and Version<=@EndVersion";
                         await conn.ExecuteAsync(sql, new { StateId = stateId, EndVersion = toVersion }, transaction: trans);
                     }
                     trans.Commit();
@@ -321,7 +284,7 @@ namespace Ray.Storage.MySQL
                 {
                     foreach (var table in tableList)
                     {
-                        var sql = $"delete from {table.SubTable} WHERE stateid=@StateId and version>=@StartVersion";
+                        var sql = $"delete from {table.SubTable} WHERE StateId=@StateId and Version>=@StartVersion";
                         await conn.ExecuteAsync(sql, new { StateId = stateId, StartVersion = fromVersion });
                     }
                     trans.Commit();
@@ -342,7 +305,7 @@ namespace Ray.Storage.MySQL
                     await getTableListTask;
                 var table = getTableListTask.Result.SingleOrDefault(t => t.StartTime <= timestamp && t.EndTime >= timestamp);
                 using var conn = config.CreateConnection();
-                var sql = $"delete from {table.SubTable} WHERE stateid=@StateId and version=@Version";
+                var sql = $"delete from {table.SubTable} WHERE StateId=@StateId and Version=@Version";
                 await conn.ExecuteAsync(sql, new { StateId = stateId, Version = version });
             });
         }

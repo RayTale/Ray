@@ -19,11 +19,11 @@ namespace Ray.Storage.MySQL
         {
             this.config = config;
             var observerStateTable = config.ObserverSnapshotTable;
-            deleteSql = $"DELETE FROM {observerStateTable} where stateid=@StateId";
-            getByIdSql = $"select * FROM {observerStateTable} where stateid=@StateId";
-            insertSql = $"INSERT into {observerStateTable}(stateid,version,StartTimestamp)VALUES(@StateId,@Version,@StartTimestamp)";
-            updateSql = $"update {observerStateTable} set version=@Version,StartTimestamp=@StartTimestamp where stateid=@StateId";
-            updateStartTimestampSql = $"update {observerStateTable} set StartTimestamp=@StartTimestamp where stateid=@StateId";
+            deleteSql = $"DELETE FROM {observerStateTable} where StateId=@StateId";
+            getByIdSql = $"select * FROM {observerStateTable} where StateId=@StateId";
+            insertSql = $"INSERT into {observerStateTable}(StateId,Version,StartTimestamp)VALUES(@StateId,@Version,@StartTimestamp)";
+            updateSql = $"update {observerStateTable} set Version=@Version,StartTimestamp=@StartTimestamp where StateId=@StateId";
+            updateStartTimestampSql = $"update {observerStateTable} set StartTimestamp=@StartTimestamp where StateId=@StateId";
         }
         public async Task<ObserverSnapshot<PrimaryKey>> Get(PrimaryKey id)
         {
