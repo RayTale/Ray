@@ -2,7 +2,6 @@
 using Ray.Core;
 using Ray.Core.Event;
 using Ray.Core.Snapshot;
-using Ray.DistributedTx;
 using Ray.DistributedTx.Configuration;
 using System.Collections.Generic;
 using System.Linq;

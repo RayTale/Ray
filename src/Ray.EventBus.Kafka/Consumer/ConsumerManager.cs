@@ -62,7 +62,7 @@ namespace Ray.EventBus.Kafka
                             for (int i = 0; i < value.Topics.Count(); i++)
                             {
                                 var topic = value.Topics[i];
-                                int weight = 100000 - LockDict.Count;
+                                var weight = 100000 - LockDict.Count;
                                 var (isOk, lockId, expectMillisecondDelay) = await grainFactory.GetGrain<IWeightHoldLock>(topic).Lock(weight, lockHoldingSeconds);
                                 if (isOk)
                                 {
@@ -72,7 +72,6 @@ namespace Ray.EventBus.Kafka
                                         ConsumerRunners.TryAdd(topic, runner);
                                         await runner.Run();
                                     }
-
                                 }
                             }
                         }

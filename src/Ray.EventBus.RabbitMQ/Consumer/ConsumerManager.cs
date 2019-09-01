@@ -63,7 +63,7 @@ namespace Ray.EventBus.RabbitMQ
                             {
                                 var queue = value.QueueList[i];
                                 var key = queue.ToString();
-                                int weight = 100000 - LockDict.Count;
+                                var weight = 100000 - LockDict.Count;
                                 var (isOk, lockId, expectMillisecondDelay) = await grainFactory.GetGrain<IWeightHoldLock>(key).Lock(weight, lockHoldingSeconds);
                                 if (isOk)
                                 {
