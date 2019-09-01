@@ -15,6 +15,7 @@ namespace Ray.DistributedTx
     /// <typeparam name="Input">输出类型</typeparam>
     /// <typeparam name="Output">输出类型</typeparam>
     public abstract class DTxUnitGrain<Input, Output> : Grain, IDistributedTxUnit<Input, Output>
+        where Input : class, new()
     {
         int start_id = 1;
         string start_string;

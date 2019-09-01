@@ -48,7 +48,7 @@ namespace Ray.Storage.Mongo
                     var version = document["Version"].AsInt64;
                     if (version <= endVersion && version >= startVersion)
                     {
-                        if (serializer.Deserialize(TypeContainer.GetType(typeCode), Encoding.UTF8.GetBytes(data)) is IEvent evt)
+                        if (serializer.Deserialize(Encoding.UTF8.GetBytes(data), TypeContainer.GetType(typeCode)) is IEvent evt)
                         {
                             list.Add(new FullyEvent<PrimaryKey>
                             {
@@ -77,7 +77,7 @@ namespace Ray.Storage.Mongo
                     var data = document["Data"].AsString;
                     var timestamp = document["Timestamp"].AsInt64;
                     var version = document["Version"].AsInt64;
-                    if (version >= startVersion && serializer.Deserialize(TypeContainer.GetType(typeCode), Encoding.UTF8.GetBytes(data)) is IEvent evt)
+                    if (version >= startVersion && serializer.Deserialize(Encoding.UTF8.GetBytes(data), TypeContainer.GetType(typeCode)) is IEvent evt)
                     {
                         list.Add(new FullyEvent<PrimaryKey>
                         {

@@ -107,14 +107,7 @@ namespace Ray.EventBus.RabbitMQ
                 await Consumer.Notice(ea.Body);
                 if (!Consumer.Config.AutoAck)
                 {
-                    try
-                    {
-                        consumerChild.Channel.Model.BasicAck(ea.DeliveryTag, false);
-                    }
-                    catch
-                    {
-                        consumerChild.NeedRestart = true;
-                    }
+                    consumerChild.Channel.Model.BasicAck(ea.DeliveryTag, false);
                 }
             }
             catch (Exception exception)
@@ -122,6 +115,7 @@ namespace Ray.EventBus.RabbitMQ
                 Logger.LogError(exception.InnerException ?? exception, $"An error occurred in {Consumer.EventBus.Exchange}-{Queue}");
                 if (Consumer.Config.Reenqueue)
                 {
+                    await Task.Delay(1000);
                     consumerChild.Channel.Model.BasicReject(ea.DeliveryTag, true);
                 }
                 else

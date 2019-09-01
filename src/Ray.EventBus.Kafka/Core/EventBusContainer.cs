@@ -45,7 +45,7 @@ namespace Ray.EventBus.Kafka
             }
             foreach (var (type, config) in observableList)
             {
-                var eventBus = CreateEventBus(string.IsNullOrEmpty(config.Topic) ? type.Name : config.Topic, config.LBCount).BindProducer(type);
+                var eventBus = CreateEventBus(string.IsNullOrEmpty(config.Topic) ? type.Name : config.Topic, config.LBCount, config.Reenqueue).BindProducer(type);
                 if (typeof(IGrainWithIntegerKey).IsAssignableFrom(type))
                 {
                     var observerUnit = observerUnitContainer.GetUnit(type) as IObserverUnit<long>;
@@ -69,13 +69,13 @@ namespace Ray.EventBus.Kafka
                 await Work(eventBus);
             }
         }
-        public KafkaEventBus CreateEventBus(string topic, int lBCount = 1)
+        public KafkaEventBus CreateEventBus(string topic, int lBCount = 1, bool reenqueue = true)
         {
-            return new KafkaEventBus(serviceProvider, this, topic, lBCount);
+            return new KafkaEventBus(serviceProvider, this, topic, lBCount, reenqueue);
         }
-        public KafkaEventBus CreateEventBus<MainGrain>(string topic, int lBCount = 1)
+        public KafkaEventBus CreateEventBus<MainGrain>(string topic, int lBCount = 1, bool reenqueue = true)
         {
-            return CreateEventBus(topic, lBCount).BindProducer<MainGrain>();
+            return CreateEventBus(topic, lBCount, reenqueue).BindProducer<MainGrain>();
         }
         public Task Work(KafkaEventBus bus)
         {
@@ -89,9 +89,8 @@ namespace Ray.EventBus.Kafka
         }
 
         readonly ConcurrentDictionary<Type, IProducer> producerDict = new ConcurrentDictionary<Type, IProducer>();
-        public ValueTask<IProducer> GetProducer<T>(T data)
+        public ValueTask<IProducer> GetProducer(Type type)
         {
-            var type = data.GetType();
             if (eventBusDictionary.TryGetValue(type, out var eventBus))
             {
                 return new ValueTask<IProducer>(producerDict.GetOrAdd(type, key =>
@@ -103,6 +102,10 @@ namespace Ray.EventBus.Kafka
             {
                 throw new NotImplementedException($"{nameof(IProducer)} of {type.FullName}");
             }
+        }
+        public ValueTask<IProducer> GetProducer<T>()
+        {
+            return GetProducer(typeof(T));
         }
         public List<IConsumer> GetConsumers()
         {

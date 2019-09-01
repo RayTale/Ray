@@ -63,7 +63,7 @@ namespace Ray.Core
                 var (success, transport) = EventBytesTransport.FromBytes<PrimaryKey>(bytes);
                 if (success)
                 {
-                    var data = serializer.Deserialize(TypeContainer.GetType(transport.EventTypeCode), transport.EventBytes);
+                    var data = serializer.Deserialize(transport.EventBytes, TypeContainer.GetType(transport.EventTypeCode));
                     if (data is IEvent @event && transport.GrainId is PrimaryKey actorId)
                     {
                         var eventBase = EventBase.FromBytes(transport.BaseBytes);

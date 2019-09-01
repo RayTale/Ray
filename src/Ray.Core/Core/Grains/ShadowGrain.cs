@@ -224,7 +224,7 @@ namespace Ray.Core
             if (success)
             {
                 var eventType = TypeContainer.GetType(transport.EventTypeCode);
-                var data = Serializer.Deserialize(eventType, transport.EventBytes);
+                var data = Serializer.Deserialize(transport.EventBytes, eventType);
                 if (data is IEvent @event)
                 {
                     var eventBase = EventBase.FromBytes(transport.BaseBytes);
@@ -292,7 +292,7 @@ namespace Ray.Core
             }
             catch (Exception ex)
             {
-                Logger.LogCritical(ex, "{0}({1})", @event.GetType().FullName, Serializer.Serialize(@event));
+                Logger.LogCritical(ex, "{0}({1})", @event.GetType().FullName, Serializer.Serialize(@event, @event.GetType()));
                 throw;
             }
         }
@@ -300,7 +300,7 @@ namespace Ray.Core
         protected virtual ValueTask OnEventDelivered(IFullyEvent<PrimaryKey> @event)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace("OnEventDelivered: {0}({1})", @event.GetType().FullName, Serializer.Serialize(@event));
+                Logger.LogTrace("OnEventDelivered: {0}({1})", @event.GetType().FullName, Serializer.Serialize(@event, @event.GetType()));
             SnapshotHandler.Apply(Snapshot, @event);
             return Consts.ValueTaskDone;
         }

@@ -1,9 +1,11 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 
 namespace Ray.Core.EventBus
 {
     public interface IProducerContainer
     {
-        ValueTask<IProducer> GetProducer<T>(T data);
+        ValueTask<IProducer> GetProducer<T>();
+        ValueTask<IProducer> GetProducer(Type type);
     }
 }

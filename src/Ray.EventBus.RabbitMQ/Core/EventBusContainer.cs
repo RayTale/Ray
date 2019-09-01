@@ -95,9 +95,8 @@ namespace Ray.EventBus.RabbitMQ
         }
 
         readonly ConcurrentDictionary<Type, IProducer> producerDict = new ConcurrentDictionary<Type, IProducer>();
-        public ValueTask<IProducer> GetProducer<T>(T data)
+        public ValueTask<IProducer> GetProducer(Type type)
         {
-            var type = data.GetType();
             if (eventBusDictionary.TryGetValue(type, out var eventBus))
             {
                 return new ValueTask<IProducer>(producerDict.GetOrAdd(type, key =>
@@ -109,6 +108,10 @@ namespace Ray.EventBus.RabbitMQ
             {
                 throw new NotImplementedException($"{nameof(IProducer)} of {type.FullName}");
             }
+        }
+        public ValueTask<IProducer> GetProducer<T>()
+        {
+            return GetProducer(typeof(T));
         }
         public List<IConsumer> GetConsumers()
         {

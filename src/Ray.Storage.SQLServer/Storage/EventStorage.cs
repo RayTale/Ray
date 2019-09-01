@@ -54,7 +54,7 @@ namespace Ray.Storage.SQLServer
                     });
                     foreach (var item in originList)
                     {
-                        if (serializer.Deserialize(TypeContainer.GetType(item.TypeCode), Encoding.UTF8.GetBytes(item.Data)) is IEvent evt)
+                        if (serializer.Deserialize(Encoding.UTF8.GetBytes(item.Data), TypeContainer.GetType(item.TypeCode)) is IEvent evt)
                         {
                             list.Add(new FullyEvent<PrimaryKey>
                             {
@@ -91,7 +91,7 @@ namespace Ray.Storage.SQLServer
                     });
                     foreach (var item in originList)
                     {
-                        if (serializer.Deserialize(type, Encoding.UTF8.GetBytes(item.Data)) is IEvent evt)
+                        if (serializer.Deserialize(Encoding.UTF8.GetBytes(item.Data), type) is IEvent evt)
                         {
                             list.Add(new FullyEvent<PrimaryKey>
                             {

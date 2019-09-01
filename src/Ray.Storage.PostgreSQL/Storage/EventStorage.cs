@@ -53,7 +53,7 @@ namespace Ray.Storage.PostgreSQL
                         var timestamp = reader.Read<long>(NpgsqlDbType.Bigint);
                         if (version <= endVersion && version >= startVersion)
                         {
-                            if (serializer.Deserialize(TypeContainer.GetType(typeCode), Encoding.UTF8.GetBytes(data)) is IEvent evt)
+                            if (serializer.Deserialize(Encoding.UTF8.GetBytes(data), TypeContainer.GetType(typeCode)) is IEvent evt)
                             {
                                 list.Add(new FullyEvent<PrimaryKey>
                                 {
@@ -90,7 +90,7 @@ namespace Ray.Storage.PostgreSQL
                         var data = reader.Read<string>(NpgsqlDbType.Json);
                         var version = reader.Read<long>(NpgsqlDbType.Bigint);
                         var timestamp = reader.Read<long>(NpgsqlDbType.Bigint);
-                        if (version >= startVersion && serializer.Deserialize(type, Encoding.UTF8.GetBytes(data)) is IEvent evt)
+                        if (version >= startVersion && serializer.Deserialize(Encoding.UTF8.GetBytes(data), type) is IEvent evt)
                         {
                             list.Add(new FullyEvent<PrimaryKey>
                             {

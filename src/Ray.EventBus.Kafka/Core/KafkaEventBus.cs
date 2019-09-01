@@ -15,7 +15,9 @@ namespace Ray.EventBus.Kafka
         public KafkaEventBus(
             IServiceProvider serviceProvider,
             IKafkaEventBusContainer eventBusContainer,
-            string topic, int lBCount = 1)
+            string topic,
+            int lBCount = 1,
+            bool reenqueue = true)
         {
             if (string.IsNullOrEmpty(topic))
                 throw new ArgumentNullException(nameof(topic));
@@ -26,6 +28,7 @@ namespace Ray.EventBus.Kafka
             Container = eventBusContainer;
             Topic = topic;
             LBCount = lBCount;
+            Reenqueue = reenqueue;
             Topics = new List<string>();
             if (LBCount == 1)
             {
@@ -45,6 +48,7 @@ namespace Ray.EventBus.Kafka
         public string Topic { get; }
         public int LBCount { get; }
         public List<string> Topics { get; }
+        public bool Reenqueue { get; set; }
         public Type ProducerType { get; set; }
         public List<KafkaConsumer> Consumers { get; set; } = new List<KafkaConsumer>();
         public string GetRoute(string key)

@@ -43,7 +43,7 @@ namespace Ray.EventBus.Kafka
         {
             var consumerObjectPool = consumerPoolDict.GetOrAdd(group, key =>
              {
-                 var configDict = serializer.Deserialize<IEnumerable<KeyValuePair<string, string>>>(serializer.Serialize(consumerConfig));
+                 var configDict = serializer.Deserialize<List<KeyValuePair<string, string>>>(serializer.SerializeToUtf8Bytes(consumerConfig));
                  var config = new ConsumerConfig(configDict)
                  {
                      GroupId = group

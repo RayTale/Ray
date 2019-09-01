@@ -90,7 +90,7 @@ namespace Ray.Storage.Mongo
                 {
                     Base = new SnapshotBase<PrimaryKey>
                     {
-                        StateId = serializer.Deserialize<PrimaryKey>(doc["StateId"].AsString),
+                        StateId = (PrimaryKey)serializer.Deserialize(doc["StateId"].AsString, typeof(PrimaryKey)),
                         Version = doc["Version"].AsInt64,
                         DoingVersion = doc["DoingVersion"].AsInt64,
                         IsLatest = false,

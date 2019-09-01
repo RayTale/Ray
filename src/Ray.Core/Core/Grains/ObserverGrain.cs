@@ -20,7 +20,7 @@ using System.Threading.Tasks;
 
 namespace Ray.Core
 {
-    public abstract class ObserverGrain<MainGrain, PrimaryKey> : Grain, IConcurrentObserver
+    public abstract class ObserverGrain<MainGrain, PrimaryKey> : Grain
     {
         readonly Func<object, IEvent, EventBase, Task> handlerInvokeFunc;
         readonly HandlerAttribute handlerAttribute;
@@ -367,7 +367,7 @@ namespace Ray.Core
             var (success, transport) = EventBytesTransport.FromBytesWithNoId(bytes.Value);
             if (success)
             {
-                var data = Serializer.Deserialize(TypeContainer.GetType(transport.EventTypeCode), transport.EventBytes);
+                var data = Serializer.Deserialize(transport.EventBytes, TypeContainer.GetType(transport.EventTypeCode));
                 if (data is IEvent @event)
                 {
                     var eventBase = EventBase.FromBytes(transport.BaseBytes);
@@ -427,7 +427,7 @@ namespace Ray.Core
         protected async ValueTask Tell(IFullyEvent<PrimaryKey> fullyEvent)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace("Start event handling, grain Id = {0} and state version = {1},event type = {2} ,event = {3}", GrainId.ToString(), Snapshot.Version, fullyEvent.GetType().FullName, Serializer.Serialize(fullyEvent));
+                Logger.LogTrace("Start event handling, grain Id = {0} and state version = {1},event type = {2} ,event = {3}", GrainId.ToString(), Snapshot.Version, fullyEvent.GetType().FullName, Serializer.Serialize(fullyEvent.Event, fullyEvent.Event.GetType()));
             try
             {
                 if (fullyEvent.Base.Version == Snapshot.Version + 1)
@@ -465,7 +465,7 @@ namespace Ray.Core
             }
             catch (Exception ex)
             {
-                Logger.LogCritical(ex, "FollowGrain Event handling failed with Id = {0},event = {1}", GrainId.ToString(), Serializer.Serialize(fullyEvent));
+                Logger.LogCritical(ex, "FollowGrain Event handling failed with Id = {0},event = {1}", GrainId.ToString(), Serializer.Serialize(fullyEvent, fullyEvent.GetType()));
                 throw;
             }
         }

@@ -47,7 +47,7 @@ namespace Ray.Storage.MySQL
             using var connection = CreateConnection();
             await connection.ExecuteAsync(sql);
         }
-        public Task Append<Input>(string unitName, Commit<Input> commit)
+        public Task Append<Input>(string unitName, Commit<Input> commit) where Input : class, new()
         {
             return Task.Run(async () =>
             {
@@ -71,7 +71,7 @@ namespace Ray.Storage.MySQL
             var sql = $"delete from {options.Value.TableName} WHERE UnitName=@UnitName and TransactionId=@TransactionId";
             await conn.ExecuteAsync(sql, new { UnitName = unitName, TransactionId = transactionId });
         }
-        public async Task<IList<Commit<Input>>> GetList<Input>(string unitName)
+        public async Task<IList<Commit<Input>>> GetList<Input>(string unitName) where Input : class, new()
         {
             var getListSql = $"select * from {options.Value.TableName} WHERE UnitName=@UnitName";
             using var conn = CreateConnection();

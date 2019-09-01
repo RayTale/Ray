@@ -32,7 +32,7 @@ namespace Ray.Storage.Mongo.Storage
             serviceProvider.GetService<IIndexBuildService>().CreateTransactionStorageIndex(client, transactionOptions.Value.Database, transactionOptions.Value.CollectionName).GetAwaiter().GetResult();
             mpscChannel.BindConsumer(BatchInsertExecuter);
         }
-        public Task Append<Input>(string unitName, Commit<Input> commit)
+        public Task Append<Input>(string unitName, Commit<Input> commit) where Input : class, new()
         {
             return Task.Run(async () =>
             {
@@ -56,7 +56,7 @@ namespace Ray.Storage.Mongo.Storage
             return client.GetCollection<BsonDocument>(transactionOptions.Value.Database, transactionOptions.Value.CollectionName).DeleteOneAsync(filter);
         }
 
-        public async Task<IList<Commit<Input>>> GetList<Input>(string unitName)
+        public async Task<IList<Commit<Input>>> GetList<Input>(string unitName) where Input : class, new()
         {
             var filter = Builders<BsonDocument>.Filter.Eq("UnitName", unitName);
             var cursor = await client.GetCollection<BsonDocument>(transactionOptions.Value.Database, transactionOptions.Value.CollectionName).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(10000).Token);

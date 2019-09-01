@@ -73,13 +73,14 @@ namespace Ray.Core
                     var waitingEvents = await EventStorage.GetList(GrainId, snapshotBase.TransactionStartTimestamp, snapshotBase.TransactionStartVersion, Snapshot.Base.Version);
                     foreach (var evt in waitingEvents)
                     {
+                        var evtType = evt.Event.GetType();
                         WaitingForTransactionTransports.Add(new EventTransport<PrimaryKey>(evt, string.Empty, evt.StateId.ToString())
                         {
                             BytesTransport = new EventBytesTransport(
-                                TypeContainer.GetTypeCode(evt.Event.GetType()),
+                                TypeContainer.GetTypeCode(evtType),
                                 GrainId,
                                 evt.Base.GetBytes(),
-                                Serializer.SerializeToUtf8Bytes(evt.Event)
+                                Serializer.SerializeToUtf8Bytes(evt.Event, evtType)
                             )
                         });
                     }
@@ -165,11 +166,12 @@ namespace Ray.Core
                         var startTask = OnRaiseStart(transport.FullyEvent);
                         if (!startTask.IsCompletedSuccessfully)
                             await startTask;
+                        var evtType = transport.FullyEvent.Event.GetType();
                         transport.BytesTransport = new EventBytesTransport(
-                            TypeContainer.GetTypeCode(transport.FullyEvent.Event.GetType()),
+                            TypeContainer.GetTypeCode(evtType),
                             GrainId,
                             transport.FullyEvent.Base.GetBytes(),
-                            Serializer.SerializeToUtf8Bytes(transport.FullyEvent.Event)
+                            Serializer.SerializeToUtf8Bytes(transport.FullyEvent.Event, evtType)
                         );
                     }
                     await EventStorage.TransactionBatchAppend(WaitingForTransactionTransports);
@@ -295,7 +297,7 @@ namespace Ray.Core
             {
                 var copiedEvent = new FullyEvent<PrimaryKey>
                 {
-                    Event = Serializer.Deserialize(fullyEvent.Event.GetType(), transport.EventBytes) as IEvent,
+                    Event = Serializer.Deserialize(transport.EventBytes, fullyEvent.Event.GetType()) as IEvent,
                     Base = EventBase.FromBytes(transport.BaseBytes)
                 };
                 SnapshotHandler.Apply(BackupSnapshot, copiedEvent);
@@ -313,7 +315,7 @@ namespace Ray.Core
         protected void TxRaiseEvent(IEvent @event, EventUID eUID = null)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace("Start transactionRaiseEvent, grain Id ={0} and state version = {1},event type = {2} ,event = {3},uniqueueId = {4}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, Serializer.Serialize(@event), eUID);
+                Logger.LogTrace("Start transactionRaiseEvent, grain Id ={0} and state version = {1},event type = {2} ,event = {3},uniqueueId = {4}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, Serializer.Serialize(@event, @event.GetType()), eUID);
             try
             {
                 if (CurrentTransactionStartVersion == -1)
@@ -347,7 +349,7 @@ namespace Ray.Core
             }
             catch (Exception ex)
             {
-                Logger.LogCritical(ex, "Grain Id = {0},event type = {1} and event = {2}", GrainId.ToString(), @event.GetType().FullName, Serializer.Serialize(@event));
+                Logger.LogCritical(ex, "Grain Id = {0},event type = {1} and event = {2}", GrainId.ToString(), @event.GetType().FullName, Serializer.Serialize(@event, @event.GetType()));
                 Snapshot.Base.DecrementDoingVersion();//还原doing Version
                 throw;
             }

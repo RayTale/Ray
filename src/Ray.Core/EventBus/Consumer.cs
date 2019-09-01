@@ -13,8 +13,6 @@ namespace Ray.Core.EventBus
             this.eventHandlers = eventHandlers;
         }
 
-        public string EventBusName { get; set; }
-
         public Task Notice(byte[] bytes)
         {
             return Task.WhenAll(eventHandlers.Select(func => func(bytes)));
