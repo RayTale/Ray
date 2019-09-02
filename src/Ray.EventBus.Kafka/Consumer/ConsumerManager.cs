@@ -32,7 +32,7 @@ namespace Ray.EventBus.Kafka
             this.grainFactory = grainFactory;
         }
         private readonly ConcurrentDictionary<string, ConsumerRunner> ConsumerRunners = new ConcurrentDictionary<string, ConsumerRunner>();
-        private ConcurrentDictionary<string, long> LockDict { get; } = new ConcurrentDictionary<string, long>();
+        private ConcurrentDictionary<string, long> Runners { get; } = new ConcurrentDictionary<string, long>();
         private Timer HeathCheckTimer { get; set; }
         private Timer DistributedMonitorTime { get; set; }
         private Timer DistributedHoldTimer { get; set; }
@@ -62,15 +62,19 @@ namespace Ray.EventBus.Kafka
                             for (int i = 0; i < value.Topics.Count(); i++)
                             {
                                 var topic = value.Topics[i];
-                                var weight = 100000 - LockDict.Count;
-                                var (isOk, lockId, expectMillisecondDelay) = await grainFactory.GetGrain<IWeightHoldLock>(topic).Lock(weight, lockHoldingSeconds);
-                                if (isOk)
+                                var key = $"{topic}_{value.Group}";
+                                if (!Runners.ContainsKey(key))
                                 {
-                                    if (LockDict.TryAdd(topic, lockId))
+                                    var weight = 100000 - Runners.Count;
+                                    var (isOk, lockId, expectMillisecondDelay) = await grainFactory.GetGrain<IWeightHoldLock>(key).Lock(weight, lockHoldingSeconds);
+                                    if (isOk)
                                     {
-                                        var runner = new ConsumerRunner(client, provider.GetService<ILogger<ConsumerRunner>>(), value, topic);
-                                        ConsumerRunners.TryAdd(topic, runner);
-                                        await runner.Run();
+                                        if (Runners.TryAdd(key, lockId))
+                                        {
+                                            var runner = new ConsumerRunner(client, provider.GetService<ILogger<ConsumerRunner>>(), value, topic);
+                                            ConsumerRunners.TryAdd(key, runner);
+                                            await runner.Run();
+                                        }
                                     }
                                 }
                             }
@@ -91,9 +95,9 @@ namespace Ray.EventBus.Kafka
             {
                 if (Interlocked.CompareExchange(ref distributedHoldTimerLock, 1, 0) == 0)
                 {
-                    foreach (var lockKV in LockDict)
+                    foreach (var lockKV in Runners)
                     {
-                        if (LockDict.TryGetValue(lockKV.Key, out var lockId))
+                        if (Runners.TryGetValue(lockKV.Key, out var lockId))
                         {
                             var holdResult = await grainFactory.GetGrain<IWeightHoldLock>(lockKV.Key).Hold(lockId, lockHoldingSeconds);
                             if (!holdResult)
@@ -102,7 +106,7 @@ namespace Ray.EventBus.Kafka
                                 {
                                     runner.Close();
                                 }
-                                LockDict.TryRemove(lockKV.Key, out var _);
+                                Runners.TryRemove(lockKV.Key, out var _);
                             }
                         }
                     }

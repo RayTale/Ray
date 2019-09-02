@@ -1,14 +1,12 @@
-﻿using System;
-using System.Linq;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using Orleans;
+﻿using Orleans;
 using RabbitMQ.Client;
-using Ray.Core;
 using Ray.Core.Abstractions;
 using Ray.Core.EventBus;
 using Ray.Core.Exceptions;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Ray.EventBus.RabbitMQ
 {
