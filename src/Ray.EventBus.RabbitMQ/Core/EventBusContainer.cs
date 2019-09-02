@@ -47,36 +47,22 @@ namespace Ray.EventBus.RabbitMQ
             }
             foreach (var (type, config) in observableList)
             {
-                var groupsConfig = serviceProvider.GetOptionsByName<GroupsOptions>(type.FullName);
                 var eventBus = CreateEventBus(string.IsNullOrEmpty(config.Exchange) ? type.Name : config.Exchange, string.IsNullOrEmpty(config.RoutePrefix) ? type.Name : config.RoutePrefix, config.LBCount, config.MinQos, config.IncQos, config.MaxQos, config.AutoAck, config.Reenqueue).BindProducer(type);
                 if (typeof(IGrainWithIntegerKey).IsAssignableFrom(type))
                 {
-                    var observerUnit = observerUnitContainer.GetUnit(type) as IObserverUnit<long>;
-                    var groups = observerUnit.GetGroups();
-                    foreach (var group in groups)
-                    {
-                        var groupConfig = groupsConfig.Configs?.SingleOrDefault(c => c.Group == group);
-                        eventBus.CreateConsumer<long>(group, groupConfig?.Config);
-                    }
+                    await eventBus.AddGrainConsumer<long>();
                 }
                 else if (typeof(IGrainWithStringKey).IsAssignableFrom(type))
                 {
-                    var observerUnit = observerUnitContainer.GetUnit(type) as IObserverUnit<string>;
-                    var groups = observerUnit.GetGroups();
-                    foreach (var group in groups)
-                    {
-                        var groupConfig = groupsConfig.Configs?.SingleOrDefault(c => c.Group == group);
-                        eventBus.CreateConsumer<string>(group, groupConfig?.Config);
-                    }
+                    await eventBus.AddGrainConsumer<string>();
                 }
                 else
                     throw new PrimaryKeyTypeException(type.FullName);
-                await Work(eventBus);
             }
         }
         public RabbitEventBus CreateEventBus(string exchange, string routePrefix, int lBCount = 1, ushort minQos = 100, ushort incQos = 100, ushort maxQos = 300, bool autoAck = false, bool reenqueue = false)
         {
-            return new RabbitEventBus(serviceProvider, this, exchange, routePrefix, lBCount, minQos, incQos, maxQos, autoAck, reenqueue);
+            return new RabbitEventBus(observerUnitContainer, this, exchange, routePrefix, lBCount, minQos, incQos, maxQos, autoAck, reenqueue);
         }
         public RabbitEventBus CreateEventBus<MainGrain>(string exchange, string routePrefix, int lBCount = 1, ushort minQos = 100, ushort incQos = 100, ushort maxQos = 300, bool autoAck = false, bool reenqueue = false)
         {

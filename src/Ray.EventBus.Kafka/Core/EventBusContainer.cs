@@ -48,30 +48,19 @@ namespace Ray.EventBus.Kafka
                 var eventBus = CreateEventBus(string.IsNullOrEmpty(config.Topic) ? type.Name : config.Topic, config.LBCount, config.Reenqueue).BindProducer(type);
                 if (typeof(IGrainWithIntegerKey).IsAssignableFrom(type))
                 {
-                    var observerUnit = observerUnitContainer.GetUnit(type) as IObserverUnit<long>;
-                    var groups = observerUnit.GetGroups();
-                    foreach (var group in groups)
-                    {
-                        eventBus.CreateConsumer<long>(group);
-                    }
+                    await eventBus.AddGrainConsumer<long>();
                 }
                 else if (typeof(IGrainWithStringKey).IsAssignableFrom(type))
                 {
-                    var observerUnit = observerUnitContainer.GetUnit(type) as IObserverUnit<string>;
-                    var groups = observerUnit.GetGroups();
-                    foreach (var group in groups)
-                    {
-                        eventBus.CreateConsumer<string>(group);
-                    }
+                    await eventBus.AddGrainConsumer<string>();
                 }
                 else
                     throw new PrimaryKeyTypeException(type.FullName);
-                await Work(eventBus);
             }
         }
         public KafkaEventBus CreateEventBus(string topic, int lBCount = 1, bool reenqueue = true)
         {
-            return new KafkaEventBus(serviceProvider, this, topic, lBCount, reenqueue);
+            return new KafkaEventBus(observerUnitContainer, this, topic, lBCount, reenqueue);
         }
         public KafkaEventBus CreateEventBus<MainGrain>(string topic, int lBCount = 1, bool reenqueue = true)
         {

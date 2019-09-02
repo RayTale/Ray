@@ -74,7 +74,7 @@ namespace RayCore.Tests
                     config.VirtualHost = "/";
                 }, async container =>
                 {
-                    await container.CreateEventBus<Account>("Account", "account", 5).DefaultConsumer<long>();
+                    await container.CreateEventBus<Account>("Account", "account", 5).AddGrainConsumer<long>();
                 });
             })
             .ConfigureLogging(logging =>

@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Ray.Core.Abstractions;
+﻿using Ray.Core.Abstractions;
 using Ray.Core.Exceptions;
 using Ray.Core.Utils;
 using System;
@@ -13,7 +12,7 @@ namespace Ray.EventBus.Kafka
         private readonly ConsistentHash _CHash;
         readonly IObserverUnitContainer observerUnitContainer;
         public KafkaEventBus(
-            IServiceProvider serviceProvider,
+            IObserverUnitContainer observerUnitContainer,
             IKafkaEventBusContainer eventBusContainer,
             string topic,
             int lBCount = 1,
@@ -23,8 +22,7 @@ namespace Ray.EventBus.Kafka
                 throw new ArgumentNullException(nameof(topic));
             if (lBCount < 1)
                 throw new ArgumentOutOfRangeException($"{nameof(lBCount)} must be greater than 1");
-            ServiceProvider = serviceProvider;
-            observerUnitContainer = serviceProvider.GetService<IObserverUnitContainer>();
+            this.observerUnitContainer = observerUnitContainer;
             Container = eventBusContainer;
             Topic = topic;
             LBCount = lBCount;
@@ -43,7 +41,6 @@ namespace Ray.EventBus.Kafka
             }
             _CHash = new ConsistentHash(Topics, lBCount * 10);
         }
-        public IServiceProvider ServiceProvider { get; }
         public IKafkaEventBusContainer Container { get; }
         public string Topic { get; }
         public int LBCount { get; }
@@ -67,9 +64,20 @@ namespace Ray.EventBus.Kafka
                 throw new EventBusRepeatBindingProducerException(grainType.FullName);
             return this;
         }
-        public KafkaEventBus CreateConsumer<PrimaryKey>(string observerGroup)
+        public KafkaEventBus AddGrainConsumer<PrimaryKey>(string observerGroup)
         {
             var consumer = new KafkaConsumer(observerUnitContainer.GetUnit<PrimaryKey>(ProducerType).GetEventHandlers(observerGroup))
+            {
+                EventBus = this,
+                Topics = Topics,
+                Group = observerGroup
+            };
+            Consumers.Add(consumer);
+            return this;
+        }
+        public KafkaEventBus AddConsumer(Func<byte[], Task> handler, string observerGroup)
+        {
+            var consumer = new KafkaConsumer(new List<Func<byte[], Task>> { handler })
             {
                 EventBus = this,
                 Topics = Topics,
@@ -82,11 +90,11 @@ namespace Ray.EventBus.Kafka
         {
             return Container.Work(this);
         }
-        public Task DefaultConsumer<PrimaryKey>()
+        public Task AddGrainConsumer<PrimaryKey>()
         {
             foreach (var group in observerUnitContainer.GetUnit<PrimaryKey>(ProducerType).GetGroups())
             {
-                CreateConsumer<PrimaryKey>(group);
+                AddGrainConsumer<PrimaryKey>(group);
             };
             return Enable();
         }

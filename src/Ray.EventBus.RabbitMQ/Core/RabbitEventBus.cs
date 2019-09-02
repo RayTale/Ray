@@ -1,9 +1,9 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Ray.Core.Abstractions;
+﻿using Ray.Core.Abstractions;
 using Ray.Core.Exceptions;
 using Ray.Core.Utils;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Ray.EventBus.RabbitMQ
@@ -13,7 +13,7 @@ namespace Ray.EventBus.RabbitMQ
         private readonly ConsistentHash _CHash;
         readonly IObserverUnitContainer observerUnitContainer;
         public RabbitEventBus(
-            IServiceProvider serviceProvider,
+            IObserverUnitContainer observerUnitContainer,
             IRabbitEventBusContainer eventBusContainer,
             string exchange, string routePrefix, int lBCount = 1, ushort minQos = 100, ushort incQos = 100, ushort maxQos = 300, bool autoAck = false, bool reenqueue = true)
         {
@@ -23,13 +23,12 @@ namespace Ray.EventBus.RabbitMQ
                 throw new ArgumentNullException(nameof(routePrefix));
             if (lBCount < 1)
                 throw new ArgumentOutOfRangeException($"{nameof(lBCount)} must be greater than 1");
-            ServiceProvider = serviceProvider;
-            observerUnitContainer = serviceProvider.GetService<IObserverUnitContainer>();
+            this.observerUnitContainer = observerUnitContainer;
             Container = eventBusContainer;
             Exchange = exchange;
             RoutePrefix = routePrefix;
             LBCount = lBCount;
-            DefaultConsumerConfig = new BranchOptions
+            ConsumerConfig = new ConsumerOptions
             {
                 AutoAck = autoAck,
                 MaxQos = maxQos,
@@ -51,12 +50,11 @@ namespace Ray.EventBus.RabbitMQ
             }
             _CHash = new ConsistentHash(RouteList, lBCount * 10);
         }
-        public IServiceProvider ServiceProvider { get; }
         public IRabbitEventBusContainer Container { get; }
         public string Exchange { get; }
         public string RoutePrefix { get; }
         public int LBCount { get; }
-        public BranchOptions DefaultConsumerConfig { get; set; }
+        public ConsumerOptions ConsumerConfig { get; set; }
         public List<string> RouteList { get; }
         public Type ProducerType { get; set; }
         public List<RabbitConsumer> Consumers { get; set; } = new List<RabbitConsumer>();
@@ -76,18 +74,25 @@ namespace Ray.EventBus.RabbitMQ
                 throw new EventBusRepeatBindingProducerException(grainType.FullName);
             return this;
         }
-        public RabbitEventBus CreateConsumer<PrimaryKey>(string observerGroup, BranchOptions consumerConfig = default)
+        public RabbitEventBus AddGrainConsumer<PrimaryKey>(string observerGroup)
         {
             var consumer = new RabbitConsumer(observerUnitContainer.GetUnit<PrimaryKey>(ProducerType).GetEventHandlers(observerGroup))
             {
                 EventBus = this,
-                QueueList = new List<QueueInfo>(),
-                Config = consumerConfig == null || consumerConfig.MinQos == 0 ? DefaultConsumerConfig : consumerConfig
+                QueueList = RouteList.Select(route => new QueueInfo { RoutingKey = route, Queue = $"{route}_{observerGroup}" }).ToList(),
+                Config = ConsumerConfig
             };
-            foreach (var route in RouteList)
+            Consumers.Add(consumer);
+            return this;
+        }
+        public RabbitEventBus AddConsumer(Func<byte[], Task> handler, string observerGroup)
+        {
+            var consumer = new RabbitConsumer(new List<Func<byte[], Task>> { handler })
             {
-                consumer.QueueList.Add(new QueueInfo { RoutingKey = route, Queue = $"{route}_{observerGroup}" });
-            }
+                EventBus = this,
+                QueueList = RouteList.Select(route => new QueueInfo { RoutingKey = route, Queue = $"{route}_{observerGroup}" }).ToList(),
+                Config = ConsumerConfig
+            };
             Consumers.Add(consumer);
             return this;
         }
@@ -95,11 +100,11 @@ namespace Ray.EventBus.RabbitMQ
         {
             return Container.Work(this);
         }
-        public Task DefaultConsumer<PrimaryKey>()
+        public Task AddGrainConsumer<PrimaryKey>()
         {
             foreach (var group in observerUnitContainer.GetUnit<PrimaryKey>(ProducerType).GetGroups())
             {
-                CreateConsumer<PrimaryKey>(group);
+                AddGrainConsumer<PrimaryKey>(group);
             };
             return Enable();
         }

@@ -12,7 +12,10 @@ namespace Ray.Core.EventBus
         {
             this.eventHandlers = eventHandlers;
         }
-
+        public void AddHandler(Func<byte[], Task> func)
+        {
+            eventHandlers.Add(func);
+        }
         public Task Notice(byte[] bytes)
         {
             return Task.WhenAll(eventHandlers.Select(func => func(bytes)));

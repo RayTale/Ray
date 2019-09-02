@@ -1,9 +1,9 @@
 ﻿namespace Ray.EventBus.RabbitMQ
 {
     /// <summary>
-    /// Eventbus的branch配置
+    /// Consumer配置信息
     /// </summary>
-    public class BranchOptions
+    public class ConsumerOptions
     {
         /// <summary>
         /// 最小qos
