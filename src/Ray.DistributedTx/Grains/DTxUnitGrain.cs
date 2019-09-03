@@ -165,7 +165,7 @@ namespace Ray.DistributedTx
             };
             return await Work(commit);
         }
-        public abstract IDistributedTx[] GetTransactionActors(Input input);
+        protected abstract IDistributedTx[] GetTransactionActors(Input input);
         public abstract Task<Output> Work(Commit<Input> commit);
     }
 }

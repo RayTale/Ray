@@ -8,7 +8,7 @@ namespace Ray.Grain.TransactionUnits
 {
     public class TransferUnit : DTxUnitGrain<TransferInput, bool>, ITransferUnit
     {
-        public override IDistributedTx[] GetTransactionActors(TransferInput input)
+        protected override IDistributedTx[] GetTransactionActors(TransferInput input)
         {
             return new IDistributedTx[]
             {
