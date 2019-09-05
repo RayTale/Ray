@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="3.0.0-preview8.19405.4" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="3.0.0-preview8.19405.4" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="3.0.0-preview9.19423.4" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="3.0.0-preview9.19423.4" />
     <PackageReference Include="Microsoft.Orleans.CodeGenerator.MSBuild" Version="3.0.0-beta1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
@@ -9,8 +9,8 @@
     <PackageReference Include="Microsoft.Orleans.Core" Version="3.0.0-beta1" />
     <PackageReference Include="Microsoft.Orleans.Runtime.Abstractions" Version="3.0.0-beta1" />
     <PackageReference Include="System.Buffers" Version="4.5.0" />
-    <PackageReference Include="System.Text.Json" Version="4.6.0-preview8.19405.3" />
-    <PackageReference Include="System.Threading.Tasks.Dataflow" Version="4.10.0-preview8.19405.3" />
+    <PackageReference Include="System.Text.Json" Version="4.6.0-preview9.19421.4" />
+    <PackageReference Include="System.Threading.Tasks.Dataflow" Version="4.10.0-preview9.19421.4" />
     <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.6.0-preview.18571.3" />
   </ItemGroup>
 
