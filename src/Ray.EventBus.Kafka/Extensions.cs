@@ -1,12 +1,11 @@
-﻿using System;
-using System.Threading.Tasks;
-using Confluent.Kafka;
+﻿using Confluent.Kafka;
 using Microsoft.Extensions.DependencyInjection;
 using Ray.Core;
 using Ray.Core.EventBus;
-using Ray.EventBus.Kafka;
+using System;
+using System.Threading.Tasks;
 
-namespace Ray.EventBus.RabbitMQ
+namespace Ray.EventBus.Kafka
 {
     public static class Extensions
     {
