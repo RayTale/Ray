@@ -14,14 +14,11 @@ namespace Ray.EventBus.Kafka
         private readonly ConcurrentDictionary<Type, KafkaEventBus> eventBusDictionary = new ConcurrentDictionary<Type, KafkaEventBus>();
         private readonly List<KafkaEventBus> eventBusList = new List<KafkaEventBus>();
         readonly IKafkaClient Client;
-        readonly IServiceProvider serviceProvider;
         private readonly IObserverUnitContainer observerUnitContainer;
         public EventBusContainer(
-            IServiceProvider serviceProvider,
             IObserverUnitContainer observerUnitContainer,
             IKafkaClient client)
         {
-            this.serviceProvider = serviceProvider;
             Client = client;
             this.observerUnitContainer = observerUnitContainer;
         }
