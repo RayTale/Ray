@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <PackageReference Include="Confluent.Kafka" Version="1.1.0" />
-    <PackageReference Include="Microsoft.Extensions.ObjectPool" Version="3.0.0-preview9.19423.4" />
+    <PackageReference Include="Microsoft.Extensions.ObjectPool" Version="3.0.0-rc1.19456.10" />
   </ItemGroup>
 
   <ItemGroup>
