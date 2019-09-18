@@ -27,5 +27,13 @@ namespace Ray.Core
             siloHostBuilder.AddStartupTask<SiloStartupTask>();
             return siloHostBuilder;
         }
+
+        public static ISiloBuilder AddRay<StartupConfig>(this ISiloBuilder soilBuilder)
+            where StartupConfig : IStartupConfig, new()
+        {
+            soilBuilder.ConfigureServices((context, servicecollection) => servicecollection.AddRay<StartupConfig>());
+            soilBuilder.AddStartupTask<SiloStartupTask>();
+            return soilBuilder;
+        }
     }
 }
