@@ -1,5 +1,4 @@
 ﻿using Orleans.Concurrency;
-using Ray.Core;
 using Ray.Core.Event;
 using Ray.DistributedTx;
 //using Ray.EventBus.Kafka;
@@ -11,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace Ray.Grain
 {
-    [Reentrant, Observable, Producer]
+    [Reentrant, Producer]
     public sealed class Account : DTxGrain<long, AccountState>, IAccount
     {
         public Task Transfer(long toAccountId, decimal amount)

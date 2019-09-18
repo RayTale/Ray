@@ -5,6 +5,7 @@ using System.Collections.Concurrent;
 using Ray.Core.Abstractions;
 using Ray.Core.Exceptions;
 using Orleans;
+using Ray.Core.Core.Abstractions;
 
 namespace Ray.Core
 {
@@ -19,26 +20,30 @@ namespace Ray.Core
             {
                 foreach (var type in assembly.GetTypes())
                 {
-                    foreach (var attribute in type.GetCustomAttributes(false))
+                    if (type != typeof(IObservable) &&
+                        typeof(IObservable).IsAssignableFrom(type) &&
+                        !type.IsGenericType)
                     {
-                        if (attribute is ObservableAttribute observable)
+                        observableList.Add(type);
+                    }
+                    else
+                    {
+                        foreach (var attribute in type.GetCustomAttributes(false))
                         {
-                            observableList.Add(type);
-                            break;
-                        }
-                        if (attribute is ObserverAttribute observer)
-                        {
-                            if (observer.Observer == default)
+                            if (attribute is ObserverAttribute observer)
                             {
-                                observer.Observer = type.GetInterfaces().SingleOrDefault(t =>
-                                (typeof(IGrainWithStringKey).IsAssignableFrom(t) || typeof(IGrainWithIntegerKey).IsAssignableFrom(t)) &&
-                                t != typeof(IGrainWithStringKey) &&
-                                t != typeof(IGrainWithIntegerKey));
+                                if (observer.Observer == default)
+                                {
+                                    observer.Observer = type.GetInterfaces().SingleOrDefault(t =>
+                                    (typeof(IGrainWithStringKey).IsAssignableFrom(t) || typeof(IGrainWithIntegerKey).IsAssignableFrom(t)) &&
+                                    t != typeof(IGrainWithStringKey) &&
+                                    t != typeof(IGrainWithIntegerKey));
+                                }
+                                if (observer.Observer == default)
+                                    throw new NullReferenceException($"{nameof(ObserverAttribute.Observer)} in {type.FullName}");
+                                observerList.Add(observer);
+                                break;
                             }
-                            if (observer.Observer == default)
-                                throw new NullReferenceException($"{nameof(ObserverAttribute.Observer)} in {type.FullName}");
-                            observerList.Add(observer);
-                            break;
                         }
                     }
                 }

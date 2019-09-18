@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Orleans;
 using Ray.Core.Abstractions;
 using Ray.Core.Configuration;
+using Ray.Core.Core.Abstractions;
 using Ray.Core.Event;
 using Ray.Core.EventBus;
 using Ray.Core.Exceptions;
@@ -18,7 +19,7 @@ using Ray.Core.Storage;
 
 namespace Ray.Core
 {
-    public abstract class RayGrain<PrimaryKey, StateType> : Grain
+    public abstract class RayGrain<PrimaryKey, StateType> : Grain, IObservable
         where StateType : class, new()
     {
         public RayGrain()
