@@ -7,7 +7,7 @@ namespace Ray.Storage.MySQL
         static readonly DbProviderFactory dbFactory;
         static MySQLFactory()
         {
-            dbFactory = GetPostgreSqlFactory();
+            dbFactory = GetDbProviderFactory();
         }
         public static DbConnection CreateConnection(string conn)
         {
@@ -15,7 +15,7 @@ namespace Ray.Storage.MySQL
             connection.ConnectionString = conn;
             return connection;
         }
-        protected static DbProviderFactory GetPostgreSqlFactory()
+        protected static DbProviderFactory GetDbProviderFactory()
         {
             return MySql.Data.MySqlClient.MySqlClientFactory.Instance;
         }

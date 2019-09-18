@@ -66,7 +66,7 @@ namespace Ray.Core
                     Register(unit);
                 }
                 else
-                    throw new PrimaryKeyTypeException(observable.FullName);
+                    throw new PrimaryKeyTypeException($"Ray can't support {observable.FullName} primary key type.");
             }
         }
         public IObserverUnit<PrimaryKey> GetUnit<PrimaryKey>(Type grainType)
