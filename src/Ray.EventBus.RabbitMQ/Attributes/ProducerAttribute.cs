@@ -5,7 +5,7 @@ namespace Ray.EventBus.RabbitMQ
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
     public class ProducerAttribute : Attribute
     {
-        public ProducerAttribute(string exchange = null, string routePrefix = null, int lBCount = 1, ushort minQos = 100, ushort incQos = 100, ushort maxQos = 300, bool autoAck = false, bool reenqueue = false)
+        public ProducerAttribute(string exchange = null, string routePrefix = null, int lBCount = 1, ushort minQos = 100, ushort incQos = 100, ushort maxQos = 300, bool autoAck = false, bool reenqueue = false, bool persistent = false)
         {
             Exchange = exchange;
             RoutePrefix = routePrefix;
@@ -15,6 +15,7 @@ namespace Ray.EventBus.RabbitMQ
             MinQos = minQos;
             IncQos = incQos;
             Reenqueue = reenqueue;
+            Persistent = persistent;
         }
         public string Exchange { get; }
         public string RoutePrefix { get; }
@@ -24,5 +25,6 @@ namespace Ray.EventBus.RabbitMQ
         public ushort MaxQos { get; set; }
         public bool AutoAck { get; set; }
         public bool Reenqueue { get; set; }
+        public bool Persistent { get; set; }
     }
 }

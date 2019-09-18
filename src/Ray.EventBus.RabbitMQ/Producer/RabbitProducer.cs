@@ -50,7 +50,7 @@ namespace Ray.EventBus.RabbitMQ
             var pullTask = PullModel(route);
             if (!pullTask.IsCompletedSuccessfully)
                 await pullTask;
-            pullTask.Result.Publish(bytes, publisher.Exchange, route, false);
+            pullTask.Result.Publish(bytes, publisher.Exchange, route, publisher.Persistent);
         }
     }
 }

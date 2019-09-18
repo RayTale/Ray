@@ -15,7 +15,7 @@ namespace Ray.EventBus.RabbitMQ
         public RabbitEventBus(
             IObserverUnitContainer observerUnitContainer,
             IRabbitEventBusContainer eventBusContainer,
-            string exchange, string routePrefix, int lBCount = 1, ushort minQos = 100, ushort incQos = 100, ushort maxQos = 300, bool autoAck = false, bool reenqueue = true)
+            string exchange, string routePrefix, int lBCount = 1, ushort minQos = 100, ushort incQos = 100, ushort maxQos = 300, bool autoAck = false, bool reenqueue = true, bool persistent = false)
         {
             if (string.IsNullOrEmpty(exchange))
                 throw new ArgumentNullException(nameof(exchange));
@@ -28,13 +28,14 @@ namespace Ray.EventBus.RabbitMQ
             Exchange = exchange;
             RoutePrefix = routePrefix;
             LBCount = lBCount;
+            Persistent = persistent;
             ConsumerConfig = new ConsumerOptions
             {
                 AutoAck = autoAck,
                 MaxQos = maxQos,
                 MinQos = minQos,
                 IncQos = incQos,
-                Reenqueue = reenqueue
+                Reenqueue = reenqueue,
             };
             RouteList = new List<string>();
             if (LBCount == 1)
@@ -57,6 +58,10 @@ namespace Ray.EventBus.RabbitMQ
         public ConsumerOptions ConsumerConfig { get; set; }
         public List<string> RouteList { get; }
         public Type ProducerType { get; set; }
+        /// <summary>
+        /// 消息是否持久化
+        /// </summary>
+        public bool Persistent { get; set; }
         public List<RabbitConsumer> Consumers { get; set; } = new List<RabbitConsumer>();
         public string GetRoute(string key)
         {
