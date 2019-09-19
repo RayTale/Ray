@@ -285,7 +285,9 @@ namespace Ray.Core
                     if (ArchiveOptions.On && LastArchive != default)
                     {
                         Snapshot = await ArchiveStorage.GetById(LastArchive.Id);
-                        await SaveSnapshotAsync(true, false);
+                        var saveTask = SaveSnapshotAsync(true, false);
+                        if (!saveTask.IsCompletedSuccessfully)
+                            await saveTask;
                     }
                     if (Snapshot == default)
                     {
@@ -313,7 +315,8 @@ namespace Ray.Core
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace("Start save snapshot  with Id = {0} ,state version = {1}", GrainId.ToString(), Snapshot.Base.Version);
             //如果版本号差超过设置则更新快照
-            if (force || (Snapshot.Base.Version - SnapshotEventVersion >= CoreOptions.SnapshotVersionInterval))
+            if ((force && Snapshot.Base.Version > SnapshotEventVersion) ||
+                (Snapshot.Base.Version - SnapshotEventVersion >= CoreOptions.SnapshotVersionInterval))
             {
                 var oldLatestMinEventTimestamp = Snapshot.Base.LatestMinEventTimestamp;
                 try
@@ -494,6 +497,10 @@ namespace Ray.Core
                 if (Logger.IsEnabled(LogLevel.Error))
                     Logger.LogError(ex, "Raise event produces errors, state Id = {0}, version ={1},event type = {2},event = {3}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, Serializer.Serialize(@event, @event.GetType()));
                 await RecoverySnapshot();//还原状态
+                //出现错误可能会重复出现，所以把之前的快照进行更新，提高还原速度
+                var saveSnapshotTask = SaveSnapshotAsync(true);
+                if (!saveSnapshotTask.IsCompletedSuccessfully)
+                    await saveSnapshotTask;
                 throw;
             }
             return false;

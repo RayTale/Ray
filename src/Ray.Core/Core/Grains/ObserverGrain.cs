@@ -292,9 +292,12 @@ namespace Ray.Core
             if (concurrent)
                 ConcurrentChannel.Complete();
             if (needSaveSnap)
-                return SaveSnapshotAsync(true).AsTask();
-            else
-                return Task.CompletedTask;
+            {
+                var saveTask = SaveSnapshotAsync(true);
+                if (!saveTask.IsCompletedSuccessfully)
+                    return saveTask.AsTask();
+            }
+            return Task.CompletedTask;
         }
         protected virtual async Task UnsafeTell(IEnumerable<IFullyEvent<PrimaryKey>> eventList)
         {
@@ -420,7 +423,9 @@ namespace Ray.Core
         {
             if (SnapshotEventVersion < compareVersion && Snapshot.Version >= compareVersion)
             {
-                await SaveSnapshotAsync(true);
+                var saveTask = SaveSnapshotAsync(true);
+                if (!saveTask.IsCompletedSuccessfully)
+                    await saveTask;
             }
             return Snapshot.Version;
         }
@@ -459,12 +464,17 @@ namespace Ray.Core
                 {
                     throw new EventVersionUnorderedException(GrainId.ToString(), GrainType, fullyEvent.Base.Version, Snapshot.Version);
                 }
-                await SaveSnapshotAsync();
+                var saveTask = SaveSnapshotAsync();
+                if (!saveTask.IsCompletedSuccessfully)
+                    await saveTask;
                 if (Logger.IsEnabled(LogLevel.Trace))
                     Logger.LogTrace("Event Handling Completion, grain Id ={0} and state version = {1},event type = {2}", GrainId.ToString(), Snapshot.Version, fullyEvent.GetType().FullName);
             }
             catch (Exception ex)
             {
+                var saveTask = SaveSnapshotAsync(true);
+                if (!saveTask.IsCompletedSuccessfully)
+                    await saveTask;
                 Logger.LogCritical(ex, "FollowGrain Event handling failed with Id = {0},event = {1}", GrainId.ToString(), Serializer.Serialize(fullyEvent, fullyEvent.GetType()));
                 throw;
             }
@@ -576,7 +586,8 @@ namespace Ray.Core
         {
             if (SaveSnapshot)
             {
-                if (force || (Snapshot.Version - SnapshotEventVersion >= ConfigOptions.ObserverSnapshotVersionInterval))
+                if ((force && Snapshot.Version > SnapshotEventVersion) ||
+                    (Snapshot.Version - SnapshotEventVersion >= ConfigOptions.ObserverSnapshotVersionInterval))
                 {
                     if (Logger.IsEnabled(LogLevel.Trace))
                         Logger.LogTrace("Start saving state snapshots with Id = {0} ,state version = {1}", GrainId.ToString(), Snapshot.Version);

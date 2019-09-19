@@ -15,7 +15,7 @@
         /// </summary>
         public int ObserverSnapshotVersionInterval { get; set; } = 20;
         /// <summary>
-        /// FollowGrain失活的时候保存快照的最小事件Version间隔
+        /// ObserverGrain失活的时候保存快照的最小事件Version间隔
         /// </summary>
         public int ObserverSnapshotMinVersionInterval { get; set; } = 1;
         /// <summary>
