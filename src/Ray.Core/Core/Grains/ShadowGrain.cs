@@ -147,10 +147,12 @@ namespace Ray.Core
                         if (eventList.Count < NumberOfEventsPerRead) break;
                     };
                 }
+                if (Logger.IsEnabled(LogLevel.Trace))
+                    Logger.LogTrace("Activation completed: {0}->{1}", GrainType.FullName, Serializer.Serialize(Snapshot));
             }
             catch (Exception ex)
             {
-                Logger.LogCritical(ex, "Activation failed: {0}", GrainId.ToString());
+                Logger.LogCritical(ex, "Activation failed: {0}->{1}", GrainType.FullName, GrainId.ToString());
                 throw;
             }
         }
@@ -192,12 +194,11 @@ namespace Ray.Core
                     };
                 }
                 if (Logger.IsEnabled(LogLevel.Trace))
-                    Logger.LogTrace("Snapshot load completion:{0}", Serializer.Serialize(Snapshot));
+                    Logger.LogTrace("ReadSnapshot completed: {0}->{1}", GrainType.FullName, Serializer.Serialize(Snapshot));
             }
             catch (Exception ex)
             {
-                if (Logger.IsEnabled(LogLevel.Critical))
-                    Logger.LogCritical(ex, "Snapshot load failed", GrainId.ToString());
+                Logger.LogCritical(ex, "ReadSnapshot failed: {0}->{1}", GrainType.FullName, GrainId.ToString());
                 throw;
             }
         }
@@ -239,11 +240,13 @@ namespace Ray.Core
                         if (!tellTask.IsCompletedSuccessfully)
                             return tellTask.AsTask();
                     }
+                    if (Logger.IsEnabled(LogLevel.Trace))
+                        Logger.LogInformation("OnNext completed: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(data, msgType));
                 }
                 else
                 {
-                    if (Logger.IsEnabled(LogLevel.Information))
-                        Logger.LogInformation("Non-event messages:{0}({1})", eventType, Serializer.Serialize(data));
+                    if (Logger.IsEnabled(LogLevel.Trace))
+                        Logger.LogInformation("Non-event messages: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(data, msgType));
                 }
             }
             return Task.CompletedTask;
@@ -258,50 +261,47 @@ namespace Ray.Core
         }
         protected async ValueTask Tell(IFullyEvent<PrimaryKey> @event)
         {
-            try
+            if (@event.Base.Version == Snapshot.Base.Version + 1)
             {
-                if (@event.Base.Version == Snapshot.Base.Version + 1)
+                var onEventDeliveredTask = OnEventDelivered(@event);
+                if (!onEventDeliveredTask.IsCompletedSuccessfully)
+                    await onEventDeliveredTask;
+                Snapshot.Base.FullUpdateVersion(@event.Base, GrainType);//更新处理完成的Version
+            }
+            else if (@event.Base.Version > Snapshot.Base.Version)
+            {
+                var eventList = await EventStorage.GetList(GrainId, Snapshot.Base.StartTimestamp, Snapshot.Base.Version + 1, @event.Base.Version - 1);
+                foreach (var evt in eventList)
                 {
-                    var onEventDeliveredTask = OnEventDelivered(@event);
+                    var onEventDeliveredTask = OnEventDelivered(evt);
                     if (!onEventDeliveredTask.IsCompletedSuccessfully)
                         await onEventDeliveredTask;
-                    Snapshot.Base.FullUpdateVersion(@event.Base, GrainType);//更新处理完成的Version
-                }
-                else if (@event.Base.Version > Snapshot.Base.Version)
-                {
-                    var eventList = await EventStorage.GetList(GrainId, Snapshot.Base.StartTimestamp, Snapshot.Base.Version + 1, @event.Base.Version - 1);
-                    foreach (var evt in eventList)
-                    {
-                        var onEventDeliveredTask = OnEventDelivered(evt);
-                        if (!onEventDeliveredTask.IsCompletedSuccessfully)
-                            await onEventDeliveredTask;
-                        Snapshot.Base.FullUpdateVersion(evt.Base, GrainType);//更新处理完成的Version
-                    }
-                }
-                if (@event.Base.Version == Snapshot.Base.Version + 1)
-                {
-                    var onEventDeliveredTask = OnEventDelivered(@event);
-                    if (!onEventDeliveredTask.IsCompletedSuccessfully)
-                        await onEventDeliveredTask;
-                    Snapshot.Base.FullUpdateVersion(@event.Base, GrainType);//更新处理完成的Version
-                }
-                if (@event.Base.Version > Snapshot.Base.Version)
-                {
-                    throw new EventVersionUnorderedException(GrainId.ToString(), GrainType, @event.Base.Version, Snapshot.Base.Version);
+                    Snapshot.Base.FullUpdateVersion(evt.Base, GrainType);//更新处理完成的Version
                 }
             }
-            catch (Exception ex)
+            if (@event.Base.Version == Snapshot.Base.Version + 1)
             {
-                Logger.LogCritical(ex, "{0}({1})", @event.GetType().FullName, Serializer.Serialize(@event, @event.GetType()));
-                throw;
+                var onEventDeliveredTask = OnEventDelivered(@event);
+                if (!onEventDeliveredTask.IsCompletedSuccessfully)
+                    await onEventDeliveredTask;
+                Snapshot.Base.FullUpdateVersion(@event.Base, GrainType);//更新处理完成的Version
+            }
+            if (@event.Base.Version > Snapshot.Base.Version)
+            {
+                throw new EventVersionUnorderedException(GrainId.ToString(), GrainType, @event.Base.Version, Snapshot.Base.Version);
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask OnEventDelivered(IFullyEvent<PrimaryKey> @event)
         {
-            if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace("OnEventDelivered: {0}({1})", @event.GetType().FullName, Serializer.Serialize(@event, @event.GetType()));
-            SnapshotHandler.Apply(Snapshot, @event);
+            try
+            {
+                SnapshotHandler.Apply(Snapshot, @event);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogCritical(ex, "Delivered failed: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(fullyEvent, fullyEvent.GetType()));
+            }
             return Consts.ValueTaskDone;
         }
     }
