@@ -110,7 +110,7 @@ namespace Ray.Core
         private async Task AutoTransactionExcuter(List<ConcurrentTransport<Snapshot<PrimaryKey, SnapshotType>>> inputs)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace("Start batch event processing with id = {0},state version = {1},the number of events = {2}", GrainId.ToString(), CurrentTransactionStartVersion, inputs.Count.ToString());
+                Logger.LogTrace("AutoTransaction: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), CurrentTransactionStartVersion, inputs.Count.ToString());
             await BeginTransaction(defaultTransactionId);
             try
             {
@@ -150,8 +150,6 @@ namespace Ray.Core
             var onCompletedTask = OnConcurrentExecuted();
             if (!onCompletedTask.IsCompletedSuccessfully)
                 await onCompletedTask;
-            if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace("Batch events have been processed with id = {0},state version = {1},the number of events = {2}", GrainId.ToString(), CurrentTransactionStartVersion, inputs.Count.ToString());
             async Task ReTry()
             {
                 foreach (var input in inputs)

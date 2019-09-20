@@ -221,6 +221,12 @@ namespace Ray.Core
                     }
                     if (eventList.Count < CoreOptions.NumberOfEventsPerRead) break;
                 };
+                if (Snapshot.Base.Version - SnapshotEventVersion >= CoreOptions.MinSnapshotVersionInterval)
+                {
+                    var saveTask = SaveSnapshotAsync(true, true);
+                    if (!saveTask.IsCompletedSuccessfully)
+                        await saveTask;
+                }
                 if (Logger.IsEnabled(LogLevel.Trace))
                     Logger.LogTrace("Recovery completed: {0}->{1}", GrainType.FullName, Serializer.Serialize(Snapshot));
             }
@@ -232,10 +238,9 @@ namespace Ray.Core
         }
         public override async Task OnDeactivateAsync()
         {
-            var needSaveSnap = Snapshot.Base.Version - SnapshotEventVersion >= CoreOptions.MinSnapshotVersionInterval;
             try
             {
-                if (needSaveSnap)
+                if (Snapshot.Base.Version - SnapshotEventVersion >= CoreOptions.MinSnapshotVersionInterval)
                 {
                     var saveTask = SaveSnapshotAsync(true, true);
                     if (!saveTask.IsCompletedSuccessfully)
@@ -277,9 +282,6 @@ namespace Ray.Core
                     if (ArchiveOptions.On && LastArchive != default)
                     {
                         Snapshot = await ArchiveStorage.GetById(LastArchive.Id);
-                        var saveTask = SaveSnapshotAsync(true, false);
-                        if (!saveTask.IsCompletedSuccessfully)
-                            await saveTask;
                     }
                     if (Snapshot == default)
                     {
@@ -472,9 +474,9 @@ namespace Ray.Core
                 }
                 else
                 {
-                    Snapshot.Base.DecrementDoingVersion();//还原doing Version
                     if (Logger.IsEnabled(LogLevel.Trace))
                         Logger.LogTrace("RaiseEvent failed: {0}->{1}->{2}", GrainType.FullName, Serializer.Serialize(fullyEvent), Serializer.Serialize(Snapshot));
+                    Snapshot.Base.DecrementDoingVersion();//还原doing Version
                     var task = OnRaiseFailed(fullyEvent);
                     if (!task.IsCompletedSuccessfully)
                         await task;

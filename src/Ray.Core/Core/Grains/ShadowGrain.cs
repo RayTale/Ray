@@ -241,12 +241,12 @@ namespace Ray.Core
                             return tellTask.AsTask();
                     }
                     if (Logger.IsEnabled(LogLevel.Trace))
-                        Logger.LogInformation("OnNext completed: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(data, msgType));
+                        Logger.LogInformation("OnNext completed: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(data, eventType));
                 }
                 else
                 {
                     if (Logger.IsEnabled(LogLevel.Trace))
-                        Logger.LogInformation("Non-event messages: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(data, msgType));
+                        Logger.LogInformation("Non-Event: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(data, eventType));
                 }
             }
             return Task.CompletedTask;
@@ -300,7 +300,7 @@ namespace Ray.Core
             }
             catch (Exception ex)
             {
-                Logger.LogCritical(ex, "Delivered failed: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(fullyEvent, fullyEvent.GetType()));
+                Logger.LogCritical(ex, "Delivered failed: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(@event, @event.GetType()));
             }
             return Consts.ValueTaskDone;
         }

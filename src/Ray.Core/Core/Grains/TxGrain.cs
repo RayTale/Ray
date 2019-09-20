@@ -106,7 +106,7 @@ namespace Ray.Core
         protected async Task BeginTransaction(long transactionId)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace("Begin transaction with grainid {0} and transactionId {1},transaction start state version {2}", GrainId.ToString(), transactionId, CurrentTransactionStartVersion.ToString());
+                Logger.LogTrace("Transaction begin: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), transactionId);
             if (TransactionStartMilliseconds != 0 &&
                 DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - TransactionStartMilliseconds > CoreOptions.TransactionMillisecondsTimeout)
             {
@@ -117,8 +117,9 @@ namespace Ray.Core
                         if (TransactionStartMilliseconds != 0 &&
                             DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - TransactionStartMilliseconds > CoreOptions.TransactionMillisecondsTimeout)
                         {
+                            if (Logger.IsEnabled(LogLevel.Trace))
+                                Logger.LogTrace("Transaction timeout: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), transactionId);
                             await RollbackTransaction(CurrentTransactionId);//事务超时自动回滚
-                            Logger.LogError("Transaction timeout, automatic rollback,grain id = {1}", GrainId.ToString());
                         }
                     }
                     finally
@@ -150,8 +151,6 @@ namespace Ray.Core
         }
         public async Task CommitTransaction(long transactionId)
         {
-            if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace("Commit transaction with id = {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), WaitingForTransactionTransports.Count.ToString(), CurrentTransactionStartVersion.ToString(), Snapshot.Base.Version.ToString());
             if (WaitingForTransactionTransports.Count > 0)
             {
                 if (CurrentTransactionId != transactionId)
@@ -175,10 +174,12 @@ namespace Ray.Core
                         );
                     }
                     await EventStorage.TransactionBatchAppend(WaitingForTransactionTransports);
+                    if (Logger.IsEnabled(LogLevel.Trace))
+                        Logger.LogTrace("Transaction Commited: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), transactionId);
                 }
                 catch (Exception ex)
                 {
-                    Logger.LogError(ex, "Commit transaction failed, grain Id = {1}", GrainId.ToString());
+                    Logger.LogError(ex, "Transaction failed: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), transactionId);
                     throw;
                 }
             }
@@ -186,8 +187,6 @@ namespace Ray.Core
         protected virtual ValueTask OnCommitTransaction(long transactionId) => Consts.ValueTaskDone;
         public async Task RollbackTransaction(long transactionId)
         {
-            if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace("Start rollback transaction with id = {0},event counts = {1}, from version {2} to version {3}", GrainId.ToString(), WaitingForTransactionTransports.Count.ToString(), CurrentTransactionStartVersion.ToString(), Snapshot.Base.Version.ToString());
             if (CurrentTransactionId == transactionId && CurrentTransactionStartVersion != -1 && Snapshot.Base.Version >= CurrentTransactionStartVersion)
             {
                 try
@@ -211,11 +210,11 @@ namespace Ray.Core
                     RestoreTransactionTemporaryState();
                     TransactionSemaphore.Release();
                     if (Logger.IsEnabled(LogLevel.Trace))
-                        Logger.LogTrace("Rollback transaction successfully with id = {0},state version = {1}", GrainId.ToString(), Snapshot.Base.Version.ToString());
+                        Logger.LogTrace("Transaction rollbacked: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), transactionId);
                 }
                 catch (Exception ex)
                 {
-                    Logger.LogCritical(ex, "Rollback transaction failed with Id = {1}", GrainId.ToString());
+                    Logger.LogCritical(ex, "Transaction rollback failed: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), transactionId);
                     throw;
                 }
             }
@@ -314,8 +313,6 @@ namespace Ray.Core
         /// <param name="eUID"></param>
         protected void TxRaiseEvent(IEvent @event, EventUID eUID = null)
         {
-            if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace("Start transactionRaiseEvent, grain Id ={0} and state version = {1},event type = {2} ,event = {3},uniqueueId = {4}", GrainId.ToString(), Snapshot.Base.Version, @event.GetType().FullName, Serializer.Serialize(@event, @event.GetType()), eUID);
             try
             {
                 if (CurrentTransactionStartVersion == -1)
@@ -346,10 +343,12 @@ namespace Ray.Core
                 WaitingForTransactionTransports.Add(new EventTransport<PrimaryKey>(fullyEvent, unique, fullyEvent.StateId.ToString()));
                 SnapshotHandler.Apply(Snapshot, fullyEvent);
                 Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
+                if (Logger.IsEnabled(LogLevel.Trace))
+                    Logger.LogTrace("TxRaiseEvent completed: {0}->{1}->{2}", GrainType.FullName, Serializer.Serialize(fullyEvent), Serializer.Serialize(Snapshot));
             }
             catch (Exception ex)
             {
-                Logger.LogCritical(ex, "Grain Id = {0},event type = {1} and event = {2}", GrainId.ToString(), @event.GetType().FullName, Serializer.Serialize(@event, @event.GetType()));
+                Logger.LogError(ex, "TxRaiseEvent failed: {0}->{1}->{2}", GrainType.FullName, Serializer.Serialize(@event, @event.GetType()), Serializer.Serialize(Snapshot));
                 Snapshot.Base.DecrementDoingVersion();//还原doing Version
                 throw;
             }

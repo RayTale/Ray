@@ -2,7 +2,6 @@
 using Microsoft.Extensions.Logging;
 using Orleans;
 using Orleans.Concurrency;
-using Orleans.Runtime;
 using Ray.Core.Channels;
 using Ray.Core.Configuration;
 using Ray.Core.Event;
@@ -410,7 +409,7 @@ namespace Ray.Core
                 else
                 {
                     if (Logger.IsEnabled(LogLevel.Trace))
-                        Logger.LogInformation("Non-event messages: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(data, msgType));
+                        Logger.LogInformation("Non-Event: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(data, msgType));
                 }
             }
         }
