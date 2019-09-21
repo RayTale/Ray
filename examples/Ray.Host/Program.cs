@@ -16,6 +16,7 @@ using Ray.Storage.Mongo;
 using Ray.Storage.MySQL;
 using Ray.Storage.PostgreSQL;
 using Ray.Storage.SQLServer;
+using Microsoft.Extensions.Hosting;
 
 namespace Ray.MongoHost
 {
@@ -29,16 +30,16 @@ namespace Ray.MongoHost
         {
             try
             {
-                using (var host = await StartSilo())
+                while (true)
                 {
-                    while (true)
+                    using (var host = await StartSilo())
                     {
                         Console.WriteLine("Input any key to stop");
                         Console.ReadLine();
                         await host.StopAsync();
+                        host.Dispose();
                         Console.WriteLine("Input any key to Start");
                         Console.ReadLine();
-                        await host.StartAsync();
                     }
                 }
             }
@@ -48,37 +49,42 @@ namespace Ray.MongoHost
                 return 1;
             }
         }
-        private static async Task<ISiloHost> StartSilo()
+        private static async Task<IHost> StartSilo()
         {
-            var builder = new SiloHostBuilder()
-                .UseLocalhostClustering()
-                .UseDashboard()
-                .AddRay<Configuration>()
-                .Configure<EndpointOptions>(options => options.AdvertisedIPAddress = IPAddress.Loopback)
-                .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(Account).Assembly).WithReferences())
-                .ConfigureServices((context, servicecollection) =>
+            var host = new HostBuilder()
+                .UseOrleans((context, siloBuilder) =>
+                {
+                    siloBuilder
+                        .UseLocalhostClustering()
+                        .UseLocalhostClustering()
+                        .UseDashboard()
+                        .AddRay<Configuration>()
+                        .Configure<EndpointOptions>(options => options.AdvertisedIPAddress = IPAddress.Loopback)
+                        .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(Account).Assembly).WithReferences());
+                })
+                .ConfigureServices(servicecollection =>
                 {
                     //注册postgresql为事件存储库
-                    //servicecollection.AddPostgreSQLStorage(config =>
-                    //{
-                    //    config.ConnectionDict.Add("core_event", "Server=127.0.0.1;Port=5432;Database=Ray;User Id=postgres;Password=extop;Pooling=true;MaxPoolSize=20;");
-                    //});
-                    //servicecollection.AddPostgreSQLTxStorage(options =>
-                    //{
-                    //    options.ConnectionKey = "core_event";
-                    //    options.TableName = "Transaction_TemporaryRecord";
-                    //});
-                    //servicecollection.PSQLConfigure();
-                    servicecollection.AddSQLServerStorage(config =>
+                    servicecollection.AddPostgreSQLStorage(config =>
                     {
-                        config.ConnectionDict.Add("core_event", "Server=127.0.0.1,1433;Database=Ray;User Id=sa;Password=luohuazhiyu;Pooling=true;max pool size=20;");
+                        config.ConnectionDict.Add("core_event", "Server=127.0.0.1;Port=5432;Database=Ray;User Id=postgres;Password=luohuazhiyu;Pooling=true;MaxPoolSize=20;");
                     });
-                    servicecollection.AddSQLServerTxStorage(options =>
+                    servicecollection.AddPostgreSQLTxStorage(options =>
                     {
                         options.ConnectionKey = "core_event";
                         options.TableName = "Transaction_TemporaryRecord";
                     });
-                    servicecollection.SQLServerConfigure();
+                    servicecollection.PSQLConfigure();
+                    //servicecollection.AddSQLServerStorage(config =>
+                    //{
+                    //    config.ConnectionDict.Add("core_event", "Server=127.0.0.1,1433;Database=Ray;User Id=sa;Password=luohuazhiyu;Pooling=true;max pool size=20;");
+                    //});
+                    //servicecollection.AddSQLServerTxStorage(options =>
+                    //{
+                    //    options.ConnectionKey = "core_event";
+                    //    options.TableName = "Transaction_TemporaryRecord";
+                    //});
+                    //servicecollection.SQLServerConfigure();
                     //注册mysql作为事件存储库
                     //servicecollection.AddMySQLStorage(config =>
                     //{
@@ -101,26 +107,6 @@ namespace Ray.MongoHost
                     //    options.CollectionName = "Transaction_TemporaryRecord";
                     //});
                     //servicecollection.MongoConfigure();
-                    servicecollection.AddRabbitMQ(config =>
-                    {
-                        config.UserName = "admin";
-                        config.Password = "admin";
-                        config.Hosts = new[] { "127.0.0.1:5672" };
-                        config.MaxPoolSize = 100;
-                        config.VirtualHost = "/";
-                    });
-                    //servicecollection.AddKafkaMQ(
-                    //    config => { },
-                    //    config =>
-                    //    {
-                    //        config.BootstrapServers = "192.168.1.2:9092";
-                    //    }, config =>
-                    //    {
-                    //        config.BootstrapServers = "192.168.1.2:9092";
-                    //    }, async container =>
-                    //    {
-                    //        await container.CreateEventBus<Account>(nameof(Account), 5).DefaultConsumer<long>();
-                    //    });
                     //servicecollection.AddRabbitMQ(config =>
                     //{
                     //    config.UserName = "admin";
@@ -128,23 +114,35 @@ namespace Ray.MongoHost
                     //    config.Hosts = new[] { "127.0.0.1:5672" };
                     //    config.MaxPoolSize = 100;
                     //    config.VirtualHost = "/";
-                    //}, async container =>
-                    //{
-                    //    await container.CreateEventBus<Account>("Account", "account", 5).DefaultConsumer<long>();
                     //});
+                    servicecollection.AddKafkaMQ(
+                    config => { },
+                    config =>
+                    {
+                        config.BootstrapServers = "192.168.1.5:9092";
+                    }, config =>
+                    {
+                        config.BootstrapServers = "192.168.1.5:9092";
+                    });
+                    //servicecollection.AddRabbitMQ(config =>
+                    //{
+                    //    config.UserName = "admin";
+                    //    config.Password = "admin";
+                    //    config.Hosts = new[] { "192.168.1.5:5672" };
+                    //    config.MaxPoolSize = 100;
+                    //    config.VirtualHost = "/";
+                    //});
+                    servicecollection.Configure<GrainCollectionOptions>(options =>
+                  {
+                      options.CollectionAge = TimeSpan.FromMinutes(5);
+                  });
                 })
-                 .Configure<GrainCollectionOptions>(options =>
-                 {
-                     options.CollectionAge = TimeSpan.FromMinutes(5);
-                 })
                 .ConfigureLogging(logging =>
                 {
                     logging.SetMinimumLevel(LogLevel.Information);
                     logging.AddConsole(options => options.IncludeScopes = true);
-                });
-
-            var host = builder.Build();
-            await host.StartAsync();
+                }).Build();
+            await host.RunAsync();
             return host;
         }
     }

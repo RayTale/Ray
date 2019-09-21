@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
-using Ray.Core.EventBus;
 
 namespace Ray.Core
 {
@@ -16,7 +14,6 @@ namespace Ray.Core
         }
         internal static Task StartRay(IServiceProvider serviceProvider)
         {
-            tasks.Add(new StartupTask(int.MaxValue, provider => provider.GetService<IConsumerManager>().Start()));
             tasks = tasks.OrderBy(func => func.SortIndex).ToList();
             return Task.WhenAll(tasks.Select(value => value.Func(serviceProvider)));
         }

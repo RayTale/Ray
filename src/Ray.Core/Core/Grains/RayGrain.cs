@@ -664,7 +664,7 @@ namespace Ray.Core
                 var minArchive = noCleareds.FirstOrDefault();
                 if (minArchive != default)
                 {
-                    //判断需要清理的event是否都被follow执行过
+                    //判断需要清理的event是否都被Observer执行过
                     var versions = await ObserverUnit.GetAndSaveVersion(Snapshot.Base.StateId, Snapshot.Base.Version);
                     if (versions.All(v => v >= minArchive.EndVersion))
                     {

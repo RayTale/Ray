@@ -20,7 +20,7 @@ namespace Ray.EventBus.Kafka
             serviceCollection.Configure<ConsumerConfig>(config => consumerConfigAction(config));
             serviceCollection.Configure<RayKafkaOptions>(config => configAction(config));
             serviceCollection.AddSingleton<IKafkaClient, KafkaClient>();
-            serviceCollection.AddSingleton<IConsumerManager, ConsumerManager>();
+            serviceCollection.AddHostedService<ConsumerManager>();
             serviceCollection.AddSingleton<IKafkaEventBusContainer, EventBusContainer>();
             serviceCollection.AddSingleton(serviceProvider => serviceProvider.GetService<IKafkaEventBusContainer>() as IProducerContainer);
             Startup.Register(async serviceProvider =>

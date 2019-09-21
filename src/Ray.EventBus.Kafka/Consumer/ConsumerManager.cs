@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Orleans;
-using Ray.Core.EventBus;
 using Ray.Core.Services.Abstractions;
 using System;
 using System.Collections.Concurrent;
@@ -11,13 +11,16 @@ using System.Threading.Tasks;
 
 namespace Ray.EventBus.Kafka
 {
-    public class ConsumerManager : IConsumerManager
+    public class ConsumerManager : IHostedService, IDisposable
     {
         readonly ILogger<ConsumerManager> logger;
         readonly IKafkaClient client;
         readonly IKafkaEventBusContainer kafkaEventBusContainer;
         readonly IServiceProvider provider;
         readonly IGrainFactory grainFactory;
+        const int _HoldTime = 20 * 1000;
+        const int _MonitTime = 60 * 2 * 1000;
+        const int _checkTime = 10 * 1000;
         public ConsumerManager(
             ILogger<ConsumerManager> logger,
             IKafkaClient client,
@@ -40,14 +43,6 @@ namespace Ray.EventBus.Kafka
         int distributedMonitorTimeLock = 0;
         int distributedHoldTimerLock = 0;
         int heathCheckTimerLock = 0;
-
-        public Task Start()
-        {
-            DistributedMonitorTime = new Timer(state => DistributedStart().Wait(), null, 1000, 60 * 2 * 1000);
-            DistributedHoldTimer = new Timer(state => DistributedHold().Wait(), null, 20 * 1000, 20 * 1000);
-            HeathCheckTimer = new Timer(state => { HeathCheck().Wait(); }, null, 5 * 1000, 10 * 1000);
-            return Task.CompletedTask;
-        }
         private async Task DistributedStart()
         {
             try
@@ -135,8 +130,29 @@ namespace Ray.EventBus.Kafka
                 Interlocked.Exchange(ref heathCheckTimerLock, 0);
             }
         }
-        public void Stop()
+
+        public Task StartAsync(CancellationToken cancellationToken)
         {
+            if (logger.IsEnabled(LogLevel.Information))
+                logger.LogInformation("EventBus Background Service is starting.");
+            DistributedMonitorTime = new Timer(state => DistributedStart().Wait(), null, 1000, _MonitTime);
+            DistributedHoldTimer = new Timer(state => DistributedHold().Wait(), null, _HoldTime, _HoldTime);
+            HeathCheckTimer = new Timer(state => { HeathCheck().Wait(); }, null, _checkTime, _checkTime);
+            return Task.CompletedTask;
+        }
+
+        public Task StopAsync(CancellationToken cancellationToken)
+        {
+            if (logger.IsEnabled(LogLevel.Information))
+                logger.LogInformation("EventBus Background Service is stopping.");
+            Dispose();
+            return Task.CompletedTask;
+        }
+
+        public void Dispose()
+        {
+            if (logger.IsEnabled(LogLevel.Information))
+                logger.LogInformation("EventBus Background Service is disposing.");
             foreach (var runner in ConsumerRunners.Values)
             {
                 runner.Close();

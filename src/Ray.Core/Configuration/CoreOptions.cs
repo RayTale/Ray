@@ -11,7 +11,7 @@
         /// </summary>
         public int MinSnapshotVersionInterval { get; set; } = 1;
         /// <summary>
-        /// FollowGrain保存快照的事件Version间隔
+        /// ObserverGrain保存快照的事件Version间隔
         /// </summary>
         public int ObserverSnapshotVersionInterval { get; set; } = 20;
         /// <summary>
