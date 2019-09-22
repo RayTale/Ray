@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace Ray.Grain
 {
     [Observer(DefaultObserverGroup.secondary, "db", typeof(Account))]
-    public sealed class AccountDb : DbGrain<Account, long>, IAccountDb
+    public sealed class AccountDb : DbGrain<long, Account>, IAccountDb
     {
         protected override bool ConcurrentHandle => true;
         public Task EventHandler(AmountTransferEvent evt, EventBase eventBase)

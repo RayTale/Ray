@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace Ray.DistributedTx.Grains
 {
-    public abstract class DTxShadowGrain<Main, PrimaryKey, StateType> : ShadowGrain<Main, PrimaryKey, StateType>
+    public abstract class DTxShadowGrain<PrimaryKey, Main, StateType> : ShadowGrain<PrimaryKey, Main, StateType>
         where StateType : class, ICloneable<StateType>, new()
     {
         protected DistributedTxOptions TransactionOptions { get; private set; }

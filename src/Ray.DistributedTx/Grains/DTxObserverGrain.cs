@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace Ray.DistributedTx
 {
-    public abstract class DTxObserverGrain<MainGrain, PrimaryKey> : ObserverGrain<MainGrain, PrimaryKey>
+    public abstract class DTxObserverGrain<PrimaryKey, MainGrain> : ObserverGrain<PrimaryKey, MainGrain>
     {
         protected DistributedTxOptions TransactionOptions { get; private set; }
         protected override ValueTask DependencyInjection()

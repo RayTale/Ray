@@ -5,9 +5,9 @@ using System.Threading.Tasks;
 
 namespace Ray.Grain
 {
-    public abstract class DbGrain<Main, K> : DTxObserverGrain<Main, K>
+    public abstract class DbGrain<PrimaryKey, Main> : DTxObserverGrain<PrimaryKey, Main>
     {
-        protected override async ValueTask EventDelivered(IFullyEvent<K> @event)
+        protected override async ValueTask EventDelivered(IFullyEvent<PrimaryKey> @event)
         {
             var task = base.EventDelivered(@event);
             if (!task.IsCompletedSuccessfully)

@@ -15,7 +15,7 @@ using System.Threading.Tasks;
 
 namespace Ray.Core
 {
-    public abstract class ShadowGrain<Main, PrimaryKey, StateType> : Grain, IObserver
+    public abstract class ShadowGrain<PrimaryKey, Main, StateType> : Grain, IObserver
         where StateType : class, new()
     {
         public ShadowGrain()

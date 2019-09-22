@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace Ray.Grain
 {
     [Observer(DefaultObserverGroup.primary, null, typeof(Account))]
-    public sealed class AccountRep : DTxShadowGrain<Account, long, AccountState>, IAccountRep
+    public sealed class AccountRep : DTxShadowGrain<long, Account, AccountState>, IAccountRep
     {
         public Task<decimal> GetBalance()
         {
