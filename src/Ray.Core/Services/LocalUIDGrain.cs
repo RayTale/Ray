@@ -13,7 +13,7 @@ namespace Ray.Core.Services
         int start_id = 1;
         string start_string;
         long start_long;
-        const int length = 20;
+        const int length = 19;
         public LocalUIDGrain()
         {
             start_string = DateTimeOffset.Now.ToString("yyyyMMddHHmmss");
@@ -34,7 +34,7 @@ namespace Ray.Core.Services
                 }
                 var builder = new Span<char>(new char[length]);
                 var newTimes = Interlocked.Increment(ref start_id);
-                if (newTimes <= 999999)
+                if (newTimes <= 99999)
                 {
                     start_string.AsSpan().CopyTo(builder);
 
