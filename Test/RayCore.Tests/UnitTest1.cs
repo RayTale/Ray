@@ -70,7 +70,7 @@ namespace RayCore.Tests
                     config.UserName = "admin";
                     config.Password = "admin";
                     config.Hosts = new[] { "127.0.0.1:5672" };
-                    config.MaxPoolSize = 100;
+                    config.PoolSizePerConnection = 100;
                     config.VirtualHost = "/";
                 }, async container =>
                 {

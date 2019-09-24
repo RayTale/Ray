@@ -106,35 +106,27 @@ namespace Ray.MongoHost
                     //    options.CollectionName = "Transaction_TemporaryRecord";
                     //});
                     //servicecollection.MongoConfigure();
-                    //servicecollection.AddRabbitMQ(config =>
-                    //{
-                    //    config.UserName = "admin";
-                    //    config.Password = "admin";
-                    //    config.Hosts = new[] { "127.0.0.1:5672" };
-                    //    config.MaxPoolSize = 100;
-                    //    config.VirtualHost = "/";
-                    //});
-                    servicecollection.AddKafkaMQ(
-                    config => { },
-                    config =>
+                    servicecollection.AddRabbitMQ(config =>
                     {
-                        config.BootstrapServers = "192.168.1.5:9092";
-                    }, config =>
-                    {
-                        config.BootstrapServers = "192.168.1.5:9092";
+                        config.UserName = "admin";
+                        config.Password = "admin";
+                        config.Hosts = new[] { "127.0.0.1:5672" };
+                        config.PoolSizePerConnection = 200;
+                        config.VirtualHost = "/";
                     });
-                    //servicecollection.AddRabbitMQ(config =>
-                    //{
-                    //    config.UserName = "admin";
-                    //    config.Password = "admin";
-                    //    config.Hosts = new[] { "192.168.1.5:5672" };
-                    //    config.MaxPoolSize = 100;
-                    //    config.VirtualHost = "/";
-                    //});
-                    servicecollection.Configure<GrainCollectionOptions>(options =>
-                  {
-                      options.CollectionAge = TimeSpan.FromMinutes(5);
-                  });
+                  //  servicecollection.AddKafkaMQ(
+                  //  config => { },
+                  //  config =>
+                  //  {
+                  //      config.BootstrapServers = "192.168.1.5:9092";
+                  //  }, config =>
+                  //  {
+                  //      config.BootstrapServers = "192.168.1.5:9092";
+                  //  });
+                  //  servicecollection.Configure<GrainCollectionOptions>(options =>
+                  //{
+                  //    options.CollectionAge = TimeSpan.FromMinutes(5);
+                  //});
                 })
                 .ConfigureLogging(logging =>
                 {

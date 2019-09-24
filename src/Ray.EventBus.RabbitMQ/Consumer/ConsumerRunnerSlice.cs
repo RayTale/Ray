@@ -11,11 +11,6 @@ namespace Ray.EventBus.RabbitMQ
         public bool IsUnAvailable => NeedRestart || !BasicConsumer.IsRunning || Channel.Model.IsClosed;
         public void Close()
         {
-            if (Channel != null && Channel.Model.IsOpen)
-            {
-                BasicConsumer.Model.Close();
-                BasicConsumer.Model.Dispose();
-            }
             Channel?.Dispose();
         }
     }

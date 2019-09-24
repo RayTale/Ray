@@ -1,8 +1,8 @@
 ﻿using Orleans.Concurrency;
 using Ray.Core.Event;
 using Ray.DistributedTx;
-using Ray.EventBus.Kafka;
-//using Ray.EventBus.RabbitMQ;
+//using Ray.EventBus.Kafka;
+using Ray.EventBus.RabbitMQ;
 using Ray.Grain.Events;
 using Ray.IGrains.Actors;
 using Ray.IGrains.States;

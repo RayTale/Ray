@@ -29,11 +29,11 @@ namespace Ray.EventBus.RabbitMQ
         public List<ConsumerRunnerSlice> Slices { get; set; } = new List<ConsumerRunnerSlice>();
         public DateTimeOffset StartTime { get; set; }
         private bool isFirst = true;
-        public async Task Run()
+        public  Task Run()
         {
             var child = new ConsumerRunnerSlice
             {
-                Channel = await Client.PullModel(),
+                Channel =  Client.PullModel(),
                 Qos = Consumer.Config.MinQos
             };
             if (isFirst)
@@ -55,14 +55,15 @@ namespace Ray.EventBus.RabbitMQ
             Slices.Add(child);
             NowQos += child.Qos;
             StartTime = DateTimeOffset.UtcNow;
+            return Task.CompletedTask;
         }
-        public async Task ExpandQos()
+        public  Task ExpandQos()
         {
             if (NowQos + Consumer.Config.IncQos <= Consumer.Config.MaxQos)
             {
                 var child = new ConsumerRunnerSlice
                 {
-                    Channel = await Client.PullModel(),
+                    Channel =  Client.PullModel(),
                     Qos = Consumer.Config.IncQos
                 };
                 child.Channel.Model.BasicQos(0, Consumer.Config.IncQos, false);
@@ -78,6 +79,7 @@ namespace Ray.EventBus.RabbitMQ
                 NowQos += child.Qos;
                 StartTime = DateTimeOffset.UtcNow;
             }
+            return Task.CompletedTask;
         }
         public async Task HeathCheck()
         {

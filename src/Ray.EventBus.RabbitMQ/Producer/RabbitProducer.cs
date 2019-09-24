@@ -1,5 +1,5 @@
-﻿using Ray.Core.EventBus;
-using System.Collections.Concurrent;
+﻿using Ray.Core;
+using Ray.Core.EventBus;
 using System.Threading.Tasks;
 
 namespace Ray.EventBus.RabbitMQ
@@ -15,42 +15,11 @@ namespace Ray.EventBus.RabbitMQ
             this.publisher = publisher;
             this.rabbitMQClient = rabbitMQClient;
         }
-
-        readonly ConcurrentDictionary<string, ModelWrapper> modelDict = new ConcurrentDictionary<string, ModelWrapper>();
-
-        public async ValueTask<ModelWrapper> PullModel(string route)
+        public ValueTask Publish(byte[] bytes, string hashKey)
         {
-            if (!modelDict.TryGetValue(route, out var model))
-            {
-                var pullTask = rabbitMQClient.PullModel();
-                if (!pullTask.IsCompletedSuccessfully)
-                    await pullTask;
-                if (!modelDict.TryAdd(route, pullTask.Result))
-                {
-                    pullTask.Result.Dispose();
-                }
-                model = pullTask.Result;
-            }
-            else if (model.Model.IsClosed)
-            {
-                if (modelDict.TryRemove(route, out var value))
-                {
-                    value.Dispose();
-                }
-                var pullTask = PullModel(route);
-                if (!pullTask.IsCompletedSuccessfully)
-                    await pullTask;
-                return pullTask.Result;
-            }
-            return model;
-        }
-        public async ValueTask Publish(byte[] bytes, string hashKey)
-        {
-            var route = publisher.GetRoute(hashKey);
-            var pullTask = PullModel(route);
-            if (!pullTask.IsCompletedSuccessfully)
-                await pullTask;
-            pullTask.Result.Publish(bytes, publisher.Exchange, route, publisher.Persistent);
+            using var model = rabbitMQClient.PullModel();
+            model.Publish(bytes, publisher.Exchange, publisher.GetRoute(hashKey), publisher.Persistent);
+            return Consts.ValueTaskDone;
         }
     }
 }

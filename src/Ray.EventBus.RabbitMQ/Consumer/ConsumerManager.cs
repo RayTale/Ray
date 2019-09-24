@@ -166,9 +166,9 @@ namespace Ray.EventBus.RabbitMQ
                 }
                 runner.Close();
             }
-            DistributedMonitorTime.Dispose();
-            DistributedHoldTimer.Dispose();
-            HeathCheckTimer.Dispose();
+            DistributedMonitorTime?.Dispose();
+            DistributedHoldTimer?.Dispose();
+            HeathCheckTimer?.Dispose();
         }
     }
 }

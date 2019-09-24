@@ -66,13 +66,14 @@ namespace Ray.EventBus.RabbitMQ
         {
             return CreateEventBus(exchange, routePrefix, lBCount, minQos, incQos, maxQos, autoAck, reenqueue, persistent).BindProducer<MainGrain>();
         }
-        public async Task Work(RabbitEventBus bus)
+        public Task Work(RabbitEventBus bus)
         {
             if (eventBusDictionary.TryAdd(bus.ProducerType, bus))
             {
                 eventBusList.Add(bus);
-                using var channel = await rabbitMQClient.PullModel();
+                using var channel =  rabbitMQClient.PullModel();
                 channel.Model.ExchangeDeclare(bus.Exchange, "direct", true);
+                return Task.CompletedTask;
             }
             else
                 throw new EventBusRepeatException(bus.ProducerType.FullName);

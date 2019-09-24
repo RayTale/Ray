@@ -1,11 +1,7 @@
-﻿using System;
-using System.Threading.Tasks;
-
-namespace Ray.EventBus.RabbitMQ
+﻿namespace Ray.EventBus.RabbitMQ
 {
-    public interface IRabbitMQClient : IDisposable
+    public interface IRabbitMQClient
     {
-        void PushModel(ModelWrapper model);
-        ValueTask<ModelWrapper> PullModel();
+        ModelWrapper PullModel();
     }
 }
