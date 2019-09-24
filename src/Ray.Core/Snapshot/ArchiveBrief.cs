@@ -16,7 +16,7 @@ namespace Ray.Core.Snapshot
         public bool EventIsCleared { get; set; }
         public bool IsCompletedArchive(ArchiveOptions archiveOptions, ArchiveBrief preArchive = default)
         {
-            var intervalMilliseconds = (preArchive == default ? EndTimestamp - StartTimestamp : EndTimestamp - preArchive.EndTimestamp) / 1000;
+            var intervalMilliseconds = (preArchive is null ? EndTimestamp - StartTimestamp : EndTimestamp - preArchive.EndTimestamp) / 1000;
             var intervalVersiion = EndVersion - StartVersion;
             return (intervalMilliseconds > archiveOptions.SecondsInterval && intervalVersiion > archiveOptions.VersionInterval) ||
                 intervalMilliseconds > archiveOptions.MaxSecondsInterval ||

@@ -38,12 +38,12 @@ namespace Ray.Core.Storage
         {
             if (parameter.Singleton)
             {
-                if (config == default)
+                if (config is null)
                 {
                     await seamphore.WaitAsync();
                     try
                     {
-                        if (config == default)
+                        if (config is null)
                         {
                             config = generator(serviceProvider, primaryKey, parameter);
                             config.Singleton = parameter.Singleton;

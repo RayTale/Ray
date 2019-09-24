@@ -35,7 +35,7 @@ namespace Ray.EventBus.Kafka
         public PooledProducer GetProducer()
         {
             var result = producerObjectPool.Get();
-            if (result.Pool == default)
+            if (result.Pool is null)
                 result.Pool = producerObjectPool;
             return result;
         }
@@ -43,7 +43,7 @@ namespace Ray.EventBus.Kafka
         {
             var consumerObjectPool = consumerPoolDict.GetOrAdd(group, key =>
              {
-                 var configDict = serializer.Deserialize<List<KeyValuePair<string, string>>>(serializer.SerializeToUtf8Bytes(consumerConfig));
+                 var configDict = serializer.Deserialize<ConsumerConfig>(serializer.SerializeToUtf8Bytes(consumerConfig));
                  var config = new ConsumerConfig(configDict)
                  {
                      GroupId = group
@@ -51,7 +51,7 @@ namespace Ray.EventBus.Kafka
                  return new DefaultObjectPool<PooledConsumer>(new ConsumerPooledObjectPolicy(config, logger), rayKafkaOptions.ConsumerMaxPoolSize);
              });
             var result = consumerObjectPool.Get();
-            if (result.Pool == default)
+            if (result.Pool is null)
                 result.Pool = consumerObjectPool;
             return result;
         }

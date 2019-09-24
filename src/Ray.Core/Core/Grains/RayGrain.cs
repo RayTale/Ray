@@ -148,7 +148,7 @@ namespace Ray.Core
                     LastArchive = BriefArchiveList.LastOrDefault();
                     ClearedArchive = BriefArchiveList.Where(a => a.EventIsCleared).OrderByDescending(a => a.Index).FirstOrDefault();
                     var secondLastArchive = BriefArchiveList.Count > 1 ? BriefArchiveList.SkipLast(1).Last() : default;
-                    if (LastArchive != default && !LastArchive.IsCompletedArchive(ArchiveOptions, secondLastArchive) && !LastArchive.EventIsCleared)
+                    if (LastArchive != null && !LastArchive.IsCompletedArchive(ArchiveOptions, secondLastArchive) && !LastArchive.EventIsCleared)
                     {
                         await DeleteArchive(LastArchive.Id);
                         BriefArchiveList.Remove(LastArchive);
@@ -162,20 +162,20 @@ namespace Ray.Core
                 if (ArchiveOptions.On)
                 {
                     if (Snapshot.Base.Version != 0 &&
-                        (LastArchive == default || LastArchive.EndVersion < Snapshot.Base.Version) &&
-                        (NewArchive == default || NewArchive.EndVersion < Snapshot.Base.Version))
+                        (LastArchive is null || LastArchive.EndVersion < Snapshot.Base.Version) &&
+                        (NewArchive is null || NewArchive.EndVersion < Snapshot.Base.Version))
                     {
                         //归档恢复
                         while (true)
                         {
                             var startTimestamp = Snapshot.Base.StartTimestamp;
                             long startVersion = 0;
-                            if (NewArchive != default)
+                            if (NewArchive != null)
                             {
                                 startVersion = NewArchive.EndVersion;
                                 startTimestamp = NewArchive.StartTimestamp;
                             }
-                            else if (NewArchive == default && LastArchive != default)
+                            else if (NewArchive is null && LastArchive != null)
                             {
                                 startVersion = LastArchive.EndVersion;
                                 startTimestamp = LastArchive.EndTimestamp;
@@ -249,7 +249,7 @@ namespace Ray.Core
                     if (!onDeactivatedTask.IsCompletedSuccessfully)
                         await onDeactivatedTask;
                 }
-                if (ArchiveOptions.On && NewArchive != default)
+                if (ArchiveOptions.On && NewArchive != null)
                 {
                     if (NewArchive.EndVersion - NewArchive.StartVersion >= ArchiveOptions.MinVersionIntervalAtDeactivate)
                     {
@@ -276,14 +276,14 @@ namespace Ray.Core
                 //从快照中恢复状态
                 Snapshot = await SnapshotStorage.Get(GrainId);
 
-                if (Snapshot == default)
+                if (Snapshot is null)
                 {
                     //从归档中恢复状态
-                    if (ArchiveOptions.On && LastArchive != default)
+                    if (ArchiveOptions.On && LastArchive != null)
                     {
                         Snapshot = await ArchiveStorage.GetById(LastArchive.Id);
                     }
-                    if (Snapshot == default)
+                    if (Snapshot is null)
                     {
                         //新建状态
                         var createTask = CreateSnapshot();
@@ -436,7 +436,7 @@ namespace Ray.Core
                     StateId = Snapshot.Base.StateId
                 };
                 string unique = default;
-                if (eUID == default)
+                if (eUID is null)
                 {
                     fullyEvent.Base.Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                     unique = fullyEvent.GetEventId();
@@ -547,7 +547,7 @@ namespace Ray.Core
                 await SnapshotStorage.UpdateIsLatest(Snapshot.Base.StateId, false);
                 Snapshot.Base.IsLatest = false;
             }
-            if (ClearedArchive != default && @event.Base.Timestamp < ClearedArchive.StartTimestamp)
+            if (ClearedArchive != null && @event.Base.Timestamp < ClearedArchive.StartTimestamp)
             {
                 throw new EventIsClearedException(@event.GetType().FullName, Serializer.Serialize(@event, @event.GetType()), ClearedArchive.Index);
             }
@@ -563,7 +563,7 @@ namespace Ray.Core
                 }
             }
             if (ArchiveOptions.On &&
-                LastArchive != default &&
+                LastArchive != null &&
                 @event.Base.Timestamp < LastArchive.EndTimestamp)
             {
                 foreach (var archive in BriefArchiveList.Where(a => @event.Base.Timestamp < a.EndTimestamp && !a.EventIsCleared).OrderByDescending(v => v.Index))
@@ -571,7 +571,7 @@ namespace Ray.Core
                     if (@event.Base.Timestamp < archive.EndTimestamp)
                     {
                         await DeleteArchive(archive.Id);
-                        if (NewArchive != default)
+                        if (NewArchive != null)
                             NewArchive = CombineArchiveInfo(archive, NewArchive);
                         else
                             NewArchive = archive;
@@ -591,7 +591,7 @@ namespace Ray.Core
         }
         protected virtual ValueTask OnRaiseFailed(IFullyEvent<PrimaryKey> @event)
         {
-            if (ArchiveOptions.On && NewArchive != default)
+            if (ArchiveOptions.On && NewArchive != null)
             {
                 return Archive();
             }
@@ -599,14 +599,14 @@ namespace Ray.Core
         }
         protected async ValueTask EventArchive(IFullyEvent<PrimaryKey> @event)
         {
-            if (NewArchive == default)
+            if (NewArchive is null)
             {
                 NewArchive = new ArchiveBrief
                 {
                     Id = (await ServiceProvider.GetService<IGrainFactory>().GetGrain<IUtcUID>(GrainType.FullName).NewID()),
                     StartTimestamp = @event.Base.Timestamp,
                     StartVersion = @event.Base.Version,
-                    Index = LastArchive != default ? LastArchive.Index + 1 : 0,
+                    Index = LastArchive != null ? LastArchive.Index + 1 : 0,
                     EndTimestamp = @event.Base.Timestamp,
                     EndVersion = @event.Base.Version
                 };
@@ -662,7 +662,7 @@ namespace Ray.Core
             if (noCleareds.Count >= ArchiveOptions.MaxSnapshotArchiveRecords)
             {
                 var minArchive = noCleareds.FirstOrDefault();
-                if (minArchive != default)
+                if (minArchive != null)
                 {
                     //判断需要清理的event是否都被Observer执行过
                     var versions = await ObserverUnit.GetAndSaveVersion(Snapshot.Base.StateId, Snapshot.Base.Version);

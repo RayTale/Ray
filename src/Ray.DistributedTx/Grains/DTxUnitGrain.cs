@@ -122,7 +122,7 @@ namespace Ray.DistributedTx
         }
         private async Task Rollback(Commit<Input> commit, IDistributedTx[] actors)
         {
-            if (actors == default || actors.Length == 0)
+            if (actors is null || actors.Length == 0)
                 throw new NotImplementedException(nameof(GetTransactionActors));
             if (commit.Status < TransactionStatus.WaitingFinish)
             {
@@ -138,7 +138,7 @@ namespace Ray.DistributedTx
         }
         private async Task AutoCommit(Commit<Input> commit, IDistributedTx[] actors)
         {
-            if (actors == default || actors.Length == 0)
+            if (actors is null || actors.Length == 0)
                 throw new NotImplementedException(nameof(GetTransactionActors));
             if (commit.Status == TransactionStatus.Persistence ||
                 commit.Status == TransactionStatus.WaitingCommit)

@@ -74,7 +74,7 @@ namespace Ray.Storage.SQLServer
         {
             using var connection = config.CreateConnection();
             var data = await connection.QuerySingleOrDefaultAsync<SnapshotModel<PrimaryKey>>(getByIdSql, new { Id = briefId });
-            if (data != default)
+            if (data != null)
             {
                 return new Snapshot<PrimaryKey, StateType>()
                 {

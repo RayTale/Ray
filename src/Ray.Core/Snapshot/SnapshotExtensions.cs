@@ -13,7 +13,7 @@ namespace Ray.Core.Snapshot
                 foreach (var type in assembly.GetTypes())
                 {
                     var handlerType = type.GetInterfaces().SingleOrDefault(t => !string.IsNullOrEmpty(t.FullName) && t.FullName.StartsWith("Ray.Core.Snapshot.ISnapshotHandler"));
-                    if (handlerType != default && !type.IsAbstract)
+                    if (handlerType != null && !type.IsAbstract)
                         serviceCollection.AddSingleton(handlerType, type);
                 }
             }

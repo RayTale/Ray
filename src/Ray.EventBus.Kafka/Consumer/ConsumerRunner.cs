@@ -42,7 +42,7 @@ namespace Ray.EventBus.Kafka
                 while (!closed)
                 {
                     var consumerResult = consumer.Handler.Consume(timeoutTime);
-                    if (consumerResult == default || consumerResult.IsPartitionEOF || consumerResult.Value == null)
+                    if (consumerResult is null || consumerResult.IsPartitionEOF || consumerResult.Value == null)
                     {
                         if (needCommit)
                         {

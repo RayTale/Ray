@@ -48,7 +48,7 @@ namespace Ray.Core
         {
             get
             {
-                if (_AllObserverAttribute == default)
+                if (_AllObserverAttribute is null)
                 {
                     _AllObserverAttribute = new List<(Type type, ObserverAttribute observer)>();
                     foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())

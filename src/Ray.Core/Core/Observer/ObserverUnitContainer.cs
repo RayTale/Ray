@@ -32,14 +32,14 @@ namespace Ray.Core
                         {
                             if (attribute is ObserverAttribute observer)
                             {
-                                if (observer.Observer == default)
+                                if (observer.Observer is null)
                                 {
                                     observer.Observer = type.GetInterfaces().SingleOrDefault(t =>
                                     (typeof(IGrainWithStringKey).IsAssignableFrom(t) || typeof(IGrainWithIntegerKey).IsAssignableFrom(t)) &&
                                     t != typeof(IGrainWithStringKey) &&
                                     t != typeof(IGrainWithIntegerKey));
                                 }
-                                if (observer.Observer == default)
+                                if (observer.Observer is null)
                                     throw new NullReferenceException($"{nameof(ObserverAttribute.Observer)} in {type.FullName}");
                                 observerList.Add(observer);
                                 break;

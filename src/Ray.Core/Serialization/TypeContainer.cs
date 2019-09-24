@@ -22,7 +22,7 @@ namespace Ray.Core.Serialization
                     if (baseEventType.IsAssignableFrom(type))
                     {
                         var attribute = type.GetCustomAttributes(attributeType, false).FirstOrDefault();
-                        if (attribute != default && attribute is TCodeAttribute tCode)
+                        if (attribute != null && attribute is TCodeAttribute tCode)
                         {
                             if (!_CodeDict.TryAdd(tCode.Code, type))
                             {
@@ -62,7 +62,7 @@ namespace Ray.Core.Serialization
                 }
                 return Type.GetType(typeCode, false);
             });
-            if (value == default)
+            if (value is null)
                 throw new UnknowTypeCodeException(typeCode);
             return value;
         }

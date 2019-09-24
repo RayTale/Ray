@@ -170,15 +170,15 @@ namespace Ray.Core
             try
             {
                 Snapshot = await SnapshotStorage.Get(GrainId);
-                if (Snapshot == default)
+                if (Snapshot is null)
                 {
                     //从归档中恢复状态
-                    if (ArchiveOptions.On && LastArchive != default)
+                    if (ArchiveOptions.On && LastArchive != null)
                     {
                         Snapshot = await ArchiveStorage.GetById(LastArchive.Id);
                     }
                 }
-                if (Snapshot == default)
+                if (Snapshot is null)
                 {
                     //新建状态
                     var createTask = CreateSnapshot();

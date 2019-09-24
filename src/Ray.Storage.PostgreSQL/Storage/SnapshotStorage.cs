@@ -107,7 +107,7 @@ namespace Ray.Storage.PostgreSQL
         {
             using var conn = config.CreateConnection();
             var data = await conn.QuerySingleOrDefaultAsync<SnapshotModel<PrimaryKey>>(getByIdSql, new { StateId = id });
-            if (data != default)
+            if (data != null)
             {
                 return new Snapshot<PrimaryKey, StateType>()
                 {

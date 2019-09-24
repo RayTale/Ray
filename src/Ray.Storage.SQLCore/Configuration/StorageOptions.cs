@@ -49,12 +49,12 @@ namespace Ray.Storage.SQLCore.Configuration
         public async ValueTask<List<EventSubTable>> GetSubTables()
         {
             var lastSubTable = _subTables.LastOrDefault();
-            if (lastSubTable == default || lastSubTable.EndTime <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
+            if (lastSubTable is null || lastSubTable.EndTime <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
             {
                 await semaphore.WaitAsync();
                 try
                 {
-                    if (lastSubTable == default || lastSubTable.EndTime <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
+                    if (lastSubTable is null || lastSubTable.EndTime <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
                     {
                         _subTables = (await BuildRepository.GetSubTables()).OrderBy(table => table.EndTime).ToList();
                     }
@@ -72,17 +72,17 @@ namespace Ray.Storage.SQLCore.Configuration
             if (!getTask.IsCompletedSuccessfully)
                 await getTask;
             var subTable = SubTableMillionSecondsInterval == 0 ? getTask.Result.LastOrDefault() : getTask.Result.SingleOrDefault(table => table.StartTime <= eventTimestamp && table.EndTime > eventTimestamp);
-            if (subTable == default)
+            if (subTable is null)
             {
                 await semaphore.WaitAsync();
                 subTable = SubTableMillionSecondsInterval == 0 ? getTask.Result.LastOrDefault() : getTask.Result.SingleOrDefault(table => table.StartTime <= eventTimestamp && table.EndTime > eventTimestamp);
                 try
                 {
-                    if (subTable == default)
+                    if (subTable is null)
                     {
                         var lastSubTable = getTask.Result.LastOrDefault();
-                        var startTime = lastSubTable != default ? (lastSubTable.EndTime == lastSubTable.StartTime ? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() : lastSubTable.EndTime) : eventTimestamp;
-                        var index = lastSubTable == default ? 0 : lastSubTable.Index + 1;
+                        var startTime = lastSubTable != null? (lastSubTable.EndTime == lastSubTable.StartTime ? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() : lastSubTable.EndTime) : eventTimestamp;
+                        var index = lastSubTable is null ? 0 : lastSubTable.Index + 1;
                         subTable = new EventSubTable
                         {
                             TableName = EventTable,
@@ -109,7 +109,7 @@ namespace Ray.Storage.SQLCore.Configuration
                     semaphore.Release();
                 }
             }
-            if (subTable == default)
+            if (subTable is null)
             {
                 subTable = await GetTable(eventTimestamp);
             }

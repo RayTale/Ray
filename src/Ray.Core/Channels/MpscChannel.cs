@@ -35,7 +35,7 @@ namespace Ray.Core.Channels
 
         public IMpscChannel<T> BindConsumer(Func<List<T>, Task> consumer)
         {
-            if (this.consumer == default)
+            if (this.consumer is null)
                 this.consumer = consumer;
             else
                 throw new RebindConsumerException(GetType().FullName);

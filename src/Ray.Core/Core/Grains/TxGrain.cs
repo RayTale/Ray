@@ -330,7 +330,7 @@ namespace Ray.Core
                     }
                 };
                 string unique = default;
-                if (eUID == default)
+                if (eUID is null)
                 {
                     fullyEvent.Base.Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                     unique = fullyEvent.GetEventId();

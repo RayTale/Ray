@@ -567,7 +567,7 @@ namespace Ray.Core
         }
         public Task DefaultHandler(IEvent evt)
         {
-            if (handlerAttribute == default || !handlerAttribute.Ignores.Contains(evt.GetType()))
+            if (handlerAttribute is null || !handlerAttribute.Ignores.Contains(evt.GetType()))
             {
                 throw new UnfindEventHandlerException(evt.GetType());
             }
