@@ -56,7 +56,6 @@ namespace Ray.MongoHost
                 {
                     siloBuilder
                         .UseLocalhostClustering()
-                        .UseLocalhostClustering()
                         .UseDashboard()
                         .AddRay<Configuration>()
                         .Configure<EndpointOptions>(options => options.AdvertisedIPAddress = IPAddress.Loopback)
