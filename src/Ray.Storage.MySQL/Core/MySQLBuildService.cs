@@ -37,8 +37,8 @@ namespace Ray.Storage.MySQL
                                     CREATE TABLE if not exists `SubTable_Records`  (
                                       `TableName` varchar(255) NOT NULL,
                                       `SubTable` varchar(255) NOT NULL,
-                                      `StartTime` bigint(20) NULL DEFAULT NULL,
-                                      `EndTime` bigint(20) NULL DEFAULT NULL,
+                                      `StartTime` int8 NULL DEFAULT NULL,
+                                      `EndTime` int8 NULL DEFAULT NULL,
                                       `Index` int(255) NULL DEFAULT NULL,
                                       UNIQUE INDEX `SubTable_Records`(`TableName`, `Index`) USING BTREE
                                     );";
@@ -47,12 +47,12 @@ namespace Ray.Storage.MySQL
         }
         public async Task CreateEventTable(EventSubTable subTable)
         {
-            var stateIdSql = stateIdIsString ? $"`StateId` varchar({stringStorageOptions.StateIdLength}) NOT NULL" : "`StateId` int8 NOT NULL";
+            var stateIdSql = stateIdIsString ? $"`StateId` varchar({stringStorageOptions.StateIdLength}) NOT NULL" : "`StateId` bigint(20) NOT NULL";
             var sql = $@"
                     create table if not exists `{subTable.SubTable}` (
                             {stateIdSql},
                             `UniqueId` varchar(250)  NULL DEFAULT NULL,
-                            `TypeCode` varchar(100)  NOT NULL,
+                            `TypeCode` varchar(300)  NOT NULL,
                             `Data` json NOT NULL,
                             `Version` int8 NOT NULL,
                             `Timestamp` int8 NOT NULL,
@@ -82,7 +82,7 @@ namespace Ray.Storage.MySQL
                     create table if not exists `{storageOptions.EventArchiveTable}` (
                             {stateIdSql},
                             `UniqueId` varchar(250)  null,
-                            `TypeCode` varchar(100)  NOT NULL,
+                            `TypeCode` varchar(300)  NOT NULL,
                             `Data` json NOT NULL,
                             `Version` int8 NOT NULL,
                             `Timestamp` int8 NOT NULL,

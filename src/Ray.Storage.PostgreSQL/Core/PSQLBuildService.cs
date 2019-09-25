@@ -52,7 +52,7 @@ namespace Ray.Storage.PostgreSQL
                     create table {subTable.SubTable} (
                             {stateIdSql},
                             UniqueId varchar(250)  null,
-                            TypeCode varchar(100)  not null,
+                            TypeCode varchar(300)  not null,
                             Data json not null,
                             Version int8 not null,
                             Timestamp int8 not null,
@@ -82,7 +82,7 @@ namespace Ray.Storage.PostgreSQL
                     create table if not exists {storageOptions.EventArchiveTable} (
                             {stateIdSql},
                             UniqueId varchar(250)  null,
-                            TypeCode varchar(100)  not null,
+                            TypeCode varchar(300)  not null,
                             Data json not null,
                             Version int8 not null,
                             Timestamp int8 not null,

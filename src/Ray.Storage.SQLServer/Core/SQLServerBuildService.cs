@@ -54,7 +54,7 @@ namespace Ray.Storage.SQLServer
                     create table {subTable.SubTable} (
                             {stateIdSql},
                             UniqueId varchar(250)  null,
-                            TypeCode varchar(100)  not null,
+                            TypeCode varchar(300)  not null,
                             Data nvarchar(max) not null,
                             Version bigint not null,
                             Timestamp bigint not null,
@@ -85,7 +85,7 @@ namespace Ray.Storage.SQLServer
                     create table {storageOptions.EventArchiveTable} (
                             {stateIdSql},
                             UniqueId varchar(250)  null,
-                            TypeCode varchar(100)  not null,
+                            TypeCode varchar(300)  not null,
                             Data nvarchar(max) not null,
                             Version bigint not null,
                             Timestamp bigint not null,
