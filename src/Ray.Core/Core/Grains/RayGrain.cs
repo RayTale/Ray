@@ -131,7 +131,7 @@ namespace Ray.Core
             EventBusProducer = producerTask.Result;
         }
         /// <summary>
-        /// Grain激活时调用用来初始化的方法(禁止在子类重写,请使用)
+        /// Grain激活时调用用来初始化的方法(禁止在子类重写)
         /// </summary>
         /// <returns></returns>
         public override async Task OnActivateAsync()
