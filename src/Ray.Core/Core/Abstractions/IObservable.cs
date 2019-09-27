@@ -1,4 +1,4 @@
-﻿namespace Ray.Core.Core.Abstractions
+﻿namespace Ray.Core.Abstractions
 {
     public interface IObservable
     {

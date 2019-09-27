@@ -8,12 +8,11 @@ using Microsoft.Extensions.Logging;
 using Orleans;
 using Ray.Core.Abstractions;
 using Ray.Core.Configuration;
-using Ray.Core.Core.Abstractions;
 using Ray.Core.Event;
 using Ray.Core.EventBus;
 using Ray.Core.Exceptions;
 using Ray.Core.Serialization;
-using Ray.Core.Services.Abstractions;
+using Ray.Core.Services;
 using Ray.Core.Snapshot;
 using Ray.Core.Storage;
 

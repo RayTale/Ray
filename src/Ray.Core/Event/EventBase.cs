@@ -3,7 +3,7 @@ using Ray.Core.Utils;
 
 namespace Ray.Core.Event
 {
-    public class EventBase : IEventBase
+    public class EventBase
     {
         public EventBase() { }
         public EventBase(long version, long timestamp)

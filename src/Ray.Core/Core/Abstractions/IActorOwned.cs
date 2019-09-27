@@ -1,4 +1,4 @@
-﻿namespace Ray.Core
+﻿namespace Ray.Core.Abstractions
 {
     public interface IActorOwned<PrimaryKey>
     {

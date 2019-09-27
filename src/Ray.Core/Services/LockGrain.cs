@@ -2,7 +2,6 @@
 using System.Threading.Tasks;
 using Orleans;
 using Orleans.Concurrency;
-using Ray.Core.Services.Abstractions;
 
 namespace Ray.Core.Services
 {

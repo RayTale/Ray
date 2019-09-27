@@ -1,4 +1,4 @@
-﻿using Ray.Core;
+﻿using Ray.Core.Observer;
 using Ray.Core.Storage;
 using Ray.Storage.Mongo.Configuration;
 using System;

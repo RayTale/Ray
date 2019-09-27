@@ -1,9 +1,8 @@
-﻿using Ray.Core.Abstractions;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace Ray.Core
+namespace Ray.Core.Abstractions
 {
     public interface IObserverUnit<PrimaryKey> : IGrainID
     {

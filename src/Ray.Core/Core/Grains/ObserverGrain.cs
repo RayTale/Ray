@@ -6,6 +6,7 @@ using Ray.Core.Channels;
 using Ray.Core.Configuration;
 using Ray.Core.Event;
 using Ray.Core.Exceptions;
+using Ray.Core.Observer;
 using Ray.Core.Serialization;
 using Ray.Core.Snapshot;
 using Ray.Core.Storage;

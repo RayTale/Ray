@@ -5,7 +5,7 @@ using System.Collections.Concurrent;
 using Ray.Core.Abstractions;
 using Ray.Core.Exceptions;
 using Orleans;
-using Ray.Core.Core.Abstractions;
+using Ray.Core.Observer;
 
 namespace Ray.Core
 {

@@ -13,6 +13,9 @@
     <PackageReference Include="System.Threading.Tasks.Dataflow" Version="4.10.0" />
     <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.6.0-preview.18571.3" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Ray.Core.Abstractions\Ray.Core.Abstractions.csproj" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Update="Microsoft.SourceLink.GitHub" Version="1.0.0-beta2-19367-01" />

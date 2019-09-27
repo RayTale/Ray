@@ -9,7 +9,7 @@ namespace Ray.Core
     public static class CoreExtensions
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void UpdateVersion<PrimaryKey>(this ISnapshotBase<PrimaryKey> snapshot, IEventBase eventBase, Type grainType)
+        public static void UpdateVersion<PrimaryKey>(this ISnapshotBase<PrimaryKey> snapshot, EventBase eventBase, Type grainType)
         {
             if (snapshot.Version + 1 != eventBase.Version)
                 throw new EventVersionUnorderedException(snapshot.StateId.ToString(), grainType, eventBase.Version, snapshot.Version);
@@ -20,7 +20,7 @@ namespace Ray.Core
                 snapshot.LatestMinEventTimestamp = eventBase.Timestamp;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void FullUpdateVersion<PrimaryKey>(this ISnapshotBase<PrimaryKey> snapshot, IEventBase eventBase, Type grainType)
+        public static void FullUpdateVersion<PrimaryKey>(this ISnapshotBase<PrimaryKey> snapshot, EventBase eventBase, Type grainType)
         {
             if (snapshot.Version + 1 != eventBase.Version)
                 throw new EventVersionUnorderedException(snapshot.StateId.ToString(), grainType, eventBase.Version, snapshot.Version);
@@ -59,7 +59,7 @@ namespace Ray.Core
             return new EventUID(@event.GetEventId(), @event.Base.Timestamp);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void UnsafeUpdateVersion<PrimaryKey>(this IObserverSnapshot<PrimaryKey> snapshot, IEventBase eventBase)
+        public static void UnsafeUpdateVersion<PrimaryKey>(this IObserverSnapshot<PrimaryKey> snapshot, EventBase eventBase)
         {
             snapshot.DoingVersion = eventBase.Version;
             snapshot.Version = eventBase.Version;
@@ -74,7 +74,7 @@ namespace Ray.Core
             state.DoingVersion += 1;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void UpdateVersion<PrimaryKey>(this IObserverSnapshot<PrimaryKey> snapshot, IEventBase eventBase, Type grainType)
+        public static void UpdateVersion<PrimaryKey>(this IObserverSnapshot<PrimaryKey> snapshot, EventBase eventBase, Type grainType)
         {
             if (snapshot.Version + 1 != eventBase.Version)
                 throw new EventVersionUnorderedException(snapshot.StateId.ToString(), grainType, eventBase.Version, snapshot.Version);
@@ -83,7 +83,7 @@ namespace Ray.Core
                 snapshot.StartTimestamp = eventBase.Timestamp;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void FullUpdateVersion<PrimaryKey>(this IObserverSnapshot<PrimaryKey> snapshot, IEventBase eventBase, Type grainType)
+        public static void FullUpdateVersion<PrimaryKey>(this IObserverSnapshot<PrimaryKey> snapshot, EventBase eventBase, Type grainType)
         {
             if (snapshot.Version > 0 && snapshot.Version + 1 != eventBase.Version)
                 throw new EventVersionUnorderedException(snapshot.StateId.ToString(), grainType, eventBase.Version, snapshot.Version);

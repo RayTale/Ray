@@ -2,7 +2,7 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Orleans;
-using Ray.Core.Services.Abstractions;
+using Ray.Core.Services;
 using System;
 using System.Collections.Concurrent;
 using System.Linq;

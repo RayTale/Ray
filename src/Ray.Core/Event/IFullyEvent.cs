@@ -1,4 +1,6 @@
-﻿namespace Ray.Core.Event
+﻿using Ray.Core.Abstractions;
+
+namespace Ray.Core.Event
 {
     public interface IFullyEvent<PrimaryKey> : IActorOwned<PrimaryKey>
     {

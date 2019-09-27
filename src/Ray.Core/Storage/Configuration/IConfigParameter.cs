@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Ray.Core.Storage
+﻿namespace Ray.Core.Storage
 {
     public interface IConfigParameter
     {
