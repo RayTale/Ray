@@ -7,7 +7,6 @@ using Ray.Core.Channels;
 using Ray.Core.Serialization;
 using Ray.DistributedTx;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
@@ -42,7 +41,7 @@ namespace Ray.Storage.PostgreSQL
             select_list_sql = $"select * from {options.Value.TableName} WHERE UnitName=@UnitName";
             update_sql = $"update {options.Value.TableName} set Status=@Status where UnitName=@UnitName and TransactionId=@TransactionId";
             copy_sql = $"copy {options.Value.TableName}(UnitName,TransactionId,Data,Status) FROM STDIN (FORMAT BINARY)";
-            insert_sql= $"INSERT INTO {options.Value.TableName}(UnitName,TransactionId,Data,Status) VALUES(@UnitName,@TransactionId,(@Data)::json,@Status) ON CONFLICT ON CONSTRAINT UnitName_TransId DO NOTHING"; 
+            insert_sql = $"INSERT INTO {options.Value.TableName}(UnitName,TransactionId,Data,Status) VALUES(@UnitName,@TransactionId,(@Data)::json,@Status) ON CONFLICT ON CONSTRAINT UnitName_TransId DO NOTHING";
         }
         public DbConnection CreateConnection()
         {
