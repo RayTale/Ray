@@ -7,6 +7,7 @@ using Ray.Core.Channels;
 using Ray.Core.Serialization;
 using Ray.DistributedTx;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
@@ -21,6 +22,11 @@ namespace Ray.Storage.PostgreSQL
         readonly ISerializer serializer;
         readonly string connection;
         readonly IOptions<TransactionOptions> options;
+        readonly string delete_sql;
+        readonly string select_list_sql;
+        readonly string update_sql;
+        readonly string copy_sql;
+        readonly string insert_sql;
         public DistributedTxStorage(
             IServiceProvider serviceProvider,
             IOptions<TransactionOptions> options,
@@ -32,6 +38,11 @@ namespace Ray.Storage.PostgreSQL
             mpscChannel = serviceProvider.GetService<IMpscChannel<AsyncInputEvent<AppendInput, bool>>>();
             serializer = serviceProvider.GetService<ISerializer>();
             mpscChannel.BindConsumer(BatchInsertExecuter);
+            delete_sql = $"delete from {options.Value.TableName} WHERE UnitName=@UnitName and TransactionId=@TransactionId";
+            select_list_sql = $"select * from {options.Value.TableName} WHERE UnitName=@UnitName";
+            update_sql = $"update {options.Value.TableName} set Status=@Status where UnitName=@UnitName and TransactionId=@TransactionId";
+            copy_sql = $"copy {options.Value.TableName}(UnitName,TransactionId,Data,Status) FROM STDIN (FORMAT BINARY)";
+            insert_sql= $"INSERT INTO {options.Value.TableName}(UnitName,TransactionId,Data,Status) VALUES(@UnitName,@TransactionId,(@Data)::json,@Status) ON CONFLICT ON CONSTRAINT UnitName_TransId DO NOTHING"; 
         }
         public DbConnection CreateConnection()
         {
@@ -66,18 +77,15 @@ namespace Ray.Storage.PostgreSQL
                 await wrap.TaskSource.Task;
             });
         }
-
         public async Task Delete(string unitName, long transactionId)
         {
             using var conn = CreateConnection();
-            var sql = $"delete from {options.Value.TableName} WHERE UnitName=@UnitName and TransactionId=@TransactionId";
-            await conn.ExecuteAsync(sql, new { UnitName = unitName, TransactionId = transactionId });
+            await conn.ExecuteAsync(delete_sql, new { UnitName = unitName, TransactionId = transactionId });
         }
         public async Task<IList<Commit<Input>>> GetList<Input>(string unitName) where Input : class, new()
         {
-            var getListSql = $"select * from {options.Value.TableName} WHERE UnitName=@UnitName";
             using var conn = CreateConnection();
-            return (await conn.QueryAsync<CommitModel>(getListSql, new
+            return (await conn.QueryAsync<CommitModel>(select_list_sql, new
             {
                 UnitName = unitName
             })).Select(model => new Commit<Input>
@@ -90,18 +98,16 @@ namespace Ray.Storage.PostgreSQL
 
         public async Task<bool> Update(string unitName, long transactionId, TransactionStatus status)
         {
-            var sql = $"update {options.Value.TableName} set Status=@Status where UnitName=@UnitName and TransactionId=@TransactionId";
             using var conn = CreateConnection();
-            return await conn.ExecuteAsync(sql, new { UnitName = unitName, TransactionId = transactionId, Status = status }) > 0;
+            return await conn.ExecuteAsync(update_sql, new { UnitName = unitName, TransactionId = transactionId, Status = status }) > 0;
         }
         private async Task BatchInsertExecuter(List<AsyncInputEvent<AppendInput, bool>> wrapperList)
         {
-            var copySql = $"copy {options.Value.TableName}(UnitName,TransactionId,Data,Status) FROM STDIN (FORMAT BINARY)";
             try
             {
                 using var conn = CreateConnection() as NpgsqlConnection;
                 await conn.OpenAsync();
-                using var writer = conn.BeginBinaryImport(copySql);
+                using var writer = conn.BeginBinaryImport(copy_sql);
                 foreach (var wrapper in wrapperList)
                 {
                     writer.StartRow();
@@ -115,13 +121,12 @@ namespace Ray.Storage.PostgreSQL
             }
             catch
             {
-                var saveSql = $"INSERT INTO {options.Value.TableName}(UnitName,TransactionId,Data,Status) VALUES(@UnitName,@TransactionId,(@Data)::json,@Status) ON CONFLICT ON CONSTRAINT UnitName_TransId DO NOTHING";
                 using var conn = CreateConnection();
                 await conn.OpenAsync();
                 using var trans = conn.BeginTransaction();
                 try
                 {
-                    await conn.ExecuteAsync(saveSql, wrapperList.Select(wrapper => new
+                    await conn.ExecuteAsync(insert_sql, wrapperList.Select(wrapper => new
                     {
                         wrapper.Value.UnitName,
                         wrapper.Value.TransactionId,

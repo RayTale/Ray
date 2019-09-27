@@ -22,6 +22,10 @@ namespace Ray.Storage.SQLServer
         readonly ISerializer serializer;
         readonly string connection;
         readonly IOptions<TransactionOptions> options;
+        readonly string delete_sql;
+        readonly string select_list_sql;
+        readonly string update_sql;
+        readonly string insert_sql;
         public DistributedTxStorage(
             IServiceProvider serviceProvider,
             IOptions<TransactionOptions> options,
@@ -33,6 +37,10 @@ namespace Ray.Storage.SQLServer
             mpscChannel = serviceProvider.GetService<IMpscChannel<AsyncInputEvent<AppendInput, bool>>>();
             serializer = serviceProvider.GetService<ISerializer>();
             mpscChannel.BindConsumer(BatchInsertExecuter);
+            delete_sql = $"delete from {options.Value.TableName} WHERE UnitName=@UnitName and TransactionId=@TransactionId";
+            select_list_sql = $"select * from {options.Value.TableName} WHERE UnitName=@UnitName";
+            update_sql = $"update {options.Value.TableName} set Status=@Status where UnitName=@UnitName and TransactionId=@TransactionId";
+            insert_sql = $"INSERT INTO {options.Value.TableName}(UnitName,TransactionId,Data,Status) VALUES(@UnitName,@TransactionId,@Data,@Status)";
         }
         public DbConnection CreateConnection()
         {
@@ -73,14 +81,12 @@ namespace Ray.Storage.SQLServer
         public async Task Delete(string unitName, long transactionId)
         {
             using var conn = CreateConnection();
-            var sql = $"delete from {options.Value.TableName} WHERE UnitName=@UnitName and TransactionId=@TransactionId";
-            await conn.ExecuteAsync(sql, new { UnitName = unitName, TransactionId = transactionId });
+            await conn.ExecuteAsync(delete_sql, new { UnitName = unitName, TransactionId = transactionId });
         }
         public async Task<IList<Commit<Input>>> GetList<Input>(string unitName) where Input : class, new()
         {
-            var getListSql = $"select * from {options.Value.TableName} WHERE UnitName=@UnitName";
             using var conn = CreateConnection();
-            return (await conn.QueryAsync<CommitModel>(getListSql, new
+            return (await conn.QueryAsync<CommitModel>(select_list_sql, new
             {
                 UnitName = unitName
             })).Select(model => new Commit<Input>
@@ -93,16 +99,17 @@ namespace Ray.Storage.SQLServer
 
         public async Task<bool> Update(string unitName, long transactionId, TransactionStatus status)
         {
-            var sql = $"update {options.Value.TableName} set Status=@Status where UnitName=@UnitName and TransactionId=@TransactionId";
             using var conn = CreateConnection();
-            return await conn.ExecuteAsync(sql, new { UnitName = unitName, TransactionId = transactionId, Status = status }) > 0;
+            return await conn.ExecuteAsync(update_sql, new { UnitName = unitName, TransactionId = transactionId, Status = status }) > 0;
         }
         private async Task BatchInsertExecuter(List<AsyncInputEvent<AppendInput, bool>> wrapperList)
         {
+            using var conn = CreateConnection() as SqlConnection;
+            await conn.OpenAsync();
+            using var trans = conn.BeginTransaction();
             try
             {
-                using var conn = CreateConnection() as SqlConnection;
-                using var bulkCopy = new SqlBulkCopy(conn)
+                using var bulkCopy = new SqlBulkCopy(conn, Microsoft.Data.SqlClient.SqlBulkCopyOptions.UseInternalTransaction, trans)
                 {
                     DestinationTableName = options.Value.TableName,
                     BatchSize = wrapperList.Count
@@ -123,29 +130,28 @@ namespace Ray.Storage.SQLServer
                 }
                 await conn.OpenAsync();
                 await bulkCopy.WriteToServerAsync(dt);
+                trans.Commit();
                 wrapperList.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
             }
             catch
             {
-                var saveSql = $"if NOT EXISTS(SELECT * FROM {options.Value.TableName} where UnitName=@UnitName and TransactionId=@TransactionId)INSERT INTO {options.Value.TableName}(UnitName,TransactionId,Data,Status) VALUES(@UnitName,@TransactionId,@Data,@Status)";
-                using var conn = CreateConnection();
-                await conn.OpenAsync();
-                using var trans = conn.BeginTransaction();
+                trans.Rollback();
+                using var insert_trans = conn.BeginTransaction();
                 try
                 {
-                    await conn.ExecuteAsync(saveSql, wrapperList.Select(wrapper => new
+                    await conn.ExecuteAsync(insert_sql, wrapperList.Select(wrapper => new
                     {
                         wrapper.Value.UnitName,
                         wrapper.Value.TransactionId,
                         wrapper.Value.Data,
                         Status = (short)wrapper.Value.Status
-                    }).ToList(), trans);
-                    trans.Commit();
+                    }).ToList(), insert_trans);
+                    insert_trans.Commit();
                     wrapperList.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
                 }
                 catch (Exception e)
                 {
-                    trans.Rollback();
+                    insert_trans.Rollback();
                     wrapperList.ForEach(wrap => wrap.TaskSource.TrySetException(e));
                 }
             }

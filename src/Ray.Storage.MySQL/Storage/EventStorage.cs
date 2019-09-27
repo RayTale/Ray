@@ -29,6 +29,7 @@ namespace Ray.Storage.MySQL
             mpscChannel = serviceProvider.GetService<IMpscChannel<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>>>().BindConsumer(BatchInsertExecuter);
             this.config = config;
         }
+        static readonly ConcurrentDictionary<string, string> getListSqlDict = new ConcurrentDictionary<string, string>();
         public async Task<IList<IFullyEvent<PrimaryKey>>> GetList(PrimaryKey stateId, long latestTimestamp, long startVersion, long endVersion)
         {
             var list = new List<IFullyEvent<PrimaryKey>>((int)(endVersion - startVersion));
@@ -42,7 +43,7 @@ namespace Ray.Storage.MySQL
                 await conn.OpenAsync();
                 foreach (var table in getTableListTask.Result.Where(t => t.EndTime >= latestTimestamp))
                 {
-                    var sql = $"SELECT TypeCode,Data,Version,Timestamp from {table.SubTable} WHERE StateId=@StateId and Version>=@StartVersion and Version<=@EndVersion order by Version asc";
+                    var sql = getListSqlDict.GetOrAdd(table.SubTable, key => $"SELECT TypeCode,Data,Version,Timestamp from {key} WHERE StateId=@StateId and Version>=@StartVersion and Version<=@EndVersion order by Version asc");
                     var originList = await conn.QueryAsync<EventModel>(sql, new
                     {
                         StateId = stateId,
@@ -65,6 +66,7 @@ namespace Ray.Storage.MySQL
             });
             return list.OrderBy(e => e.Base.Version).ToList();
         }
+        static readonly ConcurrentDictionary<string, string> getListByTypeSqlDict = new ConcurrentDictionary<string, string>();
         public async Task<IList<IFullyEvent<PrimaryKey>>> GetListByType(PrimaryKey stateId, string typeCode, long startVersion, int limit)
         {
             var type = TypeContainer.GetType(typeCode);
@@ -78,7 +80,7 @@ namespace Ray.Storage.MySQL
                 await conn.OpenAsync();
                 foreach (var table in getTableListTask.Result)
                 {
-                    var sql = $"SELECT Data,Version,Timestamp from {table.SubTable} WHERE StateId=@StateId and TypeCode=@TypeCode and Version>=@StartVersion order by Version asc limit @Limit";
+                    var sql = getListByTypeSqlDict.GetOrAdd(table.SubTable, key => $"SELECT Data,Version,Timestamp from {key} WHERE StateId=@StateId and TypeCode=@TypeCode and Version>=@StartVersion order by Version asc limit @Limit");
                     var originList = await conn.QueryAsync<EventModel>(sql, new
                     {
                         StateId = stateId,
