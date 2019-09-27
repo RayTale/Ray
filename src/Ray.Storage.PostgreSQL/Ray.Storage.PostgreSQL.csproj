@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <PackageReference Include="Dapper" Version="2.0.4" />
-    <PackageReference Include="Npgsql" Version="4.0.10" />
+    <PackageReference Include="Npgsql" Version="4.1.0" />
   </ItemGroup>
 
   <ItemGroup>
