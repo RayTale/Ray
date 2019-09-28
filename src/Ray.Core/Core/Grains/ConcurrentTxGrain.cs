@@ -92,8 +92,9 @@ namespace Ray.Core
                         await input.Handler(Snapshot, async (evt, uniqueId) =>
                          {
                              await TxRaiseEvent(input.TransactionId, evt, uniqueId);
-                             input.Completed(true);
+                             input.Executed = true;
                          });
+                        input.Completed(input.Executed);
                     }
                     catch (Exception ex)
                     {
@@ -127,10 +128,7 @@ namespace Ray.Core
                 await FinishTransaction(defaultTransactionId);
                 foreach (var input in inputs)
                 {
-                    if (input.Executed)
-                    {
-                        input.Completed(true);
-                    }
+                    input.Completed(input.Executed);
                 }
             }
             catch (Exception batchEx)
