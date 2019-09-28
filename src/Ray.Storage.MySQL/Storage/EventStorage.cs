@@ -33,7 +33,7 @@ namespace Ray.Storage.MySQL
         public async Task<IList<FullyEvent<PrimaryKey>>> GetList(PrimaryKey stateId, long latestTimestamp, long startVersion, long endVersion)
         {
             var list = new List<FullyEvent<PrimaryKey>>((int)(endVersion - startVersion));
-            await Task.Run((Func<Task>)(async () =>
+            await Task.Run(async () =>
             {
                 var getTableListTask = config.GetSubTables();
                 if (!getTableListTask.IsCompletedSuccessfully)
@@ -58,12 +58,12 @@ namespace Ray.Storage.MySQL
                             {
                                 StateId = stateId,
                                 Event = evt,
-                                Base = new EventBase((long)item.Version, (long)item.Timestamp)
+                                Base = new EventBase(item.Version, item.Timestamp)
                             });
                         }
                     }
                 }
-            }));
+            });
             return list.OrderBy(e => e.Base.Version).ToList();
         }
         static readonly ConcurrentDictionary<string, string> getListByTypeSqlDict = new ConcurrentDictionary<string, string>();
@@ -96,7 +96,7 @@ namespace Ray.Storage.MySQL
                             {
                                 StateId = stateId,
                                 Event = evt,
-                                Base = new EventBase((long)item.Version, (long)item.Timestamp)
+                                Base = new EventBase(item.Version, item.Timestamp)
                             });
                         }
                     }
@@ -204,8 +204,8 @@ namespace Ray.Storage.MySQL
         }
         public async Task TransactionBatchAppend(List<EventTransport<PrimaryKey>> list)
         {
-            var minTimestamp = list.Min((Func<EventTransport<PrimaryKey>, long>)(t => (long)t.FullyEvent.Base.Timestamp));
-            var maxTimestamp = list.Max((Func<EventTransport<PrimaryKey>, long>)(t => (long)t.FullyEvent.Base.Timestamp));
+            var minTimestamp = list.Min(t => t.FullyEvent.Base.Timestamp);
+            var maxTimestamp = list.Max(t => t.FullyEvent.Base.Timestamp);
             var minTask = config.GetTable(minTimestamp);
             if (!minTask.IsCompletedSuccessfully)
                 await minTask;

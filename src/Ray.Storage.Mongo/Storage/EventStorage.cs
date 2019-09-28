@@ -177,8 +177,8 @@ namespace Ray.Storage.Mongo
 
         public async Task TransactionBatchAppend(List<EventTransport<PrimaryKey>> list)
         {
-            var minTimestamp = list.Min(t => (long)t.FullyEvent.Base.Timestamp);
-            var maxTimestamp = list.Max(t => (long)t.FullyEvent.Base.Timestamp);
+            var minTimestamp = list.Min(t => t.FullyEvent.Base.Timestamp);
+            var maxTimestamp = list.Max(t => t.FullyEvent.Base.Timestamp);
             var minTask = grainConfig.GetCollection(minTimestamp);
             if (!minTask.IsCompletedSuccessfully)
                 await minTask;
