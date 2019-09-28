@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Orleans.CodeGenerator.MSBuild" Version="3.0.0-beta1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Ray.Core\Ray.Core.csproj" />
+    <ProjectReference Include="..\..\src\Ray.DistributedTx\Ray.DistributedTx.csproj" />
+    <ProjectReference Include="..\..\src\Ray.EventBus.RabbitMQ\Ray.EventBus.RabbitMQ.csproj" />
+  </ItemGroup>
+
+</Project>
