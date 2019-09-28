@@ -2,7 +2,7 @@
 using Orleans;
 using Orleans.Concurrency;
 
-namespace Ray.DistributedTx
+namespace Ray.DistributedTx.Abstractions
 {
     public interface IDistributedTxUnit<Input, Output> : IGrainWithIntegerKey
     {

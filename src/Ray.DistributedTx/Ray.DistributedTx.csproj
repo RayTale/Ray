@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <ProjectReference Include="..\Ray.Core\Ray.Core.csproj" />
+    <ProjectReference Include="..\Ray.DistributedTx.Abstractions\Ray.DistributedTx.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>

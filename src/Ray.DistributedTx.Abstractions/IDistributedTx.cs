@@ -1,6 +1,6 @@
 ﻿using System.Threading.Tasks;
 
-namespace Ray.DistributedTx
+namespace Ray.DistributedTx.Abstractions
 {
     public interface IDistributedTx
     {
