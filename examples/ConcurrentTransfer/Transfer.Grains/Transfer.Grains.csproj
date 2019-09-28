@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Ray.Core" Version="2.0.0-rc4" />
+    <PackageReference Include="Ray.EventBus.Kafka" Version="2.0.0-rc4" />
+    <PackageReference Include="Ray.Storage.PostgreSQL" Version="2.0.0-rc4" />
+    <PackageReference Include="Microsoft.Orleans.CodeGenerator.MSBuild" Version="3.0.0-beta1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Transfer.IGrains\Transfer.IGrains.csproj" />
+  </ItemGroup>
+
+</Project>
