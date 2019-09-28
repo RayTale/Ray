@@ -7,7 +7,7 @@ namespace Ray.DistributedTx
     public abstract class DTxSnapshotHandler<PrimaryKey, Snapshot> : SnapshotHandler<PrimaryKey, Snapshot>
           where Snapshot : class, new()
     {
-        public override void Apply(Snapshot<PrimaryKey, Snapshot> snapshot, IFullyEvent<PrimaryKey> fullyEvent)
+        public override void Apply(Snapshot<PrimaryKey, Snapshot> snapshot, FullyEvent<PrimaryKey> fullyEvent)
         {
             switch (fullyEvent.Event)
             {
@@ -40,7 +40,7 @@ namespace Ray.DistributedTx
                     }; break;
             }
         }
-        public virtual void CustomApply(Snapshot<PrimaryKey, Snapshot> snapshot, IFullyEvent<PrimaryKey> fullyEvent)
+        public virtual void CustomApply(Snapshot<PrimaryKey, Snapshot> snapshot, FullyEvent<PrimaryKey> fullyEvent)
         {
             base.Apply(snapshot, fullyEvent);
         }

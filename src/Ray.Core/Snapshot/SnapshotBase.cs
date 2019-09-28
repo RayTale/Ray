@@ -1,6 +1,6 @@
 ﻿namespace Ray.Core.Snapshot
 {
-    public class SnapshotBase<PrimaryKey> : ISnapshotBase<PrimaryKey>, ICloneable<SnapshotBase<PrimaryKey>>
+    public class SnapshotBase<PrimaryKey> : ICloneable<SnapshotBase<PrimaryKey>>
     {
         public PrimaryKey StateId { get; set; }
         public long DoingVersion { get; set; }

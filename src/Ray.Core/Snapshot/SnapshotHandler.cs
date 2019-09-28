@@ -146,7 +146,7 @@ namespace Ray.Core.Snapshot
                 }
             }
         }
-        public virtual void Apply(Snapshot<PrimaryKey, Snapshot> snapshot, IFullyEvent<PrimaryKey> fullyEvent)
+        public virtual void Apply(Snapshot<PrimaryKey, Snapshot> snapshot, FullyEvent<PrimaryKey> fullyEvent)
         {
             handlerInvokeFunc(this, snapshot.State, fullyEvent.Event, fullyEvent.Base);
         }

@@ -157,7 +157,7 @@ namespace Ray.Core
                 throw;
             }
         }
-        protected virtual async ValueTask Tell(IEnumerable<IFullyEvent<PrimaryKey>> eventList)
+        protected virtual async ValueTask Tell(IEnumerable<FullyEvent<PrimaryKey>> eventList)
         {
             foreach (var @event in eventList)
             {
@@ -260,7 +260,7 @@ namespace Ray.Core
         {
             return Task.FromResult(Snapshot.Base.Version);
         }
-        protected async ValueTask Tell(IFullyEvent<PrimaryKey> @event)
+        protected async ValueTask Tell(FullyEvent<PrimaryKey> @event)
         {
             if (@event.Base.Version == Snapshot.Base.Version + 1)
             {
@@ -293,7 +293,7 @@ namespace Ray.Core
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual ValueTask OnEventDelivered(IFullyEvent<PrimaryKey> @event)
+        protected virtual ValueTask OnEventDelivered(FullyEvent<PrimaryKey> @event)
         {
             try
             {

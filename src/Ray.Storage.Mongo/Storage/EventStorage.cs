@@ -29,12 +29,12 @@ namespace Ray.Storage.Mongo
             mpscChannel.BindConsumer(BatchInsertExecuter);
             this.grainConfig = grainConfig;
         }
-        public async Task<IList<IFullyEvent<PrimaryKey>>> GetList(PrimaryKey stateId, long latestTimestamp, long startVersion, long endVersion)
+        public async Task<IList<FullyEvent<PrimaryKey>>> GetList(PrimaryKey stateId, long latestTimestamp, long startVersion, long endVersion)
         {
             var collectionListTask = grainConfig.GetCollectionList();
             if (!collectionListTask.IsCompletedSuccessfully)
                 await collectionListTask;
-            var list = new List<IFullyEvent<PrimaryKey>>();
+            var list = new List<FullyEvent<PrimaryKey>>();
             foreach (var collection in collectionListTask.Result.Where(c => c.EndTime >= latestTimestamp))
             {
                 var filterBuilder = Builders<BsonDocument>.Filter;
@@ -62,12 +62,12 @@ namespace Ray.Storage.Mongo
             }
             return list;
         }
-        public async Task<IList<IFullyEvent<PrimaryKey>>> GetListByType(PrimaryKey stateId, string typeCode, long startVersion, int limit)
+        public async Task<IList<FullyEvent<PrimaryKey>>> GetListByType(PrimaryKey stateId, string typeCode, long startVersion, int limit)
         {
             var collectionListTask = grainConfig.GetCollectionList();
             if (!collectionListTask.IsCompletedSuccessfully)
                 await collectionListTask;
-            var list = new List<IFullyEvent<PrimaryKey>>();
+            var list = new List<FullyEvent<PrimaryKey>>();
             foreach (var collection in collectionListTask.Result)
             {
                 var filter = Builders<BsonDocument>.Filter.Eq("StateId", stateId) & Builders<BsonDocument>.Filter.Eq("TypeCode", typeCode) & Builders<BsonDocument>.Filter.Gte("Version", startVersion);
@@ -92,7 +92,7 @@ namespace Ray.Storage.Mongo
             }
             return list;
         }
-        public Task<bool> Append(IFullyEvent<PrimaryKey> fullyEvent, in EventBytesTransport bytesTransport, string unique)
+        public Task<bool> Append(FullyEvent<PrimaryKey> fullyEvent, in EventBytesTransport bytesTransport, string unique)
         {
             var input = new BatchAppendTransport<PrimaryKey>(fullyEvent, in bytesTransport, unique);
             return Task.Run(async () =>
@@ -177,8 +177,8 @@ namespace Ray.Storage.Mongo
 
         public async Task TransactionBatchAppend(List<EventTransport<PrimaryKey>> list)
         {
-            var minTimestamp = list.Min(t => t.FullyEvent.Base.Timestamp);
-            var maxTimestamp = list.Max(t => t.FullyEvent.Base.Timestamp);
+            var minTimestamp = list.Min(t => (long)t.FullyEvent.Base.Timestamp);
+            var maxTimestamp = list.Max(t => (long)t.FullyEvent.Base.Timestamp);
             var minTask = grainConfig.GetCollection(minTimestamp);
             if (!minTask.IsCompletedSuccessfully)
                 await minTask;

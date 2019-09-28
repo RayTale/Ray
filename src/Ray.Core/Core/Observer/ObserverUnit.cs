@@ -53,7 +53,7 @@ namespace Ray.Core
             }
             return funcs;
         }
-        public ObserverUnit<PrimaryKey> UnreliableObserver(string group, Func<IServiceProvider, IFullyEvent<PrimaryKey>, ValueTask> handler)
+        public ObserverUnit<PrimaryKey> UnreliableObserver(string group, Func<IServiceProvider, FullyEvent<PrimaryKey>, ValueTask> handler)
         {
             var funcs = GetEventHandlers(group);
             funcs.Add(func);

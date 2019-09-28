@@ -537,7 +537,7 @@ namespace Ray.Core
                 }
             }
         }
-        protected virtual async ValueTask OnRaiseStart(IFullyEvent<PrimaryKey> @event)
+        protected virtual async ValueTask OnRaiseStart(FullyEvent<PrimaryKey> @event)
         {
             if (Snapshot.Base.Version == 0)
                 return;
@@ -580,7 +580,7 @@ namespace Ray.Core
                 LastArchive = BriefArchiveList.LastOrDefault();
             }
         }
-        protected virtual ValueTask OnRaised(IFullyEvent<PrimaryKey> @event, EventBytesTransport transport)
+        protected virtual ValueTask OnRaised(FullyEvent<PrimaryKey> @event, EventBytesTransport transport)
         {
             if (ArchiveOptions.On)
             {
@@ -588,7 +588,7 @@ namespace Ray.Core
             }
             return Consts.ValueTaskDone;
         }
-        protected virtual ValueTask OnRaiseFailed(IFullyEvent<PrimaryKey> @event)
+        protected virtual ValueTask OnRaiseFailed(FullyEvent<PrimaryKey> @event)
         {
             if (ArchiveOptions.On && NewArchive != null)
             {
@@ -596,7 +596,7 @@ namespace Ray.Core
             }
             return Consts.ValueTaskDone;
         }
-        protected async ValueTask EventArchive(IFullyEvent<PrimaryKey> @event)
+        protected async ValueTask EventArchive(FullyEvent<PrimaryKey> @event)
         {
             if (NewArchive is null)
             {

@@ -290,7 +290,7 @@ namespace Ray.Core
         /// </summary>
         /// <param name="fullyEvent">事件本体</param>
         /// <param name="bytes">事件序列化之后的二进制数据</param>
-        protected override ValueTask OnRaised(IFullyEvent<PrimaryKey> fullyEvent, EventBytesTransport transport)
+        protected override ValueTask OnRaised(FullyEvent<PrimaryKey> fullyEvent, EventBytesTransport transport)
         {
             if (BackupSnapshot.Base.Version + 1 == fullyEvent.Base.Version)
             {

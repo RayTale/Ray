@@ -159,11 +159,11 @@ namespace Ray.Core
         /// <summary>
         /// 未处理事件列表
         /// </summary>
-        private List<IFullyEvent<PrimaryKey>> UnprocessedEventList { get; set; }
+        private List<FullyEvent<PrimaryKey>> UnprocessedEventList { get; set; }
         /// <summary>
         /// 多生产者单消费者消息信道
         /// </summary>
-        protected IMpscChannel<AsyncInputEvent<IFullyEvent<PrimaryKey>, bool>> ConcurrentChannel { get; private set; }
+        protected IMpscChannel<AsyncInputEvent<FullyEvent<PrimaryKey>, bool>> ConcurrentChannel { get; private set; }
         protected new IGrainFactory GrainFactory { get; private set; }
         private PrimaryKey _GrainId;
         private bool _GrainIdAcquired = false;
@@ -258,8 +258,8 @@ namespace Ray.Core
                 await dITask;
             if (concurrent)
             {
-                ConcurrentChannel = ServiceProvider.GetService<IMpscChannel<AsyncInputEvent<IFullyEvent<PrimaryKey>, bool>>>().BindConsumer(ConcurrentTell);
-                UnprocessedEventList = new List<IFullyEvent<PrimaryKey>>();
+                ConcurrentChannel = ServiceProvider.GetService<IMpscChannel<AsyncInputEvent<FullyEvent<PrimaryKey>, bool>>>().BindConsumer(ConcurrentTell);
+                UnprocessedEventList = new List<FullyEvent<PrimaryKey>>();
             }
             try
             {
@@ -297,7 +297,7 @@ namespace Ray.Core
                 Logger.LogTrace("Deactivate completed: {0}->{1}", GrainType.FullName, Serializer.Serialize(Snapshot));
             return Task.CompletedTask;
         }
-        protected virtual async Task UnsafeTell(IEnumerable<IFullyEvent<PrimaryKey>> eventList)
+        protected virtual async Task UnsafeTell(IEnumerable<FullyEvent<PrimaryKey>> eventList)
         {
             if (ConcurrentHandle)
             {
@@ -375,7 +375,7 @@ namespace Ray.Core
                     {
                         if (concurrent)
                         {
-                            var input = new AsyncInputEvent<IFullyEvent<PrimaryKey>, bool>(new FullyEvent<PrimaryKey>
+                            var input = new AsyncInputEvent<FullyEvent<PrimaryKey>, bool>(new FullyEvent<PrimaryKey>
                             {
                                 StateId = GrainId,
                                 Base = eventBase,
@@ -428,7 +428,7 @@ namespace Ray.Core
             }
             return Snapshot.Version;
         }
-        protected async ValueTask Tell(IFullyEvent<PrimaryKey> fullyEvent)
+        protected async ValueTask Tell(FullyEvent<PrimaryKey> fullyEvent)
         {
             try
             {
@@ -473,9 +473,9 @@ namespace Ray.Core
                 throw;
             }
         }
-        private async Task ConcurrentTell(List<AsyncInputEvent<IFullyEvent<PrimaryKey>, bool>> inputs)
+        private async Task ConcurrentTell(List<AsyncInputEvent<FullyEvent<PrimaryKey>, bool>> inputs)
         {
-            var evtList = new List<IFullyEvent<PrimaryKey>>();
+            var evtList = new List<FullyEvent<PrimaryKey>>();
             var startVersion = Snapshot.Version;
             if (UnprocessedEventList.Count > 0)
             {
@@ -547,7 +547,7 @@ namespace Ray.Core
                 maxRequest?.TrySetException(ex);
             }
         }
-        protected virtual async ValueTask EventDelivered(IFullyEvent<PrimaryKey> fullyEvent)
+        protected virtual async ValueTask EventDelivered(FullyEvent<PrimaryKey> fullyEvent)
         {
             try
             {
@@ -574,7 +574,7 @@ namespace Ray.Core
             }
             return Task.CompletedTask;
         }
-        protected virtual ValueTask OnEventDelivered(IFullyEvent<PrimaryKey> fullyEvent)
+        protected virtual ValueTask OnEventDelivered(FullyEvent<PrimaryKey> fullyEvent)
         {
             return new ValueTask(handlerInvokeFunc(this, fullyEvent.Event, fullyEvent.Base));
         }

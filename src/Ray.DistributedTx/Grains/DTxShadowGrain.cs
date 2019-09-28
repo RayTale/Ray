@@ -18,7 +18,7 @@ namespace Ray.DistributedTx.Grains
             TransactionOptions = ServiceProvider.GetOptionsByName<DistributedTxOptions>(GrainType.FullName);
             return base.DependencyInjection();
         }
-        protected override ValueTask Tell(IEnumerable<IFullyEvent<PrimaryKey>> eventList)
+        protected override ValueTask Tell(IEnumerable<FullyEvent<PrimaryKey>> eventList)
         {
             if (!TransactionOptions.RetainTxEvents)
                 return base.Tell(eventList.Where(e => !(e is TxCommitEvent)));

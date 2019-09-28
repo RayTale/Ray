@@ -32,10 +32,10 @@ namespace Ray.Storage.SQLServer
             mpscChannel = serviceProvider.GetService<IMpscChannel<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>>>().BindConsumer(BatchInsertExecuter);
             this.config = config;
         }
-        public async Task<IList<IFullyEvent<PrimaryKey>>> GetList(PrimaryKey stateId, long latestTimestamp, long startVersion, long endVersion)
+        public async Task<IList<FullyEvent<PrimaryKey>>> GetList(PrimaryKey stateId, long latestTimestamp, long startVersion, long endVersion)
         {
-            var list = new List<IFullyEvent<PrimaryKey>>((int)(endVersion - startVersion));
-            await Task.Run(async () =>
+            var list = new List<FullyEvent<PrimaryKey>>((int)(endVersion - startVersion));
+            await Task.Run((Func<Task>)(async () =>
             {
                 var getTableListTask = config.GetSubTables();
                 if (!getTableListTask.IsCompletedSuccessfully)
@@ -60,19 +60,19 @@ namespace Ray.Storage.SQLServer
                             {
                                 StateId = stateId,
                                 Event = evt,
-                                Base = new EventBase(item.Version, item.Timestamp)
+                                Base = new EventBase((long)item.Version, (long)item.Timestamp)
                             });
                         }
                     }
                 }
-            });
+            }));
             return list.OrderBy(e => e.Base.Version).ToList();
         }
-        public async Task<IList<IFullyEvent<PrimaryKey>>> GetListByType(PrimaryKey stateId, string typeCode, long startVersion, int limit)
+        public async Task<IList<FullyEvent<PrimaryKey>>> GetListByType(PrimaryKey stateId, string typeCode, long startVersion, int limit)
         {
             var type = TypeContainer.GetType(typeCode);
-            var list = new List<IFullyEvent<PrimaryKey>>(limit);
-            await Task.Run(async () =>
+            var list = new List<FullyEvent<PrimaryKey>>(limit);
+            await Task.Run((Func<Task>)(async () =>
             {
                 var getTableListTask = config.GetSubTables();
                 if (!getTableListTask.IsCompletedSuccessfully)
@@ -97,19 +97,19 @@ namespace Ray.Storage.SQLServer
                             {
                                 StateId = stateId,
                                 Event = evt,
-                                Base = new EventBase(item.Version, item.Timestamp)
+                                Base = new EventBase((long)item.Version, (long)item.Timestamp)
                             });
                         }
                     }
                     if (list.Count >= limit)
                         break;
                 }
-            });
+            }));
             return list.OrderBy(e => e.Base.Version).ToList();
         }
 
         static readonly ConcurrentDictionary<string, string> saveSqlDict = new ConcurrentDictionary<string, string>();
-        public Task<bool> Append(IFullyEvent<PrimaryKey> fullyEvent, in EventBytesTransport bytesTransport, string unique)
+        public Task<bool> Append(FullyEvent<PrimaryKey> fullyEvent, in EventBytesTransport bytesTransport, string unique)
         {
             var input = new BatchAppendTransport<PrimaryKey>(fullyEvent, in bytesTransport, unique);
             return Task.Run(async () =>
@@ -241,8 +241,8 @@ namespace Ray.Storage.SQLServer
         static readonly ConcurrentDictionary<string, string> copySaveSqlDict = new ConcurrentDictionary<string, string>();
         public async Task TransactionBatchAppend(List<EventTransport<PrimaryKey>> list)
         {
-            var minTimestamp = list.Min(t => t.FullyEvent.Base.Timestamp);
-            var maxTimestamp = list.Max(t => t.FullyEvent.Base.Timestamp);
+            var minTimestamp = list.Min(t => (long)t.FullyEvent.Base.Timestamp);
+            var maxTimestamp = list.Max(t => (long)t.FullyEvent.Base.Timestamp);
             var minTask = config.GetTable(minTimestamp);
             if (!minTask.IsCompletedSuccessfully)
                 await minTask;

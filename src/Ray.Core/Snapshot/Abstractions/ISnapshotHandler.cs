@@ -5,6 +5,6 @@ namespace Ray.Core.Snapshot
     public interface ISnapshotHandler<PrimaryKey, Snapshot>
         where Snapshot : class, new()
     {
-        void Apply(Snapshot<PrimaryKey, Snapshot> snapshot, IFullyEvent<PrimaryKey> fullyEvent);
+        void Apply(Snapshot<PrimaryKey, Snapshot> snapshot, FullyEvent<PrimaryKey> fullyEvent);
     }
 }

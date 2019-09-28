@@ -17,7 +17,7 @@ namespace Ray.DistributedTx
             TransactionOptions = ServiceProvider.GetOptionsByName<DistributedTxOptions>(GrainType.FullName);
             return base.DependencyInjection();
         }
-        protected override Task UnsafeTell(IEnumerable<IFullyEvent<PrimaryKey>> eventList)
+        protected override Task UnsafeTell(IEnumerable<FullyEvent<PrimaryKey>> eventList)
         {
             if (!TransactionOptions.RetainTxEvents)
                 return base.UnsafeTell(eventList.Where(e => !(e is TxCommitEvent)));

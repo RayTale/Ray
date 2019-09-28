@@ -13,7 +13,7 @@ namespace Ray.Core.Storage
         /// <param name="bytesTransport"></param>
         /// <param name="unique"></param>
         /// <returns></returns>
-        Task<bool> Append(IFullyEvent<PrimaryKey> fullyEvent, in EventBytesTransport bytesTransport, string unique);
+        Task<bool> Append(FullyEvent<PrimaryKey> fullyEvent, in EventBytesTransport bytesTransport, string unique);
         /// <summary>
         /// 批量事件插入
         /// </summary>
@@ -28,7 +28,7 @@ namespace Ray.Core.Storage
         /// <param name="startVersion">开始版本</param>
         /// <param name="endVersion">结束版本</param>
         /// <returns></returns>
-        Task<IList<IFullyEvent<PrimaryKey>>> GetList(PrimaryKey stateId, long latestTimestamp, long startVersion, long endVersion);
+        Task<IList<FullyEvent<PrimaryKey>>> GetList(PrimaryKey stateId, long latestTimestamp, long startVersion, long endVersion);
         /// <summary>
         /// 批量获取指定类型的事件
         /// </summary>
@@ -37,7 +37,7 @@ namespace Ray.Core.Storage
         /// <param name="startVersion">开始版本</param>
         /// <param name="limit">拉取数量</param>
         /// <returns></returns>
-        Task<IList<IFullyEvent<PrimaryKey>>> GetListByType(PrimaryKey stateId, string typeCode, long startVersion, int limit);
+        Task<IList<FullyEvent<PrimaryKey>>> GetListByType(PrimaryKey stateId, string typeCode, long startVersion, int limit);
         /// <summary>
         /// 删除指定版本号之前的事件
         /// </summary>

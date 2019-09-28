@@ -30,10 +30,10 @@ namespace Ray.Storage.MySQL
             this.config = config;
         }
         static readonly ConcurrentDictionary<string, string> getListSqlDict = new ConcurrentDictionary<string, string>();
-        public async Task<IList<IFullyEvent<PrimaryKey>>> GetList(PrimaryKey stateId, long latestTimestamp, long startVersion, long endVersion)
+        public async Task<IList<FullyEvent<PrimaryKey>>> GetList(PrimaryKey stateId, long latestTimestamp, long startVersion, long endVersion)
         {
-            var list = new List<IFullyEvent<PrimaryKey>>((int)(endVersion - startVersion));
-            await Task.Run(async () =>
+            var list = new List<FullyEvent<PrimaryKey>>((int)(endVersion - startVersion));
+            await Task.Run((Func<Task>)(async () =>
             {
                 var getTableListTask = config.GetSubTables();
                 if (!getTableListTask.IsCompletedSuccessfully)
@@ -58,19 +58,19 @@ namespace Ray.Storage.MySQL
                             {
                                 StateId = stateId,
                                 Event = evt,
-                                Base = new EventBase(item.Version, item.Timestamp)
+                                Base = new EventBase((long)item.Version, (long)item.Timestamp)
                             });
                         }
                     }
                 }
-            });
+            }));
             return list.OrderBy(e => e.Base.Version).ToList();
         }
         static readonly ConcurrentDictionary<string, string> getListByTypeSqlDict = new ConcurrentDictionary<string, string>();
-        public async Task<IList<IFullyEvent<PrimaryKey>>> GetListByType(PrimaryKey stateId, string typeCode, long startVersion, int limit)
+        public async Task<IList<FullyEvent<PrimaryKey>>> GetListByType(PrimaryKey stateId, string typeCode, long startVersion, int limit)
         {
             var type = TypeContainer.GetType(typeCode);
-            var list = new List<IFullyEvent<PrimaryKey>>(limit);
+            var list = new List<FullyEvent<PrimaryKey>>(limit);
             await Task.Run(async () =>
             {
                 var getTableListTask = config.GetSubTables();
@@ -96,7 +96,7 @@ namespace Ray.Storage.MySQL
                             {
                                 StateId = stateId,
                                 Event = evt,
-                                Base = new EventBase(item.Version, item.Timestamp)
+                                Base = new EventBase((long)item.Version, (long)item.Timestamp)
                             });
                         }
                     }
@@ -108,7 +108,7 @@ namespace Ray.Storage.MySQL
         }
 
         static readonly ConcurrentDictionary<string, string> saveSqlDict = new ConcurrentDictionary<string, string>();
-        public Task<bool> Append(IFullyEvent<PrimaryKey> fullyEvent, in EventBytesTransport bytesTransport, string unique)
+        public Task<bool> Append(FullyEvent<PrimaryKey> fullyEvent, in EventBytesTransport bytesTransport, string unique)
         {
             var input = new BatchAppendTransport<PrimaryKey>(fullyEvent, in bytesTransport, unique);
             return Task.Run(async () =>
@@ -204,8 +204,8 @@ namespace Ray.Storage.MySQL
         }
         public async Task TransactionBatchAppend(List<EventTransport<PrimaryKey>> list)
         {
-            var minTimestamp = list.Min(t => t.FullyEvent.Base.Timestamp);
-            var maxTimestamp = list.Max(t => t.FullyEvent.Base.Timestamp);
+            var minTimestamp = list.Min((Func<EventTransport<PrimaryKey>, long>)(t => (long)t.FullyEvent.Base.Timestamp));
+            var maxTimestamp = list.Max((Func<EventTransport<PrimaryKey>, long>)(t => (long)t.FullyEvent.Base.Timestamp));
             var minTask = config.GetTable(minTimestamp);
             if (!minTask.IsCompletedSuccessfully)
                 await minTask;
