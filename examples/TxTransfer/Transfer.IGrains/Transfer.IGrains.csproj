@@ -6,12 +6,13 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Orleans.Core.Abstractions" Version="3.0.0-beta1" />
-    <PackageReference Include="Ray.Core.Abstractions" Version="2.0.0-rc4" />
     <PackageReference Include="Microsoft.Orleans.CodeGenerator.MSBuild" Version="3.0.0-beta1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Ray.DistributedTx" Version="2.0.0-rc4" />
   </ItemGroup>
-
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Ray.Core.Abstractions\Ray.Core.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\src\Ray.DistributedTx.Abstractions\Ray.DistributedTx.Abstractions.csproj" />
+  </ItemGroup>
 </Project>
