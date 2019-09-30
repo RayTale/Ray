@@ -1,6 +1,8 @@
 ﻿using Confluent.Kafka;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -29,7 +31,8 @@ namespace Ray.EventBus.Kafka
         public DateTimeOffset StartTime { get; set; }
         bool IsHeath = true;
         bool closed = false;
-        static TimeSpan timeoutTime = TimeSpan.FromSeconds(30);
+        readonly static TimeSpan start_TimeoutSpan = TimeSpan.FromSeconds(30);
+        readonly static TimeSpan while_TimeoutSpan = TimeSpan.FromMilliseconds(50);
         DateTimeOffset lastCommitTime = DateTimeOffset.UtcNow;
         public Task Run()
         {
@@ -41,7 +44,7 @@ namespace Ray.EventBus.Kafka
                 bool needCommit = false;
                 while (!closed)
                 {
-                    var consumerResult = consumer.Handler.Consume(timeoutTime);
+                    var consumerResult = consumer.Handler.Consume(start_TimeoutSpan);
                     if (consumerResult is null || consumerResult.IsPartitionEOF || consumerResult.Value == null)
                     {
                         if (needCommit)
@@ -52,9 +55,31 @@ namespace Ray.EventBus.Kafka
                         }
                         continue;
                     }
+                    List<ConsumeResult<string, byte[]>> list = default;
+                    while (true)
+                    {
+                        var whileResult = consumer.Handler.Consume(while_TimeoutSpan);
+                        if (whileResult is null || whileResult.IsPartitionEOF || whileResult.Value == null)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            if (list == null)
+                                list = new List<ConsumeResult<string, byte[]>>();
+                            list.Add(whileResult);
+                        }
+                        if (list.Count == 1000) break;
+                    }
                     try
                     {
-                        await Consumer.Notice(consumerResult.Value);
+                        if (list == null)
+                            await Consumer.Notice(consumerResult.Value);
+                        else
+                        {
+                            list.Add(consumerResult);
+                            await Consumer.Notice(list.Select(o => o.Value).ToList());
+                        }
                     }
                     catch (Exception exception)
                     {
@@ -63,7 +88,15 @@ namespace Ray.EventBus.Kafka
                         {
                             await Task.Delay(1000);
                             using var producer = Client.GetProducer();
-                            producer.Handler.Produce(Topic, new Message<string, byte[]> { Key = consumerResult.Key, Value = consumerResult.Value });
+                            if (list == null)
+                                producer.Handler.Produce(Topic, new Message<string, byte[]> { Key = consumerResult.Key, Value = consumerResult.Value });
+                            else
+                            {
+                                foreach (var item in list)
+                                {
+                                    producer.Handler.Produce(Topic, new Message<string, byte[]> { Key = item.Key, Value = item.Value });
+                                }
+                            }
                         }
                         else
                         {
@@ -75,9 +108,9 @@ namespace Ray.EventBus.Kafka
                         if (IsHeath)
                         {
                             var nowTime = DateTimeOffset.UtcNow;
-                            if ((nowTime - lastCommitTime).TotalSeconds > 1)
+                            if (list != null || (nowTime - lastCommitTime).TotalSeconds > 1)
                             {
-                                consumer.Handler.Commit(consumerResult);
+                                consumer.Handler.Commit();
                                 needCommit = false;
                                 lastCommitTime = nowTime;
                             }

@@ -11,6 +11,7 @@ using Ray.Core.Snapshot;
 using Ray.Core.Storage;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
@@ -22,9 +23,6 @@ namespace Ray.Core
         public ShadowGrain()
         {
             GrainType = GetType();
-            if (typeof(IConcurrentObserver).IsAssignableFrom(GrainType))
-                throw new NotSupportedException("ShadowGrain not supported inheritance from 'IConcurrentObserver'");
-
             if (typeof(ICloneable<StateType>).IsAssignableFrom(typeof(StateType)))
             {
                 IsTxShadow = typeof(TxGrain<,>).MakeGenericType(typeof(PrimaryKey), typeof(StateType)).IsAssignableFrom(typeof(Main));
@@ -242,15 +240,54 @@ namespace Ray.Core
                             return tellTask.AsTask();
                     }
                     if (Logger.IsEnabled(LogLevel.Trace))
-                        Logger.LogInformation("OnNext completed: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(data, eventType));
+                        Logger.LogTrace("OnNext completed: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(data, eventType));
                 }
                 else
                 {
                     if (Logger.IsEnabled(LogLevel.Trace))
-                        Logger.LogInformation("Non-Event: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(data, eventType));
+                        Logger.LogTrace("Non-Event: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(data, eventType));
                 }
             }
             return Task.CompletedTask;
+        }
+        public async Task OnNext(Immutable<List<byte[]>> items)
+        {
+            var events = items.Value.Select(bytes =>
+            {
+                var (success, transport) = EventBytesTransport.FromBytesWithNoId(bytes);
+                if (success)
+                {
+                    var eventType = TypeContainer.GetType(transport.EventTypeCode);
+                    var data = Serializer.Deserialize(transport.EventBytes, eventType);
+                    if (data is IEvent @event)
+                    {
+                        var eventBase = EventBase.FromBytes(transport.BaseBytes);
+                        if (eventBase.Version > Snapshot.Base.Version)
+                        {
+                            return new FullyEvent<PrimaryKey>
+                            {
+                                StateId = GrainId,
+                                Base = eventBase,
+                                Event = @event
+                            };
+                        }
+                    }
+                    else
+                    {
+                        if (Logger.IsEnabled(LogLevel.Trace))
+                            Logger.LogTrace("Non-Event: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(data, eventType));
+                    }
+                }
+                return default;
+            }).Where(o => o != null).OrderBy(o => o.Base.Version).ToList();
+            foreach (var evt in events)
+            {
+                var tellTask = Tell(evt);
+                if (!tellTask.IsCompletedSuccessfully)
+                    await tellTask;
+                if (Logger.IsEnabled(LogLevel.Trace))
+                    Logger.LogTrace("OnNext completed: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(evt));
+            }
         }
         public Task<long> GetVersion()
         {

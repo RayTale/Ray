@@ -1,23 +1,28 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using Ray.Core.Channels;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Ray.EventBus.RabbitMQ
 {
     public class ConsumerRunner
     {
+        readonly IMpscChannel<BasicDeliverEventArgs> mpscChannel;
         public ConsumerRunner(
             IRabbitMQClient client,
-            ILogger<ConsumerRunner> logger,
+            IServiceProvider provider,
             RabbitConsumer consumer,
             QueueInfo queue)
         {
             Client = client;
-            Logger = logger;
+            Logger = provider.GetService<ILogger<ConsumerRunner>>();
+            mpscChannel = provider.GetService<IMpscChannel<BasicDeliverEventArgs>>();
+            mpscChannel.BindConsumer(BatchExecuter);
             Consumer = consumer;
             Queue = queue;
         }
@@ -25,91 +30,74 @@ namespace Ray.EventBus.RabbitMQ
         public IRabbitMQClient Client { get; }
         public RabbitConsumer Consumer { get; }
         public QueueInfo Queue { get; }
-        public ushort NowQos { get; set; }
-        public List<ConsumerRunnerSlice> Slices { get; set; } = new List<ConsumerRunnerSlice>();
-        public DateTimeOffset StartTime { get; set; }
+        public ModelWrapper Model { get; set; }
+        public EventingBasicConsumer BasicConsumer { get; set; }
+        public bool IsUnAvailable => !BasicConsumer.IsRunning || Model.Model.IsClosed;
         private bool isFirst = true;
-        public  Task Run()
+        public Task Run()
         {
-            var child = new ConsumerRunnerSlice
-            {
-                Channel =  Client.PullModel(),
-                Qos = Consumer.Config.MinQos
-            };
+            Model = Client.PullModel();
             if (isFirst)
             {
                 isFirst = false;
-                child.Channel.Model.ExchangeDeclare(Consumer.EventBus.Exchange, "direct", true);
-                child.Channel.Model.QueueDeclare(Queue.Queue, true, false, false, null);
-                child.Channel.Model.QueueBind(Queue.Queue, Consumer.EventBus.Exchange, Queue.RoutingKey);
+                Model.Model.ExchangeDeclare(Consumer.EventBus.Exchange, "direct", true);
+                Model.Model.QueueDeclare(Queue.Queue, true, false, false, null);
+                Model.Model.QueueBind(Queue.Queue, Consumer.EventBus.Exchange, Queue.RoutingKey);
             }
-            child.Channel.Model.BasicQos(0, Consumer.Config.MinQos, false);
-
-            child.BasicConsumer = new EventingBasicConsumer(child.Channel.Model);
-            child.BasicConsumer.Received += async (ch, ea) =>
-            {
-                await Process(child, ea);
-            };
-            child.BasicConsumer.ConsumerTag = child.Channel.Model.BasicConsume(Queue.Queue, Consumer.Config.AutoAck, child.BasicConsumer);
-            child.NeedRestart = false;
-            Slices.Add(child);
-            NowQos += child.Qos;
-            StartTime = DateTimeOffset.UtcNow;
+            Model.Model.BasicQos(0, Consumer.Config.Qos, false);
+            BasicConsumer = new EventingBasicConsumer(Model.Model);
+            BasicConsumer.Received += async (ch, ea) => await mpscChannel.WriteAsync(ea);
+            BasicConsumer.ConsumerTag = Model.Model.BasicConsume(Queue.Queue, Consumer.Config.AutoAck, BasicConsumer);
             return Task.CompletedTask;
         }
-        public  Task ExpandQos()
+        public Task HeathCheck()
         {
-            if (NowQos + Consumer.Config.IncQos <= Consumer.Config.MaxQos)
+            if (IsUnAvailable)
             {
-                var child = new ConsumerRunnerSlice
-                {
-                    Channel =  Client.PullModel(),
-                    Qos = Consumer.Config.IncQos
-                };
-                child.Channel.Model.BasicQos(0, Consumer.Config.IncQos, false);
-
-                child.BasicConsumer = new EventingBasicConsumer(child.Channel.Model);
-                child.BasicConsumer.Received += async (ch, ea) =>
-                {
-                    await Process(child, ea);
-                };
-                child.BasicConsumer.ConsumerTag = child.Channel.Model.BasicConsume(Queue.Queue, Consumer.Config.AutoAck, child.BasicConsumer);
-                child.NeedRestart = false;
-                Slices.Add(child);
-                NowQos += child.Qos;
-                StartTime = DateTimeOffset.UtcNow;
+                Close();
+                return Run();
             }
-            return Task.CompletedTask;
+            else
+                return Task.CompletedTask;
         }
-        public async Task HeathCheck()
+        private async Task BatchExecuter(List<BasicDeliverEventArgs> list)
         {
-            var unAvailables = Slices.Where(child => child.IsUnAvailable).ToList();
-            if (unAvailables.Count > 0)
+            if (list.Count == 1)
             {
-                foreach (var slice in unAvailables)
-                {
-                    slice.Close();
-                    Slices.Remove(slice);
-                    NowQos -= slice.Qos;
-                }
-                if (NowQos < Consumer.Config.MinQos)
-                {
-                    await Run();
-                }
+                await Process(list.First());
             }
-            else if ((DateTimeOffset.UtcNow - StartTime).TotalMinutes >= 5)
+            else
             {
-                await ExpandQos();//扩容操作
+                try
+                {
+                    await Consumer.Notice(list.Select(o => o.Body).ToList());
+                    if (!Consumer.Config.AutoAck)
+                    {
+                        Model.Model.BasicAck(list.Max(o => o.DeliveryTag), true);
+                    }
+                }
+                catch (Exception exception)
+                {
+                    Logger.LogError(exception.InnerException ?? exception, $"An error occurred in {Consumer.EventBus.Exchange}-{Queue}");
+                    if (Consumer.Config.Reenqueue)
+                    {
+                        await Task.Delay(1000);
+                        foreach (var item in list)
+                        {
+                            Model.Model.BasicReject(item.DeliveryTag, true);
+                        }
+                    }
+                }
             }
         }
-        private async Task Process(ConsumerRunnerSlice consumerChild, BasicDeliverEventArgs ea)
+        private async Task Process(BasicDeliverEventArgs ea)
         {
             try
             {
                 await Consumer.Notice(ea.Body);
                 if (!Consumer.Config.AutoAck)
                 {
-                    consumerChild.Channel.Model.BasicAck(ea.DeliveryTag, false);
+                    Model.Model.BasicAck(ea.DeliveryTag, false);
                 }
             }
             catch (Exception exception)
@@ -118,20 +106,13 @@ namespace Ray.EventBus.RabbitMQ
                 if (Consumer.Config.Reenqueue)
                 {
                     await Task.Delay(1000);
-                    consumerChild.Channel.Model.BasicReject(ea.DeliveryTag, true);
-                }
-                else
-                {
-                    consumerChild.NeedRestart = true;
+                    Model.Model.BasicReject(ea.DeliveryTag, true);
                 }
             }
         }
         public void Close()
         {
-            foreach (var child in Slices)
-            {
-                child.Close();
-            }
+            Model?.Dispose();
         }
     }
 }

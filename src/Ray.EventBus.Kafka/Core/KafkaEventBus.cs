@@ -66,7 +66,10 @@ namespace Ray.EventBus.Kafka
         }
         public KafkaEventBus AddGrainConsumer<PrimaryKey>(string observerGroup)
         {
-            var consumer = new KafkaConsumer(observerUnitContainer.GetUnit<PrimaryKey>(ProducerType).GetEventHandlers(observerGroup))
+            var observerUnit = observerUnitContainer.GetUnit<PrimaryKey>(ProducerType);
+            var consumer = new KafkaConsumer(
+               observerUnit.GetEventHandlers(observerGroup),
+               observerUnit.GetBatchEventHandlers(observerGroup))
             {
                 EventBus = this,
                 Topics = Topics,
@@ -75,9 +78,14 @@ namespace Ray.EventBus.Kafka
             Consumers.Add(consumer);
             return this;
         }
-        public KafkaEventBus AddConsumer(Func<byte[], Task> handler, string observerGroup)
+        public KafkaEventBus AddConsumer(
+            Func<byte[], Task> handler,
+            Func<List<byte[]>, Task> batchHandler,
+            string observerGroup)
         {
-            var consumer = new KafkaConsumer(new List<Func<byte[], Task>> { handler })
+            var consumer = new KafkaConsumer(
+                new List<Func<byte[], Task>> { handler },
+                new List<Func<List<byte[]>, Task>> { batchHandler })
             {
                 EventBus = this,
                 Topics = Topics,

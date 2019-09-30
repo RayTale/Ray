@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+﻿using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Orleans;
 using Ray.Core.Services;
@@ -67,7 +66,7 @@ namespace Ray.EventBus.RabbitMQ
                                     {
                                         if (Runners.TryAdd(key, lockId))
                                         {
-                                            var runner = new ConsumerRunner(client, provider.GetService<ILogger<ConsumerRunner>>(), value, queue);
+                                            var runner = new ConsumerRunner(client, provider, value, queue);
                                             ConsumerRunners.TryAdd(key, runner);
                                             await runner.Run();
                                         }
@@ -160,10 +159,6 @@ namespace Ray.EventBus.RabbitMQ
                 logger.LogInformation("EventBus Background Service is disposing.");
             foreach (var runner in ConsumerRunners.Values)
             {
-                foreach (var child in runner.Slices)
-                {
-                    child.NeedRestart = false;
-                }
                 runner.Close();
             }
             DistributedMonitorTime?.Dispose();

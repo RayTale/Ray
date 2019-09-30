@@ -15,7 +15,7 @@ namespace Ray.EventBus.RabbitMQ
         public RabbitEventBus(
             IObserverUnitContainer observerUnitContainer,
             IRabbitEventBusContainer eventBusContainer,
-            string exchange, string routePrefix, int lBCount = 1, ushort minQos = 100, ushort incQos = 100, ushort maxQos = 300, bool autoAck = false, bool reenqueue = true, bool persistent = false)
+            string exchange, string routePrefix, int lBCount = 1, ushort qos = 5000, bool autoAck = false, bool reenqueue = true, bool persistent = false)
         {
             if (string.IsNullOrEmpty(exchange))
                 throw new ArgumentNullException(nameof(exchange));
@@ -32,9 +32,7 @@ namespace Ray.EventBus.RabbitMQ
             ConsumerConfig = new ConsumerOptions
             {
                 AutoAck = autoAck,
-                MaxQos = maxQos,
-                MinQos = minQos,
-                IncQos = incQos,
+                Qos = qos,
                 Reenqueue = reenqueue,
             };
             RouteList = new List<string>();
@@ -81,7 +79,10 @@ namespace Ray.EventBus.RabbitMQ
         }
         public RabbitEventBus AddGrainConsumer<PrimaryKey>(string observerGroup)
         {
-            var consumer = new RabbitConsumer(observerUnitContainer.GetUnit<PrimaryKey>(ProducerType).GetEventHandlers(observerGroup))
+            var observerUnit = observerUnitContainer.GetUnit<PrimaryKey>(ProducerType);
+            var consumer = new RabbitConsumer(
+                observerUnit.GetEventHandlers(observerGroup),
+                observerUnit.GetBatchEventHandlers(observerGroup))
             {
                 EventBus = this,
                 QueueList = RouteList.Select(route => new QueueInfo { RoutingKey = route, Queue = $"{route}_{observerGroup}" }).ToList(),
@@ -90,9 +91,14 @@ namespace Ray.EventBus.RabbitMQ
             Consumers.Add(consumer);
             return this;
         }
-        public RabbitEventBus AddConsumer(Func<byte[], Task> handler, string observerGroup)
+        public RabbitEventBus AddConsumer(
+            Func<byte[], Task> handler,
+            Func<List<byte[]>, Task> batchHandler,
+            string observerGroup)
         {
-            var consumer = new RabbitConsumer(new List<Func<byte[], Task>> { handler })
+            var consumer = new RabbitConsumer(
+                new List<Func<byte[], Task>> { handler },
+                new List<Func<List<byte[]>, Task>> { batchHandler })
             {
                 EventBus = this,
                 QueueList = RouteList.Select(route => new QueueInfo { RoutingKey = route, Queue = $"{route}_{observerGroup}" }).ToList(),

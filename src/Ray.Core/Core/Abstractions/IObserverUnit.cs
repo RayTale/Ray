@@ -14,5 +14,7 @@ namespace Ray.Core.Abstractions
         Task<long[]> GetAndSaveVersion(PrimaryKey primaryKey, long srcVersion);
         List<Func<byte[], Task>> GetEventHandlers(string observerGroup);
         List<Func<byte[], Task>> GetAllEventHandlers();
+        List<Func<List<byte[]>, Task>> GetBatchEventHandlers(string observerGroup);
+        List<Func<List<byte[]>, Task>> GetAllBatchEventHandlers();
     }
 }

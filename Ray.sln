@@ -33,7 +33,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.EventBus.RabbitMQ", "sr
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.Core.Abstractions", "src\Ray.Core.Abstractions\Ray.Core.Abstractions.csproj", "{6332BED1-0113-4215-BBB7-EF0CB43A1D33}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ray.DistributedTx.Abstractions", "src\Ray.DistributedTx.Abstractions\Ray.DistributedTx.Abstractions.csproj", "{0BB41DDD-2AFB-4817-A972-713A1DF54B16}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ray.DistributedTx.Abstractions", "src\Ray.DistributedTx.Abstractions\Ray.DistributedTx.Abstractions.csproj", "{0BB41DDD-2AFB-4817-A972-713A1DF54B16}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

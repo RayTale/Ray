@@ -6,17 +6,9 @@
     public class ConsumerOptions
     {
         /// <summary>
-        /// 最小qos
-        /// </summary>
-        public ushort MinQos { get; set; }
-        /// <summary>
-        /// 每次调整增加的qos
-        /// </summary>
-        public ushort IncQos { get; set; }
-        /// <summary>
         /// 最大qos
         /// </summary>
-        public ushort MaxQos { get; set; }
+        public ushort Qos { get; set; }
         /// <summary>
         /// 是否自动ack
         /// </summary>

@@ -7,7 +7,9 @@ namespace Ray.EventBus.Kafka
 {
     public class KafkaConsumer : Consumer
     {
-        public KafkaConsumer(List<Func<byte[], Task>> eventHandlers) : base(eventHandlers)
+        public KafkaConsumer(
+            List<Func<byte[], Task>> eventHandlers,
+            List<Func<List<byte[]>, Task>> batchEventHandlers) : base(eventHandlers, batchEventHandlers)
         {
         }
         public KafkaEventBus EventBus { get; set; }

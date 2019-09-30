@@ -45,7 +45,7 @@ namespace Ray.EventBus.RabbitMQ
             }
             foreach (var (type, config) in observableList)
             {
-                var eventBus = CreateEventBus(string.IsNullOrEmpty(config.Exchange) ? type.Name : config.Exchange, string.IsNullOrEmpty(config.RoutePrefix) ? type.Name : config.RoutePrefix, config.LBCount, config.MinQos, config.IncQos, config.MaxQos, config.AutoAck, config.Reenqueue, config.Persistent).BindProducer(type);
+                var eventBus = CreateEventBus(string.IsNullOrEmpty(config.Exchange) ? type.Name : config.Exchange, string.IsNullOrEmpty(config.RoutePrefix) ? type.Name : config.RoutePrefix, config.LBCount, config.Qos, config.AutoAck, config.Reenqueue, config.Persistent).BindProducer(type);
                 if (typeof(IGrainWithIntegerKey).IsAssignableFrom(type))
                 {
                     await eventBus.AddGrainConsumer<long>();
@@ -58,13 +58,13 @@ namespace Ray.EventBus.RabbitMQ
                     throw new PrimaryKeyTypeException(type.FullName);
             }
         }
-        public RabbitEventBus CreateEventBus(string exchange, string routePrefix, int lBCount = 1, ushort minQos = 100, ushort incQos = 100, ushort maxQos = 300, bool autoAck = false, bool reenqueue = false, bool persistent = false)
+        public RabbitEventBus CreateEventBus(string exchange, string routePrefix, int lBCount = 1, ushort qos = 5000, bool autoAck = false, bool reenqueue = false, bool persistent = false)
         {
-            return new RabbitEventBus(observerUnitContainer, this, exchange, routePrefix, lBCount, minQos, incQos, maxQos, autoAck, reenqueue, persistent);
+            return new RabbitEventBus(observerUnitContainer, this, exchange, routePrefix, lBCount, qos, autoAck, reenqueue, persistent);
         }
-        public RabbitEventBus CreateEventBus<MainGrain>(string exchange, string routePrefix, int lBCount = 1, ushort minQos = 100, ushort incQos = 100, ushort maxQos = 300, bool autoAck = false, bool reenqueue = false, bool persistent = false)
+        public RabbitEventBus CreateEventBus<MainGrain>(string exchange, string routePrefix, int lBCount = 1, ushort qos = 5000, bool autoAck = false, bool reenqueue = false, bool persistent = false)
         {
-            return CreateEventBus(exchange, routePrefix, lBCount, minQos, incQos, maxQos, autoAck, reenqueue, persistent).BindProducer<MainGrain>();
+            return CreateEventBus(exchange, routePrefix, lBCount, qos, autoAck, reenqueue, persistent).BindProducer<MainGrain>();
         }
         public Task Work(RabbitEventBus bus)
         {

@@ -1,23 +1,28 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Orleans;
+using Orleans.Configuration;
 using Orleans.Hosting;
 using Orleans.TestingHost;
 using Ray.Core;
+using Ray.Core.Services;
 using Ray.EventBus.RabbitMQ;
 using Ray.Storage.PostgreSQL;
 using RayTest.Grains;
-using RayTest.IGrains.Actors;
+using RayTest.Grains.Grains;
+using RayTest.IGrains;
 using System.Collections.Generic;
+using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 using Xunit;
 
 namespace RayCore.Tests
 {
-    public class UnitTest1
+    public class TransferTest
     {
         readonly TestCluster cluster;
-        public UnitTest1()
+        public TransferTest()
         {
             var build = new TestClusterBuilder();
             build.AddSiloBuilderConfigurator<TestSiloConfigurator>();
@@ -29,13 +34,13 @@ namespace RayCore.Tests
             }
         }
         [Fact]
-        public async Task Test1()
+        public async Task TopUp()
         {
             var accountActor = cluster.Client.GetGrain<IAccount>(1);
             var balance = await accountActor.GetBalance();
-            await accountActor.AddAmount(100);
+            await Task.WhenAll(Enumerable.Range(0, 100).Select(x => accountActor.TopUp(100)));
             var newBalance = await accountActor.GetBalance();
-            Assert.Equal(balance + 100, newBalance);
+            Assert.Equal(balance + 100 * 100, newBalance);
         }
     }
     public class TestClientConfigurator : IClientBuilderConfigurator
@@ -52,8 +57,13 @@ namespace RayCore.Tests
         public void Configure(ISiloHostBuilder hostBuilder)
         {
             hostBuilder
-            .AddRay<Configuration>()
-            .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(Account).Assembly).WithReferences())
+            .AddRay<TransferConfig>()
+            .Configure<EndpointOptions>(options => options.AdvertisedIPAddress = IPAddress.Loopback)
+            .ConfigureApplicationParts(parts =>
+            {
+                parts.AddApplicationPart(typeof(Account).Assembly).WithReferences();
+                parts.AddApplicationPart(typeof(UtcUIDGrain).Assembly).WithReferences();
+            })
             .ConfigureServices((context, servicecollection) =>
             {
                 //×¢²ápostgresqlÎªÊÂ¼þ´æ´¢¿â
@@ -64,17 +74,12 @@ namespace RayCore.Tests
                             { "core_event","Server=127.0.0.1;Port=5432;Database=Ray_Test;User Id=postgres;Password=extop;Pooling=true;MaxPoolSize=20;"}
                         };
                 });
-                servicecollection.PSQLConfigure();
                 servicecollection.AddRabbitMQ(config =>
                 {
-                    config.UserName = "admin";
-                    config.Password = "admin";
+                    config.UserName = "guest";
+                    config.Password = "guest";
                     config.Hosts = new[] { "127.0.0.1:5672" };
-                    config.PoolSizePerConnection = 100;
                     config.VirtualHost = "/";
-                }, async container =>
-                {
-                    await container.CreateEventBus<Account>("Account", "account", 5).AddGrainConsumer<long>();
                 });
             })
             .ConfigureLogging(logging =>
