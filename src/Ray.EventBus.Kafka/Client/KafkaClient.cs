@@ -13,7 +13,7 @@ namespace Ray.EventBus.Kafka
         readonly DefaultObjectPool<PooledProducer> producerObjectPool;
         readonly ConcurrentDictionary<string, DefaultObjectPool<PooledConsumer>> consumerPoolDict = new ConcurrentDictionary<string, DefaultObjectPool<PooledConsumer>>();
         readonly ConsumerConfig consumerConfig;
-        readonly RayKafkaOptions rayKafkaOptions;
+        readonly RayKafkaOptions options;
         readonly ISerializer serializer;
         readonly ILogger<KafkaClient> logger;
         public KafkaClient(
@@ -29,7 +29,7 @@ namespace Ray.EventBus.Kafka
             this.consumerConfig.AutoOffsetReset = AutoOffsetReset.Earliest;
             this.consumerConfig.EnablePartitionEof = true;
             this.serializer = serializer;
-            rayKafkaOptions = options.Value;
+            this.options = options.Value;
             this.logger = logger;
         }
         public PooledProducer GetProducer()
@@ -49,11 +49,15 @@ namespace Ray.EventBus.Kafka
                  {
                      GroupId = group
                  };
-                 return new DefaultObjectPool<PooledConsumer>(new ConsumerPooledObjectPolicy(config, logger), rayKafkaOptions.ConsumerMaxPoolSize);
+                 return new DefaultObjectPool<PooledConsumer>(new ConsumerPooledObjectPolicy(config, logger), options.ConsumerMaxPoolSize);
              });
             var result = consumerObjectPool.Get();
             if (result.Pool is null)
+            {
                 result.Pool = consumerObjectPool;
+                result.MaxBatchSize = options.CunsumerMaxBatchSize;
+                result.MaxMillisecondsInterval = options.CunsumerMaxMillisecondsInterval;
+            }
             return result;
         }
     }

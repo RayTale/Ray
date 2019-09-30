@@ -32,7 +32,7 @@ namespace Ray.EventBus.Kafka
         bool IsHeath = true;
         bool closed = false;
         readonly static TimeSpan start_TimeoutSpan = TimeSpan.FromSeconds(30);
-        readonly static TimeSpan while_TimeoutSpan = TimeSpan.FromMilliseconds(50);
+        readonly static TimeSpan while_TimeoutSpan = TimeSpan.FromMilliseconds(100);
         DateTimeOffset lastCommitTime = DateTimeOffset.UtcNow;
         public Task Run()
         {
@@ -56,6 +56,7 @@ namespace Ray.EventBus.Kafka
                         continue;
                     }
                     List<ConsumeResult<string, byte[]>> list = default;
+                    DateTimeOffset batchStartTime = default;
                     while (true)
                     {
                         var whileResult = consumer.Handler.Consume(while_TimeoutSpan);
@@ -66,10 +67,13 @@ namespace Ray.EventBus.Kafka
                         else
                         {
                             if (list == null)
+                            {
                                 list = new List<ConsumeResult<string, byte[]>>();
+                                batchStartTime = DateTimeOffset.UtcNow;
+                            }
                             list.Add(whileResult);
                         }
-                        if (list.Count == 1000) break;
+                        if ((DateTimeOffset.UtcNow - batchStartTime).TotalMilliseconds > consumer.MaxMillisecondsInterval || list.Count == consumer.MaxBatchSize) break;
                     }
                     try
                     {

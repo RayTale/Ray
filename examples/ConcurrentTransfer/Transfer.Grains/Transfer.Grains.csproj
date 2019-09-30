@@ -5,16 +5,15 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Ray.Core" Version="2.0.0-rc4" />
-    <PackageReference Include="Ray.EventBus.Kafka" Version="2.0.0-rc4" />
-    <PackageReference Include="Ray.Storage.PostgreSQL" Version="2.0.0-rc4" />
     <PackageReference Include="Microsoft.Orleans.CodeGenerator.MSBuild" Version="3.0.0-beta1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
   </ItemGroup>
-
   <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Ray.Core\Ray.Core.csproj" />
+    <ProjectReference Include="..\..\..\src\Ray.EventBus.Kafka\Ray.EventBus.Kafka.csproj" />
+    <ProjectReference Include="..\..\..\src\Ray.Storage.PostgreSQL\Ray.Storage.PostgreSQL.csproj" />
     <ProjectReference Include="..\Transfer.IGrains\Transfer.IGrains.csproj" />
   </ItemGroup>
 
