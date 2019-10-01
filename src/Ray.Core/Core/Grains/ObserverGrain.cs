@@ -390,6 +390,11 @@ namespace Ray.Core
                                   Logger.LogInformation("Non-Event: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(data, msgType));
                           }
                       }
+                      else
+                      {
+                          if (Logger.IsEnabled(LogLevel.Information))
+                              Logger.LogInformation($"{nameof(EventBytesTransport.FromBytesWithNoId)} failed");
+                      }
                       return default;
                   }).Where(o => o != null).OrderBy(o => o.Base.Version).ToList();
                 await ConcurrentTell(evtList);
@@ -436,9 +441,8 @@ namespace Ray.Core
             }
             else
             {
-                if (Logger.IsEnabled(LogLevel.Error))
-                    Logger.LogError($"{nameof(EventBytesTransport.FromBytesWithNoId)} failed");
-
+                if (Logger.IsEnabled(LogLevel.Information))
+                    Logger.LogInformation($"{nameof(EventBytesTransport.FromBytesWithNoId)} failed");
             }
         }
         public Task<long> GetVersion()
