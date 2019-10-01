@@ -9,7 +9,7 @@ using Transfer.IGrains;
 namespace Transfer.Grains.Grains
 {
     [Observer(DefaultObserverGroup.secondary, "db", typeof(Account))]
-    public sealed class AccountDb : DTxObserverGrain<long, Account>, IAccountFlow
+    public sealed class AccountDb : DTxObserverGrain<long, Account>, IAccountDb
     {
         public Task EventHandle(TransferDeductEvent evt, EventBase eventBase)
         {

@@ -19,12 +19,12 @@ namespace Transfer.Client
         {
 
             using var client = await StartClientWithRetries();
+            Console.WriteLine($"账户1的初始余额为{await client.GetGrain<IAccount>(1).GetBalance()}");
+            Console.WriteLine($"账户2的初始余额为{await client.GetGrain<IAccount>(2).GetBalance()}");
             while (true)
             {
                 try
                 {
-                    Console.WriteLine($"账户1的余额为{await client.GetGrain<IAccount>(1).GetBalance()}");
-                    Console.WriteLine($"账户2的余额为{await client.GetGrain<IAccount>(2).GetBalance()}");
                     Console.WriteLine("Please enter the number of executions");
                     var times = int.Parse(Console.ReadLine());
                     var topupWatch = new Stopwatch();
