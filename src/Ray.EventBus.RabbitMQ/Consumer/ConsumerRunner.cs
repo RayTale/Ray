@@ -37,6 +37,7 @@ namespace Ray.EventBus.RabbitMQ
         public Task Run()
         {
             Model = Client.PullModel();
+            mpscChannel.Config(Model.Connection.Options.CunsumerMaxBatchSize, Model.Connection.Options.CunsumerMaxMillisecondsInterval);
             if (isFirst)
             {
                 isFirst = false;

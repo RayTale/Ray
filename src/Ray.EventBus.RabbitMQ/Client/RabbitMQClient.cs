@@ -19,7 +19,7 @@ namespace Ray.EventBus.RabbitMQ
                 VirtualHost = options.VirtualHost,
                 AutomaticRecoveryEnabled = false
             };
-            pool = new DefaultObjectPool<ModelWrapper>(new ModelPooledObjectPolicy(connectionFactory, options.MaxConnection, options.PoolSizePerConnection));
+            pool = new DefaultObjectPool<ModelWrapper>(new ModelPooledObjectPolicy(connectionFactory, options));
         }
 
         public ModelWrapper PullModel()

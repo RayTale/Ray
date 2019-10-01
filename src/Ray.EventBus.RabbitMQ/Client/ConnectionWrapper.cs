@@ -8,21 +8,21 @@ namespace Ray.EventBus.RabbitMQ
     {
         private readonly List<ModelWrapper> models = new List<ModelWrapper>();
         private readonly IConnection connection;
-        readonly int poolSize;
         readonly SemaphoreSlim semaphoreSlim = new SemaphoreSlim(1);
         public ConnectionWrapper(
             IConnection connection,
-            int poolSize)
+           RabbitOptions options)
         {
             this.connection = connection;
-            this.poolSize = poolSize;
+            this.Options = options;
         }
+        public RabbitOptions Options { get; }
         public (bool success, ModelWrapper model) Get()
         {
             semaphoreSlim.Wait();
             try
             {
-                if (models.Count < poolSize)
+                if (models.Count < Options.PoolSizePerConnection)
                 {
                     var model = new ModelWrapper(this, connection.CreateModel());
                     models.Add(model);

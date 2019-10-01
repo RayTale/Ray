@@ -10,6 +10,14 @@ namespace Ray.EventBus.RabbitMQ
         public string VirtualHost { get; set; }
         public int PoolSizePerConnection { get; set; } = 200;
         public int MaxConnection { get; set; } = 20;
+        /// <summary>
+        /// 消费者批量处理每次处理的最大消息量
+        /// </summary>
+        public int CunsumerMaxBatchSize { get; set; } = 3000;
+        /// <summary>
+        /// 消费者批量处理每次处理的最大延时
+        /// </summary>
+        public int CunsumerMaxMillisecondsInterval { get; set; } = 1000;
         public string[] Hosts
         {
             get; set;

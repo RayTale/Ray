@@ -10,13 +10,11 @@ namespace Ray.EventBus.RabbitMQ
         readonly ConnectionFactory connectionFactory;
         readonly List<ConnectionWrapper> connections = new List<ConnectionWrapper>();
         readonly SemaphoreSlim semaphoreSlim = new SemaphoreSlim(1);
-        readonly int maxConnection;
-        readonly int poolSizePerConnection;
-        public ModelPooledObjectPolicy(ConnectionFactory connectionFactory, int maxConnection, int poolSizePerConnection)
+        readonly RabbitOptions options;
+        public ModelPooledObjectPolicy(ConnectionFactory connectionFactory, RabbitOptions options)
         {
             this.connectionFactory = connectionFactory;
-            this.maxConnection = maxConnection;
-            this.poolSizePerConnection = poolSizePerConnection;
+            this.options = options;
         }
         public ModelWrapper Create()
         {
@@ -29,9 +27,9 @@ namespace Ray.EventBus.RabbitMQ
             semaphoreSlim.Wait();
             try
             {
-                if (connections.Count < maxConnection)
+                if (connections.Count < options.MaxConnection)
                 {
-                    var connection = new ConnectionWrapper(connectionFactory.CreateConnection(), poolSizePerConnection);
+                    var connection = new ConnectionWrapper(connectionFactory.CreateConnection(), options);
                     (bool success, ModelWrapper model) = connection.Get();
                     connections.Add(connection);
                     if (success)
