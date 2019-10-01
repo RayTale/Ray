@@ -179,7 +179,7 @@ namespace Ray.Core
                 }
                 catch (Exception ex)
                 {
-                    Logger.LogError(ex, "Transaction failed: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), transactionId);
+                    Logger.LogCritical(ex, "Transaction failed: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), transactionId);
                     throw;
                 }
             }
@@ -348,7 +348,7 @@ namespace Ray.Core
             }
             catch (Exception ex)
             {
-                Logger.LogError(ex, "TxRaiseEvent failed: {0}->{1}->{2}", GrainType.FullName, Serializer.Serialize(@event, @event.GetType()), Serializer.Serialize(Snapshot));
+                Logger.LogCritical(ex, "TxRaiseEvent failed: {0}->{1}->{2}", GrainType.FullName, Serializer.Serialize(@event, @event.GetType()), Serializer.Serialize(Snapshot));
                 Snapshot.Base.DecrementDoingVersion();//还原doing Version
                 throw;
             }

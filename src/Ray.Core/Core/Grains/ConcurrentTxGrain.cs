@@ -111,7 +111,7 @@ namespace Ray.Core
         private async Task AutoTransactionExcuter(List<ConcurrentTransport<Snapshot<PrimaryKey, SnapshotType>>> inputs)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace("AutoTransaction: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), CurrentTransactionStartVersion, inputs.Count.ToString());
+                Logger.LogTrace("AutoTransaction: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), inputs.Count.ToString());
             await BeginTransaction(defaultTransactionId);
             try
             {
