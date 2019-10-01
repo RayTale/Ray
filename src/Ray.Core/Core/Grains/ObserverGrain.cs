@@ -157,7 +157,6 @@ namespace Ray.Core
         /// 未处理事件列表
         /// </summary>
         private List<FullyEvent<PrimaryKey>> UnprocessedEventList { get; set; }
-        protected new IGrainFactory GrainFactory { get; private set; }
         private PrimaryKey _GrainId;
         private bool _GrainIdAcquired = false;
         public PrimaryKey GrainId
@@ -223,7 +222,6 @@ namespace Ray.Core
         {
             ConfigOptions = ServiceProvider.GetOptionsByName<CoreOptions>(typeof(MainGrain).FullName);
             Serializer = ServiceProvider.GetService<ISerializer>();
-            GrainFactory = ServiceProvider.GetService<IGrainFactory>();
             Logger = (ILogger)ServiceProvider.GetService(typeof(ILogger<>).MakeGenericType(GrainType));
             var configureBuilder = ServiceProvider.GetService<IConfigureBuilder<PrimaryKey, MainGrain>>();
             var storageConfigTask = configureBuilder.GetConfig(ServiceProvider, GrainId);
