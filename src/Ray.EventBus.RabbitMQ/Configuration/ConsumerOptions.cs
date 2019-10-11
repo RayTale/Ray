@@ -6,10 +6,6 @@
     public class ConsumerOptions
     {
         /// <summary>
-        /// 最大qos
-        /// </summary>
-        public ushort Qos { get; set; }
-        /// <summary>
         /// 是否自动ack
         /// </summary>
         public bool AutoAck { get; set; }

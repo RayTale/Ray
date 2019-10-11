@@ -15,7 +15,7 @@ namespace Ray.EventBus.RabbitMQ
         public RabbitEventBus(
             IObserverUnitContainer observerUnitContainer,
             IRabbitEventBusContainer eventBusContainer,
-            string exchange, string routePrefix, int lBCount = 1, ushort qos = 5000, bool autoAck = false, bool reenqueue = true, bool persistent = false)
+            string exchange, string routePrefix, int lBCount = 1, bool autoAck = false, bool reenqueue = true, bool persistent = false)
         {
             if (string.IsNullOrEmpty(exchange))
                 throw new ArgumentNullException(nameof(exchange));
@@ -32,7 +32,6 @@ namespace Ray.EventBus.RabbitMQ
             ConsumerConfig = new ConsumerOptions
             {
                 AutoAck = autoAck,
-                Qos = qos,
                 Reenqueue = reenqueue,
             };
             RouteList = new List<string>();

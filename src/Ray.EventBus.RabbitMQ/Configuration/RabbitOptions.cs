@@ -13,7 +13,7 @@ namespace Ray.EventBus.RabbitMQ
         /// <summary>
         /// 消费者批量处理每次处理的最大消息量
         /// </summary>
-        public int CunsumerMaxBatchSize { get; set; } = 3000;
+        public ushort CunsumerMaxBatchSize { get; set; } = 3000;
         /// <summary>
         /// 消费者批量处理每次处理的最大延时
         /// </summary>
