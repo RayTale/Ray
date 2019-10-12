@@ -108,14 +108,14 @@ namespace Ray.Core
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace("Transaction begin: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), transactionId);
             if (TransactionStartMilliseconds != 0 &&
-                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - TransactionStartMilliseconds > CoreOptions.TransactionMillisecondsTimeout)
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - TransactionStartMilliseconds > CoreOptions.TransactionTimeout)
             {
-                if (await TransactionTimeoutLock.WaitAsync(CoreOptions.TransactionMillisecondsTimeout))
+                if (await TransactionTimeoutLock.WaitAsync(CoreOptions.TransactionTimeout))
                 {
                     try
                     {
                         if (TransactionStartMilliseconds != 0 &&
-                            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - TransactionStartMilliseconds > CoreOptions.TransactionMillisecondsTimeout)
+                            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - TransactionStartMilliseconds > CoreOptions.TransactionTimeout)
                         {
                             if (Logger.IsEnabled(LogLevel.Trace))
                                 Logger.LogTrace("Transaction timeout: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), transactionId);
@@ -128,7 +128,7 @@ namespace Ray.Core
                     }
                 }
             }
-            if (await TransactionSemaphore.WaitAsync(CoreOptions.TransactionMillisecondsTimeout))
+            if (await TransactionSemaphore.WaitAsync(CoreOptions.TransactionTimeout))
             {
                 try
                 {
@@ -268,7 +268,7 @@ namespace Ray.Core
         }
         protected override async Task<bool> RaiseEvent(IEvent @event, EventUID uniqueId = null)
         {
-            if (await TransactionSemaphore.WaitAsync(CoreOptions.TransactionMillisecondsTimeout))
+            if (await TransactionSemaphore.WaitAsync(CoreOptions.TransactionTimeout))
             {
                 try
                 {

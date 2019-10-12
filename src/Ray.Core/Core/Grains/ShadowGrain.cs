@@ -65,10 +65,6 @@ namespace Ray.Core
         /// </summary>
         protected virtual int NumberOfEventsPerRead => CoreOptions.NumberOfEventsPerRead;
         /// <summary>
-        /// 事件处理的超时时间
-        /// </summary>
-        protected virtual int EventAsyncProcessTimeoutSeconds => CoreOptions.EventAsyncProcessSecondsTimeout;
-        /// <summary>
         /// 是否全量激活，true代表启动时会执行大于快照版本的所有事件,false代表更快的启动，后续有事件进入的时候再处理大于快照版本的事件
         /// </summary>
         protected virtual bool FullyActive => false;
