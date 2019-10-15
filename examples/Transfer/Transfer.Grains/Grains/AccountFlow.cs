@@ -7,7 +7,7 @@ using Transfer.IGrains;
 
 namespace Transfer.Grains.Grains
 {
-    [Handler(typeof(TopupEvent), typeof(TransferArrivedEvent), typeof(TransferRefundsEvent))]
+    [IgnoreEvents(typeof(TopupEvent), typeof(TransferArrivedEvent), typeof(TransferRefundsEvent))]
     [Observer(DefaultObserverGroup.primary, "flow", typeof(Account))]
     public sealed class AccountFlow : ObserverGrain<long, Account>, IAccountFlow
     {

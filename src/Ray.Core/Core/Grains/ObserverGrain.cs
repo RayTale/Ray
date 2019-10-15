@@ -22,13 +22,13 @@ namespace Ray.Core
     public abstract class ObserverGrain<PrimaryKey, MainGrain> : Grain, IObserver
     {
         readonly Func<object, IEvent, EventBase, Task> handlerInvokeFunc;
-        readonly HandlerAttribute handlerAttribute;
+        readonly IgnoreEventsAttribute handlerAttribute;
         public ObserverGrain()
         {
             GrainType = GetType();
-            var handlerAttributes = GrainType.GetCustomAttributes(typeof(HandlerAttribute), false);
+            var handlerAttributes = GrainType.GetCustomAttributes(typeof(IgnoreEventsAttribute), false);
             if (handlerAttributes.Length > 0)
-                handlerAttribute = (HandlerAttribute)handlerAttributes[0];
+                handlerAttribute = (IgnoreEventsAttribute)handlerAttributes[0];
             else
                 handlerAttribute = default;
             var methods = GetType().GetMethods().Where(m =>

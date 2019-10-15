@@ -8,9 +8,9 @@ namespace Ray.Core.Event
     /// EventHandler配置信息
     /// </summary>
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
-    public class HandlerAttribute : Attribute
+    public class IgnoreEventsAttribute : Attribute
     {
-        public HandlerAttribute(params Type[] ignores)
+        public IgnoreEventsAttribute(params Type[] ignores)
         {
             Ignores = ignores.ToList();
         }

@@ -12,13 +12,13 @@ namespace Ray.Core.Snapshot
          where Snapshot : class, new()
     {
         readonly Action<object, Snapshot, IEvent, EventBase> handlerInvokeFunc;
-        readonly HandlerAttribute handlerAttribute;
+        readonly IgnoreEventsAttribute handlerAttribute;
         public SnapshotHandler()
         {
             var thisType = GetType();
-            var handlerAttributes = thisType.GetCustomAttributes(typeof(HandlerAttribute), false);
+            var handlerAttributes = thisType.GetCustomAttributes(typeof(IgnoreEventsAttribute), false);
             if (handlerAttributes.Length > 0)
-                handlerAttribute = (HandlerAttribute)handlerAttributes[0];
+                handlerAttribute = (IgnoreEventsAttribute)handlerAttributes[0];
             else
                 handlerAttribute = default;
             var methods = GetType().GetMethods().Where(m =>

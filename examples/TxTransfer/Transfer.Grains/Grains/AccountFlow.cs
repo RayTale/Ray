@@ -11,7 +11,7 @@ namespace Transfer.Grains.Grains
     /// 处理后续流程
     /// 不需要处理任何流程可以删除
     /// </summary>
-    [Handler(typeof(TopupEvent), typeof(TransferArrivedEvent), typeof(TransferDeductEvent))]
+    [IgnoreEvents(typeof(TopupEvent), typeof(TransferArrivedEvent), typeof(TransferDeductEvent))]
     [Observer(DefaultObserverGroup.primary, "flow", typeof(Account))]
     public sealed class AccountFlow : DTxObserverGrain<long, Account>, IAccountFlow
     {
