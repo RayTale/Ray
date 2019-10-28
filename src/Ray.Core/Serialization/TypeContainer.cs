@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Linq;
+using Ray.Core.Abstractions;
 using Ray.Core.Event;
 using Ray.Core.Exceptions;
 
@@ -12,7 +13,7 @@ namespace Ray.Core.Serialization
         private static readonly ConcurrentDictionary<Type, string> _TypeDict = new ConcurrentDictionary<Type, string>();
         static TypeContainer()
         {
-            var assemblyList = AppDomain.CurrentDomain.GetAssemblies().Where(a => !a.IsDynamic);
+            var assemblyList = AssembliesRuntimeHelper.GetAssemblies().Where(a => !a.IsDynamic);
             var baseEventType = typeof(IEvent);
             var attributeType = typeof(TCodeAttribute);
             foreach (var assembly in assemblyList)
@@ -51,7 +52,7 @@ namespace Ray.Core.Serialization
         {
             var value = _CodeDict.GetOrAdd(typeCode, key =>
             {
-                var assemblyList = AppDomain.CurrentDomain.GetAssemblies().Where(a => !a.IsDynamic);
+                var assemblyList = AssembliesRuntimeHelper.GetAssemblies().Where(a => !a.IsDynamic);
                 foreach (var assembly in assemblyList)
                 {
                     var type = assembly.GetType(typeCode, false);

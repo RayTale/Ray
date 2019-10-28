@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Ray.Core.Abstractions;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -51,7 +52,7 @@ namespace Ray.Core.Observer
                 if (_AllObserverAttribute is null)
                 {
                     _AllObserverAttribute = new List<(Type type, ObserverAttribute observer)>();
-                    foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+                    foreach (var assembly in AssembliesRuntimeHelper.GetAssemblies())
                     {
                         foreach (var type in assembly.GetTypes().Where(t => typeof(IObserver).IsAssignableFrom(t)))
                         {

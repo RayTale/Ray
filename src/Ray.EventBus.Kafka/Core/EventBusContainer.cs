@@ -25,7 +25,7 @@ namespace Ray.EventBus.Kafka
         public async Task AutoRegister()
         {
             var observableList = new List<(Type type, ProducerAttribute config)>();
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (var assembly in AssembliesRuntimeHelper.GetAssemblies())
             {
                 foreach (var type in assembly.GetTypes())
                 {

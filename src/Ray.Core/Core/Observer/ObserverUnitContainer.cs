@@ -16,7 +16,7 @@ namespace Ray.Core
         {
             var observableList = new List<Type>();
             var observerList = new List<ObserverAttribute>();
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (var assembly in AssembliesRuntimeHelper.GetAssemblies())
             {
                 foreach (var type in assembly.GetTypes())
                 {
