@@ -14,7 +14,7 @@ namespace Ray.EventBus.RabbitMQ
            RabbitOptions options)
         {
             this.connection = connection;
-            this.Options = options;
+            Options = options;
         }
         public RabbitOptions Options { get; }
         public (bool success, ModelWrapper model) Get()

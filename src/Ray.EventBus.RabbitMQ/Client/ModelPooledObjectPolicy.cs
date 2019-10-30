@@ -29,7 +29,7 @@ namespace Ray.EventBus.RabbitMQ
             {
                 if (connections.Count < options.MaxConnection)
                 {
-                    var connection = new ConnectionWrapper(connectionFactory.CreateConnection(), options);
+                    var connection = new ConnectionWrapper(connectionFactory.CreateConnection(options.EndPoints), options);
                     (bool success, ModelWrapper model) = connection.Get();
                     connections.Add(connection);
                     if (success)
