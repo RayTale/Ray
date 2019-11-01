@@ -2,6 +2,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="3.0.0" />
     <PackageReference Include="Microsoft.Extensions.ObjectPool" Version="3.0.0" />
+    <PackageReference Include="Polly" Version="6.1.0" />
     <PackageReference Include="RabbitMQ.Client" Version="6.0.0-pre6" />
   </ItemGroup>
 

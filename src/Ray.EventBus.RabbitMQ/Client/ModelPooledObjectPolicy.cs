@@ -1,5 +1,9 @@
 ﻿using Microsoft.Extensions.ObjectPool;
+using Polly;
+using Polly.Retry;
 using RabbitMQ.Client;
+using RabbitMQ.Client.Exceptions;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 
@@ -29,7 +33,7 @@ namespace Ray.EventBus.RabbitMQ
             {
                 if (connections.Count < options.MaxConnection)
                 {
-                    var connection = new ConnectionWrapper(connectionFactory.CreateConnection(), options);
+                    var connection = new ConnectionWrapper(TryCreateRabbitConnection(options), options);
                     (bool success, ModelWrapper model) = connection.Get();
                     connections.Add(connection);
                     if (success)
@@ -41,6 +45,24 @@ namespace Ray.EventBus.RabbitMQ
             {
                 semaphoreSlim.Release();
             }
+        }
+
+        private IConnection TryCreateRabbitConnection(RabbitOptions options)
+        {
+            var policy = RetryPolicy.Handle<System.Net.Sockets.SocketException>()
+                  .Or<BrokerUnreachableException>()
+                  .WaitAndRetry(5, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)), (ex, time) =>
+                  {
+                      //Microsoft.Extensions.Logging.LoggerFactory.Create(.LoggerExtensions.LogWarning(ex.ToString());
+                  }
+              );
+
+            return policy.Execute<IConnection>(() =>
+            {
+               var _connection = connectionFactory
+                      .CreateConnection(options.EndPoints);
+                return _connection;
+            });
         }
 
         public bool Return(ModelWrapper obj)
