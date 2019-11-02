@@ -1,5 +1,4 @@
-﻿using Orleans.Concurrency;
-using Ray.Core;
+﻿using Ray.Core;
 using Ray.Core.Event;
 using Ray.EventBus.Kafka;
 using System.Threading.Tasks;

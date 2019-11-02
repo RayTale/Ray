@@ -11,6 +11,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
   </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\Ray.Core.Abstractions\Ray.Core.Abstractions.csproj" />
     <ProjectReference Include="..\..\..\src\Ray.DistributedTx.Abstractions\Ray.DistributedTx.Abstractions.csproj" />

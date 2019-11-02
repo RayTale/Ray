@@ -15,5 +15,4 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\Ray.Core.Abstractions\Ray.Core.Abstractions.csproj" />
   </ItemGroup>
-
 </Project>
