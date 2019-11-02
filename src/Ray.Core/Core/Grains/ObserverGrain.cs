@@ -525,11 +525,12 @@ namespace Ray.Core
             }
             if (UnprocessedEventList.Count > 0)
             {
-                await Task.WhenAll(UnprocessedEventList.Select(async @event =>
+                await Task.WhenAll(UnprocessedEventList.Select(@event =>
                 {
                     var task = EventDelivered(@event);
                     if (!task.IsCompletedSuccessfully)
-                        await task;
+                        return task.AsTask();
+                    return Task.CompletedTask;
                 }));
                 Snapshot.UnsafeUpdateVersion(UnprocessedEventList.Last().Base);
                 var saveTask = SaveSnapshotAsync();
