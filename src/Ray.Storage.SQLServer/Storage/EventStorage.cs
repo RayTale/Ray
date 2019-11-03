@@ -249,8 +249,6 @@ namespace Ray.Storage.SQLServer
                 await minTask;
             if (minTask.Result.EndTime > maxTimestamp)
             {
-                var saveSql = copySaveSqlDict.GetOrAdd(minTask.Result.SubTable,
-                    key => $"copy {key}(stateid,uniqueId,typecode,data,version,timestamp) FROM STDIN (FORMAT BINARY)");
                 await Task.Run(async () =>
                 {
                     using var conn = config.CreateConnection() as SqlConnection;
