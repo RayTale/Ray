@@ -1,0 +1,11 @@
+Ray.Core
+Ray.Core.Abstractions
+Ray.DistributedTx
+Ray.DistributedTx.Abstractions
+Ray.EventBus.Kafka
+Ray.EventBus.RabbitMQ
+Ray.Storage.Mongo
+Ray.Storage.MySQL
+Ray.Storage.PostgreSQL
+Ray.Storage.SQLCore
+Ray.Storage.SQLServer
