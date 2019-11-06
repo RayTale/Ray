@@ -17,7 +17,12 @@ namespace Ray.EventBus.RabbitMQ
                 UserName = options.UserName,
                 Password = options.Password,
                 VirtualHost = options.VirtualHost,
-                AutomaticRecoveryEnabled = false
+                AutomaticRecoveryEnabled = false,
+                SocketFactory = (s) => new TcpClientAdapter(new System.Net.Sockets.Socket(System.Net.Sockets.AddressFamily.InterNetwork,
+               System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Tcp)
+                {
+                    NoDelay = true
+                })
             };
             pool = new DefaultObjectPool<ModelWrapper>(new ModelPooledObjectPolicy(connectionFactory, options));
         }
