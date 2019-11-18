@@ -19,6 +19,7 @@ namespace Ray.Core
     {
         readonly IServiceProvider serviceProvider;
         readonly ISerializer serializer;
+        readonly ITypeFinder typeFinder;
         readonly IClusterClient clusterClient;
         readonly Dictionary<string, List<Func<byte[], Task>>> eventHandlerGroups = new Dictionary<string, List<Func<byte[], Task>>>();
         readonly Dictionary<string, List<Func<List<byte[]>, Task>>> batchEventHandlerGroups = new Dictionary<string, List<Func<List<byte[]>, Task>>>();
@@ -33,6 +34,7 @@ namespace Ray.Core
             this.serviceProvider = serviceProvider;
             clusterClient = serviceProvider.GetService<IClusterClient>();
             serializer = serviceProvider.GetService<ISerializer>();
+            typeFinder = serviceProvider.GetService<ITypeFinder>();
             Logger = serviceProvider.GetService<ILogger<ObserverUnit<PrimaryKey>>>();
             GrainType = grainType;
         }
@@ -88,7 +90,7 @@ namespace Ray.Core
                 var (success, transport) = EventBytesTransport.FromBytes<PrimaryKey>(bytes);
                 if (success)
                 {
-                    var data = serializer.Deserialize(transport.EventBytes, TypeContainer.GetType(transport.EventTypeCode));
+                    var data = serializer.Deserialize(transport.EventBytes, typeFinder.FindType(transport.EventTypeCode));
                     if (data is IEvent @event && transport.GrainId is PrimaryKey actorId)
                     {
                         var eventBase = EventBase.FromBytes(transport.BaseBytes);
@@ -115,7 +117,7 @@ namespace Ray.Core
                 {
                     foreach (var transport in kv)
                     {
-                        var data = serializer.Deserialize(transport.EventBytes, TypeContainer.GetType(transport.EventTypeCode));
+                        var data = serializer.Deserialize(transport.EventBytes, typeFinder.FindType(transport.EventTypeCode));
                         if (data is IEvent @event && transport.GrainId is PrimaryKey actorId)
                         {
                             var eventBase = EventBase.FromBytes(transport.BaseBytes);

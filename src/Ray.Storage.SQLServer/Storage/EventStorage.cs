@@ -1,6 +1,7 @@
 ﻿using Dapper;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Ray.Core.Abstractions;
 using Ray.Core.Channels;
 using Ray.Core.Event;
 using Ray.Core.Serialization;
@@ -25,10 +26,12 @@ namespace Ray.Storage.SQLServer
         readonly IMpscChannel<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>> mpscChannel;
         readonly ILogger<EventStorage<PrimaryKey>> logger;
         readonly ISerializer serializer;
+        readonly ITypeFinder typeFinder;
         public EventStorage(IServiceProvider serviceProvider, StorageOptions config)
         {
             logger = serviceProvider.GetService<ILogger<EventStorage<PrimaryKey>>>();
             serializer = serviceProvider.GetService<ISerializer>();
+            typeFinder = serviceProvider.GetService<ITypeFinder>();
             mpscChannel = serviceProvider.GetService<IMpscChannel<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>>>();
             mpscChannel.BindConsumer(BatchInsertExecuter);
             this.config = config;
@@ -55,7 +58,7 @@ namespace Ray.Storage.SQLServer
                     });
                     foreach (var item in originList)
                     {
-                        if (serializer.Deserialize(Encoding.UTF8.GetBytes(item.Data), TypeContainer.GetType(item.TypeCode)) is IEvent evt)
+                        if (serializer.Deserialize(Encoding.UTF8.GetBytes(item.Data), typeFinder.FindType(item.TypeCode)) is IEvent evt)
                         {
                             list.Add(new FullyEvent<PrimaryKey>
                             {
@@ -71,7 +74,7 @@ namespace Ray.Storage.SQLServer
         }
         public async Task<IList<FullyEvent<PrimaryKey>>> GetListByType(PrimaryKey stateId, string typeCode, long startVersion, int limit)
         {
-            var type = TypeContainer.GetType(typeCode);
+            var type = typeFinder.FindType(typeCode);
             var list = new List<FullyEvent<PrimaryKey>>(limit);
             await Task.Run((Func<Task>)(async () =>
             {
@@ -169,7 +172,7 @@ namespace Ray.Storage.SQLServer
                         var row = dt.NewRow();
                         row["stateid"] = item.Value.Event.StateId;
                         row["uniqueId"] = item.Value.UniqueId;
-                        row["typecode"] = TypeContainer.GetTypeCode(item.Value.Event.Event.GetType());
+                        row["typecode"] = typeFinder.GetCode(item.Value.Event.Event.GetType());
                         row["data"] = Encoding.UTF8.GetString(item.Value.BytesTransport.EventBytes);
                         row["version"] = item.Value.Event.Base.Version;
                         row["timestamp"] = item.Value.Event.Base.Timestamp;
@@ -201,7 +204,7 @@ namespace Ray.Storage.SQLServer
                         {
                             StateId = wrapper.Value.Event.StateId.ToString(),
                             wrapper.Value.UniqueId,
-                            TypeCode = TypeContainer.GetTypeCode(wrapper.Value.Event.Event.GetType()),
+                            TypeCode = typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
                             Data = Encoding.UTF8.GetString(wrapper.Value.BytesTransport.EventBytes),
                             wrapper.Value.Event.Base.Version,
                             wrapper.Value.Event.Base.Timestamp
@@ -225,7 +228,7 @@ namespace Ray.Storage.SQLServer
                             {
                                 wrapper.Value.Event.StateId,
                                 wrapper.Value.UniqueId,
-                                TypeCode = TypeContainer.GetTypeCode(wrapper.Value.Event.Event.GetType()),
+                                TypeCode = typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
                                 Data = Encoding.UTF8.GetString(wrapper.Value.BytesTransport.EventBytes),
                                 wrapper.Value.Event.Base.Version,
                                 wrapper.Value.Event.Base.Timestamp
@@ -269,7 +272,7 @@ namespace Ray.Storage.SQLServer
                         var row = dt.NewRow();
                         row["stateid"] = item.FullyEvent.StateId;
                         row["uniqueId"] = item.UniqueId;
-                        row["typecode"] = TypeContainer.GetTypeCode(item.FullyEvent.Event.GetType());
+                        row["typecode"] = typeFinder.GetCode(item.FullyEvent.Event.GetType());
                         row["data"] = Encoding.UTF8.GetString(item.BytesTransport.EventBytes);
                         row["version"] = item.FullyEvent.Base.Version;
                         row["timestamp"] = item.FullyEvent.Base.Timestamp;
@@ -301,7 +304,7 @@ namespace Ray.Storage.SQLServer
                         {
                             g.t.FullyEvent.StateId,
                             g.t.UniqueId,
-                            TypeCode = TypeContainer.GetTypeCode(g.t.FullyEvent.Event.GetType()),
+                            TypeCode = typeFinder.GetCode(g.t.FullyEvent.Event.GetType()),
                             Data = Encoding.UTF8.GetString(g.t.BytesTransport.EventBytes),
                             g.t.FullyEvent.Base.Version,
                             g.t.FullyEvent.Base.Timestamp

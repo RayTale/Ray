@@ -30,6 +30,7 @@ namespace Ray.Core
         protected ILogger Logger { get; private set; }
         protected IProducerContainer ProducerContainer { get; private set; }
         protected ISerializer Serializer { get; private set; }
+        protected ITypeFinder TypeFinder { get; private set; }
         protected Snapshot<PrimaryKey, StateType> Snapshot { get; set; }
         protected ISnapshotHandler<PrimaryKey, StateType> SnapshotHandler { get; private set; }
         protected IObserverUnit<PrimaryKey> ObserverUnit { get; private set; }
@@ -97,6 +98,7 @@ namespace Ray.Core
             Logger = (ILogger)ServiceProvider.GetService(typeof(ILogger<>).MakeGenericType(GrainType));
             ProducerContainer = ServiceProvider.GetService<IProducerContainer>();
             Serializer = ServiceProvider.GetService<ISerializer>();
+            TypeFinder = ServiceProvider.GetService<ITypeFinder>();
             SnapshotHandler = ServiceProvider.GetService<ISnapshotHandler<PrimaryKey, StateType>>();
             ObserverUnit = ServiceProvider.GetService<IObserverUnitContainer>().GetUnit<PrimaryKey>(GrainType);
             ObserverEventHandlers = ObserverUnit.GetAllEventHandlers();
@@ -451,7 +453,7 @@ namespace Ray.Core
                 Snapshot.Base.IncrementDoingVersion(GrainType);//标记将要处理的Version
                 var evtType = @event.GetType();
                 var bytesTransport = new EventBytesTransport(
-                   TypeContainer.GetTypeCode(evtType),
+                   TypeFinder.GetCode(evtType),
                     Snapshot.Base.StateId,
                     fullyEvent.Base.GetBytes(),
                     Serializer.SerializeToUtf8Bytes(@event, evtType)
@@ -711,7 +713,7 @@ namespace Ray.Core
                 hashKey = GrainId.ToString();
             try
             {
-                var wrapper = new CommonTransport(TypeContainer.GetTypeCode(msg.GetType()), Serializer.SerializeToUtf8Bytes(msg, msg.GetType()));
+                var wrapper = new CommonTransport(TypeFinder.GetCode(msg.GetType()), Serializer.SerializeToUtf8Bytes(msg, msg.GetType()));
                 var pubLishTask = EventBusProducer.Publish(wrapper.GetBytes(), hashKey);
                 if (!pubLishTask.IsCompletedSuccessfully)
                     await pubLishTask;

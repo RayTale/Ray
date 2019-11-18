@@ -77,7 +77,7 @@ namespace Ray.Core
                         WaitingForTransactionTransports.Add(new EventTransport<PrimaryKey>(evt, string.Empty, evt.StateId.ToString())
                         {
                             BytesTransport = new EventBytesTransport(
-                                TypeContainer.GetTypeCode(evtType),
+                                TypeFinder.GetCode(evtType),
                                 GrainId,
                                 evt.Base.GetBytes(),
                                 Serializer.SerializeToUtf8Bytes(evt.Event, evtType)
@@ -167,7 +167,7 @@ namespace Ray.Core
                             await startTask;
                         var evtType = transport.FullyEvent.Event.GetType();
                         transport.BytesTransport = new EventBytesTransport(
-                            TypeContainer.GetTypeCode(evtType),
+                            TypeFinder.GetCode(evtType),
                             GrainId,
                             transport.FullyEvent.Base.GetBytes(),
                             Serializer.SerializeToUtf8Bytes(transport.FullyEvent.Event, evtType)

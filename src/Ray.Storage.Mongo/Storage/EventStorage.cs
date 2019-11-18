@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using Ray.Core.Abstractions;
 using Ray.Core.Channels;
 using Ray.Core.Event;
 using Ray.Core.Serialization;
@@ -21,9 +22,11 @@ namespace Ray.Storage.Mongo
         readonly IMpscChannel<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>> mpscChannel;
         readonly ILogger<EventStorage<PrimaryKey>> logger;
         readonly ISerializer serializer;
+        readonly ITypeFinder typeFinder;
         public EventStorage(IServiceProvider serviceProvider, StorageOptions grainConfig)
         {
             serializer = serviceProvider.GetService<ISerializer>();
+            typeFinder = serviceProvider.GetService<ITypeFinder>();
             logger = serviceProvider.GetService<ILogger<EventStorage<PrimaryKey>>>();
             mpscChannel = serviceProvider.GetService<IMpscChannel<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>>>();
             mpscChannel.BindConsumer(BatchInsertExecuter);
@@ -48,7 +51,7 @@ namespace Ray.Storage.Mongo
                     var version = document["Version"].AsInt64;
                     if (version <= endVersion && version >= startVersion)
                     {
-                        if (serializer.Deserialize(Encoding.UTF8.GetBytes(data), TypeContainer.GetType(typeCode)) is IEvent evt)
+                        if (serializer.Deserialize(Encoding.UTF8.GetBytes(data), typeFinder.FindType(typeCode)) is IEvent evt)
                         {
                             list.Add(new FullyEvent<PrimaryKey>
                             {
@@ -77,7 +80,7 @@ namespace Ray.Storage.Mongo
                     var data = document["Data"].AsString;
                     var timestamp = document["Timestamp"].AsInt64;
                     var version = document["Version"].AsInt64;
-                    if (version >= startVersion && serializer.Deserialize(Encoding.UTF8.GetBytes(data), TypeContainer.GetType(typeCode)) is IEvent evt)
+                    if (version >= startVersion && serializer.Deserialize(Encoding.UTF8.GetBytes(data), typeFinder.FindType(typeCode)) is IEvent evt)
                     {
                         list.Add(new FullyEvent<PrimaryKey>
                         {
@@ -137,7 +140,7 @@ namespace Ray.Storage.Mongo
                     {"StateId",BsonValue.Create( wrapper.Value.Event.StateId) },
                     {"Version",wrapper.Value.Event.Base.Version },
                     {"Timestamp",wrapper.Value.Event.Base.Timestamp },
-                    {"TypeCode",TypeContainer.GetTypeCode( wrapper.Value.Event.Event.GetType()) },
+                    {"TypeCode",typeFinder.GetCode( wrapper.Value.Event.Event.GetType()) },
                     {"Data",Encoding.UTF8.GetString(wrapper.Value.BytesTransport.EventBytes)},
                     {"UniqueId",string.IsNullOrEmpty(wrapper.Value.UniqueId) ? wrapper.Value.Event.Base.Version.ToString() : wrapper.Value.UniqueId }
                 }));
@@ -194,7 +197,7 @@ namespace Ray.Storage.Mongo
                             {"StateId", BsonValue.Create( data.FullyEvent.StateId) },
                             {"Version", data.FullyEvent.Base.Version },
                             {"Timestamp", data.FullyEvent.Base.Timestamp},
-                            {"TypeCode",TypeContainer.GetTypeCode( data.FullyEvent.Event.GetType()) },
+                            {"TypeCode",typeFinder.GetCode( data.FullyEvent.Event.GetType()) },
                             {"Data", Encoding.UTF8.GetString(data.BytesTransport.EventBytes)},
                             {"UniqueId",data.UniqueId }
                         }));
@@ -226,7 +229,7 @@ namespace Ray.Storage.Mongo
                                 {"StateId", BsonValue.Create( data.t.FullyEvent.StateId) },
                                 {"Version", data.t.FullyEvent.Base.Version },
                                 {"Timestamp", data.t.FullyEvent.Base.Timestamp},
-                                {"TypeCode",TypeContainer.GetTypeCode( data.t.FullyEvent.Event.GetType()) },
+                                {"TypeCode",typeFinder.GetCode( data.t.FullyEvent.Event.GetType()) },
                                 {"Data", Encoding.UTF8.GetString(data.t.BytesTransport.EventBytes)},
                                 {"UniqueId", data.t.UniqueId }
                             }));

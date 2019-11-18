@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using Orleans;
 using Orleans.Concurrency;
+using Ray.Core.Abstractions;
 using Ray.Core.Configuration;
 using Ray.Core.Event;
 using Ray.Core.Exceptions;
@@ -37,6 +38,7 @@ namespace Ray.Core
         protected ArchiveOptions ArchiveOptions { get; private set; }
         protected ILogger Logger { get; private set; }
         protected ISerializer Serializer { get; private set; }
+        protected ITypeFinder TypeFinder { get; private set; }
         protected Snapshot<PrimaryKey, StateType> Snapshot { get; set; }
         private PrimaryKey _GrainId;
         private bool _GrainIdAcquired = false;
@@ -94,6 +96,7 @@ namespace Ray.Core
         {
             Logger = (ILogger)ServiceProvider.GetService(typeof(ILogger<>).MakeGenericType(GrainType));
             CoreOptions = ServiceProvider.GetOptionsByName<CoreOptions>(typeof(Main).FullName);
+            TypeFinder = ServiceProvider.GetService<ITypeFinder>();
             ArchiveOptions = ServiceProvider.GetOptionsByName<ArchiveOptions>(typeof(Main).FullName);
             Serializer = ServiceProvider.GetService<ISerializer>();
             SnapshotHandler = ServiceProvider.GetService<ISnapshotHandler<PrimaryKey, StateType>>();
@@ -219,7 +222,7 @@ namespace Ray.Core
             var (success, transport) = EventBytesTransport.FromBytesWithNoId(bytes.Value);
             if (success)
             {
-                var eventType = TypeContainer.GetType(transport.EventTypeCode);
+                var eventType = TypeFinder.FindType(transport.EventTypeCode);
                 var data = Serializer.Deserialize(transport.EventBytes, eventType);
                 if (data is IEvent @event)
                 {
@@ -253,7 +256,7 @@ namespace Ray.Core
                 var (success, transport) = EventBytesTransport.FromBytesWithNoId(bytes);
                 if (success)
                 {
-                    var eventType = TypeContainer.GetType(transport.EventTypeCode);
+                    var eventType = TypeFinder.FindType(transport.EventTypeCode);
                     var data = Serializer.Deserialize(transport.EventBytes, eventType);
                     if (data is IEvent @event)
                     {
