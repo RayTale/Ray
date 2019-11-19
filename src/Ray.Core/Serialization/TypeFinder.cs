@@ -11,8 +11,8 @@ namespace Ray.Core.Serialization
 {
     public class TypeFinder : ITypeFinder
     {
-        private  readonly ConcurrentDictionary<string, Type> codeDict = new ConcurrentDictionary<string, Type>();
-        private  readonly ConcurrentDictionary<Type, string> typeDict = new ConcurrentDictionary<Type, string>();
+        private readonly ConcurrentDictionary<string, Type> codeDict = new ConcurrentDictionary<string, Type>();
+        private readonly ConcurrentDictionary<Type, string> typeDict = new ConcurrentDictionary<Type, string>();
         readonly ILogger<TypeFinder> logger;
         public TypeFinder(ILogger<TypeFinder> logger)
         {
@@ -55,8 +55,7 @@ namespace Ray.Core.Serialization
         {
             var value = codeDict.GetOrAdd(typeCode, key =>
             {
-                var assemblyList = AppDomain.CurrentDomain.GetAssemblies().Where(a => !a.IsDynamic);
-                foreach (var assembly in assemblyList)
+                foreach (var assembly in AssemblyHelper.GetAssemblies(logger))
                 {
                     var type = assembly.GetType(typeCode, false);
                     if (type != default)

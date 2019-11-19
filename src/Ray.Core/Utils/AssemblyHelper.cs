@@ -10,7 +10,7 @@ namespace Ray.Core.Utils
 {
     public class AssemblyHelper
     {
-        public static IList<Assembly> GetAssemblies(ILogger logger)
+        public static IList<Assembly> GetAssemblies(ILogger logger = default)
         {
             var libs = DependencyContext.Default.CompileLibraries.Where(lib => !lib.Serviceable);
             return libs.Select(lib =>
@@ -21,7 +21,8 @@ namespace Ray.Core.Utils
                  }
                  catch (Exception ex)
                  {
-                     logger.LogWarning(ex, ex.Message);
+                     if (logger != default)
+                         logger.LogWarning(ex, ex.Message);
                      return default;
                  }
              }).Where(assembly => assembly != default).ToList();

@@ -1,4 +1,4 @@
-﻿using Ray.Core.Observer;
+﻿using Ray.Core;
 using Ray.Core.Storage;
 using Ray.Storage.Mongo.Configuration;
 using System;
@@ -21,7 +21,7 @@ namespace Ray.Storage.Mongo
         }
         public MongoConfigureBuilder<PrimaryKey, Grain> AutoRegistrationObserver()
         {
-            foreach (var (type, observer) in ObserverAttribute.AllObserverAttribute)
+            foreach (var (type, observer) in CoreExtensions.AllObserverAttribute)
             {
                 if (observer.Observable == typeof(Grain))
                 {

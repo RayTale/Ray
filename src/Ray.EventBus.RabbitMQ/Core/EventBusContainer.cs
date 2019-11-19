@@ -1,8 +1,11 @@
-﻿using Orleans;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Orleans;
 using RabbitMQ.Client;
 using Ray.Core.Abstractions;
 using Ray.Core.EventBus;
 using Ray.Core.Exceptions;
+using Ray.Core.Utils;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -29,7 +32,7 @@ namespace Ray.EventBus.RabbitMQ
         public async Task AutoRegister()
         {
             var observableList = new List<(Type type, ProducerAttribute config)>();
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (var assembly in AssemblyHelper.GetAssemblies(serviceProvider.GetService<ILogger<EventBusContainer>>()))
             {
                 foreach (var type in assembly.GetTypes())
                 {

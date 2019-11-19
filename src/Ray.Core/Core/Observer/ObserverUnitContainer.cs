@@ -1,11 +1,14 @@
-﻿using System;
-using System.Linq;
-using System.Collections.Generic;
-using System.Collections.Concurrent;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Orleans;
 using Ray.Core.Abstractions;
 using Ray.Core.Exceptions;
-using Orleans;
 using Ray.Core.Observer;
+using Ray.Core.Utils;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Ray.Core
 {
@@ -16,7 +19,7 @@ namespace Ray.Core
         {
             var observableList = new List<Type>();
             var observerList = new List<ObserverAttribute>();
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (var assembly in AssemblyHelper.GetAssemblies(serviceProvider.GetService<ILogger<ObserverUnitContainer>>()))
             {
                 foreach (var type in assembly.GetTypes())
                 {

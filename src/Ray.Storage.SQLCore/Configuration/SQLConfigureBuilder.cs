@@ -1,5 +1,4 @@
-﻿using Ray.Core.Observer;
-using Ray.Core.Storage;
+﻿using Ray.Core.Storage;
 using System;
 
 namespace Ray.Storage.SQLCore.Configuration
@@ -21,7 +20,7 @@ namespace Ray.Storage.SQLCore.Configuration
         }
         public SQLConfigureBuilder<Factory, PrimaryKey, Grain> AutoRegistrationObserver()
         {
-            foreach (var (type, observer) in ObserverAttribute.AllObserverAttribute)
+            foreach (var (type, observer) in Core.CoreExtensions.AllObserverAttribute)
             {
                 if (observer.Observable == typeof(Grain))
                 {

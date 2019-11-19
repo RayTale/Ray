@@ -1,8 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Ray.Core.Event;
 using Ray.Core.Exceptions;
+using Ray.Core.Observer;
 using Ray.Core.Snapshot;
+using Ray.Core.Utils;
 
 namespace Ray.Core
 {
@@ -91,6 +95,34 @@ namespace Ray.Core
             snapshot.Version = eventBase.Version;
             if (snapshot.StartTimestamp == 0 || eventBase.Timestamp < snapshot.StartTimestamp)
                 snapshot.StartTimestamp = eventBase.Timestamp;
+        }
+        static List<(Type type, ObserverAttribute observer)> _AllObserverAttribute;
+        /// <summary>
+        /// 获取所有标记为Observer的Grain信息
+        /// </summary>
+        public static List<(Type type, ObserverAttribute observer)> AllObserverAttribute
+        {
+            get
+            {
+                if (_AllObserverAttribute is null)
+                {
+                    _AllObserverAttribute = new List<(Type type, ObserverAttribute observer)>();
+                    foreach (var assembly in AssemblyHelper.GetAssemblies())
+                    {
+                        foreach (var type in assembly.GetTypes().Where(t => typeof(IObserver).IsAssignableFrom(t)))
+                        {
+                            foreach (var attribute in type.GetCustomAttributes(false))
+                            {
+                                if (attribute is ObserverAttribute observer)
+                                {
+                                    _AllObserverAttribute.Add((type, observer));
+                                }
+                            }
+                        }
+                    }
+                }
+                return _AllObserverAttribute;
+            }
         }
     }
 }
