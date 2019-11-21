@@ -100,6 +100,8 @@ namespace Ray.Core
             ArchiveOptions = ServiceProvider.GetOptionsByName<ArchiveOptions>(typeof(Main).FullName);
             Serializer = ServiceProvider.GetService<ISerializer>();
             SnapshotHandler = ServiceProvider.GetService<ISnapshotHandler<PrimaryKey, StateType>>();
+            if (SnapshotHandler == default)
+                throw new UnfindSnapshotHandlerException(GrainType);
             var configureBuilder = ServiceProvider.GetService<IConfigureBuilder<PrimaryKey, Main>>();
             var storageConfigTask = configureBuilder.GetConfig(ServiceProvider, GrainId);
             if (!storageConfigTask.IsCompletedSuccessfully)

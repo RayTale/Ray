@@ -100,6 +100,8 @@ namespace Ray.Core
             Serializer = ServiceProvider.GetService<ISerializer>();
             TypeFinder = ServiceProvider.GetService<ITypeFinder>();
             SnapshotHandler = ServiceProvider.GetService<ISnapshotHandler<PrimaryKey, StateType>>();
+            if (SnapshotHandler == default)
+                throw new UnfindSnapshotHandlerException(GrainType);
             ObserverUnit = ServiceProvider.GetService<IObserverUnitContainer>().GetUnit<PrimaryKey>(GrainType);
             ObserverEventHandlers = ObserverUnit.GetAllEventHandlers();
             var configureBuilder = (IConfigureBuilder<PrimaryKey>)ServiceProvider.GetService(typeof(IConfigureBuilder<,>).MakeGenericType(typeof(PrimaryKey), GrainType));
