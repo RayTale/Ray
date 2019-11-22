@@ -39,10 +39,6 @@
         /// false:会把归档的事件移动到归档事件库
         /// </summary>
         public EventArchiveType EventArchiveType { get; set; } = EventArchiveType.Transfer;
-        /// <summary>
-        /// 当Grain Over时是否归档事件
-        /// </summary>
-        public bool ArchiveEventOnOver { get; set; } = true;
     }
     /// <summary>
     /// 事件归档类型

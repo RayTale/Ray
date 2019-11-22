@@ -341,13 +341,13 @@ namespace Ray.Core
                 }
             }
         }
-        protected async Task Over()
+        protected async Task Over(OverType overType)
         {
             if (Snapshot.Base.IsOver)
                 throw new StateIsOverException(Snapshot.Base.StateId.ToString(), GrainType);
             if (Snapshot.Base.Version != Snapshot.Base.DoingVersion)
                 throw new StateInsecurityException(Snapshot.Base.StateId.ToString(), GrainType, Snapshot.Base.DoingVersion, Snapshot.Base.Version);
-            if (ArchiveOptions.On && ArchiveOptions.ArchiveEventOnOver)
+            if (overType != OverType.None)
             {
                 var versions = await ObserverUnit.GetAndSaveVersion(Snapshot.Base.StateId, Snapshot.Base.Version);
                 if (versions.Any(v => v < Snapshot.Base.Version))
@@ -367,18 +367,35 @@ namespace Ray.Core
             {
                 await SnapshotStorage.Over(Snapshot.Base.StateId, true);
             }
-            if (ArchiveOptions.On && ArchiveOptions.ArchiveEventOnOver)
+            if (overType == OverType.ArchivingEvent)
             {
-                await ArchiveStorage.DeleteAll(Snapshot.Base.StateId);
-                if (ArchiveOptions.EventArchiveType == EventArchiveType.Delete)
-                    await EventStorage.DeletePrevious(Snapshot.Base.StateId, Snapshot.Base.Version, Snapshot.Base.StartTimestamp);
-                else
-                    await ArchiveStorage.EventArichive(Snapshot.Base.StateId, Snapshot.Base.Version, Snapshot.Base.StartTimestamp);
+                if (ArchiveOptions.On)
+                    await DeleteAllArchive();
+                await ArchiveStorage.EventArichive(Snapshot.Base.StateId, Snapshot.Base.Version, Snapshot.Base.StartTimestamp);
             }
-            else
+            else if (overType == OverType.DeleteEvent)
+            {
+                if (ArchiveOptions.On)
+                    await DeleteAllArchive();
+                await EventStorage.DeletePrevious(Snapshot.Base.StateId, Snapshot.Base.Version, Snapshot.Base.StartTimestamp);
+            }
+            else if (overType == OverType.DeleteAll)
+            {
+                if (ArchiveOptions.On)
+                    await DeleteAllArchive();
+                await EventStorage.DeletePrevious(Snapshot.Base.StateId, Snapshot.Base.Version, Snapshot.Base.StartTimestamp);
+
+                if (SnapshotEventVersion > 0)
+                {
+                    await SnapshotStorage.Delete(GrainId);
+                    SnapshotEventVersion = 0;
+                }
+            }
+            else if (ArchiveOptions.On)
             {
                 await ArchiveStorage.Over(Snapshot.Base.StateId, true);
             }
+
         }
         private async Task DeleteArchive(string briefId)
         {
@@ -387,9 +404,9 @@ namespace Ray.Core
             if (!task.IsCompletedSuccessfully)
                 await task;
         }
-        private async Task DeleteAllArchive()
+        protected async Task DeleteAllArchive()
         {
-            await DeleteAllArchive();
+            await ArchiveStorage.DeleteAll(GrainId);
             var task = OnStartDeleteAllArchive();
             if (!task.IsCompletedSuccessfully)
                 await task;
