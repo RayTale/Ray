@@ -391,7 +391,7 @@ namespace Ray.Core
                     SnapshotEventVersion = 0;
                 }
             }
-            else if (ArchiveOptions.On)
+            else if (ArchiveOptions.On && BriefArchiveList.Count > 0)
             {
                 await ArchiveStorage.Over(Snapshot.Base.StateId, true);
             }
@@ -406,10 +406,13 @@ namespace Ray.Core
         }
         protected async Task DeleteAllArchive()
         {
-            await ArchiveStorage.DeleteAll(GrainId);
-            var task = OnStartDeleteAllArchive();
-            if (!task.IsCompletedSuccessfully)
-                await task;
+            if (BriefArchiveList.Count > 0)
+            {
+                var task = OnStartDeleteAllArchive();
+                if (!task.IsCompletedSuccessfully)
+                    await task;
+                await ArchiveStorage.DeleteAll(GrainId);
+            }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask OnStartSaveSnapshot() => Consts.ValueTaskDone;
