@@ -5,12 +5,12 @@
     <TargetFramework>netcoreapp3.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Confluent.Kafka" Version="1.2.1" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="3.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="3.0.0" />
+    <PackageReference Include="Confluent.Kafka" Version="1.2.2" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="3.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="3.0.1" />
     <PackageReference Include="Microsoft.Orleans.OrleansProviders" Version="3.0.0" />
     <PackageReference Include="Microsoft.Orleans.OrleansRuntime" Version="3.0.0" />
-    <PackageReference Include="OrleansDashboard" Version="3.0.2" />
+    <PackageReference Include="OrleansDashboard" Version="3.0.7" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Transfer.Grains\Transfer.Grains.csproj" />
