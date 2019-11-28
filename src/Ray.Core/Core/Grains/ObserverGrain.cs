@@ -39,13 +39,13 @@ namespace Ray.Core
             }).ToList();
             var dynamicMethod = new DynamicMethod($"Handler_Invoke", typeof(Task), new Type[] { typeof(object), typeof(IEvent), typeof(EventBase) }, GrainType, true);
             var ilGen = dynamicMethod.GetILGenerator();
-            var items = new List<SwitchMethodEmit>();
+            var switchMethods = new List<SwitchMethodEmit>();
             for (int i = 0; i < methods.Count; i++)
             {
                 var method = methods[i];
                 var methodParams = method.GetParameters();
                 var caseType = methodParams.Single(p => typeof(IEvent).IsAssignableFrom(p.ParameterType)).ParameterType;
-                items.Add(new SwitchMethodEmit
+                switchMethods.Add(new SwitchMethodEmit
                 {
                     Mehod = method,
                     CaseType = caseType,
@@ -55,10 +55,17 @@ namespace Ray.Core
                     Index = i
                 });
             }
+            var sortList = new List<SwitchMethodEmit>();
+            foreach (var item in switchMethods.Where(m => m.CaseType.BaseType == typeof(object)))
+            {
+                sortList.Add(item);
+                GetInheritor(item, switchMethods, sortList);
+            }
+            sortList.Reverse();
             var defaultLabel = ilGen.DefineLabel();
             var lastLable = ilGen.DefineLabel();
             var declare_1 = ilGen.DeclareLocal(typeof(Task));
-            foreach (var item in items)
+            foreach (var item in sortList)
             {
                 ilGen.Emit(OpCodes.Ldarg_1);
                 ilGen.Emit(OpCodes.Isinst, item.CaseType);
@@ -94,7 +101,7 @@ namespace Ray.Core
                 ilGen.Emit(OpCodes.Brtrue_S, item.Lable);
             }
             ilGen.Emit(OpCodes.Br_S, defaultLabel);
-            foreach (var item in items)
+            foreach (var item in sortList)
             {
                 ilGen.MarkLabel(item.Lable);
                 ilGen.Emit(OpCodes.Ldarg_0);
@@ -151,6 +158,15 @@ namespace Ray.Core
                     {
                         gen.Emit(OpCodes.Ldloc_3);
                     }
+                }
+            }
+            static void GetInheritor(SwitchMethodEmit from, List<SwitchMethodEmit> list, List<SwitchMethodEmit> result)
+            {
+                var inheritorList = list.Where(m => m.CaseType.BaseType == from.CaseType);
+                foreach (var inheritor in inheritorList)
+                {
+                    result.Add(inheritor);
+                    GetInheritor(inheritor, list, result);
                 }
             }
         }
