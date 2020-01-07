@@ -98,7 +98,7 @@ namespace Ray.Core
                     }
                 }
 
-                ilGen.Emit(OpCodes.Brtrue_S, item.Lable);
+                ilGen.Emit(OpCodes.Brtrue, item.Lable);
             }
             ilGen.Emit(OpCodes.Br_S, defaultLabel);
             foreach (var item in sortList)
