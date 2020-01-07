@@ -65,14 +65,23 @@ namespace Ray.Core
             var defaultLabel = ilGen.DefineLabel();
             var lastLable = ilGen.DefineLabel();
             var declare_1 = ilGen.DeclareLocal(typeof(Task));
+            var isShort = sortList.Count < 12;
             foreach (var item in sortList)
             {
                 ilGen.Emit(OpCodes.Ldarg_1);
                 ilGen.Emit(OpCodes.Isinst, item.CaseType);
                 if (item.Index > 3)
                 {
-                    ilGen.Emit(OpCodes.Stloc_S, item.DeclareLocal);
-                    ilGen.Emit(OpCodes.Ldloc_S, item.DeclareLocal);
+                    if (isShort)
+                    {
+                        ilGen.Emit(OpCodes.Stloc_S, item.DeclareLocal);
+                        ilGen.Emit(OpCodes.Ldloc_S, item.DeclareLocal);
+                    }
+                    else
+                    {
+                        ilGen.Emit(OpCodes.Stloc, item.DeclareLocal);
+                        ilGen.Emit(OpCodes.Ldloc, item.DeclareLocal);
+                    }
                 }
                 else
                 {
@@ -100,45 +109,70 @@ namespace Ray.Core
 
                 ilGen.Emit(OpCodes.Brtrue, item.Lable);
             }
-            ilGen.Emit(OpCodes.Br_S, defaultLabel);
+            if (isShort)
+                ilGen.Emit(OpCodes.Br_S, defaultLabel);
+            else
+                ilGen.Emit(OpCodes.Br, defaultLabel);
             foreach (var item in sortList)
             {
                 ilGen.MarkLabel(item.Lable);
                 ilGen.Emit(OpCodes.Ldarg_0);
                 //加载第一个参数
                 if (item.Parameters[0].ParameterType == item.CaseType)
-                    LdEventArgs(item, ilGen);
+                    LdEventArgs(item, ilGen, isShort);
                 else if (item.Parameters[0].ParameterType == typeof(EventBase))
                     ilGen.Emit(OpCodes.Ldarg_2);
                 //加载第二个参数
                 if (item.Parameters.Length == 2)
                 {
                     if (item.Parameters[1].ParameterType == item.CaseType)
-                        LdEventArgs(item, ilGen);
+                        LdEventArgs(item, ilGen, isShort);
                     else if (item.Parameters[1].ParameterType == typeof(EventBase))
                         ilGen.Emit(OpCodes.Ldarg_2);
                 }
                 ilGen.Emit(OpCodes.Call, item.Mehod);
-                ilGen.Emit(OpCodes.Stloc_S, declare_1);
-                ilGen.Emit(OpCodes.Br_S, lastLable);
+                if (isShort)
+                {
+                    ilGen.Emit(OpCodes.Stloc_S, declare_1);
+                    ilGen.Emit(OpCodes.Br_S, lastLable);
+                }
+                else
+                {
+                    ilGen.Emit(OpCodes.Stloc, declare_1);
+                    ilGen.Emit(OpCodes.Br, lastLable);
+                }
             }
             ilGen.MarkLabel(defaultLabel);
             ilGen.Emit(OpCodes.Ldarg_0);
             ilGen.Emit(OpCodes.Ldarg_1);
             ilGen.Emit(OpCodes.Call, GrainType.GetMethod(nameof(DefaultHandler)));
-            ilGen.Emit(OpCodes.Stloc_S, declare_1);
-            ilGen.Emit(OpCodes.Br_S, lastLable);
+            if (isShort)
+            {
+                ilGen.Emit(OpCodes.Stloc_S, declare_1);
+                ilGen.Emit(OpCodes.Br_S, lastLable);
+            }
+            else
+            {
+                ilGen.Emit(OpCodes.Stloc, declare_1);
+                ilGen.Emit(OpCodes.Br, lastLable);
+            }
             //last
             ilGen.MarkLabel(lastLable);
-            ilGen.Emit(OpCodes.Ldloc_S, declare_1);
+            if (isShort)
+                ilGen.Emit(OpCodes.Ldloc_S, declare_1);
+            else
+                ilGen.Emit(OpCodes.Ldloc, declare_1);
             ilGen.Emit(OpCodes.Ret);
             handlerInvokeFunc = (Func<object, IEvent, EventBase, Task>)dynamicMethod.CreateDelegate(typeof(Func<object, IEvent, EventBase, Task>));
             //加载Event参数
-            static void LdEventArgs(SwitchMethodEmit item, ILGenerator gen)
+            static void LdEventArgs(SwitchMethodEmit item, ILGenerator gen, bool isShort)
             {
                 if (item.Index > 3)
                 {
-                    gen.Emit(OpCodes.Ldloc_S, item.DeclareLocal);
+                    if (isShort)
+                        gen.Emit(OpCodes.Ldloc_S, item.DeclareLocal);
+                    else
+                        gen.Emit(OpCodes.Ldloc, item.DeclareLocal);
                 }
                 else
                 {
