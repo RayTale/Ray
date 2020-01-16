@@ -56,7 +56,7 @@ namespace Ray.Core
                 });
             }
             var sortList = new List<SwitchMethodEmit>();
-            foreach (var item in switchMethods.Where(m => m.CaseType.BaseType is object))
+            foreach (var item in switchMethods.Where(m => m.CaseType.BaseType == typeof(object)))
             {
                 sortList.Add(item);
                 GetInheritor(item, switchMethods, sortList);
