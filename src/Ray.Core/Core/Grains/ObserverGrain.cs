@@ -62,6 +62,11 @@ namespace Ray.Core
                 GetInheritor(item, switchMethods, sortList);
             }
             sortList.Reverse();
+            foreach (var item in switchMethods)
+            {
+                if (!sortList.Contains(item))
+                    sortList.Add(item);
+            }
             var defaultLabel = ilGen.DefineLabel();
             var lastLable = ilGen.DefineLabel();
             var declare_1 = ilGen.DeclareLocal(typeof(Task));

@@ -51,6 +51,11 @@ namespace Ray.Core.Snapshot
                 GetInheritor(item, switchMethods, sortList);
             }
             sortList.Reverse();
+            foreach (var item in switchMethods)
+            {
+                if (!sortList.Contains(item))
+                    sortList.Add(item);
+            }
             var defaultLabel = ilGen.DefineLabel();
             var isShort = sortList.Count < 12;
             foreach (var item in sortList)
