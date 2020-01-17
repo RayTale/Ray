@@ -26,6 +26,7 @@ namespace Ray.Core
         readonly List<Func<byte[], Task>> eventHandlers = new List<Func<byte[], Task>>();
         readonly List<Func<List<byte[]>, Task>> batchEventHandlers = new List<Func<List<byte[]>, Task>>();
         readonly List<Func<PrimaryKey, long, Task<long>>> observerVersionHandlers = new List<Func<PrimaryKey, long, Task<long>>>();
+        readonly List<Func<PrimaryKey, Task>> observerResetHandlers = new List<Func<PrimaryKey, Task>>();
         protected ILogger Logger { get; private set; }
         public Type GrainType { get; }
 
@@ -45,6 +46,11 @@ namespace Ray.Core
         public Task<long[]> GetAndSaveVersion(PrimaryKey primaryKey, long srcVersion)
         {
             return Task.WhenAll(observerVersionHandlers.Select(func => func(primaryKey, srcVersion)));
+        }
+
+        public Task Reset(PrimaryKey primaryKey)
+        {
+            return Task.WhenAll(observerResetHandlers.Select(func => func(primaryKey)));
         }
         public List<string> GetGroups() => eventHandlerGroups.Keys.ToList();
         public List<Func<byte[], Task>> GetAllEventHandlers()
@@ -143,6 +149,7 @@ namespace Ray.Core
             eventHandlers.Add(EventHandler);
             batchEventHandlers.Add(BatchEventHandler);
             observerVersionHandlers.Add((actorId, version) => GetObserver(observerType, actorId).GetAndSaveVersion(version));
+            observerResetHandlers.Add((actorId) => GetObserver(observerType, actorId).Reset());
             //内部函数
             Task EventHandler(byte[] bytes)
             {

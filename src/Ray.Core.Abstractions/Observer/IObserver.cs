@@ -8,5 +8,10 @@ namespace Ray.Core.Observer
     {
         Task OnNext(Immutable<byte[]> bytes);
         Task OnNext(Immutable<List<byte[]>> items);
+        /// <summary>
+        /// 重置状态
+        /// </summary>
+        /// <returns></returns>
+        Task Reset();
     }
 }

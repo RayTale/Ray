@@ -667,5 +667,11 @@ namespace Ray.Core
                 }
             }
         }
+        public virtual async Task Reset()
+        {
+            await ObserverSnapshotStorage.Delete(GrainId);
+            UnprocessedEventList.Clear();
+            await ReadSnapshotAsync();
+        }
     }
 }

@@ -343,5 +343,9 @@ namespace Ray.Core
             }
             return Consts.ValueTaskDone;
         }
+        public virtual Task Reset()
+        {
+            return ReadSnapshotAsync();
+        }
     }
 }

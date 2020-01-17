@@ -395,7 +395,6 @@ namespace Ray.Core
             {
                 await ArchiveStorage.Over(Snapshot.Base.StateId, true);
             }
-
         }
         private async Task DeleteArchive(string briefId)
         {
@@ -442,6 +441,12 @@ namespace Ray.Core
                 await SnapshotStorage.Delete(GrainId);
                 SnapshotEventVersion = 0;
             }
+        }
+        protected async Task Reset()
+        {
+            await Over(OverType.DeleteAll);
+            await ReadSnapshotAsync();
+            await ObserverUnit.Reset(Snapshot.Base.StateId);
         }
         protected virtual async Task<bool> RaiseEvent(IEvent @event, EventUID eUID = null)
         {
