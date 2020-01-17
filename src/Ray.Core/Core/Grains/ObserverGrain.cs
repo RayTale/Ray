@@ -670,7 +670,8 @@ namespace Ray.Core
         public virtual async Task Reset()
         {
             await ObserverSnapshotStorage.Delete(GrainId);
-            UnprocessedEventList.Clear();
+            if (ConcurrentHandle)
+                UnprocessedEventList.Clear();
             await ReadSnapshotAsync();
         }
     }

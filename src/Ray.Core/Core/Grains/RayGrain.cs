@@ -445,7 +445,7 @@ namespace Ray.Core
         protected async Task Reset()
         {
             await Over(OverType.DeleteAll);
-            await ReadSnapshotAsync();
+            await RecoverySnapshot();
             await ObserverUnit.Reset(Snapshot.Base.StateId);
         }
         protected virtual async Task<bool> RaiseEvent(IEvent @event, EventUID eUID = null)
