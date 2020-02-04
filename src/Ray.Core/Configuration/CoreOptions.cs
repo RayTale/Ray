@@ -31,5 +31,9 @@
         /// 事务超时时间,单位为ms(默认为30s)
         /// </summary>
         public int TransactionTimeout { get; set; } = 30 * 1000;
+        /// <summary>
+        /// 在激活的时候同步所有观察者
+        /// </summary>
+        public bool SyncAllObserversOnActivate { get; set; } = false;
     }
 }

@@ -194,7 +194,15 @@ namespace Ray.Core
                         };
                     }
                 }
-                var onActivatedTask = OnBaseActivated();
+                if (CoreOptions.SyncAllObserversOnActivate)
+                {
+                    var syncResults = await ObserverUnit.SyncAllObservers(GrainId, Snapshot.Base.Version);
+                    if (syncResults.Any(r => !r))
+                    {
+                        throw new SyncAllObserversException(GrainId.ToString(), GrainType);
+                    }
+                }
+                var onActivatedTask = OnActivationCompleted();
                 if (!onActivatedTask.IsCompletedSuccessfully)
                     await onActivatedTask;
                 if (Logger.IsEnabled(LogLevel.Trace))
@@ -207,7 +215,7 @@ namespace Ray.Core
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual ValueTask OnBaseActivated() => Consts.ValueTaskDone;
+        protected virtual ValueTask OnActivationCompleted() => Consts.ValueTaskDone;
         protected virtual async Task RecoverySnapshot()
         {
             try

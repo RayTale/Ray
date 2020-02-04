@@ -7,6 +7,13 @@ namespace Ray.Core.Abstractions
     public interface IObserverUnit<PrimaryKey> : IGrainID
     {
         /// <summary>
+        /// 同步所有观察者
+        /// </summary>
+        /// <param name="primaryKey">GrainId</param>
+        /// <param name="srcVersion">Observable的Version</param>
+        /// <returns></returns>
+        Task<bool[]> SyncAllObservers(PrimaryKey primaryKey, long srcVersion);
+        /// <summary>
         /// 获取所有监听者分组
         /// </summary>
         /// <returns></returns>

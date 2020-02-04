@@ -138,14 +138,7 @@ namespace Ray.Core
                 await ReadSnapshotAsync();
                 if (FullyActive)
                 {
-                    while (true)
-                    {
-                        var eventList = await EventStorage.GetList(GrainId, Snapshot.Base.StartTimestamp, Snapshot.Base.Version + 1, Snapshot.Base.Version + NumberOfEventsPerRead);
-                        var task = Tell(eventList);
-                        if (!task.IsCompletedSuccessfully)
-                            await task;
-                        if (eventList.Count < NumberOfEventsPerRead) break;
-                    };
+                    await RecoveryFromStorage();
                 }
                 if (Logger.IsEnabled(LogLevel.Trace))
                     Logger.LogTrace("Activation completed: {0}->{1}", GrainType.FullName, Serializer.Serialize(Snapshot));
@@ -155,6 +148,21 @@ namespace Ray.Core
                 Logger.LogCritical(ex, "Activation failed: {0}->{1}", GrainType.FullName, GrainId.ToString());
                 throw;
             }
+        }
+        /// <summary>
+        /// 从库里恢复
+        /// </summary>
+        /// <returns></returns>
+        private async Task RecoveryFromStorage()
+        {
+            while (true)
+            {
+                var eventList = await EventStorage.GetList(GrainId, Snapshot.Base.StartTimestamp, Snapshot.Base.Version + 1, Snapshot.Base.Version + NumberOfEventsPerRead);
+                var task = Tell(eventList);
+                if (!task.IsCompletedSuccessfully)
+                    await task;
+                if (eventList.Count < NumberOfEventsPerRead) break;
+            };
         }
         protected virtual async ValueTask Tell(IEnumerable<FullyEvent<PrimaryKey>> eventList)
         {
@@ -297,6 +305,14 @@ namespace Ray.Core
         public Task<long> GetAndSaveVersion(long compareVersion)
         {
             return Task.FromResult(Snapshot.Base.Version);
+        }
+        public async Task<bool> SyncFromObservable(long compareVersion)
+        {
+            if (Snapshot.Base.Version < compareVersion)
+            {
+                await RecoveryFromStorage();
+            }
+            return Snapshot.Base.Version == compareVersion;
         }
         protected async ValueTask Tell(FullyEvent<PrimaryKey> @event)
         {
