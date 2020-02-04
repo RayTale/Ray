@@ -6,5 +6,6 @@ namespace Ray.Core.Observer
     {
         Task<long> GetVersion();
         Task<long> GetAndSaveVersion(long compareVersion);
+        Task<bool> SyncFromObservable(long compareVersion);
     }
 }

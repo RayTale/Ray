@@ -314,12 +314,7 @@ namespace Ray.Core
                 await ReadSnapshotAsync();
                 if (FullyActive)
                 {
-                    while (true)
-                    {
-                        var eventList = await EventStorage.GetList(GrainId, Snapshot.StartTimestamp, Snapshot.Version + 1, Snapshot.Version + ConfigOptions.NumberOfEventsPerRead);
-                        await UnsafeTell(eventList);
-                        if (eventList.Count < ConfigOptions.NumberOfEventsPerRead) break;
-                    };
+                    await RecoveryFromStorage();
                 }
                 if (Logger.IsEnabled(LogLevel.Trace))
                     Logger.LogTrace("Activation completed: {0}->{1}", GrainType.FullName, Serializer.Serialize(Snapshot));
@@ -329,6 +324,19 @@ namespace Ray.Core
                 Logger.LogCritical(ex, "Activation failed: {0}->{1}", GrainType.FullName, GrainId.ToString());
                 throw;
             }
+        }
+        /// <summary>
+        /// 从库里恢复
+        /// </summary>
+        /// <returns></returns>
+        private async Task RecoveryFromStorage()
+        {
+            while (true)
+            {
+                var eventList = await EventStorage.GetList(GrainId, Snapshot.StartTimestamp, Snapshot.Version + 1, Snapshot.Version + ConfigOptions.NumberOfEventsPerRead);
+                await UnsafeTell(eventList);
+                if (eventList.Count < ConfigOptions.NumberOfEventsPerRead) break;
+            };
         }
         public override Task OnDeactivateAsync()
         {
@@ -514,6 +522,14 @@ namespace Ray.Core
                     await saveTask;
             }
             return Snapshot.Version;
+        }
+        public async Task<bool> SyncFromObservable(long compareVersion)
+        {
+            if (Snapshot.Version < compareVersion)
+            {
+                await RecoveryFromStorage();
+            }
+            return Snapshot.Version == compareVersion;
         }
         protected async ValueTask Tell(FullyEvent<PrimaryKey> fullyEvent)
         {
