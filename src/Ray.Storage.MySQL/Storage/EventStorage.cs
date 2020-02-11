@@ -30,6 +30,7 @@ namespace Ray.Storage.MySQL
             serializer = serviceProvider.GetService<ISerializer>();
             typeFinder = serviceProvider.GetService<ITypeFinder>();
             mpscChannel = serviceProvider.GetService<IMpscChannel<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>>>();
+            mpscChannel.BindConsumer(BatchInsertExecuter);
             this.config = config;
         }
         static readonly ConcurrentDictionary<string, string> getListSqlDict = new ConcurrentDictionary<string, string>();
