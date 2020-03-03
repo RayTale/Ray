@@ -45,7 +45,7 @@ namespace Ray.Core.Snapshot
                 });
             }
             var sortList = new List<SwitchMethodEmit>();
-            foreach (var item in switchMethods.Where(m => m.CaseType.BaseType ==typeof(object)))
+            foreach (var item in switchMethods.Where(m => m.CaseType.BaseType == typeof(object)))
             {
                 sortList.Add(item);
                 GetInheritor(item, switchMethods, sortList);
@@ -57,14 +57,14 @@ namespace Ray.Core.Snapshot
                     sortList.Add(item);
             }
             var defaultLabel = ilGen.DefineLabel();
-            var isShort = sortList.Count < 12;
+            var maxLocalIndex = 0;
             foreach (var item in sortList)
             {
                 ilGen.Emit(OpCodes.Ldarg_2);
                 ilGen.Emit(OpCodes.Isinst, item.CaseType);
                 if (item.Index > 3)
                 {
-                    if (isShort)
+                    if (item.DeclareLocal.LocalIndex > 0 && item.DeclareLocal.LocalIndex <= 255)
                     {
                         ilGen.Emit(OpCodes.Stloc_S, item.DeclareLocal);
                         ilGen.Emit(OpCodes.Ldloc_S, item.DeclareLocal);
@@ -98,12 +98,14 @@ namespace Ray.Core.Snapshot
                         ilGen.Emit(OpCodes.Ldloc_3);
                     }
                 }
-                if (isShort)
+                if (item.DeclareLocal.LocalIndex > 0 && item.DeclareLocal.LocalIndex < 255)
                     ilGen.Emit(OpCodes.Brtrue_S, item.Lable);
                 else
                     ilGen.Emit(OpCodes.Brtrue, item.Lable);
+                if (item.DeclareLocal.LocalIndex > maxLocalIndex)
+                    maxLocalIndex = item.DeclareLocal.LocalIndex;
             }
-            if (isShort)
+            if (maxLocalIndex > 0 && maxLocalIndex < 255)
                 ilGen.Emit(OpCodes.Br_S, defaultLabel);
             else
                 ilGen.Emit(OpCodes.Br, defaultLabel);
@@ -117,14 +119,14 @@ namespace Ray.Core.Snapshot
                 else if (item.Parameters[0].ParameterType == typeof(EventBase))
                     ilGen.Emit(OpCodes.Ldarg_3);
                 else
-                    LdEventArgs(item, ilGen, isShort);
+                    LdEventArgs(item, ilGen);
                 //加载第二个参数
                 if (item.Parameters[1].ParameterType == typeof(Snapshot))
                     ilGen.Emit(OpCodes.Ldarg_1);
                 else if (item.Parameters[1].ParameterType == typeof(EventBase))
                     ilGen.Emit(OpCodes.Ldarg_3);
                 else
-                    LdEventArgs(item, ilGen, isShort);
+                    LdEventArgs(item, ilGen);
                 //加载第三个参数
                 if (item.Parameters.Length == 3)
                 {
@@ -133,7 +135,7 @@ namespace Ray.Core.Snapshot
                     else if (item.Parameters[1].ParameterType == typeof(EventBase))
                         ilGen.Emit(OpCodes.Ldarg_3);
                     else
-                        LdEventArgs(item, ilGen, isShort);
+                        LdEventArgs(item, ilGen);
                 }
                 ilGen.Emit(OpCodes.Call, item.Mehod);
                 ilGen.Emit(OpCodes.Ret);
@@ -145,11 +147,11 @@ namespace Ray.Core.Snapshot
             ilGen.Emit(OpCodes.Ret);
             handlerInvokeFunc = (Action<object, Snapshot, IEvent, EventBase>)dynamicMethod.CreateDelegate(typeof(Action<object, Snapshot, IEvent, EventBase>));
             //加载Event参数
-            static void LdEventArgs(SwitchMethodEmit item, ILGenerator gen, bool isShort)
+            static void LdEventArgs(SwitchMethodEmit item, ILGenerator gen)
             {
                 if (item.Index > 3)
                 {
-                    if (isShort)
+                    if (item.DeclareLocal.LocalIndex > 0 && item.DeclareLocal.LocalIndex <= 255)
                         gen.Emit(OpCodes.Ldloc_S, item.DeclareLocal);
                     else
                         gen.Emit(OpCodes.Ldloc, item.DeclareLocal);
