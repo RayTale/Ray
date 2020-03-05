@@ -67,9 +67,9 @@ namespace Ray.Core
                 if (!sortList.Contains(item))
                     sortList.Add(item);
             }
-            var declare_1 = ilGen.DeclareLocal(typeof(Task));
             var defaultLabel = ilGen.DefineLabel();
             var lastLable = ilGen.DefineLabel();
+            var declare_1 = ilGen.DeclareLocal(typeof(Task));
             foreach (var item in sortList)
             {
                 ilGen.Emit(OpCodes.Ldarg_1);
@@ -110,15 +110,9 @@ namespace Ray.Core
                         ilGen.Emit(OpCodes.Ldloc_3);
                     }
                 }
-                if (item.DeclareLocal.LocalIndex > 0 && item.DeclareLocal.LocalIndex < 255)
-                    ilGen.Emit(OpCodes.Brtrue_S, item.Lable);
-                else
-                    ilGen.Emit(OpCodes.Brtrue, item.Lable);
+                ilGen.Emit(OpCodes.Brtrue, item.Lable);
             }
-            if (declare_1.LocalIndex > 0 && declare_1.LocalIndex <= 255)
-                ilGen.Emit(OpCodes.Br_S, defaultLabel);
-            else
-                ilGen.Emit(OpCodes.Br, defaultLabel);
+            ilGen.Emit(OpCodes.Br, defaultLabel);
             foreach (var item in sortList)
             {
                 ilGen.MarkLabel(item.Lable);
@@ -145,10 +139,7 @@ namespace Ray.Core
                 {
                     ilGen.Emit(OpCodes.Stloc, declare_1);
                 }
-                if (declare_1.LocalIndex > 0 && declare_1.LocalIndex <= 255)
-                    ilGen.Emit(OpCodes.Br_S, lastLable);
-                else
-                    ilGen.Emit(OpCodes.Br, lastLable);
+                ilGen.Emit(OpCodes.Br, lastLable);
             }
             ilGen.MarkLabel(defaultLabel);
             ilGen.Emit(OpCodes.Ldarg_0);
@@ -157,13 +148,12 @@ namespace Ray.Core
             if (declare_1.LocalIndex > 0 && declare_1.LocalIndex <= 255)
             {
                 ilGen.Emit(OpCodes.Stloc_S, declare_1);
-                ilGen.Emit(OpCodes.Br_S, lastLable);
             }
             else
             {
                 ilGen.Emit(OpCodes.Stloc, declare_1);
-                ilGen.Emit(OpCodes.Br, lastLable);
             }
+            ilGen.Emit(OpCodes.Br, lastLable);
             //last
             ilGen.MarkLabel(lastLable);
             if (declare_1.LocalIndex > 0 && declare_1.LocalIndex <= 255)

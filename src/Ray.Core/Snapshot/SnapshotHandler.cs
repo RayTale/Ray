@@ -57,7 +57,6 @@ namespace Ray.Core.Snapshot
                     sortList.Add(item);
             }
             var defaultLabel = ilGen.DefineLabel();
-            var maxLocalIndex = 0;
             foreach (var item in sortList)
             {
                 ilGen.Emit(OpCodes.Ldarg_2);
@@ -98,17 +97,9 @@ namespace Ray.Core.Snapshot
                         ilGen.Emit(OpCodes.Ldloc_3);
                     }
                 }
-                if (item.DeclareLocal.LocalIndex > 0 && item.DeclareLocal.LocalIndex < 255)
-                    ilGen.Emit(OpCodes.Brtrue_S, item.Lable);
-                else
-                    ilGen.Emit(OpCodes.Brtrue, item.Lable);
-                if (item.DeclareLocal.LocalIndex > maxLocalIndex)
-                    maxLocalIndex = item.DeclareLocal.LocalIndex;
+                ilGen.Emit(OpCodes.Brtrue, item.Lable);
             }
-            if (maxLocalIndex > 0 && maxLocalIndex < 255)
-                ilGen.Emit(OpCodes.Br_S, defaultLabel);
-            else
-                ilGen.Emit(OpCodes.Br, defaultLabel);
+            ilGen.Emit(OpCodes.Br, defaultLabel);
             foreach (var item in sortList)
             {
                 ilGen.MarkLabel(item.Lable);
