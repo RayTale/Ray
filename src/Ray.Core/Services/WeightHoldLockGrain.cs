@@ -4,7 +4,7 @@ using Orleans;
 
 namespace Ray.Core.Services
 {
-    public class WeightHoldLock : Grain, IWeightHoldLock
+    public class WeightHoldLockGrain : Grain, IWeightHoldLock
     {
         long lockId = 0;
         long expireTime = 0;
