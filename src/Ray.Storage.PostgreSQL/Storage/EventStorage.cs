@@ -76,7 +76,7 @@ namespace Ray.Storage.PostgreSQL
         {
             var type = typeFinder.FindType(typeCode);
             var list = new List<FullyEvent<PrimaryKey>>(limit);
-            await Task.Run((Func<Task>)(async () =>
+            await Task.Run(async () =>
             {
                 var getTableListTask = config.GetSubTables();
                 if (!getTableListTask.IsCompletedSuccessfully)
@@ -107,7 +107,7 @@ namespace Ray.Storage.PostgreSQL
                     if (list.Count >= limit)
                         break;
                 }
-            }));
+            });
             return list.OrderBy(e => e.Base.Version).ToList();
         }
 
