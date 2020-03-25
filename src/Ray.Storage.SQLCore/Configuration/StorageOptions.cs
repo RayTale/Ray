@@ -23,6 +23,10 @@ namespace Ray.Storage.SQLCore.Configuration
         }
         public bool Singleton { get; set; }
         public string UniqueName { get; set; }
+        /// <summary>
+        /// 分表间隔时间
+        /// 设置为0时表示不分表
+        /// </summary>
         public long SubTableMillionSecondsInterval { get; set; }
         public string EventTable => $"{UniqueName}_Event";
         public string SnapshotTable => $"{UniqueName}_Snapshot";
@@ -81,16 +85,32 @@ namespace Ray.Storage.SQLCore.Configuration
                     if (subTable is null)
                     {
                         var lastSubTable = getTask.Result.LastOrDefault();
-                        var startTime = lastSubTable != null? (lastSubTable.EndTime == lastSubTable.StartTime ? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() : lastSubTable.EndTime) : eventTimestamp;
-                        var index = lastSubTable is null ? 0 : lastSubTable.Index + 1;
-                        subTable = new EventSubTable
+                        var startTime = lastSubTable != null ? (lastSubTable.EndTime == lastSubTable.StartTime ? eventTimestamp : lastSubTable.EndTime) : eventTimestamp;
+                        if (eventTimestamp >= startTime)
                         {
-                            TableName = EventTable,
-                            SubTable = $"{EventTable}_{index}",
-                            Index = index,
-                            StartTime = startTime,
-                            EndTime = startTime + SubTableMillionSecondsInterval
-                        };
+                            var index = lastSubTable is null ? 0 : lastSubTable.Index + 1;
+                            subTable = new EventSubTable
+                            {
+                                TableName = EventTable,
+                                SubTable = $"{EventTable}_{index}",
+                                Index = index,
+                                StartTime = startTime,
+                                EndTime = startTime + SubTableMillionSecondsInterval
+                            };
+                        }
+                        else
+                        {
+                            var firstSubTable = getTask.Result.FirstOrDefault();
+                            var index = firstSubTable.Index - 1;
+                            subTable = new EventSubTable
+                            {
+                                TableName = EventTable,
+                                SubTable = $"{EventTable}_{index}",
+                                Index = index,
+                                StartTime = firstSubTable.StartTime - SubTableMillionSecondsInterval,
+                                EndTime = firstSubTable.StartTime
+                            };
+                        }
                         try
                         {
                             await BuildRepository.CreateEventTable(subTable);
