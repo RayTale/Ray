@@ -105,7 +105,7 @@ namespace Ray.Storage.SQLCore.Configuration
                             subTable = new EventSubTable
                             {
                                 TableName = EventTable,
-                                SubTable = $"{EventTable}_{index}",
+                                SubTable = index < 0 ? $"{EventTable}_n_{index * -1}" : $"{EventTable}_{index}",
                                 Index = index,
                                 StartTime = firstSubTable.StartTime - SubTableMillionSecondsInterval,
                                 EndTime = firstSubTable.StartTime
