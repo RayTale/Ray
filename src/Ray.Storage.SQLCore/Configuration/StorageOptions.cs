@@ -115,6 +115,7 @@ namespace Ray.Storage.SQLCore.Configuration
                         {
                             await BuildRepository.CreateEventTable(subTable);
                             _subTables.Add(subTable);
+                            subTable = _subTables.SingleOrDefault(table => table.StartTime <= eventTimestamp && table.EndTime > eventTimestamp);
                         }
                         catch (Exception ex)
                         {
