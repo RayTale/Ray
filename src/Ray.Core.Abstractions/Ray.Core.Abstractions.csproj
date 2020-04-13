@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <PackageReference Include="Microsoft.Orleans.Runtime.Abstractions" Version="3.1.4" />
-    <PackageReference Include="Microsoft.Orleans.CodeGenerator.MSBuild" Version="3.1.4">
+    <PackageReference Include="Microsoft.Orleans.Runtime.Abstractions" Version="3.1.5" />
+    <PackageReference Include="Microsoft.Orleans.CodeGenerator.MSBuild" Version="3.1.5">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
