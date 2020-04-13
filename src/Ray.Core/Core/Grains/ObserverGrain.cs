@@ -35,7 +35,7 @@ namespace Ray.Core
             var methods = GetType().GetMethods().Where(m =>
             {
                 var parameters = m.GetParameters();
-                return parameters.Length >= 1 && parameters.Any(p => typeof(IEvent).IsAssignableFrom(p.ParameterType));
+                return parameters.Length >= 1 && parameters.Any(p => typeof(IEvent).IsAssignableFrom(p.ParameterType) && !p.ParameterType.IsInterface);
             }).ToList();
             var dynamicMethod = new DynamicMethod($"Handler_Invoke", typeof(Task), new Type[] { typeof(object), typeof(IEvent), typeof(EventBase) }, GrainType, true);
             var ilGen = dynamicMethod.GetILGenerator();
@@ -56,11 +56,10 @@ namespace Ray.Core
                 });
             }
             var sortList = new List<SwitchMethodEmit>();
-            //foreach (var item in switchMethods.Where(m => m.CaseType.BaseType == typeof(object)))
-            foreach (var item in switchMethods.Where(m => m.CaseType.BaseType is object))
+            foreach (var item in switchMethods.Where(m => !typeof(IEvent).IsAssignableFrom(m.CaseType.BaseType)))
             {
                 sortList.Add(item);
-                // GetInheritor(item, switchMethods, sortList);
+                GetInheritor(item, switchMethods, sortList);
             }
             sortList.Reverse();
             foreach (var item in switchMethods)

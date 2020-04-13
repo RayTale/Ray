@@ -24,7 +24,7 @@ namespace Ray.Core.Snapshot
             var methods = GetType().GetMethods().Where(m =>
             {
                 var parameters = m.GetParameters();
-                return parameters.Length >= 2 && parameters.Any(p => p.ParameterType == typeof(Snapshot)) && parameters.Any(p => typeof(IEvent).IsAssignableFrom(p.ParameterType));
+                return parameters.Length >= 2 && parameters.Any(p => p.ParameterType == typeof(Snapshot)) && parameters.Any(p => typeof(IEvent).IsAssignableFrom(p.ParameterType) && !p.ParameterType.IsInterface);
             }).ToList();
             var dynamicMethod = new DynamicMethod($"Handler_Invoke", typeof(void), new Type[] { typeof(object), typeof(Snapshot), typeof(IEvent), typeof(EventBase) }, thisType, true);
             var ilGen = dynamicMethod.GetILGenerator();
@@ -45,11 +45,10 @@ namespace Ray.Core.Snapshot
                 });
             }
             var sortList = new List<SwitchMethodEmit>();
-            //foreach (var item in switchMethods.Where(m => m.CaseType.BaseType == typeof(object)))
-            foreach (var item in switchMethods.Where(m => m.CaseType.BaseType is object))
+            foreach (var item in switchMethods.Where(m => !typeof(IEvent).IsAssignableFrom(m.CaseType.BaseType)))
             {
                 sortList.Add(item);
-                // GetInheritor(item, switchMethods, sortList);
+                GetInheritor(item, switchMethods, sortList);
             }
             sortList.Reverse();
             foreach (var item in switchMethods)
