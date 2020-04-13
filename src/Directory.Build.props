@@ -2,7 +2,7 @@
   <PropertyGroup>
     <TargetFrameworks>netcoreapp2.2;netcoreapp3.1</TargetFrameworks>
     <LangVersion>latest</LangVersion>
-    <Version>2.3.0</Version>
+    <Version>2.4.0</Version>
     <PackageProjectUrl>https://github.com/RayTale/Ray</PackageProjectUrl>
     <RepositoryUrl>https://github.com/RayTale/Ray.git</RepositoryUrl>
     <LICENSE>https://github.com/RayTale/Ray/blob/master/LICENSE</LICENSE>
