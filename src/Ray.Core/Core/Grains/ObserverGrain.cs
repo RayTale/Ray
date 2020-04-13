@@ -623,6 +623,7 @@ namespace Ray.Core
             catch (Exception ex)
             {
                 Logger.LogCritical(ex, "Delivered failed: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(fullyEvent, fullyEvent.GetType()));
+                throw ex;
             }
         }
         public Task DefaultHandler(IEvent evt)
