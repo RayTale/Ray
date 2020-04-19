@@ -45,7 +45,7 @@ namespace Ray.EventBus.Kafka
                 while (!closed)
                 {
                     var consumerResult = consumer.Handler.Consume(start_TimeoutSpan);
-                    if (consumerResult is null || consumerResult.IsPartitionEOF || consumerResult.Value == null)
+                    if (consumerResult is null || consumerResult.IsPartitionEOF || consumerResult.Message.Value == null)
                     {
                         if (needCommit)
                         {
@@ -60,7 +60,7 @@ namespace Ray.EventBus.Kafka
                     while (true)
                     {
                         var whileResult = consumer.Handler.Consume(while_TimeoutSpan);
-                        if (whileResult is null || whileResult.IsPartitionEOF || whileResult.Value == null)
+                        if (whileResult is null || whileResult.IsPartitionEOF || whileResult.Message.Value == null)
                         {
                             break;
                         }
@@ -78,11 +78,11 @@ namespace Ray.EventBus.Kafka
                     try
                     {
                         if (list == null)
-                            await Consumer.Notice(consumerResult.Value);
+                            await Consumer.Notice(consumerResult.Message.Value);
                         else
                         {
                             list.Add(consumerResult);
-                            await Consumer.Notice(list.Select(o => o.Value).ToList());
+                            await Consumer.Notice(list.Select(o => o.Message.Value).ToList());
                         }
                     }
                     catch (Exception exception)
@@ -93,12 +93,12 @@ namespace Ray.EventBus.Kafka
                             await Task.Delay(1000);
                             using var producer = Client.GetProducer();
                             if (list == null)
-                                producer.Handler.Produce(Topic, new Message<string, byte[]> { Key = consumerResult.Key, Value = consumerResult.Value });
+                                producer.Handler.Produce(Topic, new Message<string, byte[]> { Key = consumerResult.Message.Key, Value = consumerResult.Message.Value });
                             else
                             {
                                 foreach (var item in list)
                                 {
-                                    producer.Handler.Produce(Topic, new Message<string, byte[]> { Key = item.Key, Value = item.Value });
+                                    producer.Handler.Produce(Topic, new Message<string, byte[]> { Key = item.Message.Key, Value = item.Message.Value });
                                 }
                             }
                         }

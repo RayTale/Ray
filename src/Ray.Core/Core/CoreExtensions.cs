@@ -50,12 +50,12 @@ namespace Ray.Core
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string GetEventId(this EventBase eventBase, string stateId)
         {
-            return $"{stateId}_{eventBase.Version.ToString()}";
+            return $"{stateId}_{eventBase.Version}";
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string GetEventId<PrimaryKey>(this FullyEvent<PrimaryKey> @event)
         {
-            return $"{@event.StateId.ToString()}_{@event.Base.Version.ToString()}";
+            return $"{@event.StateId}_{@event.Base.Version}";
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static EventUID GetNextUID<PrimaryKey>(this FullyEvent<PrimaryKey> @event)

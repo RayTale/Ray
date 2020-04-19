@@ -1,8 +1,10 @@
 ﻿using System;
+using Orleans.Concurrency;
 using Ray.Core.Utils;
 
 namespace Ray.Core.Event
 {
+    [Immutable]
     public class EventBase
     {
         public EventBase() { }

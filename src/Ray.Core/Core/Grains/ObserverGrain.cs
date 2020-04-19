@@ -12,8 +12,10 @@ using Ray.Core.Snapshot;
 using Ray.Core.Storage;
 using Ray.Core.Utils.Emit;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
@@ -22,116 +24,162 @@ namespace Ray.Core
 {
     public abstract class ObserverGrain<PrimaryKey, MainGrain> : Grain, IObserver
     {
-        readonly Func<object, IEvent, EventBase, Task> handlerInvokeFunc;
+        private static readonly ConcurrentDictionary<Type, Func<object, IEvent, EventBase, FullyEvent<PrimaryKey>, Task>> grainHandlerDict = new ConcurrentDictionary<Type, Func<object, IEvent, EventBase, FullyEvent<PrimaryKey>, Task>>();
+        private static readonly ConcurrentDictionary<Type, IgnoreEventsAttribute> grainIgnoreEventDict = new ConcurrentDictionary<Type, IgnoreEventsAttribute>();
+        readonly Func<object, IEvent, EventBase, FullyEvent<PrimaryKey>, Task> handlerInvokeFunc;
         readonly IgnoreEventsAttribute handlerAttribute;
         public ObserverGrain()
         {
             GrainType = GetType();
-            var handlerAttributes = GrainType.GetCustomAttributes(typeof(IgnoreEventsAttribute), false);
-            if (handlerAttributes.Length > 0)
-                handlerAttribute = (IgnoreEventsAttribute)handlerAttributes[0];
-            else
-                handlerAttribute = default;
-            var methods = GetType().GetMethods().Where(m =>
+            handlerAttribute = grainIgnoreEventDict.GetOrAdd(GrainType, type =>
             {
-                var parameters = m.GetParameters();
-                return parameters.Length >= 1 && parameters.Any(p => typeof(IEvent).IsAssignableFrom(p.ParameterType) && !p.ParameterType.IsInterface);
-            }).ToList();
-            var dynamicMethod = new DynamicMethod($"Handler_Invoke", typeof(Task), new Type[] { typeof(object), typeof(IEvent), typeof(EventBase) }, GrainType, true);
-            var ilGen = dynamicMethod.GetILGenerator();
-            var switchMethods = new List<SwitchMethodEmit>();
-            for (int i = 0; i < methods.Count; i++)
+                var handlerAttributes = GrainType.GetCustomAttributes(typeof(IgnoreEventsAttribute), false);
+                if (handlerAttributes.Length > 0)
+                    return (IgnoreEventsAttribute)handlerAttributes[0];
+                else
+                    return default;
+            });
+
+            handlerInvokeFunc = grainHandlerDict.GetOrAdd(GrainType, type =>
             {
-                var method = methods[i];
-                var methodParams = method.GetParameters();
-                var caseType = methodParams.Single(p => typeof(IEvent).IsAssignableFrom(p.ParameterType)).ParameterType;
-                switchMethods.Add(new SwitchMethodEmit
+                var methods = GetType().GetMethods().Where(m =>
                 {
-                    Mehod = method,
-                    CaseType = caseType,
-                    DeclareLocal = ilGen.DeclareLocal(caseType),
-                    Lable = ilGen.DefineLabel(),
-                    Parameters = methodParams,
-                    Index = i
-                });
-            }
-            var sortList = new List<SwitchMethodEmit>();
-            foreach (var item in switchMethods.Where(m => !typeof(IEvent).IsAssignableFrom(m.CaseType.BaseType)))
-            {
-                sortList.Add(item);
-                GetInheritor(item, switchMethods, sortList);
-            }
-            sortList.Reverse();
-            foreach (var item in switchMethods)
-            {
-                if (!sortList.Contains(item))
+                    var parameters = m.GetParameters();
+                    return parameters.Length >= 1 && parameters.Any(p => typeof(IEvent).IsAssignableFrom(p.ParameterType) && !p.ParameterType.IsInterface);
+                }).ToList();
+                var eventUIDMethod = typeof(CoreExtensions).GetMethod(nameof(CoreExtensions.GetNextUID)).MakeGenericMethod(typeof(PrimaryKey));
+                var dynamicMethod = new DynamicMethod($"Handler_Invoke", typeof(Task), new Type[] { typeof(object), typeof(IEvent), typeof(EventBase), typeof(FullyEvent<PrimaryKey>) }, type, true);
+                var ilGen = dynamicMethod.GetILGenerator();
+                var switchMethods = new List<SwitchMethodEmit>();
+                for (int i = 0; i < methods.Count; i++)
+                {
+                    var method = methods[i];
+                    var methodParams = method.GetParameters();
+                    var caseType = methodParams.Single(p => typeof(IEvent).IsAssignableFrom(p.ParameterType)).ParameterType;
+                    switchMethods.Add(new SwitchMethodEmit
+                    {
+                        Mehod = method,
+                        CaseType = caseType,
+                        DeclareLocal = ilGen.DeclareLocal(caseType),
+                        Lable = ilGen.DefineLabel(),
+                        Parameters = methodParams,
+                        Index = i
+                    });
+                }
+                var sortList = new List<SwitchMethodEmit>();
+                foreach (var item in switchMethods.Where(m => !typeof(IEvent).IsAssignableFrom(m.CaseType.BaseType)))
+                {
                     sortList.Add(item);
-            }
-            var defaultLabel = ilGen.DefineLabel();
-            var lastLable = ilGen.DefineLabel();
-            var declare_1 = ilGen.DeclareLocal(typeof(Task));
-            foreach (var item in sortList)
-            {
-                ilGen.Emit(OpCodes.Ldarg_1);
-                ilGen.Emit(OpCodes.Isinst, item.CaseType);
-                if (item.Index > 3)
+                    GetInheritor(item, switchMethods, sortList);
+                }
+                sortList.Reverse();
+                foreach (var item in switchMethods)
                 {
+                    if (!sortList.Contains(item))
+                        sortList.Add(item);
+                }
+                var defaultLabel = ilGen.DefineLabel();
+                var lastLable = ilGen.DefineLabel();
+                var declare_1 = ilGen.DeclareLocal(typeof(Task));
+                foreach (var item in sortList)
+                {
+                    ilGen.Emit(OpCodes.Ldarg_1);
+                    ilGen.Emit(OpCodes.Isinst, item.CaseType);
+                    if (item.Index > 3)
+                    {
+                        if (item.DeclareLocal.LocalIndex > 0 && item.DeclareLocal.LocalIndex <= 255)
+                        {
+                            ilGen.Emit(OpCodes.Stloc_S, item.DeclareLocal);
+                            ilGen.Emit(OpCodes.Ldloc_S, item.DeclareLocal);
+                        }
+                        else
+                        {
+                            ilGen.Emit(OpCodes.Stloc, item.DeclareLocal);
+                            ilGen.Emit(OpCodes.Ldloc, item.DeclareLocal);
+                        }
+                    }
+                    else
+                    {
+                        if (item.Index == 0)
+                        {
+                            ilGen.Emit(OpCodes.Stloc_0);
+                            ilGen.Emit(OpCodes.Ldloc_0);
+                        }
+                        else if (item.Index == 1)
+                        {
+                            ilGen.Emit(OpCodes.Stloc_1);
+                            ilGen.Emit(OpCodes.Ldloc_1);
+                        }
+                        else if (item.Index == 2)
+                        {
+                            ilGen.Emit(OpCodes.Stloc_2);
+                            ilGen.Emit(OpCodes.Ldloc_2);
+                        }
+                        else
+                        {
+                            ilGen.Emit(OpCodes.Stloc_3);
+                            ilGen.Emit(OpCodes.Ldloc_3);
+                        }
+                    }
+                    ilGen.Emit(OpCodes.Brtrue, item.Lable);
+                }
+                ilGen.Emit(OpCodes.Br, defaultLabel);
+                foreach (var item in sortList)
+                {
+                    ilGen.MarkLabel(item.Lable);
+                    ilGen.Emit(OpCodes.Ldarg_0);
+                    //加载第一个参数
+                    if (item.Parameters[0].ParameterType == item.CaseType)
+                        LdEventArgs(item, ilGen);
+                    else if (item.Parameters[0].ParameterType == typeof(EventBase))
+                        ilGen.Emit(OpCodes.Ldarg_2);
+                    else if (item.Parameters[0].ParameterType == typeof(EventUID))
+                    {
+                        ilGen.Emit(OpCodes.Ldarg_3);
+                        ilGen.Emit(OpCodes.Call, eventUIDMethod);
+                    }
+                    //加载第二个参数
+                    if (item.Parameters.Length >= 2)
+                    {
+                        if (item.Parameters[1].ParameterType == item.CaseType)
+                            LdEventArgs(item, ilGen);
+                        else if (item.Parameters[1].ParameterType == typeof(EventBase))
+                            ilGen.Emit(OpCodes.Ldarg_2);
+                        else if (item.Parameters[1].ParameterType == typeof(EventUID))
+                        {
+                            ilGen.Emit(OpCodes.Ldarg_3);
+                            ilGen.Emit(OpCodes.Call, eventUIDMethod);
+                        }
+                    }
+                    //加载第三个参数
+                    if (item.Parameters.Length >= 3)
+                    {
+                        if (item.Parameters[2].ParameterType == item.CaseType)
+                            LdEventArgs(item, ilGen);
+                        else if (item.Parameters[2].ParameterType == typeof(EventBase))
+                            ilGen.Emit(OpCodes.Ldarg_2);
+                        else if (item.Parameters[2].ParameterType == typeof(EventUID))
+                        {
+                            ilGen.Emit(OpCodes.Ldarg_3);
+                            ilGen.Emit(OpCodes.Call, eventUIDMethod);
+                        }
+                    }
+                    ilGen.Emit(OpCodes.Call, item.Mehod);
                     if (item.DeclareLocal.LocalIndex > 0 && item.DeclareLocal.LocalIndex <= 255)
                     {
-                        ilGen.Emit(OpCodes.Stloc_S, item.DeclareLocal);
-                        ilGen.Emit(OpCodes.Ldloc_S, item.DeclareLocal);
+                        ilGen.Emit(OpCodes.Stloc_S, declare_1);
                     }
                     else
                     {
-                        ilGen.Emit(OpCodes.Stloc, item.DeclareLocal);
-                        ilGen.Emit(OpCodes.Ldloc, item.DeclareLocal);
+                        ilGen.Emit(OpCodes.Stloc, declare_1);
                     }
+                    ilGen.Emit(OpCodes.Br, lastLable);
                 }
-                else
-                {
-                    if (item.Index == 0)
-                    {
-                        ilGen.Emit(OpCodes.Stloc_0);
-                        ilGen.Emit(OpCodes.Ldloc_0);
-                    }
-                    else if (item.Index == 1)
-                    {
-                        ilGen.Emit(OpCodes.Stloc_1);
-                        ilGen.Emit(OpCodes.Ldloc_1);
-                    }
-                    else if (item.Index == 2)
-                    {
-                        ilGen.Emit(OpCodes.Stloc_2);
-                        ilGen.Emit(OpCodes.Ldloc_2);
-                    }
-                    else
-                    {
-                        ilGen.Emit(OpCodes.Stloc_3);
-                        ilGen.Emit(OpCodes.Ldloc_3);
-                    }
-                }
-                ilGen.Emit(OpCodes.Brtrue, item.Lable);
-            }
-            ilGen.Emit(OpCodes.Br, defaultLabel);
-            foreach (var item in sortList)
-            {
-                ilGen.MarkLabel(item.Lable);
+                ilGen.MarkLabel(defaultLabel);
                 ilGen.Emit(OpCodes.Ldarg_0);
-                //加载第一个参数
-                if (item.Parameters[0].ParameterType == item.CaseType)
-                    LdEventArgs(item, ilGen);
-                else if (item.Parameters[0].ParameterType == typeof(EventBase))
-                    ilGen.Emit(OpCodes.Ldarg_2);
-                //加载第二个参数
-                if (item.Parameters.Length == 2)
-                {
-                    if (item.Parameters[1].ParameterType == item.CaseType)
-                        LdEventArgs(item, ilGen);
-                    else if (item.Parameters[1].ParameterType == typeof(EventBase))
-                        ilGen.Emit(OpCodes.Ldarg_2);
-                }
-                ilGen.Emit(OpCodes.Call, item.Mehod);
-                if (item.DeclareLocal.LocalIndex > 0 && item.DeclareLocal.LocalIndex <= 255)
+                ilGen.Emit(OpCodes.Ldarg_1);
+                ilGen.Emit(OpCodes.Call, type.GetMethod(nameof(DefaultHandler)));
+                if (declare_1.LocalIndex > 0 && declare_1.LocalIndex <= 255)
                 {
                     ilGen.Emit(OpCodes.Stloc_S, declare_1);
                 }
@@ -140,28 +188,17 @@ namespace Ray.Core
                     ilGen.Emit(OpCodes.Stloc, declare_1);
                 }
                 ilGen.Emit(OpCodes.Br, lastLable);
-            }
-            ilGen.MarkLabel(defaultLabel);
-            ilGen.Emit(OpCodes.Ldarg_0);
-            ilGen.Emit(OpCodes.Ldarg_1);
-            ilGen.Emit(OpCodes.Call, GrainType.GetMethod(nameof(DefaultHandler)));
-            if (declare_1.LocalIndex > 0 && declare_1.LocalIndex <= 255)
-            {
-                ilGen.Emit(OpCodes.Stloc_S, declare_1);
-            }
-            else
-            {
-                ilGen.Emit(OpCodes.Stloc, declare_1);
-            }
-            ilGen.Emit(OpCodes.Br, lastLable);
-            //last
-            ilGen.MarkLabel(lastLable);
-            if (declare_1.LocalIndex > 0 && declare_1.LocalIndex <= 255)
-                ilGen.Emit(OpCodes.Ldloc_S, declare_1);
-            else
-                ilGen.Emit(OpCodes.Ldloc, declare_1);
-            ilGen.Emit(OpCodes.Ret);
-            handlerInvokeFunc = (Func<object, IEvent, EventBase, Task>)dynamicMethod.CreateDelegate(typeof(Func<object, IEvent, EventBase, Task>));
+                //last
+                ilGen.MarkLabel(lastLable);
+                if (declare_1.LocalIndex > 0 && declare_1.LocalIndex <= 255)
+                    ilGen.Emit(OpCodes.Ldloc_S, declare_1);
+                else
+                    ilGen.Emit(OpCodes.Ldloc, declare_1);
+                ilGen.Emit(OpCodes.Ret);
+                var parames = new ParameterExpression[] { Expression.Parameter(typeof(object)), Expression.Parameter(typeof(IEvent)), Expression.Parameter(typeof(EventBase)), Expression.Parameter(typeof(FullyEvent<PrimaryKey>)) };
+                var body = Expression.Call(dynamicMethod, parames);
+                return Expression.Lambda<Func<object, IEvent, EventBase, FullyEvent<PrimaryKey>, Task>>(body, parames).Compile();
+            });
             //加载Event参数
             static void LdEventArgs(SwitchMethodEmit item, ILGenerator gen)
             {
@@ -422,38 +459,38 @@ namespace Ray.Core
                     startVersion = UnprocessedEventList.Last().Base.Version;
                 }
                 var evtList = items.Value.Select(bytes =>
-                  {
-                      var (success, transport) = EventBytesTransport.FromBytesWithNoId(bytes);
-                      if (success)
-                      {
-                          var msgType = TypeFinder.FindType(transport.EventTypeCode);
-                          var data = Serializer.Deserialize(transport.EventBytes, msgType);
-                          if (data is IEvent @event)
-                          {
-                              var eventBase = EventBase.FromBytes(transport.BaseBytes);
-                              if (eventBase.Version > startVersion)
-                              {
-                                  return new FullyEvent<PrimaryKey>
-                                  {
-                                      StateId = GrainId,
-                                      Base = eventBase,
-                                      Event = @event
-                                  };
-                              }
-                          }
-                          else
-                          {
-                              if (Logger.IsEnabled(LogLevel.Information))
-                                  Logger.LogInformation("Non-Event: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(data, msgType));
-                          }
-                      }
-                      else
-                      {
-                          if (Logger.IsEnabled(LogLevel.Information))
-                              Logger.LogInformation($"{nameof(EventBytesTransport.FromBytesWithNoId)} failed");
-                      }
-                      return default;
-                  }).Where(o => o != null).OrderBy(o => o.Base.Version).ToList();
+                {
+                    var (success, transport) = EventBytesTransport.FromBytesWithNoId(bytes);
+                    if (success)
+                    {
+                        var msgType = TypeFinder.FindType(transport.EventTypeCode);
+                        var data = Serializer.Deserialize(transport.EventBytes, msgType);
+                        if (data is IEvent @event)
+                        {
+                            var eventBase = EventBase.FromBytes(transport.BaseBytes);
+                            if (eventBase.Version > startVersion)
+                            {
+                                return new FullyEvent<PrimaryKey>
+                                {
+                                    StateId = GrainId,
+                                    Base = eventBase,
+                                    Event = @event
+                                };
+                            }
+                        }
+                        else
+                        {
+                            if (Logger.IsEnabled(LogLevel.Information))
+                                Logger.LogInformation("Non-Event: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(data, msgType));
+                        }
+                    }
+                    else
+                    {
+                        if (Logger.IsEnabled(LogLevel.Information))
+                            Logger.LogInformation($"{nameof(EventBytesTransport.FromBytesWithNoId)} failed");
+                    }
+                    return default;
+                }).Where(o => o != null).OrderBy(o => o.Base.Version).ToList();
                 await ConcurrentTell(evtList);
                 if (Logger.IsEnabled(LogLevel.Trace))
                     Logger.LogTrace("OnNext concurrent completed: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(evtList));
@@ -636,7 +673,7 @@ namespace Ray.Core
         }
         protected virtual ValueTask OnEventDelivered(FullyEvent<PrimaryKey> fullyEvent)
         {
-            return new ValueTask(handlerInvokeFunc(this, fullyEvent.Event, fullyEvent.Base));
+            return new ValueTask(handlerInvokeFunc(this, fullyEvent.Event, fullyEvent.Base, fullyEvent));
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask OnSaveSnapshot() => Consts.ValueTaskDone;

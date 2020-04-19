@@ -4,6 +4,7 @@ using Ray.Core.Utils.Emit;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection.Emit;
 
 namespace Ray.Core.Snapshot
@@ -136,7 +137,9 @@ namespace Ray.Core.Snapshot
             ilGen.Emit(OpCodes.Ldarg_2);
             ilGen.Emit(OpCodes.Call, thisType.GetMethod(nameof(DefaultHandler)));
             ilGen.Emit(OpCodes.Ret);
-            handlerInvokeFunc = (Action<object, Snapshot, IEvent, EventBase>)dynamicMethod.CreateDelegate(typeof(Action<object, Snapshot, IEvent, EventBase>));
+            var parames = new ParameterExpression[] { Expression.Parameter(typeof(object)), Expression.Parameter(typeof(Snapshot)), Expression.Parameter(typeof(IEvent)), Expression.Parameter(typeof(EventBase)) };
+            var body = Expression.Call(dynamicMethod, parames);
+            handlerInvokeFunc = Expression.Lambda<Action<object, Snapshot, IEvent, EventBase>>(body, parames).Compile();
             //加载Event参数
             static void LdEventArgs(SwitchMethodEmit item, ILGenerator gen)
             {
