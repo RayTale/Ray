@@ -44,16 +44,16 @@ namespace Transfer.Server
                     //注册postgresql为事件存储库
                     servicecollection.AddPostgreSQLStorage(config =>
                     {
-                        config.ConnectionDict.Add("core_event", "Server=127.0.0.1;Port=5432;Database=Ray;User Id=postgres;Password=luohuazhiyu;Pooling=true;MaxPoolSize=20;");
+                        config.ConnectionDict.Add("core_event", "Server=192.168.1.2;Port=5432;Database=Ray;User Id=postgres;Password=postgres;Pooling=true;MaxPoolSize=20;");
                     });
                     servicecollection.AddKafkaMQ(
                     config => { },
                     config =>
                     {
-                        config.BootstrapServers = "192.168.1.3:9092";
+                        config.BootstrapServers = "192.168.1.2:9092";
                     }, config =>
                     {
-                        config.BootstrapServers = "192.168.1.3:9092";
+                        config.BootstrapServers = "192.168.1.2:9092";
                     });
                     servicecollection.Configure<GrainCollectionOptions>(options =>
                     {

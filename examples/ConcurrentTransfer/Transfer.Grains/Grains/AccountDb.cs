@@ -15,7 +15,7 @@ namespace Transfer.Grains.Grains
             //此处更新db
             return Task.CompletedTask;
         }
-        public Task EventHandle(TopupEvent evt, EventBase eventBase)
+        public Task EventHandle(TopupEvent evt, EventBase eventBase, EventUID fullyEvent)
         {
             //此处更新db
             return Task.CompletedTask;
