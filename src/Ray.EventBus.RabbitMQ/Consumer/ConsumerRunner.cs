@@ -48,6 +48,7 @@ namespace Ray.EventBus.RabbitMQ
             Model.Model.BasicQos(0, Model.Connection.Options.CunsumerMaxBatchSize, false);
             BasicConsumer = new EventingBasicConsumer(Model.Model);
             BasicConsumer.Received += async (ch, ea) => await mpscChannel.WriteAsync(ea);
+            Model.Model.BasicConsume(Queue.Queue, Consumer.Config.AutoAck, BasicConsumer);
             return Task.CompletedTask;
         }
         public Task HeathCheck()
