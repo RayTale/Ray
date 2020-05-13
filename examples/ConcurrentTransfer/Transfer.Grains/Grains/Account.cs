@@ -1,7 +1,7 @@
 ﻿using Orleans.Concurrency;
 using Ray.Core;
 using Ray.Core.Event;
-using Ray.EventBus.Kafka;
+using Ray.EventBus.RabbitMQ;
 using System.Threading.Tasks;
 using Transfer.Grains.Events;
 using Transfer.IGrains;

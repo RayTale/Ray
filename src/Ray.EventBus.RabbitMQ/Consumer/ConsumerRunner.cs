@@ -48,7 +48,7 @@ namespace Ray.EventBus.RabbitMQ
             Model.Model.BasicQos(0, Model.Connection.Options.CunsumerMaxBatchSize, false);
             BasicConsumer = new EventingBasicConsumer(Model.Model);
             BasicConsumer.Received += async (ch, ea) => await mpscChannel.WriteAsync(ea);
-            Model.Model.BasicConsume(Queue.Queue, Consumer.Config.AutoAck, BasicConsumer);
+            BasicConsumer.ConsumerTag = Model.Model.BasicConsume(Queue.Queue, Consumer.Config.AutoAck, BasicConsumer);
             return Task.CompletedTask;
         }
         public Task HeathCheck()
@@ -71,7 +71,7 @@ namespace Ray.EventBus.RabbitMQ
             {
                 try
                 {
-                    await Consumer.Notice(list.Select(o => o.Body.ToArray()).ToList());
+                    await Consumer.Notice(list.Select(o => o.Body).ToList());
                     if (!Consumer.Config.AutoAck)
                     {
                         Model.Model.BasicAck(list.Max(o => o.DeliveryTag), true);
@@ -95,7 +95,7 @@ namespace Ray.EventBus.RabbitMQ
         {
             try
             {
-                await Consumer.Notice(ea.Body.ToArray());
+                await Consumer.Notice(ea.Body);
                 if (!Consumer.Config.AutoAck)
                 {
                     Model.Model.BasicAck(ea.DeliveryTag, false);

@@ -456,7 +456,7 @@ namespace Ray.Core
             await RecoverySnapshot();
             await ObserverUnit.Reset(Snapshot.Base.StateId);
         }
-        protected virtual async Task<bool> RaiseEvent(IEvent @event, EventUID eUID = null)
+        protected virtual async Task<bool> RaiseEvent(IEvent @event, EventUID uid = null)
         {
             if (Snapshot.Base.IsOver)
                 throw new StateIsOverException(Snapshot.Base.StateId.ToString(), GrainType);
@@ -472,15 +472,15 @@ namespace Ray.Core
                     StateId = Snapshot.Base.StateId
                 };
                 string unique = default;
-                if (eUID is null)
+                if (uid is null)
                 {
                     fullyEvent.Base.Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                     unique = fullyEvent.GetEventId();
                 }
                 else
                 {
-                    fullyEvent.Base.Timestamp = eUID.Timestamp;
-                    unique = eUID.UID;
+                    fullyEvent.Base.Timestamp = uid.Timestamp;
+                    unique = uid.UID;
                 }
                 var startTask = OnRaiseStart(fullyEvent);
                 if (!startTask.IsCompletedSuccessfully)
@@ -503,7 +503,8 @@ namespace Ray.Core
                     var saveSnapshotTask = SaveSnapshotAsync();
                     if (!saveSnapshotTask.IsCompletedSuccessfully)
                         await saveSnapshotTask;
-                    await PublishToEventBus(bytesTransport.GetBytes(), GrainId.ToString());
+                    using var buffer = bytesTransport.GetBytes();
+                    await PublishToEventBus(buffer.Buffer, GrainId.ToString());
                     if (Logger.IsEnabled(LogLevel.Trace))
                         Logger.LogTrace("RaiseEvent completed: {0}->{1}->{2}", GrainType.FullName, Serializer.Serialize(fullyEvent), Serializer.Serialize(Snapshot));
                     return true;
