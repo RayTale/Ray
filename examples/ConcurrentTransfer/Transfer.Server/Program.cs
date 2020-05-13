@@ -6,7 +6,7 @@ using Orleans.Configuration;
 using Orleans.Hosting;
 using Ray.Core;
 using Ray.Core.Services;
-using Ray.EventBus.Kafka;
+using Ray.EventBus.RabbitMQ;
 using Ray.Storage.PostgreSQL;
 using System;
 using System.Net;
@@ -44,16 +44,23 @@ namespace Transfer.Server
                     //注册postgresql为事件存储库
                     servicecollection.AddPostgreSQLStorage(config =>
                     {
-                        config.ConnectionDict.Add("core_event", "Server=192.168.1.2;Port=5432;Database=Ray;User Id=postgres;Password=postgres;Pooling=true;MaxPoolSize=20;");
+                        config.ConnectionDict.Add("core_event", "Server=192.168.1.10;Port=5432;Database=Ray;User Id=postgres;Password=postgres;Pooling=true;MaxPoolSize=20;");
                     });
-                    servicecollection.AddKafkaMQ(
-                    config => { },
-                    config =>
+                    //servicecollection.AddKafkaMQ(
+                    //config => { },
+                    //config =>
+                    //{
+                    //    config.BootstrapServers = "192.168.1.2:9092";
+                    //}, config =>
+                    //{
+                    //    config.BootstrapServers = "192.168.1.2:9092";
+                    //});
+                    servicecollection.AddRabbitMQ(options =>
                     {
-                        config.BootstrapServers = "192.168.1.2:9092";
-                    }, config =>
-                    {
-                        config.BootstrapServers = "192.168.1.2:9092";
+                        options.VirtualHost = "/";
+                        options.Hosts = new string[] { "192.168.1.10:5672" };
+                        options.UserName = "admin";
+                        options.Password = "admin";
                     });
                     servicecollection.Configure<GrainCollectionOptions>(options =>
                     {

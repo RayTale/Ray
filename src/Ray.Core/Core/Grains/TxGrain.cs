@@ -242,7 +242,8 @@ namespace Ray.Core
                     {
                         foreach (var transport in WaitingForTransactionTransports)
                         {
-                            await PublishToEventBus(transport.BytesTransport.GetBytes(), transport.HashKey);
+                            using var buffer = transport.BytesTransport.GetBytes();
+                            await PublishToEventBus(buffer.Buffer, transport.HashKey);
                         }
                     }
                     catch (Exception ex)

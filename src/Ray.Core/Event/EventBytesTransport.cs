@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Text;
 using Ray.Core.Exceptions;
 using Ray.Core.Serialization;
@@ -31,7 +32,7 @@ namespace Ray.Core.Event
         /// 事件本身的bytes
         /// </summary>
         public byte[] EventBytes { get; }
-        public byte[] GetBytes()
+        public SharedArray GetBytes()
         {
             var eventTypeBytes = Encoding.UTF8.GetBytes(EventTypeCode);
             byte[] actorIdBytes;
@@ -47,17 +48,21 @@ namespace Ray.Core.Event
             {
                 throw new PrimaryKeyTypeException(EventTypeCode);
             }
-            using var ms = new PooledMemoryStream();
-            ms.WriteByte((byte)TransportType.Event);
-            ms.Write(BitConverter.GetBytes((ushort)eventTypeBytes.Length));
-            ms.Write(BitConverter.GetBytes((ushort)actorIdBytes.Length));
-            ms.Write(BitConverter.GetBytes((ushort)BaseBytes.Length));
-            ms.Write(BitConverter.GetBytes(EventBytes.Length));
-            ms.Write(eventTypeBytes);
-            ms.Write(actorIdBytes);
-            ms.Write(BaseBytes);
-            ms.Write(EventBytes);
-            return ms.ToArray();
+            var buffer= SharedArray.Rent(1+sizeof(ushort)*3+sizeof(int)+eventTypeBytes.Length+actorIdBytes.Length+BaseBytes.Length+EventBytes.Length);
+            var bufferSpan = buffer.Buffer.AsSpan();
+            bufferSpan[0] = (byte)TransportType.Event;
+            BitConverter.TryWriteBytes(bufferSpan.Slice(1), (ushort)eventTypeBytes.Length);
+            BitConverter.TryWriteBytes(bufferSpan.Slice(1+sizeof(ushort)), (ushort)actorIdBytes.Length);
+            BitConverter.TryWriteBytes(bufferSpan.Slice(1 + sizeof(ushort)*2), (ushort)BaseBytes.Length);
+            BitConverter.TryWriteBytes(bufferSpan.Slice(1 + sizeof(ushort) * 3), EventBytes.Length);
+            var bodySlice = bufferSpan.Slice(1 + sizeof(ushort) * 3 + sizeof(int));
+            eventTypeBytes.CopyTo(bodySlice);
+            var actorIdSlice = bodySlice.Slice(eventTypeBytes.Length);
+            actorIdBytes.CopyTo(actorIdSlice);
+            var baseSlice = actorIdSlice.Slice(actorIdBytes.Length);
+            BaseBytes.CopyTo(baseSlice);
+            EventBytes.CopyTo(baseSlice.Slice(BaseBytes.Length));
+            return buffer;
         }
         public static (bool success, PrimaryKey actorId) GetActorId<PrimaryKey>(byte[] bytes)
         {

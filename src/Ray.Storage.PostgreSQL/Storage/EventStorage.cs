@@ -42,7 +42,7 @@ namespace Ray.Storage.PostgreSQL
                 var getTableListTask = config.GetSubTables();
                 if (!getTableListTask.IsCompletedSuccessfully)
                     await getTableListTask;
-                var stateIdStr = typeof(PrimaryKey) == typeof(long) ? stateId.ToString() : $"'{stateId.ToString()}'";
+                var stateIdStr = typeof(PrimaryKey) == typeof(long) ? stateId.ToString() : $"'{stateId}'";
                 using var conn = config.CreateConnection() as NpgsqlConnection;
                 await conn.OpenAsync();
                 foreach (var table in getTableListTask.Result.Where(t => t.EndTime >= latestTimestamp))
@@ -251,7 +251,7 @@ namespace Ray.Storage.PostgreSQL
                     foreach (var wrapper in list)
                     {
                         writer.StartRow();
-                        writer.Write((PrimaryKey)wrapper.FullyEvent.StateId);
+                        writer.Write(wrapper.FullyEvent.StateId);
                         writer.Write(wrapper.UniqueId, NpgsqlDbType.Varchar);
                         writer.Write(typeFinder.GetCode(wrapper.FullyEvent.Event.GetType()), NpgsqlDbType.Varchar);
                         writer.Write(Encoding.UTF8.GetString(wrapper.BytesTransport.EventBytes), NpgsqlDbType.Json);
