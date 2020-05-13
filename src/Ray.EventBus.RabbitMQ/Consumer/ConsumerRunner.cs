@@ -32,7 +32,7 @@ namespace Ray.EventBus.RabbitMQ
         public QueueInfo Queue { get; }
         public ModelWrapper Model { get; set; }
         public EventingBasicConsumer BasicConsumer { get; set; }
-        public bool IsUnAvailable => !BasicConsumer.IsRunning || Model.Model.IsClosed;
+        public bool IsUnAvailable => BasicConsumer == default || !BasicConsumer.IsRunning || Model.Model.IsClosed;
         private bool isFirst = true;
         public Task Run()
         {
