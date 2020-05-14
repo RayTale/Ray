@@ -13,7 +13,7 @@ namespace Ray.Core.Storage
         /// <param name="bytesTransport"></param>
         /// <param name="unique"></param>
         /// <returns></returns>
-        Task<bool> Append(FullyEvent<PrimaryKey> fullyEvent, in EventBytesTransport bytesTransport, string unique);
+        Task<bool> Append(FullyEvent<PrimaryKey> fullyEvent,in EventBytesTransport bytesTransport, string unique);
         /// <summary>
         /// 批量事件插入
         /// </summary>

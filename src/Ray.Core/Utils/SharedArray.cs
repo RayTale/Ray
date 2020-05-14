@@ -5,18 +5,21 @@ namespace Ray.Core.Utils
 {
     public class SharedArray : IDisposable
     {
-        public SharedArray(byte[] bytes)
+        readonly byte[] _Buffer;
+        public SharedArray(int length)
         {
-            Buffer = bytes;
+            _Buffer = ArrayPool<byte>.Shared.Rent(length > 4096 ? length : 4096);
+            Length = length;
         }
-        public byte[] Buffer { get; }
-        public static SharedArray Rent(int minimumLength)
+        public int Length { get; }
+        public Span<byte> AsSpan() => _Buffer.AsSpan().Slice(0, Length);
+        public static SharedArray Rent(int length)
         {
-            return new SharedArray(ArrayPool<byte>.Shared.Rent(minimumLength));
+            return new SharedArray(length);
         }
         public void Dispose()
         {
-            ArrayPool<byte>.Shared.Return(Buffer);
+            ArrayPool<byte>.Shared.Return(_Buffer);
         }
     }
 }

@@ -97,13 +97,12 @@ namespace Ray.Core
             //内部函数
             Task EventHandler(byte[] bytes)
             {
-                var (success, transport) = EventBytesTransport.FromBytes<PrimaryKey>(bytes);
-                if (success)
+                if (EventBytesTransport.TryParse<PrimaryKey>(bytes, out var transport))
                 {
                     var data = serializer.Deserialize(transport.EventBytes, typeFinder.FindType(transport.EventTypeCode));
                     if (data is IEvent @event && transport.GrainId is PrimaryKey actorId)
                     {
-                        var eventBase = EventBase.FromBytes(transport.BaseBytes);
+                        var eventBase = EventBase.Parse(transport.BaseBytes);
                         var tellTask = handler(serviceProvider, new FullyEvent<PrimaryKey>
                         {
                             StateId = actorId,
@@ -119,27 +118,33 @@ namespace Ray.Core
             Task BatchEventHandler(List<byte[]> list)
             {
                 var groups =
-                    list.Select(b => EventBytesTransport.FromBytes<PrimaryKey>(b))
-                    .Where(o => o.success)
-                    .Select(o => o.transport)
-                    .GroupBy(o => o.GrainId);
-                return Task.WhenAll(groups.Select(async kv =>
-                {
-                    foreach (var transport in kv)
+                    list.Select(b =>
                     {
-                        var data = serializer.Deserialize(transport.EventBytes, typeFinder.FindType(transport.EventTypeCode));
-                        if (data is IEvent @event && transport.GrainId is PrimaryKey actorId)
+                        if (EventBytesTransport.TryParse<PrimaryKey>(b, out var transport))
                         {
-                            var eventBase = EventBase.FromBytes(transport.BaseBytes);
-                            var tellTask = handler(serviceProvider, new FullyEvent<PrimaryKey>
+                            var data = serializer.Deserialize(transport.EventBytes, typeFinder.FindType(transport.EventTypeCode));
+                            if (data is IEvent @event && transport.GrainId is PrimaryKey actorId)
                             {
-                                StateId = actorId,
-                                Base = eventBase,
-                                Event = @event
-                            });
-                            if (!tellTask.IsCompletedSuccessfully)
-                                await tellTask;
+                                var eventBase = EventBase.Parse(transport.BaseBytes);
+                                return new FullyEvent<PrimaryKey>
+                                {
+                                    StateId = actorId,
+                                    Base = eventBase,
+                                    Event = @event
+                                };
+                            }
                         }
+                        return default;
+                    })
+                    .Where(o => o != default)
+                    .GroupBy(o => o.StateId);
+                return Task.WhenAll(groups.Select(async groupItem =>
+                {
+                    foreach (var fullyEvent in groupItem)
+                    {
+                        var tellTask = handler(serviceProvider, fullyEvent);
+                        if (!tellTask.IsCompletedSuccessfully)
+                            await tellTask;
                     }
                 }));
             }
@@ -158,8 +163,7 @@ namespace Ray.Core
             //内部函数
             Task EventHandler(byte[] bytes)
             {
-                var (success, actorId) = EventBytesTransport.GetActorId<PrimaryKey>(bytes);
-                if (success)
+                if (EventBytesTransport.TryParseActorId<PrimaryKey>(bytes, out var actorId))
                 {
                     return GetObserver(observerType, actorId).OnNext(new Immutable<byte[]>(bytes));
 
@@ -167,7 +171,7 @@ namespace Ray.Core
                 else
                 {
                     if (Logger.IsEnabled(LogLevel.Error))
-                        Logger.LogError($"{nameof(EventBytesTransport.GetActorId)} failed");
+                        Logger.LogError($"{nameof(EventBytesTransport.TryParseActorId)} failed");
                 }
                 return Task.CompletedTask;
             }
@@ -175,11 +179,11 @@ namespace Ray.Core
             {
                 var groups = list.Select(bytes =>
                 {
-                    var (success, GrainId) = EventBytesTransport.GetActorId<PrimaryKey>(bytes);
+                    var success = EventBytesTransport.TryParseActorId<PrimaryKey>(bytes, out var GrainId);
                     if (!success)
                     {
                         if (Logger.IsEnabled(LogLevel.Error))
-                            Logger.LogError($"{nameof(EventBytesTransport.GetActorId)} failed");
+                            Logger.LogError($"{nameof(EventBytesTransport.TryParseActorId)} failed");
                     }
                     return (success, GrainId, bytes);
                 }).Where(o => o.success).GroupBy(o => o.GrainId);

@@ -460,14 +460,13 @@ namespace Ray.Core
                 }
                 var evtList = items.Value.Select(bytes =>
                 {
-                    var (success, transport) = EventBytesTransport.FromBytesWithNoId(bytes);
-                    if (success)
+                    if (EventBytesTransport.TryParseWithNoId(bytes, out var transport))
                     {
                         var msgType = TypeFinder.FindType(transport.EventTypeCode);
                         var data = Serializer.Deserialize(transport.EventBytes, msgType);
                         if (data is IEvent @event)
                         {
-                            var eventBase = EventBase.FromBytes(transport.BaseBytes);
+                            var eventBase = EventBase.Parse(transport.BaseBytes);
                             if (eventBase.Version > startVersion)
                             {
                                 return new FullyEvent<PrimaryKey>
@@ -487,7 +486,7 @@ namespace Ray.Core
                     else
                     {
                         if (Logger.IsEnabled(LogLevel.Information))
-                            Logger.LogInformation($"{nameof(EventBytesTransport.FromBytesWithNoId)} failed");
+                            Logger.LogInformation($"{nameof(EventBytesTransport.TryParseWithNoId)} failed");
                     }
                     return default;
                 }).Where(o => o != null).OrderBy(o => o.Base.Version).ToList();
@@ -503,16 +502,15 @@ namespace Ray.Core
                 }
             }
         }
-        private async Task OnNext(byte[] bytes)
+        private Task OnNext(byte[] bytes)
         {
-            var (success, transport) = EventBytesTransport.FromBytesWithNoId(bytes);
-            if (success)
+            if (EventBytesTransport.TryParseWithNoId(bytes, out var transport))
             {
                 var msgType = TypeFinder.FindType(transport.EventTypeCode);
                 var data = Serializer.Deserialize(transport.EventBytes, msgType);
                 if (data is IEvent @event)
                 {
-                    var eventBase = EventBase.FromBytes(transport.BaseBytes);
+                    var eventBase = EventBase.Parse(transport.BaseBytes);
                     if (eventBase.Version > Snapshot.Version)
                     {
                         var tellTask = Tell(new FullyEvent<PrimaryKey>
@@ -521,8 +519,7 @@ namespace Ray.Core
                             Base = eventBase,
                             Event = @event
                         });
-                        if (!tellTask.IsCompletedSuccessfully)
-                            await tellTask;
+                        return tellTask.AsTask();
                     }
                     if (Logger.IsEnabled(LogLevel.Trace))
                         Logger.LogTrace("OnNext completed: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(data, msgType));
@@ -536,8 +533,9 @@ namespace Ray.Core
             else
             {
                 if (Logger.IsEnabled(LogLevel.Information))
-                    Logger.LogInformation($"{nameof(EventBytesTransport.FromBytesWithNoId)} failed");
+                    Logger.LogInformation($"{nameof(EventBytesTransport.TryParseWithNoId)} failed");
             }
+            return Task.CompletedTask;
         }
         public Task<long> GetVersion()
         {

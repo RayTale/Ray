@@ -114,7 +114,7 @@ namespace Ray.Storage.MySQL
         static readonly ConcurrentDictionary<string, string> saveSqlDict = new ConcurrentDictionary<string, string>();
         public Task<bool> Append(FullyEvent<PrimaryKey> fullyEvent, in EventBytesTransport bytesTransport, string unique)
         {
-            var input = new BatchAppendTransport<PrimaryKey>(fullyEvent, in bytesTransport, unique);
+            var input = new BatchAppendTransport<PrimaryKey>(fullyEvent, Encoding.UTF8.GetString(bytesTransport.EventBytes), unique);
             return Task.Run(async () =>
             {
                 var wrap = new AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>(input);
@@ -169,7 +169,7 @@ namespace Ray.Storage.MySQL
                             StateId = wrapper.Value.Event.StateId.ToString(),
                             wrapper.Value.UniqueId,
                             TypeCode = typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
-                            Data = Encoding.UTF8.GetString(wrapper.Value.BytesTransport.EventBytes),
+                            Data = wrapper.Value.EventUtf8String,
                             wrapper.Value.Event.Base.Version,
                             wrapper.Value.Event.Base.Timestamp
                         }, trans) > 0;
@@ -193,7 +193,7 @@ namespace Ray.Storage.MySQL
                                 wrapper.Value.Event.StateId,
                                 wrapper.Value.UniqueId,
                                 TypeCode = typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
-                                Data = Encoding.UTF8.GetString(wrapper.Value.BytesTransport.EventBytes),
+                                Data = wrapper.Value.EventUtf8String,
                                 wrapper.Value.Event.Base.Version,
                                 wrapper.Value.Event.Base.Timestamp
                             }) > 0);
@@ -232,7 +232,7 @@ namespace Ray.Storage.MySQL
                         g.t.FullyEvent.StateId,
                         g.t.UniqueId,
                         TypeCode = typeFinder.GetCode(g.t.FullyEvent.Event.GetType()),
-                        Data = Encoding.UTF8.GetString(g.t.BytesTransport.EventBytes),
+                        Data = g.t.EventUtf8String,
                         g.t.FullyEvent.Base.Version,
                         g.t.FullyEvent.Base.Timestamp
                     }), trans);

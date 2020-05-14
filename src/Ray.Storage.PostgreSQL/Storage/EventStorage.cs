@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Dapper;
+﻿using Dapper;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Npgsql;
@@ -15,6 +9,12 @@ using Ray.Core.Event;
 using Ray.Core.Serialization;
 using Ray.Core.Storage;
 using Ray.Storage.SQLCore.Configuration;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace Ray.Storage.PostgreSQL
 {
@@ -114,7 +114,7 @@ namespace Ray.Storage.PostgreSQL
         static readonly ConcurrentDictionary<string, string> saveSqlDict = new ConcurrentDictionary<string, string>();
         public Task<bool> Append(FullyEvent<PrimaryKey> fullyEvent, in EventBytesTransport bytesTransport, string unique)
         {
-            var input = new BatchAppendTransport<PrimaryKey>(fullyEvent, in bytesTransport, unique);
+            var input = new BatchAppendTransport<PrimaryKey>(fullyEvent, Encoding.UTF8.GetString(bytesTransport.EventBytes), unique);
             return Task.Run(async () =>
             {
                 var wrap = new AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>(input);
@@ -164,7 +164,7 @@ namespace Ray.Storage.PostgreSQL
                         writer.Write(wrapper.Value.Event.StateId);
                         writer.Write(wrapper.Value.UniqueId, NpgsqlDbType.Varchar);
                         writer.Write(typeFinder.GetCode(wrapper.Value.Event.Event.GetType()), NpgsqlDbType.Varchar);
-                        writer.Write(Encoding.UTF8.GetString(wrapper.Value.BytesTransport.EventBytes), NpgsqlDbType.Json);
+                        writer.Write(wrapper.Value.EventUtf8String, NpgsqlDbType.Json);
                         writer.Write(wrapper.Value.Event.Base.Version, NpgsqlDbType.Bigint);
                         writer.Write(wrapper.Value.Event.Base.Timestamp, NpgsqlDbType.Bigint);
                     }
@@ -194,7 +194,7 @@ namespace Ray.Storage.PostgreSQL
                             StateId = wrapper.Value.Event.StateId.ToString(),
                             wrapper.Value.UniqueId,
                             TypeCode = typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
-                            Data = Encoding.UTF8.GetString(wrapper.Value.BytesTransport.EventBytes),
+                            Data = wrapper.Value.EventUtf8String,
                             wrapper.Value.Event.Base.Version,
                             wrapper.Value.Event.Base.Timestamp
                         }, trans) > 0;
@@ -218,7 +218,7 @@ namespace Ray.Storage.PostgreSQL
                                 wrapper.Value.Event.StateId,
                                 wrapper.Value.UniqueId,
                                 TypeCode = typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
-                                Data = Encoding.UTF8.GetString(wrapper.Value.BytesTransport.EventBytes),
+                                Data = wrapper.Value.EventUtf8String,
                                 wrapper.Value.Event.Base.Version,
                                 wrapper.Value.Event.Base.Timestamp
                             }) > 0);
@@ -254,7 +254,7 @@ namespace Ray.Storage.PostgreSQL
                         writer.Write(wrapper.FullyEvent.StateId);
                         writer.Write(wrapper.UniqueId, NpgsqlDbType.Varchar);
                         writer.Write(typeFinder.GetCode(wrapper.FullyEvent.Event.GetType()), NpgsqlDbType.Varchar);
-                        writer.Write(Encoding.UTF8.GetString(wrapper.BytesTransport.EventBytes), NpgsqlDbType.Json);
+                        writer.Write(wrapper.EventUtf8String, NpgsqlDbType.Json);
                         writer.Write(wrapper.FullyEvent.Base.Version, NpgsqlDbType.Bigint);
                         writer.Write(wrapper.FullyEvent.Base.Timestamp, NpgsqlDbType.Bigint);
                     }
@@ -284,7 +284,7 @@ namespace Ray.Storage.PostgreSQL
                             g.t.FullyEvent.StateId,
                             g.t.UniqueId,
                             TypeCode = typeFinder.GetCode(g.t.FullyEvent.Event.GetType()),
-                            Data = Encoding.UTF8.GetString(g.t.BytesTransport.EventBytes),
+                            Data = g.t.EventUtf8String,
                             g.t.FullyEvent.Base.Version,
                             g.t.FullyEvent.Base.Timestamp
                         }), trans);

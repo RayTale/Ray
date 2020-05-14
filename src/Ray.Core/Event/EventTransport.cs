@@ -1,16 +1,49 @@
-﻿namespace Ray.Core.Event
+﻿using Ray.Core.Abstractions;
+using Ray.Core.Serialization;
+using Ray.Core.Utils;
+using System;
+using System.Text;
+
+namespace Ray.Core.Event
 {
-    public class EventTransport<PrimaryKey>
+    public class EventTransport<PrimaryKey> : IDisposable
     {
+        private string _TypeCode;
+        private byte[] _EventBytes;
+        private SharedArray _EventBaseArray;
+        private SharedArray _Array;
         public EventTransport(FullyEvent<PrimaryKey> fullyEvent, string uniqueId, string hashKey)
         {
             FullyEvent = fullyEvent;
             UniqueId = uniqueId;
             HashKey = hashKey;
+
         }
-        public FullyEvent<PrimaryKey> FullyEvent { get; set; }
-        public EventBytesTransport BytesTransport { get; set; }
+        public FullyEvent<PrimaryKey> FullyEvent { get; }
         public string UniqueId { get; set; }
         public string HashKey { get; set; }
+        public string EventUtf8String { get; private set; }
+        public void Parse(ITypeFinder typeFinder, ISerializer serializer)
+        {
+            if (EventUtf8String == default)
+            {
+                var evtType = FullyEvent.Event.GetType();
+                _TypeCode = typeFinder.GetCode(evtType);
+                _EventBaseArray = FullyEvent.Base.ConvertToBytes();
+                _EventBytes = serializer.SerializeToUtf8Bytes(FullyEvent.Event, evtType);
+                _Array = GetBytesTransport().ConvertToBytes();
+                EventUtf8String = Encoding.UTF8.GetString(_EventBytes);
+            }
+        }
+        public EventBytesTransport GetBytesTransport()
+        {
+            return new EventBytesTransport(_TypeCode, FullyEvent.StateId, _EventBaseArray.AsSpan(), _EventBytes);
+        }
+        public Span<byte> GetSpan() => _Array.AsSpan();
+        public void Dispose()
+        {
+            _EventBaseArray.Dispose();
+            _Array.Dispose();
+        }
     }
 }

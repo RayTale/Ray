@@ -2,14 +2,14 @@
 {
     public class BatchAppendTransport<PrimaryKey>
     {
-        public BatchAppendTransport(FullyEvent<PrimaryKey> evt, in EventBytesTransport bytesTransport, string uniqueId = null)
+        public BatchAppendTransport(FullyEvent<PrimaryKey> evt, string eventUtf8String, string uniqueId = null)
         {
             Event = evt;
             UniqueId = uniqueId;
-            BytesTransport = bytesTransport;
+            EventUtf8String = eventUtf8String;
         }
         public FullyEvent<PrimaryKey> Event { get; set; }
-        public EventBytesTransport BytesTransport { get; set; }
+        public string EventUtf8String { get; set; }
         public string UniqueId { get; set; }
         public bool ReturnValue { get; set; }
     }

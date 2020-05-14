@@ -229,14 +229,13 @@ namespace Ray.Core
         #endregion
         public Task OnNext(Immutable<byte[]> bytes)
         {
-            var (success, transport) = EventBytesTransport.FromBytesWithNoId(bytes.Value);
-            if (success)
+            if (EventBytesTransport.TryParseWithNoId(bytes.Value, out var transport))
             {
                 var eventType = TypeFinder.FindType(transport.EventTypeCode);
                 var data = Serializer.Deserialize(transport.EventBytes, eventType);
                 if (data is IEvent @event)
                 {
-                    var eventBase = EventBase.FromBytes(transport.BaseBytes);
+                    var eventBase = EventBase.Parse(transport.BaseBytes);
                     if (eventBase.Version > Snapshot.Base.Version)
                     {
                         var tellTask = Tell(new FullyEvent<PrimaryKey>
@@ -263,14 +262,13 @@ namespace Ray.Core
         {
             var events = items.Value.Select(bytes =>
             {
-                var (success, transport) = EventBytesTransport.FromBytesWithNoId(bytes);
-                if (success)
+                if (EventBytesTransport.TryParseWithNoId(bytes, out var transport))
                 {
                     var eventType = TypeFinder.FindType(transport.EventTypeCode);
                     var data = Serializer.Deserialize(transport.EventBytes, eventType);
                     if (data is IEvent @event)
                     {
-                        var eventBase = EventBase.FromBytes(transport.BaseBytes);
+                        var eventBase = EventBase.Parse(transport.BaseBytes);
                         if (eventBase.Version > Snapshot.Base.Version)
                         {
                             return new FullyEvent<PrimaryKey>
