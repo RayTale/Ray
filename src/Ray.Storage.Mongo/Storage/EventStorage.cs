@@ -97,7 +97,7 @@ namespace Ray.Storage.Mongo
         }
         public Task<bool> Append(FullyEvent<PrimaryKey> fullyEvent, in EventBytesTransport bytesTransport, string unique)
         {
-            var input = new BatchAppendTransport<PrimaryKey>(fullyEvent, in bytesTransport, unique);
+            var input = new BatchAppendTransport<PrimaryKey>(fullyEvent, Encoding.UTF8.GetString(bytesTransport.EventBytes), unique);
             return Task.Run(async () =>
             {
                 var wrap = new AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>(input);
@@ -141,7 +141,7 @@ namespace Ray.Storage.Mongo
                     {"Version",wrapper.Value.Event.Base.Version },
                     {"Timestamp",wrapper.Value.Event.Base.Timestamp },
                     {"TypeCode",typeFinder.GetCode( wrapper.Value.Event.Event.GetType()) },
-                    {"Data",Encoding.UTF8.GetString(wrapper.Value.BytesTransport.EventBytes)},
+                    {"Data",wrapper.Value.EventUtf8String},
                     {"UniqueId",string.IsNullOrEmpty(wrapper.Value.UniqueId) ? wrapper.Value.Event.Base.Version.ToString() : wrapper.Value.UniqueId }
                 }));
                 var session = await grainConfig.Client.Client.StartSessionAsync();
@@ -198,7 +198,7 @@ namespace Ray.Storage.Mongo
                             {"Version", data.FullyEvent.Base.Version },
                             {"Timestamp", data.FullyEvent.Base.Timestamp},
                             {"TypeCode",typeFinder.GetCode( data.FullyEvent.Event.GetType()) },
-                            {"Data", Encoding.UTF8.GetString(data.BytesTransport.EventBytes)},
+                            {"Data", data.EventUtf8String},
                             {"UniqueId",data.UniqueId }
                         }));
                     await session.CommitTransactionAsync();
@@ -230,7 +230,7 @@ namespace Ray.Storage.Mongo
                                 {"Version", data.t.FullyEvent.Base.Version },
                                 {"Timestamp", data.t.FullyEvent.Base.Timestamp},
                                 {"TypeCode",typeFinder.GetCode( data.t.FullyEvent.Event.GetType()) },
-                                {"Data", Encoding.UTF8.GetString(data.t.BytesTransport.EventBytes)},
+                                {"Data", data.t.EventUtf8String},
                                 {"UniqueId", data.t.UniqueId }
                             }));
                     }

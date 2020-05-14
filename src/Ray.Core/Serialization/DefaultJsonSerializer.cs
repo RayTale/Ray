@@ -12,7 +12,10 @@ namespace Ray.Core.Serialization
         {
             return JsonSerializer.Deserialize<T>(json);
         }
-
+        public object Deserialize(ReadOnlySpan<byte> bytes, Type type)
+        {
+            return JsonSerializer.Deserialize(bytes, type);
+        }
         public object Deserialize(byte[] bytes, Type type)
         {
             return JsonSerializer.Deserialize(bytes, type);

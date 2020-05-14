@@ -4,6 +4,7 @@ namespace Ray.Core.Serialization
 {
     public interface ISerializer
     {
+        object Deserialize(ReadOnlySpan<byte> bytes, Type type);
         object Deserialize(byte[] bytes, Type type);
         T Deserialize<T>(byte[] bytes) where T : class, new();
         T Deserialize<T>(string json) where T : class, new();

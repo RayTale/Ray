@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using Orleans.Concurrency;
 using Ray.Core.Utils;
 
@@ -15,17 +16,17 @@ namespace Ray.Core.Event
         }
         public long Version { get; set; }
         public long Timestamp { get; set; }
-        public byte[] GetBytes()
+        public SharedArray ConvertToBytes()
         {
-            using var ms = new PooledMemoryStream();
-            ms.Write(BitConverter.GetBytes(Version));
-            ms.Write(BitConverter.GetBytes(Timestamp));
-            return ms.ToArray();
+            var memory = SharedArray.Rent(sizeof(long) * 2);
+            var span = memory.AsSpan();
+            BitConverter.TryWriteBytes(span, Version);
+            BitConverter.TryWriteBytes(span.Slice(sizeof(long)), Version);
+            return memory;
         }
-        public static EventBase FromBytes(byte[] bytes)
+        public static EventBase Parse(Span<byte> bytes)
         {
-            var bytesSpan = bytes.AsSpan();
-            return new EventBase(BitConverter.ToInt64(bytesSpan), BitConverter.ToInt64(bytesSpan.Slice(sizeof(long))));
+            return new EventBase(BitConverter.ToInt64(bytes), BitConverter.ToInt64(bytes.Slice(sizeof(long))));
         }
     }
 }

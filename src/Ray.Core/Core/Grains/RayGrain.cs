@@ -487,24 +487,21 @@ namespace Ray.Core
                     await startTask;
                 Snapshot.Base.IncrementDoingVersion(GrainType);//标记将要处理的Version
                 var evtType = @event.GetType();
-                var bytesTransport = new EventBytesTransport(
-                   TypeFinder.GetCode(evtType),
-                    Snapshot.Base.StateId,
-                    fullyEvent.Base.GetBytes(),
-                    Serializer.SerializeToUtf8Bytes(@event, evtType)
-                );
-                if (await EventStorage.Append(fullyEvent, in bytesTransport, unique))
+                using var baseBytes = fullyEvent.Base.ConvertToBytes();
+                var typeCode = TypeFinder.GetCode(evtType);
+                var evtBytes = Serializer.SerializeToUtf8Bytes(@event, evtType);
+                if (await EventStorage.Append(fullyEvent, new EventBytesTransport(typeCode, Snapshot.Base.StateId, baseBytes.AsSpan(), evtBytes), unique))
                 {
                     SnapshotHandler.Apply(Snapshot, fullyEvent);
                     Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
-                    var task = OnRaised(fullyEvent, bytesTransport);
+                    var task = OnRaised(fullyEvent, new EventBytesTransport(typeCode, Snapshot.Base.StateId, baseBytes.AsSpan(), evtBytes));
                     if (!task.IsCompletedSuccessfully)
                         await task;
                     var saveSnapshotTask = SaveSnapshotAsync();
                     if (!saveSnapshotTask.IsCompletedSuccessfully)
                         await saveSnapshotTask;
-                    using var buffer = bytesTransport.GetBytes();
-                    await PublishToEventBus(buffer.Buffer, GrainId.ToString());
+                    using var buffer = new EventBytesTransport(typeCode, Snapshot.Base.StateId, baseBytes.AsSpan(), evtBytes).ConvertToBytes();
+                    await PublishToEventBus(buffer.AsSpan().ToArray(), GrainId.ToString());
                     if (Logger.IsEnabled(LogLevel.Trace))
                         Logger.LogTrace("RaiseEvent completed: {0}->{1}->{2}", GrainType.FullName, Serializer.Serialize(fullyEvent), Serializer.Serialize(Snapshot));
                     return true;
@@ -618,7 +615,7 @@ namespace Ray.Core
                 LastArchive = BriefArchiveList.LastOrDefault();
             }
         }
-        protected virtual ValueTask OnRaised(FullyEvent<PrimaryKey> @event, EventBytesTransport transport)
+        protected virtual ValueTask OnRaised(FullyEvent<PrimaryKey> @event, in EventBytesTransport transport)
         {
             if (ArchiveOptions.On)
             {

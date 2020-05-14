@@ -9,9 +9,9 @@ namespace Ray.Core.Monitor
         public string ActorName { get; set; }
         public int AvgLives { get; set; }
         public int MaxLives { get; set; }
-        public int AvgEventsPerActor { get; set; }
-        public int MaxEventsPerActor { get; set; }
-        public int MinEventsPerActor { get; set; }
+        public int AvgEvents { get; set; }
+        public int MaxEvents{ get; set; }
+        public int MinEvents { get; set; }
         /// <summary>
         /// 统计时间戳
         /// </summary>

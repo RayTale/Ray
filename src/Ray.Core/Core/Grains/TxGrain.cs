@@ -72,16 +72,9 @@ namespace Ray.Core
                     var waitingEvents = await EventStorage.GetList(GrainId, snapshotBase.TransactionStartTimestamp, snapshotBase.TransactionStartVersion, Snapshot.Base.Version);
                     foreach (var evt in waitingEvents)
                     {
-                        var evtType = evt.Event.GetType();
-                        WaitingForTransactionTransports.Add(new EventTransport<PrimaryKey>(evt, string.Empty, evt.StateId.ToString())
-                        {
-                            BytesTransport = new EventBytesTransport(
-                                TypeFinder.GetCode(evtType),
-                                GrainId,
-                                evt.Base.GetBytes(),
-                                Serializer.SerializeToUtf8Bytes(evt.Event, evtType)
-                            )
-                        });
+                        var transport = new EventTransport<PrimaryKey>(evt, string.Empty, evt.StateId.ToString());
+                        transport.Parse(TypeFinder, Serializer);
+                        WaitingForTransactionTransports.Add(transport);
                     }
                     CurrentTransactionId = snapshotBase.TransactionId;
                     CurrentTransactionStartVersion = snapshotBase.TransactionStartVersion;
@@ -164,13 +157,7 @@ namespace Ray.Core
                         var startTask = OnRaiseStart(transport.FullyEvent);
                         if (!startTask.IsCompletedSuccessfully)
                             await startTask;
-                        var evtType = transport.FullyEvent.Event.GetType();
-                        transport.BytesTransport = new EventBytesTransport(
-                            TypeFinder.GetCode(evtType),
-                            GrainId,
-                            transport.FullyEvent.Base.GetBytes(),
-                            Serializer.SerializeToUtf8Bytes(transport.FullyEvent.Event, evtType)
-                        );
+                        transport.Parse(TypeFinder, Serializer);
                     }
                     await EventStorage.TransactionBatchAppend(WaitingForTransactionTransports);
                     if (Logger.IsEnabled(LogLevel.Trace))
@@ -225,7 +212,7 @@ namespace Ray.Core
                 //如果副本快照没有更新，则更新副本集
                 foreach (var transport in WaitingForTransactionTransports)
                 {
-                    var task = OnRaised(transport.FullyEvent, transport.BytesTransport);
+                    var task = OnRaised(transport.FullyEvent, transport.GetBytesTransport());
                     if (!task.IsCompletedSuccessfully)
                         await task;
                 }
@@ -242,8 +229,7 @@ namespace Ray.Core
                     {
                         foreach (var transport in WaitingForTransactionTransports)
                         {
-                            using var buffer = transport.BytesTransport.GetBytes();
-                            await PublishToEventBus(buffer.Buffer, transport.HashKey);
+                            await PublishToEventBus(transport.GetSpan().ToArray(), transport.HashKey);
                         }
                     }
                     catch (Exception ex)
@@ -251,6 +237,7 @@ namespace Ray.Core
                         Logger.LogError(ex, ex.Message);
                     }
                 }
+                WaitingForTransactionTransports.ForEach(transport => transport.Dispose());
                 WaitingForTransactionTransports.Clear();
                 RestoreTransactionTemporaryState();
                 TransactionSemaphore.Release();
@@ -290,14 +277,14 @@ namespace Ray.Core
         /// </summary>
         /// <param name="fullyEvent">事件本体</param>
         /// <param name="bytes">事件序列化之后的二进制数据</param>
-        protected override ValueTask OnRaised(FullyEvent<PrimaryKey> fullyEvent, EventBytesTransport transport)
+        protected override ValueTask OnRaised(FullyEvent<PrimaryKey> fullyEvent, in EventBytesTransport transport)
         {
             if (BackupSnapshot.Base.Version + 1 == fullyEvent.Base.Version)
             {
                 var copiedEvent = new FullyEvent<PrimaryKey>
                 {
                     Event = Serializer.Deserialize(transport.EventBytes, fullyEvent.Event.GetType()) as IEvent,
-                    Base = EventBase.FromBytes(transport.BaseBytes)
+                    Base = EventBase.Parse(transport.BaseBytes)
                 };
                 SnapshotHandler.Apply(BackupSnapshot, copiedEvent);
                 BackupSnapshot.Base.FullUpdateVersion(copiedEvent.Base, GrainType);//更新处理完成的Version

@@ -115,7 +115,7 @@ namespace Ray.Storage.SQLServer
         static readonly ConcurrentDictionary<string, string> saveSqlDict = new ConcurrentDictionary<string, string>();
         public Task<bool> Append(FullyEvent<PrimaryKey> fullyEvent, in EventBytesTransport bytesTransport, string unique)
         {
-            var input = new BatchAppendTransport<PrimaryKey>(fullyEvent, in bytesTransport, unique);
+            var input = new BatchAppendTransport<PrimaryKey>(fullyEvent, Encoding.UTF8.GetString(bytesTransport.EventBytes), unique);
             return Task.Run(async () =>
             {
                 var wrap = new AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>(input);
@@ -173,7 +173,7 @@ namespace Ray.Storage.SQLServer
                         row["stateid"] = item.Value.Event.StateId;
                         row["uniqueId"] = item.Value.UniqueId;
                         row["typecode"] = typeFinder.GetCode(item.Value.Event.Event.GetType());
-                        row["data"] = Encoding.UTF8.GetString(item.Value.BytesTransport.EventBytes);
+                        row["data"] = item.Value.EventUtf8String;
                         row["version"] = item.Value.Event.Base.Version;
                         row["timestamp"] = item.Value.Event.Base.Timestamp;
                         dt.Rows.Add(row);
@@ -205,7 +205,7 @@ namespace Ray.Storage.SQLServer
                             StateId = wrapper.Value.Event.StateId.ToString(),
                             wrapper.Value.UniqueId,
                             TypeCode = typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
-                            Data = Encoding.UTF8.GetString(wrapper.Value.BytesTransport.EventBytes),
+                            Data = wrapper.Value.EventUtf8String,
                             wrapper.Value.Event.Base.Version,
                             wrapper.Value.Event.Base.Timestamp
                         }, trans) > 0;
@@ -229,7 +229,7 @@ namespace Ray.Storage.SQLServer
                                 wrapper.Value.Event.StateId,
                                 wrapper.Value.UniqueId,
                                 TypeCode = typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
-                                Data = Encoding.UTF8.GetString(wrapper.Value.BytesTransport.EventBytes),
+                                Data = wrapper.Value.EventUtf8String,
                                 wrapper.Value.Event.Base.Version,
                                 wrapper.Value.Event.Base.Timestamp
                             }) > 0);
@@ -273,7 +273,7 @@ namespace Ray.Storage.SQLServer
                         row["stateid"] = item.FullyEvent.StateId;
                         row["uniqueId"] = item.UniqueId;
                         row["typecode"] = typeFinder.GetCode(item.FullyEvent.Event.GetType());
-                        row["data"] = Encoding.UTF8.GetString(item.BytesTransport.EventBytes);
+                        row["data"] = item.EventUtf8String;
                         row["version"] = item.FullyEvent.Base.Version;
                         row["timestamp"] = item.FullyEvent.Base.Timestamp;
                         dt.Rows.Add(row);
@@ -305,7 +305,7 @@ namespace Ray.Storage.SQLServer
                             g.t.FullyEvent.StateId,
                             g.t.UniqueId,
                             TypeCode = typeFinder.GetCode(g.t.FullyEvent.Event.GetType()),
-                            Data = Encoding.UTF8.GetString(g.t.BytesTransport.EventBytes),
+                            Data = g.t.EventUtf8String,
                             g.t.FullyEvent.Base.Version,
                             g.t.FullyEvent.Base.Timestamp
                         }), trans);
