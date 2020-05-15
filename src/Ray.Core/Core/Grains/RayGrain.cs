@@ -747,7 +747,8 @@ namespace Ray.Core
             try
             {
                 var wrapper = new CommonTransport(TypeFinder.GetCode(msg.GetType()), Serializer.SerializeToUtf8Bytes(msg, msg.GetType()));
-                var pubLishTask = EventBusProducer.Publish(wrapper.GetBytes(), hashKey);
+                using var array = wrapper.ConvertToBytes();
+                var pubLishTask = EventBusProducer.Publish(array.AsSpan().ToArray(), hashKey);
                 if (!pubLishTask.IsCompletedSuccessfully)
                     await pubLishTask;
             }
