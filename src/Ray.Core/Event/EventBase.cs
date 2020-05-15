@@ -1,7 +1,6 @@
-﻿using System;
-using System.Buffers;
-using Orleans.Concurrency;
+﻿using Orleans.Concurrency;
 using Ray.Core.Utils;
+using System;
 
 namespace Ray.Core.Event
 {
@@ -21,7 +20,7 @@ namespace Ray.Core.Event
             var memory = SharedArray.Rent(sizeof(long) * 2);
             var span = memory.AsSpan();
             BitConverter.TryWriteBytes(span, Version);
-            BitConverter.TryWriteBytes(span.Slice(sizeof(long)), Version);
+            BitConverter.TryWriteBytes(span.Slice(sizeof(long)), Timestamp);
             return memory;
         }
         public static EventBase Parse(Span<byte> bytes)
