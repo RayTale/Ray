@@ -8,7 +8,7 @@ namespace Ray.Core.Utils
         readonly byte[] _Buffer;
         public SharedArray(int length)
         {
-            _Buffer = ArrayPool<byte>.Shared.Rent(length > 4096 ? length : 4096);
+            _Buffer = ArrayPool<byte>.Shared.Rent(length / 4096 + 1);
             Length = length;
         }
         public int Length { get; }
