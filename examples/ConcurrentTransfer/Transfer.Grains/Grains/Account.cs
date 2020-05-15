@@ -60,7 +60,7 @@ namespace Transfer.Grains.Grains
                     Amount = amount,
                     Balance = Snapshot.State.Balance + amount
                 };
-                await func(evt, null);
+                await func(evt, uid);
             });
         }
 
