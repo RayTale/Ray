@@ -24,7 +24,7 @@ namespace Ray.Core
     {
         public RayGrain()
         {
-            GrainType = this.GetType();
+            GrainType = GetType();
         }
         protected CoreOptions CoreOptions { get; private set; }
         protected ArchiveOptions ArchiveOptions { get; private set; }
@@ -88,7 +88,7 @@ namespace Ray.Core
         /// <summary>
         /// 事件处理器
         /// </summary>
-        protected List<Func<byte[], Task>> ObserverEventHandlers { get; private set; }
+        protected List<Func<BytesBox, Task>> ObserverEventHandlers { get; private set; }
         /// <summary>
         /// 依赖注入统一方法
         /// </summary>
@@ -548,14 +548,14 @@ namespace Ray.Core
                         {
                             Logger.LogCritical(ex, "EventBus failed: {0}->{1}", GrainType.FullName, GrainId.ToString());
                             //当消息队列出现问题的时候同步推送
-                            await Task.WhenAll(ObserverEventHandlers.Select(func => func(bytes)));
+                            await Task.WhenAll(ObserverEventHandlers.Select(func => func(new BytesBox(bytes, null))));
                         }
                     }
                     else
                     {
                         try
                         {
-                            await Task.WhenAll(ObserverEventHandlers.Select(func => func(bytes)));
+                            await Task.WhenAll(ObserverEventHandlers.Select(func => func(new BytesBox(bytes, null))));
                         }
                         catch (Exception ex)
                         {

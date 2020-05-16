@@ -1,14 +1,10 @@
-﻿namespace Ray.EventBus.RabbitMQ
+﻿namespace Ray.EventBus.Kafka
 {
     /// <summary>
     /// Consumer配置信息
     /// </summary>
     public class ConsumerOptions
     {
-        /// <summary>
-        /// 是否自动ack
-        /// </summary>
-        public bool AutoAck { get; set; }
         /// <summary>
         /// 发生异常重试次数
         /// </summary>

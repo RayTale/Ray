@@ -5,7 +5,7 @@ namespace Ray.Core.EventBus
 {
     public interface IConsumer
     {
-        Task Notice(byte[] bytes);
-        Task Notice(List<byte[]> list);
+        Task Notice(BytesBox bytes);
+        Task Notice(List<BytesBox> list);
     }
 }

@@ -2,17 +2,20 @@
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
-using Ray.Core.Channels;
+using Ray.Core.EventBus;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Ray.EventBus.RabbitMQ
 {
     public class ConsumerRunner
     {
-        readonly IMpscChannel<BasicDeliverEventArgs> mpscChannel;
+        readonly static TimeSpan while_TimeoutSpan = TimeSpan.FromMilliseconds(100);
+        private bool isFirst = true;
+        bool closed = false;
         public ConsumerRunner(
             IRabbitMQClient client,
             IServiceProvider provider,
@@ -21,8 +24,6 @@ namespace Ray.EventBus.RabbitMQ
         {
             Client = client;
             Logger = provider.GetService<ILogger<ConsumerRunner>>();
-            mpscChannel = provider.GetService<IMpscChannel<BasicDeliverEventArgs>>();
-            mpscChannel.BindConsumer(BatchExecuter);
             Consumer = consumer;
             Queue = queue;
         }
@@ -33,23 +34,89 @@ namespace Ray.EventBus.RabbitMQ
         public ModelWrapper Model { get; set; }
         public EventingBasicConsumer BasicConsumer { get; set; }
         public bool IsUnAvailable => BasicConsumer == default || !BasicConsumer.IsRunning || Model.Model.IsClosed;
-        private bool isFirst = true;
+
         public Task Run()
         {
-            Model = Client.PullModel();
-            mpscChannel.Config(Model.Connection.Options.CunsumerMaxBatchSize, Model.Connection.Options.CunsumerMaxMillisecondsInterval);
-            if (isFirst)
+            ThreadPool.UnsafeQueueUserWorkItem(async state =>
             {
-                isFirst = false;
-                Model.Model.ExchangeDeclare(Consumer.EventBus.Exchange, "direct", true);
-                Model.Model.QueueDeclare(Queue.Queue, true, false, false, null);
-                Model.Model.QueueBind(Queue.Queue, Consumer.EventBus.Exchange, Queue.RoutingKey);
-            }
-            Model.Model.BasicQos(0, Model.Connection.Options.CunsumerMaxBatchSize, false);
-            BasicConsumer = new EventingBasicConsumer(Model.Model);
-            BasicConsumer.Received += async (ch, ea) => await mpscChannel.WriteAsync(ea);
-            BasicConsumer.ConsumerTag = Model.Model.BasicConsume(Queue.Queue, Consumer.Config.AutoAck, BasicConsumer);
+                Model = Client.PullModel();
+                if (isFirst)
+                {
+                    isFirst = false;
+                    Model.Model.ExchangeDeclare(Consumer.EventBus.Exchange, "direct", true);
+                    Model.Model.QueueDeclare(Queue.Queue, true, false, false, null);
+                    Model.Model.QueueBind(Queue.Queue, Consumer.EventBus.Exchange, Queue.RoutingKey);
+                }
+                while (!closed)
+                {
+                    var list = new List<BytesBox>();
+                    var batchStartTime = DateTimeOffset.UtcNow; ;
+                    try
+                    {
+                        while (true)
+                        {
+                            var whileResult = Model.Model.BasicGet(Queue.Queue, Consumer.Config.AutoAck);
+                            if (whileResult is null)
+                            {
+                                await Task.Delay(while_TimeoutSpan);
+                                break;
+                            }
+                            else
+                            {
+                                list.Add(new BytesBox(whileResult.Body, whileResult));
+                            }
+                            if ((DateTimeOffset.UtcNow - batchStartTime).TotalMilliseconds > Model.Connection.Options.CunsumerMaxMillisecondsInterval ||
+                            list.Count == Model.Connection.Options.CunsumerMaxBatchSize)
+                            {
+                                break;
+                            }
+                        }
+                        if (list.Count > 0)
+                            await Notice(list);
+                    }
+                    catch (Exception exception)
+                    {
+                        Logger.LogError(exception.InnerException ?? exception, $"An error occurred in {Queue}");
+                        foreach (var item in list.Where(o => !o.Success))
+                        {
+                            Model.Model.BasicReject(((BasicGetResult)item.Origin).DeliveryTag, true);
+                        }
+
+                    }
+                    finally
+                    {
+                        if (list.Count > 0)
+                        {
+                            Model.Model.BasicAck(list.Max(o => ((BasicGetResult)o.Origin).DeliveryTag), true);
+                        }
+                    }
+                }
+            }, null);
             return Task.CompletedTask;
+        }
+        async Task Notice(List<BytesBox> list, int times = 0)
+        {
+            try
+            {
+                if (list.Count > 1)
+                {
+                    await Consumer.Notice(list);
+                }
+                else if (list.Count == 1)
+                {
+                    await Consumer.Notice(list[0]);
+                }
+            }
+            catch
+            {
+                if (Consumer.Config.RetryCount >= times)
+                {
+                    await Task.Delay(Consumer.Config.RetryIntervals);
+                    await Notice(list.Where(o => !o.Success).ToList(), times + 1);
+                }
+                else
+                    throw;
+            }
         }
         public Task HeathCheck()
         {
@@ -61,58 +128,9 @@ namespace Ray.EventBus.RabbitMQ
             else
                 return Task.CompletedTask;
         }
-        private async Task BatchExecuter(List<BasicDeliverEventArgs> list)
-        {
-            if (list.Count == 1)
-            {
-                await Process(list.First());
-            }
-            else
-            {
-                try
-                {
-                    await Consumer.Notice(list.Select(o => o.Body).ToList());
-                    if (!Consumer.Config.AutoAck)
-                    {
-                        Model.Model.BasicAck(list.Max(o => o.DeliveryTag), true);
-                    }
-                }
-                catch (Exception exception)
-                {
-                    Logger.LogError(exception.InnerException ?? exception, $"An error occurred in {Consumer.EventBus.Exchange}-{Queue}");
-                    if (Consumer.Config.Reenqueue)
-                    {
-                        await Task.Delay(1000);
-                        foreach (var item in list)
-                        {
-                            Model.Model.BasicReject(item.DeliveryTag, true);
-                        }
-                    }
-                }
-            }
-        }
-        private async Task Process(BasicDeliverEventArgs ea)
-        {
-            try
-            {
-                await Consumer.Notice(ea.Body);
-                if (!Consumer.Config.AutoAck)
-                {
-                    Model.Model.BasicAck(ea.DeliveryTag, false);
-                }
-            }
-            catch (Exception exception)
-            {
-                Logger.LogError(exception.InnerException ?? exception, $"An error occurred in {Consumer.EventBus.Exchange}-{Queue}");
-                if (Consumer.Config.Reenqueue)
-                {
-                    await Task.Delay(1000);
-                    Model.Model.BasicReject(ea.DeliveryTag, true);
-                }
-            }
-        }
         public void Close()
         {
+            closed = true;
             Model?.Dispose();
         }
     }

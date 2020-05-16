@@ -4,6 +4,7 @@ using Orleans;
 using Orleans.Concurrency;
 using Ray.Core.Abstractions;
 using Ray.Core.Event;
+using Ray.Core.EventBus;
 using Ray.Core.Observer;
 using Ray.Core.Serialization;
 using System;
@@ -21,10 +22,10 @@ namespace Ray.Core
         readonly ISerializer serializer;
         readonly ITypeFinder typeFinder;
         readonly IClusterClient clusterClient;
-        readonly Dictionary<string, List<Func<byte[], Task>>> eventHandlerGroups = new Dictionary<string, List<Func<byte[], Task>>>();
-        readonly Dictionary<string, List<Func<List<byte[]>, Task>>> batchEventHandlerGroups = new Dictionary<string, List<Func<List<byte[]>, Task>>>();
-        readonly List<Func<byte[], Task>> eventHandlers = new List<Func<byte[], Task>>();
-        readonly List<Func<List<byte[]>, Task>> batchEventHandlers = new List<Func<List<byte[]>, Task>>();
+        readonly Dictionary<string, List<Func<BytesBox, Task>>> eventHandlerGroups = new Dictionary<string, List<Func<BytesBox, Task>>>();
+        readonly Dictionary<string, List<Func<List<BytesBox>, Task>>> batchEventHandlerGroups = new Dictionary<string, List<Func<List<BytesBox>, Task>>>();
+        readonly List<Func<BytesBox, Task>> eventHandlers = new List<Func<BytesBox, Task>>();
+        readonly List<Func<List<BytesBox>, Task>> batchEventHandlers = new List<Func<List<BytesBox>, Task>>();
         readonly List<Func<PrimaryKey, long, Task<long>>> observerVersionHandlers = new List<Func<PrimaryKey, long, Task<long>>>();
         readonly List<Func<PrimaryKey, Task>> observerResetHandlers = new List<Func<PrimaryKey, Task>>();
         readonly List<Func<PrimaryKey, long, Task<bool>>> observerSyncHandlers = new List<Func<PrimaryKey, long, Task<bool>>>();
@@ -57,28 +58,28 @@ namespace Ray.Core
             return Task.WhenAll(observerResetHandlers.Select(func => func(primaryKey)));
         }
         public List<string> GetGroups() => eventHandlerGroups.Keys.ToList();
-        public List<Func<byte[], Task>> GetAllEventHandlers()
+        public List<Func<BytesBox, Task>> GetAllEventHandlers()
         {
             return eventHandlers;
         }
-        public List<Func<byte[], Task>> GetEventHandlers(string observerGroup)
+        public List<Func<BytesBox, Task>> GetEventHandlers(string observerGroup)
         {
             if (!eventHandlerGroups.TryGetValue(observerGroup, out var funcs))
             {
-                funcs = new List<Func<byte[], Task>>();
+                funcs = new List<Func<BytesBox, Task>>();
                 eventHandlerGroups.Add(observerGroup, funcs);
             }
             return funcs;
         }
-        public List<Func<List<byte[]>, Task>> GetAllBatchEventHandlers()
+        public List<Func<List<BytesBox>, Task>> GetAllBatchEventHandlers()
         {
             return batchEventHandlers;
         }
-        public List<Func<List<byte[]>, Task>> GetBatchEventHandlers(string observerGroup)
+        public List<Func<List<BytesBox>, Task>> GetBatchEventHandlers(string observerGroup)
         {
             if (!batchEventHandlerGroups.TryGetValue(observerGroup, out var funcs))
             {
-                funcs = new List<Func<List<byte[]>, Task>>();
+                funcs = new List<Func<List<BytesBox>, Task>>();
                 batchEventHandlerGroups.Add(observerGroup, funcs);
             }
             return funcs;
@@ -95,9 +96,9 @@ namespace Ray.Core
             batchEventHandlers.Add(BatchEventHandler);
             return this;
             //内部函数
-            Task EventHandler(byte[] bytes)
+            Task EventHandler(BytesBox bytes)
             {
-                if (EventConverter.TryParse<PrimaryKey>(bytes, out var transport))
+                if (EventConverter.TryParse<PrimaryKey>(bytes.Value, out var transport))
                 {
                     var data = serializer.Deserialize(transport.EventBytes, typeFinder.FindType(transport.EventUniqueName));
                     if (data is IEvent @event && transport.GrainId is PrimaryKey actorId)
@@ -112,39 +113,42 @@ namespace Ray.Core
                         if (!tellTask.IsCompletedSuccessfully)
                             return tellTask.AsTask();
                     }
+                    bytes.Success = true;
                 }
                 return Task.CompletedTask;
             }
-            Task BatchEventHandler(List<byte[]> list)
+            Task BatchEventHandler(List<BytesBox> list)
             {
                 var groups =
-                    list.Select(b =>
+                    list.Select(bytes =>
                     {
-                        if (EventConverter.TryParse<PrimaryKey>(b, out var transport))
+                        if (EventConverter.TryParse<PrimaryKey>(bytes.Value, out var transport))
                         {
                             var data = serializer.Deserialize(transport.EventBytes, typeFinder.FindType(transport.EventUniqueName));
                             if (data is IEvent @event && transport.GrainId is PrimaryKey actorId)
                             {
                                 var eventBase = EventBase.Parse(transport.BaseBytes);
-                                return new FullyEvent<PrimaryKey>
+                                var fullEvent = new FullyEvent<PrimaryKey>
                                 {
                                     StateId = actorId,
                                     Base = eventBase,
                                     Event = @event
                                 };
+                                return (bytes, fullEvent);
                             }
                         }
                         return default;
                     })
                     .Where(o => o != default)
-                    .GroupBy(o => o.StateId);
-                return Task.WhenAll(groups.Select(async groupItem =>
+                    .GroupBy(o => o.fullEvent.StateId);
+                return Task.WhenAll(groups.Select(async groupItems =>
                 {
-                    foreach (var fullyEvent in groupItem)
+                    foreach (var item in groupItems)
                     {
-                        var tellTask = handler(serviceProvider, fullyEvent);
+                        var tellTask = handler(serviceProvider, item.fullEvent);
                         if (!tellTask.IsCompletedSuccessfully)
                             await tellTask;
+                        item.bytes.Success = true;
                     }
                 }));
             }
@@ -161,25 +165,24 @@ namespace Ray.Core
             observerSyncHandlers.Add((actorId, version) => GetObserver(observerType, actorId).SyncFromObservable(version));
             observerResetHandlers.Add((actorId) => GetObserver(observerType, actorId).Reset());
             //内部函数
-            Task EventHandler(byte[] bytes)
+            async Task EventHandler(BytesBox bytes)
             {
-                if (EventConverter.TryParseActorId<PrimaryKey>(bytes, out var actorId))
+                if (EventConverter.TryParseActorId<PrimaryKey>(bytes.Value, out var actorId))
                 {
-                    return GetObserver(observerType, actorId).OnNext(new Immutable<byte[]>(bytes));
-
+                    await GetObserver(observerType, actorId).OnNext(new Immutable<byte[]>(bytes.Value));
+                    bytes.Success = true;
                 }
                 else
                 {
                     if (Logger.IsEnabled(LogLevel.Error))
                         Logger.LogError($"{nameof(EventConverter.TryParseActorId)} failed");
                 }
-                return Task.CompletedTask;
             }
-            Task BatchEventHandler(List<byte[]> list)
+            Task BatchEventHandler(List<BytesBox> list)
             {
                 var groups = list.Select(bytes =>
                 {
-                    var success = EventConverter.TryParseActorId<PrimaryKey>(bytes, out var GrainId);
+                    var success = EventConverter.TryParseActorId<PrimaryKey>(bytes.Value, out var GrainId);
                     if (!success)
                     {
                         if (Logger.IsEnabled(LogLevel.Error))
@@ -187,10 +190,14 @@ namespace Ray.Core
                     }
                     return (success, GrainId, bytes);
                 }).Where(o => o.success).GroupBy(o => o.GrainId);
-                return Task.WhenAll(groups.Select(kv =>
+                return Task.WhenAll(groups.Select(async kv =>
                 {
-                    var items = kv.Select(item => item.bytes).ToList();
-                    return GetObserver(observerType, kv.Key).OnNext(new Immutable<List<byte[]>>(items));
+                    var items = kv.Select(item => item.bytes.Value).ToList();
+                    await GetObserver(observerType, kv.Key).OnNext(new Immutable<List<byte[]>>(items));
+                    foreach (var item in kv)
+                    {
+                        item.bytes.Success = true;
+                    }
                 }));
             }
         }

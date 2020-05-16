@@ -48,7 +48,7 @@ namespace Ray.EventBus.RabbitMQ
             }
             foreach (var (type, config) in observableList)
             {
-                var eventBus = CreateEventBus(string.IsNullOrEmpty(config.Exchange) ? type.Name : config.Exchange, string.IsNullOrEmpty(config.RoutePrefix) ? type.Name : config.RoutePrefix, config.LBCount, config.AutoAck, config.Reenqueue, config.Persistent).BindProducer(type);
+                var eventBus = CreateEventBus(string.IsNullOrEmpty(config.Exchange) ? type.Name : config.Exchange, string.IsNullOrEmpty(config.RoutePrefix) ? type.Name : config.RoutePrefix, config.LBCount, config.AutoAck, config.Persistent, config.RetryCount, config.RetryIntervals).BindProducer(type);
                 if (typeof(IGrainWithIntegerKey).IsAssignableFrom(type))
                 {
                     await eventBus.AddGrainConsumer<long>();
@@ -61,13 +61,13 @@ namespace Ray.EventBus.RabbitMQ
                     throw new PrimaryKeyTypeException(type.FullName);
             }
         }
-        public RabbitEventBus CreateEventBus(string exchange, string routePrefix, int lBCount = 1, bool autoAck = false, bool reenqueue = false, bool persistent = false)
+        public RabbitEventBus CreateEventBus(string exchange, string routePrefix, int lBCount = 1, bool autoAck = false, bool persistent = false, int retryCount = 3, int retryIntervals = 500)
         {
-            return new RabbitEventBus(observerUnitContainer, this, exchange, routePrefix, lBCount, autoAck, reenqueue, persistent);
+            return new RabbitEventBus(observerUnitContainer, this, exchange, routePrefix, lBCount, autoAck, persistent, retryCount, retryIntervals);
         }
-        public RabbitEventBus CreateEventBus<MainGrain>(string exchange, string routePrefix, int lBCount = 1, bool autoAck = false, bool reenqueue = false, bool persistent = false)
+        public RabbitEventBus CreateEventBus<MainGrain>(string exchange, string routePrefix, int lBCount = 1, bool autoAck = false, bool persistent = false, int retryCount = 3, int retryIntervals = 500)
         {
-            return CreateEventBus(exchange, routePrefix, lBCount, autoAck, reenqueue, persistent).BindProducer<MainGrain>();
+            return CreateEventBus(exchange, routePrefix, lBCount, autoAck, persistent, retryCount, retryIntervals).BindProducer<MainGrain>();
         }
         public Task Work(RabbitEventBus bus)
         {

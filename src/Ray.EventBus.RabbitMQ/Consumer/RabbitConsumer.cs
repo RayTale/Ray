@@ -8,8 +8,8 @@ namespace Ray.EventBus.RabbitMQ
     public class RabbitConsumer : Consumer
     {
         public RabbitConsumer(
-            List<Func<byte[], Task>> eventHandlers,
-            List<Func<List<byte[]>, Task>> batchEventHandlers) : base(eventHandlers, batchEventHandlers)
+            List<Func<BytesBox, Task>> eventHandlers,
+            List<Func<List<BytesBox>, Task>> batchEventHandlers) : base(eventHandlers, batchEventHandlers)
         {
         }
         public RabbitEventBus EventBus { get; set; }
