@@ -32,7 +32,7 @@ namespace Ray.Core
         /// <summary>
         /// 事务中待提交的数据列表
         /// </summary>
-        protected readonly List<EventTransport<PrimaryKey>> WaitingForTransactionTransports = new List<EventTransport<PrimaryKey>>();
+        protected readonly List<EventBox<PrimaryKey>> WaitingForTransactionTransports = new List<EventBox<PrimaryKey>>();
         /// <summary>
         /// 保证同一时间只有一个事务启动的信号量控制器
         /// </summary>
@@ -72,7 +72,7 @@ namespace Ray.Core
                     var waitingEvents = await EventStorage.GetList(GrainId, snapshotBase.TransactionStartTimestamp, snapshotBase.TransactionStartVersion, Snapshot.Base.Version);
                     foreach (var evt in waitingEvents)
                     {
-                        var transport = new EventTransport<PrimaryKey>(evt, string.Empty, evt.StateId.ToString());
+                        var transport = new EventBox<PrimaryKey>(evt, string.Empty, evt.StateId.ToString());
                         transport.Parse(TypeFinder, Serializer);
                         WaitingForTransactionTransports.Add(transport);
                     }
@@ -212,7 +212,7 @@ namespace Ray.Core
                 //如果副本快照没有更新，则更新副本集
                 foreach (var transport in WaitingForTransactionTransports)
                 {
-                    var task = OnRaised(transport.FullyEvent, transport.GetBytesTransport());
+                    var task = OnRaised(transport.FullyEvent, transport.GetConverter());
                     if (!task.IsCompletedSuccessfully)
                         await task;
                 }
@@ -277,7 +277,7 @@ namespace Ray.Core
         /// </summary>
         /// <param name="fullyEvent">事件本体</param>
         /// <param name="bytes">事件序列化之后的二进制数据</param>
-        protected override ValueTask OnRaised(FullyEvent<PrimaryKey> fullyEvent, in EventBytesTransport transport)
+        protected override ValueTask OnRaised(FullyEvent<PrimaryKey> fullyEvent, in EventConverter transport)
         {
             if (BackupSnapshot.Base.Version + 1 == fullyEvent.Base.Version)
             {
@@ -327,7 +327,7 @@ namespace Ray.Core
                     fullyEvent.Base.Timestamp = eUID.Timestamp;
                     unique = eUID.UID;
                 }
-                WaitingForTransactionTransports.Add(new EventTransport<PrimaryKey>(fullyEvent, unique, fullyEvent.StateId.ToString()));
+                WaitingForTransactionTransports.Add(new EventBox<PrimaryKey>(fullyEvent, unique, fullyEvent.StateId.ToString()));
                 SnapshotHandler.Apply(Snapshot, fullyEvent);
                 Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
                 if (Logger.IsEnabled(LogLevel.Trace))

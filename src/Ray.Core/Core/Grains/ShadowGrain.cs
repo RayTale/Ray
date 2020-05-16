@@ -229,9 +229,9 @@ namespace Ray.Core
         #endregion
         public Task OnNext(Immutable<byte[]> bytes)
         {
-            if (EventBytesTransport.TryParseWithNoId(bytes.Value, out var transport))
+            if (EventConverter.TryParseWithNoId(bytes.Value, out var transport))
             {
-                var eventType = TypeFinder.FindType(transport.EventTypeCode);
+                var eventType = TypeFinder.FindType(transport.EventUniqueName);
                 var data = Serializer.Deserialize(transport.EventBytes, eventType);
                 if (data is IEvent @event)
                 {
@@ -262,9 +262,9 @@ namespace Ray.Core
         {
             var events = items.Value.Select(bytes =>
             {
-                if (EventBytesTransport.TryParseWithNoId(bytes, out var transport))
+                if (EventConverter.TryParseWithNoId(bytes, out var transport))
                 {
-                    var eventType = TypeFinder.FindType(transport.EventTypeCode);
+                    var eventType = TypeFinder.FindType(transport.EventUniqueName);
                     var data = Serializer.Deserialize(transport.EventBytes, eventType);
                     if (data is IEvent @event)
                     {

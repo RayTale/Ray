@@ -1,8 +1,8 @@
 ﻿namespace Ray.Core.Event
 {
-    public class BatchAppendTransport<PrimaryKey>
+    public class EventTaskBox<PrimaryKey>
     {
-        public BatchAppendTransport(FullyEvent<PrimaryKey> evt, string eventUtf8String, string uniqueId = null)
+        public EventTaskBox(FullyEvent<PrimaryKey> evt, string eventUtf8String, string uniqueId = null)
         {
             Event = evt;
             UniqueId = uniqueId;

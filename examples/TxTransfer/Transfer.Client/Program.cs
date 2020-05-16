@@ -36,7 +36,7 @@ namespace Transfer.Client
                     Console.WriteLine($"账户1的余额为{await client.GetGrain<IAccount>(1).GetBalance()}");
                     var transferWatch = new Stopwatch();
                     transferWatch.Start();
-                    await Task.WhenAll(Enumerable.Range(0, times).Select(x => client.GetGrain<ITransferUnit>(0).Ask(new TransferInput { FromId = 1, ToId = 2, Amount = 100 })));
+                    await Task.WhenAll(Enumerable.Range(0, times).Select(x => client.GetGrain<ITransferUnit>(0).Ask(new TransferInput { FromId = 1, ToId = 2, Amount = 50 })));
                     transferWatch.Stop();
                     Console.WriteLine($"{times }次转账完成，耗时:{transferWatch.ElapsedMilliseconds}ms");
                     Console.WriteLine($"账户1的余额为{await client.GetGrain<IAccount>(1).GetBalance()}");

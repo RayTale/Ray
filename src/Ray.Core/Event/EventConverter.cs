@@ -7,19 +7,19 @@ using Ray.Core.Utils;
 
 namespace Ray.Core.Event
 {
-    public readonly ref struct EventBytesTransport
+    public readonly ref struct EventConverter
     {
-        public EventBytesTransport(string eventCode, object grainId, Span<byte> baseBytes, Span<byte> eventBytes)
+        public EventConverter(string eventUniqueName, object grainId, Span<byte> baseBytes, Span<byte> eventBytes)
         {
-            EventTypeCode = eventCode;
+            EventUniqueName = eventUniqueName;
             GrainId = grainId;
             BaseBytes = baseBytes;
             EventBytes = eventBytes;
         }
         /// <summary>
-        /// 事件TypeCode
+        /// 事件唯一名称
         /// </summary>
-        public string EventTypeCode { get; }
+        public string EventUniqueName { get; }
         /// <summary>
         /// 事件GrainId
         /// </summary>
@@ -34,7 +34,7 @@ namespace Ray.Core.Event
         public Span<byte> EventBytes { get; }
         public SharedArray ConvertToBytes()
         {
-            var eventTypeBytes = Encoding.UTF8.GetBytes(EventTypeCode);
+            var eventTypeBytes = Encoding.UTF8.GetBytes(EventUniqueName);
             byte[] actorIdBytes;
             if (GrainId is long id)
             {
@@ -46,11 +46,11 @@ namespace Ray.Core.Event
             }
             else
             {
-                throw new PrimaryKeyTypeException(EventTypeCode);
+                throw new PrimaryKeyTypeException(EventUniqueName);
             }
             var buffer = SharedArray.Rent(1 + sizeof(ushort) * 3 + sizeof(int) + eventTypeBytes.Length + actorIdBytes.Length + BaseBytes.Length + EventBytes.Length);
             var bufferSpan = buffer.AsSpan();
-            bufferSpan[0] = (byte)TransportType.Event;
+            bufferSpan[0] = (byte)HeaderType.Event;
             BitConverter.TryWriteBytes(bufferSpan.Slice(1), (ushort)eventTypeBytes.Length);
             BitConverter.TryWriteBytes(bufferSpan.Slice(1 + sizeof(ushort)), (ushort)actorIdBytes.Length);
             BitConverter.TryWriteBytes(bufferSpan.Slice(1 + sizeof(ushort) * 2), (ushort)BaseBytes.Length);
@@ -66,7 +66,7 @@ namespace Ray.Core.Event
         }
         public static bool TryParseActorId<PrimaryKey>(byte[] bytes, out PrimaryKey primaryKey)
         {
-            if (bytes[0] == (byte)TransportType.Event)
+            if (bytes[0] == (byte)HeaderType.Event)
             {
                 var bytesSpan = bytes.AsSpan();
                 var eventTypeLength = BitConverter.ToUInt16(bytesSpan.Slice(1, sizeof(ushort)));
@@ -93,9 +93,9 @@ namespace Ray.Core.Event
             primaryKey = default;
             return false;
         }
-        public static bool TryParseWithNoId(byte[] bytes, out EventBytesTransport value)
+        public static bool TryParseWithNoId(byte[] bytes, out EventConverter value)
         {
-            if (bytes[0] == (byte)TransportType.Event)
+            if (bytes[0] == (byte)HeaderType.Event)
             {
                 var bytesSpan = bytes.AsSpan();
                 var eventTypeLength = BitConverter.ToUInt16(bytesSpan.Slice(1, sizeof(ushort)));
@@ -103,7 +103,7 @@ namespace Ray.Core.Event
                 var baseBytesLength = BitConverter.ToUInt16(bytesSpan.Slice(2 * sizeof(ushort) + 1, sizeof(ushort)));
                 var eventBytesLength = BitConverter.ToInt32(bytesSpan.Slice(3 * sizeof(ushort) + 1, sizeof(int)));
                 var skipLength = 3 * sizeof(ushort) + 1 + sizeof(int);
-                var data = new EventBytesTransport(
+                var data = new EventConverter(
                     Encoding.UTF8.GetString(bytesSpan.Slice(skipLength, eventTypeLength)),
                     null,
                     bytesSpan.Slice(skipLength + eventTypeLength + actorIdBytesLength, baseBytesLength),
@@ -115,9 +115,9 @@ namespace Ray.Core.Event
             value = default;
             return false;
         }
-        public static bool TryParse<PrimaryKey>(byte[] bytes, out EventBytesTransport value)
+        public static bool TryParse<PrimaryKey>(byte[] bytes, out EventConverter value)
         {
-            if (bytes[0] == (byte)TransportType.Event)
+            if (bytes[0] == (byte)HeaderType.Event)
             {
                 var bytesSpan = bytes.AsSpan();
                 var eventTypeLength = BitConverter.ToUInt16(bytesSpan.Slice(1, sizeof(ushort)));
@@ -128,7 +128,7 @@ namespace Ray.Core.Event
                 if (typeof(PrimaryKey) == typeof(long))
                 {
                     var actorId = BitConverter.ToInt64(bytesSpan.Slice(3 * sizeof(ushort) + 1 + sizeof(int) + eventTypeLength, actorIdBytesLength));
-                    value = new EventBytesTransport(
+                    value = new EventConverter(
                         Encoding.UTF8.GetString(bytesSpan.Slice(skipLength, eventTypeLength)),
                         actorId,
                         bytesSpan.Slice(skipLength + eventTypeLength + actorIdBytesLength, baseBytesLength).ToArray(),
@@ -139,7 +139,7 @@ namespace Ray.Core.Event
                 else
                 {
                     var actorId = Encoding.UTF8.GetString(bytesSpan.Slice(skipLength + eventTypeLength, actorIdBytesLength));
-                    value = new EventBytesTransport(
+                    value = new EventConverter(
                         Encoding.UTF8.GetString(bytesSpan.Slice(skipLength, eventTypeLength)),
                         actorId,
                         bytesSpan.Slice(skipLength + eventTypeLength + actorIdBytesLength, baseBytesLength).ToArray(),

@@ -1,9 +1,8 @@
 ﻿using Ray.Core.Event;
-using Ray.Core.Serialization;
 
 namespace Transfer.Grains.Events
 {
-    [TCode(nameof(TransferArrivedEvent))]
+    [EventName(nameof(TransferArrivedEvent))]
     public class TransferArrivedEvent : IEvent
     {
         public decimal Amount { get; set; }

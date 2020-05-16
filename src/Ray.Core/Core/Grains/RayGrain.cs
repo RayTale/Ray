@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -490,17 +491,17 @@ namespace Ray.Core
                 using var baseBytes = fullyEvent.Base.ConvertToBytes();
                 var typeCode = TypeFinder.GetCode(evtType);
                 var evtBytes = Serializer.SerializeToUtf8Bytes(@event, evtType);
-                if (await EventStorage.Append(fullyEvent, new EventBytesTransport(typeCode, Snapshot.Base.StateId, baseBytes.AsSpan(), evtBytes), unique))
+                if (await EventStorage.Append(fullyEvent, Encoding.UTF8.GetString(evtBytes), unique))
                 {
                     SnapshotHandler.Apply(Snapshot, fullyEvent);
                     Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
-                    var task = OnRaised(fullyEvent, new EventBytesTransport(typeCode, Snapshot.Base.StateId, baseBytes.AsSpan(), evtBytes));
+                    var task = OnRaised(fullyEvent, new EventConverter(typeCode, Snapshot.Base.StateId, baseBytes.AsSpan(), evtBytes));
                     if (!task.IsCompletedSuccessfully)
                         await task;
                     var saveSnapshotTask = SaveSnapshotAsync();
                     if (!saveSnapshotTask.IsCompletedSuccessfully)
                         await saveSnapshotTask;
-                    using var buffer = new EventBytesTransport(typeCode, Snapshot.Base.StateId, baseBytes.AsSpan(), evtBytes).ConvertToBytes();
+                    using var buffer = new EventConverter(typeCode, Snapshot.Base.StateId, baseBytes.AsSpan(), evtBytes).ConvertToBytes();
                     await PublishToEventBus(buffer.AsSpan().ToArray(), GrainId.ToString());
                     if (Logger.IsEnabled(LogLevel.Trace))
                         Logger.LogTrace("RaiseEvent completed: {0}->{1}->{2}", GrainType.FullName, Serializer.Serialize(fullyEvent), Serializer.Serialize(Snapshot));
@@ -615,7 +616,7 @@ namespace Ray.Core
                 LastArchive = BriefArchiveList.LastOrDefault();
             }
         }
-        protected virtual ValueTask OnRaised(FullyEvent<PrimaryKey> @event, in EventBytesTransport transport)
+        protected virtual ValueTask OnRaised(FullyEvent<PrimaryKey> @event, in EventConverter transport)
         {
             if (ArchiveOptions.On)
             {
@@ -746,7 +747,7 @@ namespace Ray.Core
                 hashKey = GrainId.ToString();
             try
             {
-                var wrapper = new CommonTransport(TypeFinder.GetCode(msg.GetType()), Serializer.SerializeToUtf8Bytes(msg, msg.GetType()));
+                var wrapper = new TransportMessage(TypeFinder.GetCode(msg.GetType()), Serializer.SerializeToUtf8Bytes(msg, msg.GetType()));
                 using var array = wrapper.ConvertToBytes();
                 var pubLishTask = EventBusProducer.Publish(array.AsSpan().ToArray(), hashKey);
                 if (!pubLishTask.IsCompletedSuccessfully)

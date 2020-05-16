@@ -3,10 +3,10 @@ using System.Threading.Tasks;
 
 namespace Ray.Core.Event
 {
-    public class ConcurrentTransport<Snapshot>
+    public class EventTaskComplexBox<Snapshot>
     {
         readonly TaskCompletionSource<bool> taskCompletionSource;
-        public ConcurrentTransport(
+        public EventTaskComplexBox(
             long transactionId,
             Func<Snapshot, Func<IEvent, EventUID, Task>, Task> handler,
             TaskCompletionSource<bool> taskCompletionSource)

@@ -20,7 +20,7 @@ namespace Ray.Storage.MySQL
     public class EventStorage<PrimaryKey> : IEventStorage<PrimaryKey>
     {
         readonly StorageOptions config;
-        readonly IMpscChannel<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>> mpscChannel;
+        readonly IMpscChannel<AsyncInputEvent<EventTaskBox<PrimaryKey>, bool>> mpscChannel;
         readonly ILogger<EventStorage<PrimaryKey>> logger;
         readonly ISerializer serializer;
         readonly ITypeFinder typeFinder;
@@ -29,7 +29,7 @@ namespace Ray.Storage.MySQL
             logger = serviceProvider.GetService<ILogger<EventStorage<PrimaryKey>>>();
             serializer = serviceProvider.GetService<ISerializer>();
             typeFinder = serviceProvider.GetService<ITypeFinder>();
-            mpscChannel = serviceProvider.GetService<IMpscChannel<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>>>();
+            mpscChannel = serviceProvider.GetService<IMpscChannel<AsyncInputEvent<EventTaskBox<PrimaryKey>, bool>>>();
             mpscChannel.BindConsumer(BatchInsertExecuter);
             this.config = config;
         }
@@ -112,12 +112,12 @@ namespace Ray.Storage.MySQL
         }
 
         static readonly ConcurrentDictionary<string, string> saveSqlDict = new ConcurrentDictionary<string, string>();
-        public Task<bool> Append(FullyEvent<PrimaryKey> fullyEvent, in EventBytesTransport bytesTransport, string unique)
+        public Task<bool> Append(FullyEvent<PrimaryKey> fullyEvent, string eventJson, string unique)
         {
-            var input = new BatchAppendTransport<PrimaryKey>(fullyEvent, Encoding.UTF8.GetString(bytesTransport.EventBytes), unique);
+            var input = new EventTaskBox<PrimaryKey>(fullyEvent, eventJson, unique);
             return Task.Run(async () =>
             {
-                var wrap = new AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>(input);
+                var wrap = new AsyncInputEvent<EventTaskBox<PrimaryKey>, bool>(input);
                 var writeTask = mpscChannel.WriteAsync(wrap);
                 if (!writeTask.IsCompletedSuccessfully)
                     await writeTask;
@@ -129,7 +129,7 @@ namespace Ray.Storage.MySQL
             return saveSqlDict.GetOrAdd(tableName,
                              key => $"INSERT ignore INTO {key}(StateId,UniqueId,TypeCode,Data,Version,Timestamp) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version,@Timestamp)");
         }
-        private async Task BatchInsertExecuter(List<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>> wrapperList)
+        private async Task BatchInsertExecuter(List<AsyncInputEvent<EventTaskBox<PrimaryKey>, bool>> wrapperList)
         {
             var minTimestamp = wrapperList.Min(t => t.Value.Event.Base.Timestamp);
             var maxTimestamp = wrapperList.Max(t => t.Value.Event.Base.Timestamp);
@@ -154,7 +154,7 @@ namespace Ray.Storage.MySQL
                     await BatchInsert(GetSaveSql(group.Key), group.Select(t => t.t).ToList());
                 }
             }
-            async Task BatchInsert(string saveSql, List<AsyncInputEvent<BatchAppendTransport<PrimaryKey>, bool>> list)
+            async Task BatchInsert(string saveSql, List<AsyncInputEvent<EventTaskBox<PrimaryKey>, bool>> list)
             {
                 bool isSuccess = false;
                 using var conn = config.CreateConnection();
@@ -206,7 +206,7 @@ namespace Ray.Storage.MySQL
                 }
             }
         }
-        public async Task TransactionBatchAppend(List<EventTransport<PrimaryKey>> list)
+        public async Task TransactionBatchAppend(List<EventBox<PrimaryKey>> list)
         {
             var minTimestamp = list.Min(t => t.FullyEvent.Base.Timestamp);
             var maxTimestamp = list.Max(t => t.FullyEvent.Base.Timestamp);
