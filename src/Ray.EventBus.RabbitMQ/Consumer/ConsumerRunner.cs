@@ -56,7 +56,6 @@ namespace Ray.EventBus.RabbitMQ
                             var whileResult = Model.Model.BasicGet(Queue.Queue, Consumer.Config.AutoAck);
                             if (whileResult is null)
                             {
-                                await Task.Delay(while_TimeoutSpan);
                                 break;
                             }
                             else
@@ -71,6 +70,8 @@ namespace Ray.EventBus.RabbitMQ
                         }
                         if (list.Count > 0)
                             await Notice(list);
+                        else
+                            await Task.Delay(while_TimeoutSpan);
                     }
                     catch (Exception exception)
                     {

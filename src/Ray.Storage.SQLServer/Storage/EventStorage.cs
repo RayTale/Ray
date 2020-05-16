@@ -23,7 +23,7 @@ namespace Ray.Storage.SQLServer
     public class EventStorage<PrimaryKey> : IEventStorage<PrimaryKey>
     {
         readonly StorageOptions config;
-        readonly IMpscChannel<AsyncInputEvent<EventTaskBox<PrimaryKey>, bool>> mpscChannel;
+        readonly IMpscChannel<AskInputBox<EventTaskBox<PrimaryKey>, bool>> mpscChannel;
         readonly ILogger<EventStorage<PrimaryKey>> logger;
         readonly ISerializer serializer;
         readonly ITypeFinder typeFinder;
@@ -32,7 +32,7 @@ namespace Ray.Storage.SQLServer
             logger = serviceProvider.GetService<ILogger<EventStorage<PrimaryKey>>>();
             serializer = serviceProvider.GetService<ISerializer>();
             typeFinder = serviceProvider.GetService<ITypeFinder>();
-            mpscChannel = serviceProvider.GetService<IMpscChannel<AsyncInputEvent<EventTaskBox<PrimaryKey>, bool>>>();
+            mpscChannel = serviceProvider.GetService<IMpscChannel<AskInputBox<EventTaskBox<PrimaryKey>, bool>>>();
             mpscChannel.BindConsumer(BatchInsertExecuter);
             this.config = config;
         }
@@ -118,14 +118,14 @@ namespace Ray.Storage.SQLServer
             var input = new EventTaskBox<PrimaryKey>(fullyEvent, eventJson, unique);
             return Task.Run(async () =>
             {
-                var wrap = new AsyncInputEvent<EventTaskBox<PrimaryKey>, bool>(input);
+                var wrap = new AskInputBox<EventTaskBox<PrimaryKey>, bool>(input);
                 var writeTask = mpscChannel.WriteAsync(wrap);
                 if (!writeTask.IsCompletedSuccessfully)
                     await writeTask;
                 return await wrap.TaskSource.Task;
             });
         }
-        private async Task BatchInsertExecuter(List<AsyncInputEvent<EventTaskBox<PrimaryKey>, bool>> wrapperList)
+        private async Task BatchInsertExecuter(List<AskInputBox<EventTaskBox<PrimaryKey>, bool>> wrapperList)
         {
             var minTimestamp = wrapperList.Min(t => t.Value.Event.Base.Timestamp);
             var maxTimestamp = wrapperList.Max(t => t.Value.Event.Base.Timestamp);
@@ -150,7 +150,7 @@ namespace Ray.Storage.SQLServer
                     await BatchCopy(group.Key, group.Select(t => t.t).ToList());
                 }
             }
-            async Task BatchCopy(string tableName, List<AsyncInputEvent<EventTaskBox<PrimaryKey>, bool>> list)
+            async Task BatchCopy(string tableName, List<AskInputBox<EventTaskBox<PrimaryKey>, bool>> list)
             {
                 try
                 {
@@ -190,7 +190,7 @@ namespace Ray.Storage.SQLServer
                     await BatchInsert(saveSql, wrapperList);
                 }
             }
-            async Task BatchInsert(string saveSql, List<AsyncInputEvent<EventTaskBox<PrimaryKey>, bool>> list)
+            async Task BatchInsert(string saveSql, List<AskInputBox<EventTaskBox<PrimaryKey>, bool>> list)
             {
                 bool isSuccess = false;
                 using var conn = config.CreateConnection();

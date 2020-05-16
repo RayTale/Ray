@@ -16,7 +16,7 @@ namespace Ray.Storage.Mongo.Storage
 {
     public class DistributedTxStorage : IDistributedTxStorage
     {
-        readonly IMpscChannel<AsyncInputEvent<AppendInput, bool>> mpscChannel;
+        readonly IMpscChannel<AskInputBox<AppendInput, bool>> mpscChannel;
         readonly ISerializer serializer;
         readonly ICustomClient client;
         readonly IOptions<TransactionOptions> transactionOptions;
@@ -27,7 +27,7 @@ namespace Ray.Storage.Mongo.Storage
         {
             this.transactionOptions = transactionOptions;
             client = ClientFactory.CreateClient(connectionsOptions.Value.ConnectionDict[transactionOptions.Value.ConnectionKey]);
-            mpscChannel = serviceProvider.GetService<IMpscChannel<AsyncInputEvent<AppendInput, bool>>>();
+            mpscChannel = serviceProvider.GetService<IMpscChannel<AskInputBox<AppendInput, bool>>>();
             serializer = serviceProvider.GetService<ISerializer>();
             serviceProvider.GetService<IIndexBuildService>().CreateTransactionStorageIndex(client, transactionOptions.Value.Database, transactionOptions.Value.CollectionName).GetAwaiter().GetResult();
             mpscChannel.BindConsumer(BatchInsertExecuter);
@@ -36,7 +36,7 @@ namespace Ray.Storage.Mongo.Storage
         {
             return Task.Run(async () =>
             {
-                var wrap = new AsyncInputEvent<AppendInput, bool>(new AppendInput
+                var wrap = new AskInputBox<AppendInput, bool>(new AppendInput
                 {
                     UnitName = unitName,
                     TransactionId = commit.TransactionId,
@@ -80,7 +80,7 @@ namespace Ray.Storage.Mongo.Storage
             await client.GetCollection<BsonDocument>(transactionOptions.Value.Database, transactionOptions.Value.CollectionName).UpdateOneAsync(filter, update, null, new CancellationTokenSource(3000).Token);
             return true;
         }
-        private async Task BatchInsertExecuter(List<AsyncInputEvent<AppendInput, bool>> wrapperList)
+        private async Task BatchInsertExecuter(List<AskInputBox<AppendInput, bool>> wrapperList)
         {
             var collection = client.GetCollection<BsonDocument>(transactionOptions.Value.Database, transactionOptions.Value.CollectionName);
             var documents = wrapperList.Select(wrapper => (wrapper, new BsonDocument
