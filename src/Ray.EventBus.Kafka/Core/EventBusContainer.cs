@@ -42,7 +42,7 @@ namespace Ray.EventBus.Kafka
             }
             foreach (var (type, config) in observableList)
             {
-                var eventBus = CreateEventBus(string.IsNullOrEmpty(config.Topic) ? type.Name : config.Topic, config.LBCount, config.Reenqueue).BindProducer(type);
+                var eventBus = CreateEventBus(string.IsNullOrEmpty(config.Topic) ? type.Name : config.Topic, config.LBCount, config.RetryCount, config.RetryIntervals).BindProducer(type);
                 if (typeof(IGrainWithIntegerKey).IsAssignableFrom(type))
                 {
                     await eventBus.AddGrainConsumer<long>();
@@ -55,13 +55,13 @@ namespace Ray.EventBus.Kafka
                     throw new PrimaryKeyTypeException(type.FullName);
             }
         }
-        public KafkaEventBus CreateEventBus(string topic, int lBCount = 1, bool reenqueue = true)
+        public KafkaEventBus CreateEventBus(string topic, int lBCount = 1, int retryCount = 3, int retryIntervals = 500)
         {
-            return new KafkaEventBus(observerUnitContainer, this, topic, lBCount, reenqueue);
+            return new KafkaEventBus(observerUnitContainer, this, topic, lBCount, retryCount, retryIntervals);
         }
-        public KafkaEventBus CreateEventBus<MainGrain>(string topic, int lBCount = 1, bool reenqueue = true)
+        public KafkaEventBus CreateEventBus<MainGrain>(string topic, int lBCount = 1, int retryCount = 3, int retryIntervals = 500)
         {
-            return CreateEventBus(topic, lBCount, reenqueue).BindProducer<MainGrain>();
+            return CreateEventBus(topic, lBCount, retryCount, retryIntervals).BindProducer<MainGrain>();
         }
         public Task Work(KafkaEventBus bus)
         {

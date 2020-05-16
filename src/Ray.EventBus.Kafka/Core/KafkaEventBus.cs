@@ -1,4 +1,5 @@
 ﻿using Ray.Core.Abstractions;
+using Ray.Core.EventBus;
 using Ray.Core.Exceptions;
 using Ray.Core.Utils;
 using System;
@@ -16,7 +17,8 @@ namespace Ray.EventBus.Kafka
             IKafkaEventBusContainer eventBusContainer,
             string topic,
             int lBCount = 1,
-            bool reenqueue = true)
+            int retryCount = 3,
+            int retryIntervals = 500)
         {
             if (string.IsNullOrEmpty(topic))
                 throw new ArgumentNullException(nameof(topic));
@@ -26,7 +28,11 @@ namespace Ray.EventBus.Kafka
             Container = eventBusContainer;
             Topic = topic;
             LBCount = lBCount;
-            Reenqueue = reenqueue;
+            ConsumerOptions = new ConsumerOptions
+            {
+                RetryCount = retryCount,
+                RetryIntervals = retryIntervals
+            };
             Topics = new List<string>();
             if (LBCount == 1)
             {
@@ -36,7 +42,7 @@ namespace Ray.EventBus.Kafka
             {
                 for (int i = 0; i < LBCount; i++)
                 {
-                    Topics.Add($"{Topic }_{ i.ToString()}");
+                    Topics.Add($"{Topic }_{ i}");
                 }
             }
             _CHash = new ConsistentHash(Topics, lBCount * 10);
@@ -45,8 +51,8 @@ namespace Ray.EventBus.Kafka
         public string Topic { get; }
         public int LBCount { get; }
         public List<string> Topics { get; }
-        public bool Reenqueue { get; set; }
         public Type ProducerType { get; set; }
+        public ConsumerOptions ConsumerOptions { get; set; }
         public List<KafkaConsumer> Consumers { get; set; } = new List<KafkaConsumer>();
         public string GetRoute(string key)
         {
@@ -73,23 +79,25 @@ namespace Ray.EventBus.Kafka
             {
                 EventBus = this,
                 Topics = Topics,
-                Group = observerGroup
+                Group = observerGroup,
+                Config = ConsumerOptions
             };
             Consumers.Add(consumer);
             return this;
         }
         public KafkaEventBus AddConsumer(
-            Func<byte[], Task> handler,
-            Func<List<byte[]>, Task> batchHandler,
+            Func<BytesBox, Task> handler,
+            Func<List<BytesBox>, Task> batchHandler,
             string observerGroup)
         {
             var consumer = new KafkaConsumer(
-                new List<Func<byte[], Task>> { handler },
-                new List<Func<List<byte[]>, Task>> { batchHandler })
+                new List<Func<BytesBox, Task>> { handler },
+                new List<Func<List<BytesBox>, Task>> { batchHandler })
             {
                 EventBus = this,
                 Topics = Topics,
-                Group = observerGroup
+                Group = observerGroup,
+                Config = ConsumerOptions
             };
             Consumers.Add(consumer);
             return this;

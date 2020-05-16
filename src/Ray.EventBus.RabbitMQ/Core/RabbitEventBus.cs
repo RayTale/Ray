@@ -1,4 +1,5 @@
 ﻿using Ray.Core.Abstractions;
+using Ray.Core.EventBus;
 using Ray.Core.Exceptions;
 using Ray.Core.Utils;
 using System;
@@ -15,7 +16,7 @@ namespace Ray.EventBus.RabbitMQ
         public RabbitEventBus(
             IObserverUnitContainer observerUnitContainer,
             IRabbitEventBusContainer eventBusContainer,
-            string exchange, string routePrefix, int lBCount = 1, bool autoAck = false, bool reenqueue = true, bool persistent = false)
+            string exchange, string routePrefix, int lBCount = 1, bool autoAck = false, bool persistent = false, int retryCount = 3, int retryIntervals = 500)
         {
             if (string.IsNullOrEmpty(exchange))
                 throw new ArgumentNullException(nameof(exchange));
@@ -32,7 +33,8 @@ namespace Ray.EventBus.RabbitMQ
             ConsumerConfig = new ConsumerOptions
             {
                 AutoAck = autoAck,
-                Reenqueue = reenqueue,
+                RetryCount = retryCount,
+                RetryIntervals = retryIntervals
             };
             RouteList = new List<string>();
             if (LBCount == 1)
@@ -43,7 +45,7 @@ namespace Ray.EventBus.RabbitMQ
             {
                 for (int i = 0; i < LBCount; i++)
                 {
-                    RouteList.Add($"{routePrefix }_{ i.ToString()}");
+                    RouteList.Add($"{routePrefix }_{ i}");
                 }
             }
             _CHash = new ConsistentHash(RouteList, lBCount * 10);
@@ -91,13 +93,13 @@ namespace Ray.EventBus.RabbitMQ
             return this;
         }
         public RabbitEventBus AddConsumer(
-            Func<byte[], Task> handler,
-            Func<List<byte[]>, Task> batchHandler,
+            Func<BytesBox, Task> handler,
+            Func<List<BytesBox>, Task> batchHandler,
             string observerGroup)
         {
             var consumer = new RabbitConsumer(
-                new List<Func<byte[], Task>> { handler },
-                new List<Func<List<byte[]>, Task>> { batchHandler })
+                new List<Func<BytesBox, Task>> { handler },
+                new List<Func<List<BytesBox>, Task>> { batchHandler })
             {
                 EventBus = this,
                 QueueList = RouteList.Select(route => new QueueInfo { RoutingKey = route, Queue = $"{route}_{observerGroup}" }).ToList(),

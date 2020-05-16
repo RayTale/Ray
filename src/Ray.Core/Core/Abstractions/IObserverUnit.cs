@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Ray.Core.EventBus;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -25,9 +26,9 @@ namespace Ray.Core.Abstractions
         /// <param name="primaryKey">重置Grain</param>
         /// <returns></returns>
         Task Reset(PrimaryKey primaryKey);
-        List<Func<byte[], Task>> GetEventHandlers(string observerGroup);
-        List<Func<byte[], Task>> GetAllEventHandlers();
-        List<Func<List<byte[]>, Task>> GetBatchEventHandlers(string observerGroup);
-        List<Func<List<byte[]>, Task>> GetAllBatchEventHandlers();
+        List<Func<BytesBox, Task>> GetEventHandlers(string observerGroup);
+        List<Func<BytesBox, Task>> GetAllEventHandlers();
+        List<Func<List<BytesBox>, Task>> GetBatchEventHandlers(string observerGroup);
+        List<Func<List<BytesBox>, Task>> GetAllBatchEventHandlers();
     }
 }
