@@ -42,7 +42,7 @@ namespace Transfer.Grains.Grains
                     Amount = amount,
                     Balance = Snapshot.State.Balance + amount
                 };
-                await func(evt, null);
+                await func(evt, uid);
             });
         }
         public async Task<bool> TransferDeduct(decimal amount, long transactionId)

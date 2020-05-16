@@ -4,35 +4,35 @@ using Ray.Core.Utils;
 
 namespace Ray.Core.Serialization
 {
-    public struct CommonTransport
+    public struct TransportMessage
     {
-        public CommonTransport(string typeFullName, byte[] bytes)
+        public TransportMessage(string name, byte[] bytes)
         {
-            TypeFullName = typeFullName;
+            Name = name;
             Bytes = bytes;
         }
-        public string TypeFullName { get; set; }
+        public string Name { get; set; }
         public byte[] Bytes { get; set; }
         public SharedArray ConvertToBytes()
         {
-            var typeBytes = Encoding.UTF8.GetBytes(TypeFullName);
+            var typeBytes = Encoding.UTF8.GetBytes(Name);
             var array = SharedArray.Rent(typeBytes.Length + 1 + Bytes.Length + sizeof(ushort));
             var span = array.AsSpan();
-            span[0] = (byte)TransportType.Common;
+            span[0] = (byte)HeaderType.Common;
             BitConverter.TryWriteBytes(span.Slice(1), (ushort)typeBytes.Length);
             typeBytes.CopyTo(span.Slice(1 + sizeof(ushort)));
             Bytes.CopyTo(span.Slice(1 + sizeof(ushort) + typeBytes.Length));
             return array;
         }
-        public static bool TryParse(byte[] bytes, out CommonTransport wrapper)
+        public static bool TryParse(byte[] bytes, out TransportMessage wrapper)
         {
-            if (bytes[0] == (byte)TransportType.Common)
+            if (bytes[0] == (byte)HeaderType.Common)
             {
                 var bytesSpan = bytes.AsSpan();
                 var eventTypeLength = BitConverter.ToUInt16(bytesSpan.Slice(1, sizeof(ushort)));
-                wrapper = new CommonTransport
+                wrapper = new TransportMessage
                 {
-                    TypeFullName = Encoding.UTF8.GetString(bytesSpan.Slice(sizeof(ushort) + 1, eventTypeLength)),
+                    Name = Encoding.UTF8.GetString(bytesSpan.Slice(sizeof(ushort) + 1, eventTypeLength)),
                     Bytes = bytesSpan.Slice(sizeof(ushort) + 1 + eventTypeLength).ToArray()
                 };
                 return true;

@@ -59,8 +59,8 @@ namespace Transfer.Server
                     {
                         options.VirtualHost = "/";
                         options.Hosts = new string[] { "192.168.1.10:5672" };
-                        options.UserName = "admin";
-                        options.Password = "admin";
+                        options.UserName = "guest";
+                        options.Password = "guest";
                     });
                     servicecollection.Configure<GrainCollectionOptions>(options =>
                     {

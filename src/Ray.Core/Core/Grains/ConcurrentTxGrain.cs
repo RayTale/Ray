@@ -14,24 +14,24 @@ namespace Ray.Core
         where SnapshotType : class, ICloneable<SnapshotType>, new()
     {
         public long defaultTransactionId = 0;
-        protected IMpscChannel<ConcurrentTransport<Snapshot<PrimaryKey, SnapshotType>>> ConcurrentChannel { get; private set; }
+        protected IMpscChannel<EventTaskComplexBox<Snapshot<PrimaryKey, SnapshotType>>> ConcurrentChannel { get; private set; }
 
         public override async Task OnActivateAsync()
         {
             await base.OnActivateAsync();
-            ConcurrentChannel = ServiceProvider.GetService<IMpscChannel<ConcurrentTransport<Snapshot<PrimaryKey, SnapshotType>>>>();
+            ConcurrentChannel = ServiceProvider.GetService<IMpscChannel<EventTaskComplexBox<Snapshot<PrimaryKey, SnapshotType>>>>();
             ConcurrentChannel.BindConsumer(ConcurrentExecuter);
         }
         public override async Task OnDeactivateAsync()
         {
             await base.OnDeactivateAsync();
-            ConcurrentChannel.Complete();
+            ConcurrentChannel.Dispose();
         }
         protected async Task<bool> ConcurrentRaiseEvent(
             Func<Snapshot<PrimaryKey, SnapshotType>, Func<IEvent, EventUID, Task>, Task> handler)
         {
             var taskSource = new TaskCompletionSource<bool>();
-            var writeTask = ConcurrentChannel.WriteAsync(new ConcurrentTransport<Snapshot<PrimaryKey, SnapshotType>>(defaultTransactionId, handler, taskSource));
+            var writeTask = ConcurrentChannel.WriteAsync(new EventTaskComplexBox<Snapshot<PrimaryKey, SnapshotType>>(defaultTransactionId, handler, taskSource));
             if (!writeTask.IsCompletedSuccessfully)
                 await writeTask;
             if (!writeTask.Result)
@@ -49,7 +49,7 @@ namespace Ray.Core
             var taskSource = new TaskCompletionSource<bool>();
             if (transactionId <= 0)
                 throw new TxIdException();
-            var writeTask = ConcurrentChannel.WriteAsync(new ConcurrentTransport<Snapshot<PrimaryKey, SnapshotType>>(transactionId, handler, taskSource));
+            var writeTask = ConcurrentChannel.WriteAsync(new EventTaskComplexBox<Snapshot<PrimaryKey, SnapshotType>>(transactionId, handler, taskSource));
             if (!writeTask.IsCompletedSuccessfully)
                 await writeTask;
             if (!writeTask.Result)
@@ -76,9 +76,9 @@ namespace Ray.Core
             });
         }
         protected virtual ValueTask OnConcurrentExecuted() => Consts.ValueTaskDone;
-        private async Task ConcurrentExecuter(List<ConcurrentTransport<Snapshot<PrimaryKey, SnapshotType>>> inputs)
+        private async Task ConcurrentExecuter(List<EventTaskComplexBox<Snapshot<PrimaryKey, SnapshotType>>> inputs)
         {
-            var autoTransactionList = new List<ConcurrentTransport<Snapshot<PrimaryKey, SnapshotType>>>();
+            var autoTransactionList = new List<EventTaskComplexBox<Snapshot<PrimaryKey, SnapshotType>>>();
             foreach (var input in inputs)
             {
                 if (input.TransactionId == defaultTransactionId)
@@ -108,7 +108,7 @@ namespace Ray.Core
                 await AutoTransactionExcuter(autoTransactionList);
             }
         }
-        private async Task AutoTransactionExcuter(List<ConcurrentTransport<Snapshot<PrimaryKey, SnapshotType>>> inputs)
+        private async Task AutoTransactionExcuter(List<EventTaskComplexBox<Snapshot<PrimaryKey, SnapshotType>>> inputs)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace("AutoTransaction: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), inputs.Count.ToString());

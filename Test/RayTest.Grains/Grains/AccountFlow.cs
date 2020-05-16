@@ -7,7 +7,7 @@ using RayTest.IGrains;
 
 namespace RayTest.Grains.Grains
 {
-    [IgnoreEvents(typeof(TopupEvent), typeof(TransferArrivedEvent), typeof(TransferRefundsEvent))]
+    [EventIgnore(typeof(TopupEvent), typeof(TransferArrivedEvent), typeof(TransferRefundsEvent))]
     [Observer(DefaultObserverGroup.primary, "flow", typeof(Account))]
     public sealed class AccountFlow : ObserverGrain<long, Account>, IAccountFlow
     {

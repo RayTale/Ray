@@ -3,7 +3,7 @@ using Ray.Core.Serialization;
 
 namespace RayTest.Grains.Events
 {
-    [TCode(nameof(TopupEvent))]
+    [EventName(nameof(TopupEvent))]
     public class TopupEvent : IEvent
     {
         public decimal Amount { get; set; }

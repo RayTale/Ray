@@ -25,17 +25,17 @@ namespace Ray.Core
     public abstract class ObserverGrain<PrimaryKey, MainGrain> : Grain, IObserver
     {
         private static readonly ConcurrentDictionary<Type, Func<object, IEvent, EventBase, FullyEvent<PrimaryKey>, Task>> grainHandlerDict = new ConcurrentDictionary<Type, Func<object, IEvent, EventBase, FullyEvent<PrimaryKey>, Task>>();
-        private static readonly ConcurrentDictionary<Type, IgnoreEventsAttribute> grainIgnoreEventDict = new ConcurrentDictionary<Type, IgnoreEventsAttribute>();
+        private static readonly ConcurrentDictionary<Type, EventIgnoreAttribute> grainIgnoreEventDict = new ConcurrentDictionary<Type, EventIgnoreAttribute>();
         readonly Func<object, IEvent, EventBase, FullyEvent<PrimaryKey>, Task> handlerInvokeFunc;
-        readonly IgnoreEventsAttribute handlerAttribute;
+        readonly EventIgnoreAttribute handlerAttribute;
         public ObserverGrain()
         {
             GrainType = GetType();
             handlerAttribute = grainIgnoreEventDict.GetOrAdd(GrainType, type =>
             {
-                var handlerAttributes = GrainType.GetCustomAttributes(typeof(IgnoreEventsAttribute), false);
+                var handlerAttributes = GrainType.GetCustomAttributes(typeof(EventIgnoreAttribute), false);
                 if (handlerAttributes.Length > 0)
-                    return (IgnoreEventsAttribute)handlerAttributes[0];
+                    return (EventIgnoreAttribute)handlerAttributes[0];
                 else
                     return default;
             });
@@ -460,9 +460,9 @@ namespace Ray.Core
                 }
                 var evtList = items.Value.Select(bytes =>
                 {
-                    if (EventBytesTransport.TryParseWithNoId(bytes, out var transport))
+                    if (EventConverter.TryParseWithNoId(bytes, out var transport))
                     {
-                        var msgType = TypeFinder.FindType(transport.EventTypeCode);
+                        var msgType = TypeFinder.FindType(transport.EventUniqueName);
                         var data = Serializer.Deserialize(transport.EventBytes, msgType);
                         if (data is IEvent @event)
                         {
@@ -486,7 +486,7 @@ namespace Ray.Core
                     else
                     {
                         if (Logger.IsEnabled(LogLevel.Information))
-                            Logger.LogInformation($"{nameof(EventBytesTransport.TryParseWithNoId)} failed");
+                            Logger.LogInformation($"{nameof(EventConverter.TryParseWithNoId)} failed");
                     }
                     return default;
                 }).Where(o => o != null).OrderBy(o => o.Base.Version).ToList();
@@ -504,9 +504,9 @@ namespace Ray.Core
         }
         private Task OnNext(byte[] bytes)
         {
-            if (EventBytesTransport.TryParseWithNoId(bytes, out var transport))
+            if (EventConverter.TryParseWithNoId(bytes, out var transport))
             {
-                var msgType = TypeFinder.FindType(transport.EventTypeCode);
+                var msgType = TypeFinder.FindType(transport.EventUniqueName);
                 var data = Serializer.Deserialize(transport.EventBytes, msgType);
                 if (data is IEvent @event)
                 {
@@ -533,7 +533,7 @@ namespace Ray.Core
             else
             {
                 if (Logger.IsEnabled(LogLevel.Information))
-                    Logger.LogInformation($"{nameof(EventBytesTransport.TryParseWithNoId)} failed");
+                    Logger.LogInformation($"{nameof(EventConverter.TryParseWithNoId)} failed");
             }
             return Task.CompletedTask;
         }

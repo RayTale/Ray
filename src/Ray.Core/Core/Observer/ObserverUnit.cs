@@ -97,9 +97,9 @@ namespace Ray.Core
             //内部函数
             Task EventHandler(byte[] bytes)
             {
-                if (EventBytesTransport.TryParse<PrimaryKey>(bytes, out var transport))
+                if (EventConverter.TryParse<PrimaryKey>(bytes, out var transport))
                 {
-                    var data = serializer.Deserialize(transport.EventBytes, typeFinder.FindType(transport.EventTypeCode));
+                    var data = serializer.Deserialize(transport.EventBytes, typeFinder.FindType(transport.EventUniqueName));
                     if (data is IEvent @event && transport.GrainId is PrimaryKey actorId)
                     {
                         var eventBase = EventBase.Parse(transport.BaseBytes);
@@ -120,9 +120,9 @@ namespace Ray.Core
                 var groups =
                     list.Select(b =>
                     {
-                        if (EventBytesTransport.TryParse<PrimaryKey>(b, out var transport))
+                        if (EventConverter.TryParse<PrimaryKey>(b, out var transport))
                         {
-                            var data = serializer.Deserialize(transport.EventBytes, typeFinder.FindType(transport.EventTypeCode));
+                            var data = serializer.Deserialize(transport.EventBytes, typeFinder.FindType(transport.EventUniqueName));
                             if (data is IEvent @event && transport.GrainId is PrimaryKey actorId)
                             {
                                 var eventBase = EventBase.Parse(transport.BaseBytes);
@@ -163,7 +163,7 @@ namespace Ray.Core
             //内部函数
             Task EventHandler(byte[] bytes)
             {
-                if (EventBytesTransport.TryParseActorId<PrimaryKey>(bytes, out var actorId))
+                if (EventConverter.TryParseActorId<PrimaryKey>(bytes, out var actorId))
                 {
                     return GetObserver(observerType, actorId).OnNext(new Immutable<byte[]>(bytes));
 
@@ -171,7 +171,7 @@ namespace Ray.Core
                 else
                 {
                     if (Logger.IsEnabled(LogLevel.Error))
-                        Logger.LogError($"{nameof(EventBytesTransport.TryParseActorId)} failed");
+                        Logger.LogError($"{nameof(EventConverter.TryParseActorId)} failed");
                 }
                 return Task.CompletedTask;
             }
@@ -179,11 +179,11 @@ namespace Ray.Core
             {
                 var groups = list.Select(bytes =>
                 {
-                    var success = EventBytesTransport.TryParseActorId<PrimaryKey>(bytes, out var GrainId);
+                    var success = EventConverter.TryParseActorId<PrimaryKey>(bytes, out var GrainId);
                     if (!success)
                     {
                         if (Logger.IsEnabled(LogLevel.Error))
-                            Logger.LogError($"{nameof(EventBytesTransport.TryParseActorId)} failed");
+                            Logger.LogError($"{nameof(EventConverter.TryParseActorId)} failed");
                     }
                     return (success, GrainId, bytes);
                 }).Where(o => o.success).GroupBy(o => o.GrainId);

@@ -3,7 +3,7 @@
     /// <summary>
     /// 消息序列化传输的类别
     /// </summary>
-    public enum TransportType : byte
+    public enum HeaderType : byte
     {
         /// <summary>
         /// 通用序列化消息

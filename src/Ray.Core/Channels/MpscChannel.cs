@@ -20,90 +20,63 @@ namespace Ray.Core.Channels
         readonly List<IBaseMpscChannel> consumerSequence = new List<IBaseMpscChannel>();
         private Task<bool> waitToReadTask;
         readonly ILogger logger;
-        /// <summary>
-        /// 是否在自动消费中
-        /// </summary>
-        private int _autoConsuming = 0;
-        public MpscChannel(ILogger<MpscChannel<T>> logger, IOptions<ChannelOptions> options)
-        {
-            this.logger = logger;
-            MaxBatchSize = options.Value.MaxBatchSize;
-            MaxMillisecondsDelay = options.Value.MaxMillisecondsDelay;
-        }
+        private Task consumerTask;
         /// <summary>
         /// 批量数据处理每次处理的最大数据量
         /// </summary>
-        public int MaxBatchSize { get; set; }
+        int _MaxBatchSize;
         /// <summary>
         /// 批量数据接收的最大延时
         /// </summary>
-        public int MaxMillisecondsDelay { get; set; }
-        public bool IsComplete { get; private set; }
+        int _MaxMillisecondsDelay;
+        public MpscChannel(ILogger<MpscChannel<T>> logger, IOptions<ChannelOptions> options)
+        {
+            this.logger = logger;
+            _MaxBatchSize = options.Value.MaxBatchSize;
+            _MaxMillisecondsDelay = options.Value.MaxMillisecondsDelay;
+        }
+        public bool IsDisposed { get; private set; }
         public bool IsChildren { get; set; }
 
         public void BindConsumer(Func<List<T>, Task> consumer)
         {
-            if (this.consumer is null)
-                this.consumer = consumer;
-            else
-                throw new RebindConsumerException(GetType().Name);
-        }
-        public void BindConsumer(Func<List<T>, Task> consumer, int maxBatchSize, int maxMillisecondsDelay)
-        {
-            if (this.consumer is null)
+            if (Interlocked.CompareExchange(ref this.consumer, consumer, null) is null)
             {
                 this.consumer = consumer;
-                MaxBatchSize = maxBatchSize;
-                MaxMillisecondsDelay = maxMillisecondsDelay;
+                consumerTask = ActiveAutoConsumer();
             }
             else
                 throw new RebindConsumerException(GetType().Name);
         }
         public void Config(int maxBatchSize, int maxMillisecondsDelay)
         {
-            MaxBatchSize = maxBatchSize;
-            MaxMillisecondsDelay = maxMillisecondsDelay;
+            _MaxBatchSize = maxBatchSize;
+            _MaxMillisecondsDelay = maxMillisecondsDelay;
         }
         public async ValueTask<bool> WriteAsync(T data)
         {
             if (consumer is null)
                 throw new NoBindConsumerException(GetType().Name);
-            if (!IsChildren && _autoConsuming == 0)
-                ActiveAutoConsumer();
             if (!buffer.Post(data))
                 return await buffer.SendAsync(data);
             return true;
         }
-        private void ActiveAutoConsumer()
+        private async Task ActiveAutoConsumer()
         {
-            if (!IsChildren && _autoConsuming == 0)
-                ThreadPool.QueueUserWorkItem(ActiveConsumer);
-            async void ActiveConsumer(object state)
+            while (!IsDisposed)
             {
-                if (Interlocked.CompareExchange(ref _autoConsuming, 1, 0) == 0)
+                try
                 {
-                    try
-                    {
-                        while (await WaitToReadAsync())
-                        {
-                            try
-                            {
-                                await ManualConsume();
-                            }
-                            catch (Exception ex)
-                            {
-                                logger.LogError(ex, ex.Message);
-                            }
-                        }
-                    }
-                    finally
-                    {
-                        Interlocked.Exchange(ref _autoConsuming, 0);
-                    }
+                    await WaitToReadAsync();
+                    await ManualConsume();
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, ex.Message);
                 }
             }
         }
-        public void JoinConsumerSequence(IBaseMpscChannel channel)
+        public void Join(IBaseMpscChannel channel)
         {
             if (consumerSequence.IndexOf(channel) == -1)
             {
@@ -120,11 +93,11 @@ namespace Ray.Core.Channels
                 while (buffer.TryReceive(out var value))
                 {
                     dataList.Add(value);
-                    if (dataList.Count > MaxBatchSize)
+                    if (dataList.Count > _MaxBatchSize)
                     {
                         break;
                     }
-                    else if ((DateTimeOffset.UtcNow - startTime).TotalMilliseconds > MaxMillisecondsDelay)
+                    else if ((DateTimeOffset.UtcNow - startTime).TotalMilliseconds > _MaxMillisecondsDelay)
                     {
                         break;
                     }
@@ -151,12 +124,12 @@ namespace Ray.Core.Channels
                 return await await Task.WhenAny(taskList);
             }
         }
-        public void Complete()
+        public void Dispose()
         {
-            IsComplete = true;
+            IsDisposed = true;
             foreach (var joinConsumer in consumerSequence)
             {
-                joinConsumer.Complete();
+                joinConsumer.Dispose();
             }
             buffer.Complete();
         }

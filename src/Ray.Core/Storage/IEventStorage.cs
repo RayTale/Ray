@@ -10,16 +10,16 @@ namespace Ray.Core.Storage
         /// 单事件插入
         /// </summary>
         /// <param name="fullyEvent"></param>
-        /// <param name="bytesTransport"></param>
+        /// <param name="eventJson"></param>
         /// <param name="unique"></param>
         /// <returns></returns>
-        Task<bool> Append(FullyEvent<PrimaryKey> fullyEvent,in EventBytesTransport bytesTransport, string unique);
+        Task<bool> Append(FullyEvent<PrimaryKey> fullyEvent, string eventJson, string unique);
         /// <summary>
         /// 批量事件插入
         /// </summary>
         /// <param name="list"></param>
         /// <returns></returns>
-        Task TransactionBatchAppend(List<EventTransport<PrimaryKey>> list);
+        Task TransactionBatchAppend(List<EventBox<PrimaryKey>> list);
         /// <summary>
         /// 批量获取事件
         /// </summary>

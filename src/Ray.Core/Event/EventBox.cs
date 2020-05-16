@@ -6,13 +6,13 @@ using System.Text;
 
 namespace Ray.Core.Event
 {
-    public class EventTransport<PrimaryKey> : IDisposable
+    public class EventBox<PrimaryKey> : IDisposable
     {
         private string _TypeCode;
         private byte[] _EventBytes;
         private SharedArray _EventBaseArray;
         private SharedArray _Array;
-        public EventTransport(FullyEvent<PrimaryKey> fullyEvent, string uniqueId, string hashKey)
+        public EventBox(FullyEvent<PrimaryKey> fullyEvent, string uniqueId, string hashKey)
         {
             FullyEvent = fullyEvent;
             UniqueId = uniqueId;
@@ -31,13 +31,13 @@ namespace Ray.Core.Event
                 _TypeCode = typeFinder.GetCode(evtType);
                 _EventBaseArray = FullyEvent.Base.ConvertToBytes();
                 _EventBytes = serializer.SerializeToUtf8Bytes(FullyEvent.Event, evtType);
-                _Array = GetBytesTransport().ConvertToBytes();
+                _Array = GetConverter().ConvertToBytes();
                 EventUtf8String = Encoding.UTF8.GetString(_EventBytes);
             }
         }
-        public EventBytesTransport GetBytesTransport()
+        public EventConverter GetConverter()
         {
-            return new EventBytesTransport(_TypeCode, FullyEvent.StateId, _EventBaseArray.AsSpan(), _EventBytes);
+            return new EventConverter(_TypeCode, FullyEvent.StateId, _EventBaseArray.AsSpan(), _EventBytes);
         }
         public Span<byte> GetSpan() => _Array.AsSpan();
         public void Dispose()

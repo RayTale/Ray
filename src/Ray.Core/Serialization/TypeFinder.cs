@@ -18,7 +18,7 @@ namespace Ray.Core.Serialization
         {
             this.logger = logger;
             var baseEventType = typeof(IEvent);
-            var attributeType = typeof(TCodeAttribute);
+            var attributeType = typeof(EventNameAttribute);
             foreach (var assembly in AssemblyHelper.GetAssemblies(this.logger))
             {
                 foreach (var type in assembly.GetTypes())
@@ -26,7 +26,7 @@ namespace Ray.Core.Serialization
                     if (baseEventType.IsAssignableFrom(type))
                     {
                         var attribute = type.GetCustomAttributes(attributeType, false).FirstOrDefault();
-                        if (attribute != null && attribute is TCodeAttribute tCode)
+                        if (attribute != null && attribute is EventNameAttribute tCode)
                         {
                             if (!codeDict.TryAdd(tCode.Code, type))
                             {

@@ -1,9 +1,8 @@
 ﻿using Ray.Core.Event;
-using Ray.Core.Serialization;
 
 namespace Transfer.Grains.Events
 {
-    [TCode(nameof(TransferEvent))]
+    [EventName(nameof(TransferEvent))]
     public class TransferEvent : IEvent
     {
         public long ToId { get; set; }

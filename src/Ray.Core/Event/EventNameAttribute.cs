@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Ray.Core.Serialization
+namespace Ray.Core.Event
 {
     /// <summary>
     /// TypeCode
@@ -8,9 +8,9 @@ namespace Ray.Core.Serialization
     /// 默认使用Type.FullName作为TypeCode
     /// </summary>
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
-    public class TCodeAttribute : Attribute
+    public class EventNameAttribute : Attribute
     {
-        public TCodeAttribute(string code) => Code = code;
+        public EventNameAttribute(string code) => Code = code;
         /// <summary>
         /// 类型唯一码
         /// </summary>
