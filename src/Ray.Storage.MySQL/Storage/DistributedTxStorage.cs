@@ -15,7 +15,7 @@ namespace Ray.Storage.MySQL
 {
     public class DistributedTxStorage : IDistributedTxStorage
     {
-        readonly IMpscChannel<AsyncInputEvent<AppendInput, bool>> mpscChannel;
+        readonly IMpscChannel<AskInputBox<AppendInput, bool>> mpscChannel;
         readonly ISerializer serializer;
         readonly string connection;
         readonly IOptions<TransactionOptions> options;
@@ -31,7 +31,7 @@ namespace Ray.Storage.MySQL
             this.options = options;
             connection = connectionsOptions.Value.ConnectionDict[options.Value.ConnectionKey];
             CreateEventSubRecordTable().GetAwaiter().GetResult();
-            mpscChannel = serviceProvider.GetService<IMpscChannel<AsyncInputEvent<AppendInput, bool>>>();
+            mpscChannel = serviceProvider.GetService<IMpscChannel<AskInputBox<AppendInput, bool>>>();
             serializer = serviceProvider.GetService<ISerializer>();
             mpscChannel.BindConsumer(BatchInsertExecuter);
             delete_sql= $"delete from {options.Value.TableName} WHERE UnitName=@UnitName and TransactionId=@TransactionId"; 
@@ -59,7 +59,7 @@ namespace Ray.Storage.MySQL
         {
             return Task.Run(async () =>
             {
-                var wrap = new AsyncInputEvent<AppendInput, bool>(new AppendInput
+                var wrap = new AskInputBox<AppendInput, bool>(new AppendInput
                 {
                     UnitName = unitName,
                     TransactionId = commit.TransactionId,
@@ -97,7 +97,7 @@ namespace Ray.Storage.MySQL
             using var conn = CreateConnection();
             return await conn.ExecuteAsync(update_sql, new { UnitName = unitName, TransactionId = transactionId, Status = status }) > 0;
         }
-        private async Task BatchInsertExecuter(List<AsyncInputEvent<AppendInput, bool>> wrapperList)
+        private async Task BatchInsertExecuter(List<AskInputBox<AppendInput, bool>> wrapperList)
         {
             using var conn = CreateConnection();
             await conn.OpenAsync();

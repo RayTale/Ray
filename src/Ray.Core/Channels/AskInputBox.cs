@@ -2,9 +2,9 @@
 
 namespace Ray.Core.Channels
 {
-    public class AsyncInputEvent<Input, Output>
+    public class AskInputBox<Input, Output>
     {
-        public AsyncInputEvent(Input data)
+        public AskInputBox(Input data)
         {
             Value = data;
         }
