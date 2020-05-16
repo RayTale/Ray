@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
-using RabbitMQ.Client.Events;
 using Ray.Core.EventBus;
 using System;
 using System.Collections.Generic;
@@ -32,8 +31,7 @@ namespace Ray.EventBus.RabbitMQ
         public RabbitConsumer Consumer { get; }
         public QueueInfo Queue { get; }
         public ModelWrapper Model { get; set; }
-        public EventingBasicConsumer BasicConsumer { get; set; }
-        public bool IsUnAvailable => BasicConsumer == default || !BasicConsumer.IsRunning || Model.Model.IsClosed;
+        public bool IsUnAvailable => Model is null || Model.Model.IsClosed;
 
         public Task Run()
         {
