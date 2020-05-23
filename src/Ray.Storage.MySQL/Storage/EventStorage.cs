@@ -112,6 +112,7 @@ namespace Ray.Storage.MySQL
         }
 
         static readonly ConcurrentDictionary<string, string> saveSqlDict = new ConcurrentDictionary<string, string>();
+        static readonly ConcurrentDictionary<string, string> copySaveSqlDict = new ConcurrentDictionary<string, string>();
         public Task<bool> Append(FullyEvent<PrimaryKey> fullyEvent, string eventJson, string unique)
         {
             var input = new EventTaskBox<PrimaryKey>(fullyEvent, eventJson, unique);
@@ -129,6 +130,11 @@ namespace Ray.Storage.MySQL
             return saveSqlDict.GetOrAdd(tableName,
                              key => $"INSERT ignore INTO {key}(StateId,UniqueId,TypeCode,Data,Version,Timestamp) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version,@Timestamp)");
         }
+        private string GetCopySaveSql(string tableName)
+        {
+            return copySaveSqlDict.GetOrAdd(tableName,
+                             key => $"INSERT INTO {key}(StateId,UniqueId,TypeCode,Data,Version,Timestamp) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version,@Timestamp)");
+        }
         private async Task BatchInsertExecuter(List<AskInputBox<EventTaskBox<PrimaryKey>, bool>> wrapperList)
         {
             var minTimestamp = wrapperList.Min(t => t.Value.Event.Base.Timestamp);
@@ -138,7 +144,7 @@ namespace Ray.Storage.MySQL
                 await minTask;
             if (minTask.Result.EndTime > maxTimestamp)
             {
-                await BatchInsert(GetSaveSql(minTask.Result.SubTable), wrapperList);
+                await BatchCopy(minTask.Result.SubTable, wrapperList);
             }
             else
             {
@@ -151,12 +157,35 @@ namespace Ray.Storage.MySQL
                 }))).GroupBy(t => t.SubTable);
                 foreach (var group in groups)
                 {
-                    await BatchInsert(GetSaveSql(group.Key), group.Select(t => t.t).ToList());
+                    await BatchCopy(group.Key, group.Select(t => t.t).ToList());
                 }
             }
-            async Task BatchInsert(string saveSql, List<AskInputBox<EventTaskBox<PrimaryKey>, bool>> list)
+            async Task BatchCopy(string tableName, List<AskInputBox<EventTaskBox<PrimaryKey>, bool>> list)
+            {
+                try
+                {
+                    using var conn = config.CreateConnection();
+                    await conn.ExecuteAsync(GetCopySaveSql(tableName), list.Select(wrapper => new
+                    {
+                        StateId = wrapper.Value.Event.StateId.ToString(),
+                        wrapper.Value.UniqueId,
+                        TypeCode = typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
+                        Data = wrapper.Value.EventUtf8String,
+                        wrapper.Value.Event.Base.Version,
+                        wrapper.Value.Event.Base.Timestamp
+                    }));
+                    list.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, ex.Message);
+                    await BatchInsert(tableName, wrapperList);
+                }
+            }
+            async Task BatchInsert(string tableName, List<AskInputBox<EventTaskBox<PrimaryKey>, bool>> list)
             {
                 bool isSuccess = false;
+                var saveSql = GetSaveSql(tableName);
                 using var conn = config.CreateConnection();
                 await conn.OpenAsync();
                 using var trans = conn.BeginTransaction();
@@ -235,7 +264,7 @@ namespace Ray.Storage.MySQL
                         Data = g.t.EventUtf8String,
                         g.t.FullyEvent.Base.Version,
                         g.t.FullyEvent.Base.Timestamp
-                    }), trans);
+                    }).ToArray(), trans);
                 }
                 trans.Commit();
             }
