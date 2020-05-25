@@ -27,6 +27,11 @@ namespace Ray.EventBus.RabbitMQ
             semaphoreSlim.Wait();
             try
             {
+                if (connections.Count > options.MaxConnection)
+                {
+                    connections.RemoveAll(x => !x.IsConnected);
+                }
+
                 if (connections.Count < options.MaxConnection)
                 {
                     var connection = new ConnectionWrapper(connectionFactory.CreateConnection(options.EndPoints), options);

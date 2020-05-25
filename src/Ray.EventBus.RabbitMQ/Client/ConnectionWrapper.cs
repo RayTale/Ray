@@ -9,6 +9,8 @@ namespace Ray.EventBus.RabbitMQ
         private readonly List<ModelWrapper> models = new List<ModelWrapper>();
         private readonly IConnection connection;
         readonly SemaphoreSlim semaphoreSlim = new SemaphoreSlim(1);
+        public bool IsConnected => connection != null && connection.IsOpen;
+       
         public ConnectionWrapper(
             IConnection connection,
            RabbitOptions options)
@@ -24,6 +26,11 @@ namespace Ray.EventBus.RabbitMQ
             {
                 if (models.Count < Options.PoolSizePerConnection)
                 {
+                    if (!connection.IsOpen)
+                    {
+                        return (false, default);
+                    }
+
                     var model = new ModelWrapper(this, connection.CreateModel());
                     models.Add(model);
                     return (true, model);

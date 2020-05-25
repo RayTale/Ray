@@ -16,17 +16,31 @@ namespace Ray.EventBus.RabbitMQ
             {
                 UserName = options.UserName,
                 Password = options.Password,
-                VirtualHost = options.VirtualHost,
-                AutomaticRecoveryEnabled = false
+                VirtualHost = options.VirtualHost
             };
             pool = new DefaultObjectPool<ModelWrapper>(new ModelPooledObjectPolicy(connectionFactory, options));
         }
 
         public ModelWrapper PullModel()
         {
-            var result = pool.Get();
-            if (result.Pool is null)
-                result.Pool = pool;
+            ModelWrapper result;
+            bool invalid;
+            do
+            {
+                result = pool.Get();
+                if (result.Pool is null)
+                    result.Pool = pool;
+                if (result.Model.IsClosed || !result.Model.IsOpen)
+                {
+                    invalid = true;
+                    result.ForceDispose();
+                }
+                else
+                {
+                    invalid = false;
+                }
+            } while (invalid);
+
             return result;
         }
     }
