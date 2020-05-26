@@ -103,11 +103,11 @@ namespace Ray.Core
                     var data = serializer.Deserialize(transport.EventBytes, typeFinder.FindType(transport.EventUniqueName));
                     if (data is IEvent @event && transport.GrainId is PrimaryKey actorId)
                     {
-                        var eventBase = EventBase.Parse(transport.BaseBytes);
+                        var eventBase = transport.BaseBytes.ParseToEventBase();
                         var tellTask = handler(serviceProvider, new FullyEvent<PrimaryKey>
                         {
-                            StateId = actorId,
-                            Base = eventBase,
+                            ActorId = actorId,
+                            BasicInfo = eventBase,
                             Event = @event
                         });
                         if (!tellTask.IsCompletedSuccessfully)
@@ -127,11 +127,11 @@ namespace Ray.Core
                             var data = serializer.Deserialize(transport.EventBytes, typeFinder.FindType(transport.EventUniqueName));
                             if (data is IEvent @event && transport.GrainId is PrimaryKey actorId)
                             {
-                                var eventBase = EventBase.Parse(transport.BaseBytes);
+                                var eventBase = transport.BaseBytes.ParseToEventBase();
                                 var fullEvent = new FullyEvent<PrimaryKey>
                                 {
-                                    StateId = actorId,
-                                    Base = eventBase,
+                                    ActorId = actorId,
+                                    BasicInfo = eventBase,
                                     Event = @event
                                 };
                                 return (bytes, fullEvent);
@@ -140,7 +140,7 @@ namespace Ray.Core
                         return default;
                     })
                     .Where(o => o != default)
-                    .GroupBy(o => o.fullEvent.StateId);
+                    .GroupBy(o => o.fullEvent.ActorId);
                 return Task.WhenAll(groups.Select(async groupItems =>
                 {
                     foreach (var item in groupItems)

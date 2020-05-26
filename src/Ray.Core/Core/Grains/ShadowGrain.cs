@@ -235,13 +235,13 @@ namespace Ray.Core
                 var data = Serializer.Deserialize(transport.EventBytes, eventType);
                 if (data is IEvent @event)
                 {
-                    var eventBase = EventBase.Parse(transport.BaseBytes);
+                    var eventBase = transport.BaseBytes.ParseToEventBase();
                     if (eventBase.Version > Snapshot.Base.Version)
                     {
                         var tellTask = Tell(new FullyEvent<PrimaryKey>
                         {
-                            StateId = GrainId,
-                            Base = eventBase,
+                            ActorId = GrainId,
+                            BasicInfo = eventBase,
                             Event = @event
                         });
                         if (!tellTask.IsCompletedSuccessfully)
@@ -268,13 +268,13 @@ namespace Ray.Core
                     var data = Serializer.Deserialize(transport.EventBytes, eventType);
                     if (data is IEvent @event)
                     {
-                        var eventBase = EventBase.Parse(transport.BaseBytes);
+                        var eventBase = transport.BaseBytes.ParseToEventBase();
                         if (eventBase.Version > Snapshot.Base.Version)
                         {
                             return new FullyEvent<PrimaryKey>
                             {
-                                StateId = GrainId,
-                                Base = eventBase,
+                                ActorId = GrainId,
+                                BasicInfo = eventBase,
                                 Event = @event
                             };
                         }
@@ -286,7 +286,7 @@ namespace Ray.Core
                     }
                 }
                 return default;
-            }).Where(o => o != null).OrderBy(o => o.Base.Version).ToList();
+            }).Where(o => o != null).OrderBy(o => o.BasicInfo.Version).ToList();
             foreach (var evt in events)
             {
                 var tellTask = Tell(evt);
@@ -314,34 +314,34 @@ namespace Ray.Core
         }
         protected async ValueTask Tell(FullyEvent<PrimaryKey> @event)
         {
-            if (@event.Base.Version == Snapshot.Base.Version + 1)
+            if (@event.BasicInfo.Version == Snapshot.Base.Version + 1)
             {
                 var onEventDeliveredTask = OnEventDelivered(@event);
                 if (!onEventDeliveredTask.IsCompletedSuccessfully)
                     await onEventDeliveredTask;
-                Snapshot.Base.FullUpdateVersion(@event.Base, GrainType);//更新处理完成的Version
+                Snapshot.Base.FullUpdateVersion(@event.BasicInfo, GrainType);//更新处理完成的Version
             }
-            else if (@event.Base.Version > Snapshot.Base.Version)
+            else if (@event.BasicInfo.Version > Snapshot.Base.Version)
             {
-                var eventList = await EventStorage.GetList(GrainId, Snapshot.Base.StartTimestamp, Snapshot.Base.Version + 1, @event.Base.Version - 1);
+                var eventList = await EventStorage.GetList(GrainId, Snapshot.Base.StartTimestamp, Snapshot.Base.Version + 1, @event.BasicInfo.Version - 1);
                 foreach (var evt in eventList)
                 {
                     var onEventDeliveredTask = OnEventDelivered(evt);
                     if (!onEventDeliveredTask.IsCompletedSuccessfully)
                         await onEventDeliveredTask;
-                    Snapshot.Base.FullUpdateVersion(evt.Base, GrainType);//更新处理完成的Version
+                    Snapshot.Base.FullUpdateVersion(evt.BasicInfo, GrainType);//更新处理完成的Version
                 }
             }
-            if (@event.Base.Version == Snapshot.Base.Version + 1)
+            if (@event.BasicInfo.Version == Snapshot.Base.Version + 1)
             {
                 var onEventDeliveredTask = OnEventDelivered(@event);
                 if (!onEventDeliveredTask.IsCompletedSuccessfully)
                     await onEventDeliveredTask;
-                Snapshot.Base.FullUpdateVersion(@event.Base, GrainType);//更新处理完成的Version
+                Snapshot.Base.FullUpdateVersion(@event.BasicInfo, GrainType);//更新处理完成的Version
             }
-            if (@event.Base.Version > Snapshot.Base.Version)
+            if (@event.BasicInfo.Version > Snapshot.Base.Version)
             {
-                throw new EventVersionUnorderedException(GrainId.ToString(), GrainType, @event.Base.Version, Snapshot.Base.Version);
+                throw new EventVersionUnorderedException(GrainId.ToString(), GrainType, @event.BasicInfo.Version, Snapshot.Base.Version);
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

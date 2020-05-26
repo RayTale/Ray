@@ -1,5 +1,4 @@
 ﻿using Ray.Core.Event;
-using Ray.Core.Serialization;
 
 namespace Transfer.Grains.Events
 {

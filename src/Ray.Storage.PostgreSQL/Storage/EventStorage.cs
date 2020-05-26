@@ -61,16 +61,16 @@ namespace Ray.Storage.PostgreSQL
                             {
                                 list.Add(new FullyEvent<PrimaryKey>
                                 {
-                                    StateId = stateId,
+                                    ActorId = stateId,
                                     Event = evt,
-                                    Base = new EventBase(version, timestamp)
+                                    BasicInfo = new EventBasicInfo(version, timestamp)
                                 });
                             }
                         }
                     }
                 }
             });
-            return list.OrderBy(e => e.Base.Version).ToList();
+            return list.OrderBy(e => e.BasicInfo.Version).ToList();
         }
         public async Task<IList<FullyEvent<PrimaryKey>>> GetListByType(PrimaryKey stateId, string typeCode, long startVersion, int limit)
         {
@@ -98,9 +98,9 @@ namespace Ray.Storage.PostgreSQL
                         {
                             list.Add(new FullyEvent<PrimaryKey>
                             {
-                                StateId = stateId,
+                                ActorId = stateId,
                                 Event = evt,
-                                Base = new EventBase(version, timestamp)
+                                BasicInfo = new EventBasicInfo(version, timestamp)
                             });
                         }
                     }
@@ -108,7 +108,7 @@ namespace Ray.Storage.PostgreSQL
                         break;
                 }
             });
-            return list.OrderBy(e => e.Base.Version).ToList();
+            return list.OrderBy(e => e.BasicInfo.Version).ToList();
         }
 
         static readonly ConcurrentDictionary<string, string> saveSqlDict = new ConcurrentDictionary<string, string>();
@@ -126,8 +126,8 @@ namespace Ray.Storage.PostgreSQL
         }
         private async Task BatchInsertExecuter(List<AskInputBox<EventTaskBox<PrimaryKey>, bool>> wrapperList)
         {
-            var minTimestamp = wrapperList.Min(t => t.Value.Event.Base.Timestamp);
-            var maxTimestamp = wrapperList.Max(t => t.Value.Event.Base.Timestamp);
+            var minTimestamp = wrapperList.Min(t => t.Value.Event.BasicInfo.Timestamp);
+            var maxTimestamp = wrapperList.Max(t => t.Value.Event.BasicInfo.Timestamp);
             var minTask = config.GetTable(minTimestamp);
             if (!minTask.IsCompletedSuccessfully)
                 await minTask;
@@ -139,7 +139,7 @@ namespace Ray.Storage.PostgreSQL
             {
                 var groups = (await Task.WhenAll(wrapperList.Select(async t =>
                 {
-                    var task = config.GetTable(t.Value.Event.Base.Timestamp);
+                    var task = config.GetTable(t.Value.Event.BasicInfo.Timestamp);
                     if (!task.IsCompletedSuccessfully)
                         await task;
                     return (task.Result.SubTable, t);
@@ -161,12 +161,12 @@ namespace Ray.Storage.PostgreSQL
                     foreach (var wrapper in list)
                     {
                         writer.StartRow();
-                        writer.Write(wrapper.Value.Event.StateId);
+                        writer.Write(wrapper.Value.Event.ActorId);
                         writer.Write(wrapper.Value.UniqueId, NpgsqlDbType.Varchar);
                         writer.Write(typeFinder.GetCode(wrapper.Value.Event.Event.GetType()), NpgsqlDbType.Varchar);
                         writer.Write(wrapper.Value.EventUtf8String, NpgsqlDbType.Json);
-                        writer.Write(wrapper.Value.Event.Base.Version, NpgsqlDbType.Bigint);
-                        writer.Write(wrapper.Value.Event.Base.Timestamp, NpgsqlDbType.Bigint);
+                        writer.Write(wrapper.Value.Event.BasicInfo.Version, NpgsqlDbType.Bigint);
+                        writer.Write(wrapper.Value.Event.BasicInfo.Timestamp, NpgsqlDbType.Bigint);
                     }
                     writer.Complete();
                     list.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
@@ -191,12 +191,12 @@ namespace Ray.Storage.PostgreSQL
                     {
                         wrapper.Value.ReturnValue = await conn.ExecuteAsync(saveSql, new
                         {
-                            StateId = wrapper.Value.Event.StateId.ToString(),
+                            StateId = wrapper.Value.Event.ActorId.ToString(),
                             wrapper.Value.UniqueId,
                             TypeCode = typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
                             Data = wrapper.Value.EventUtf8String,
-                            wrapper.Value.Event.Base.Version,
-                            wrapper.Value.Event.Base.Timestamp
+                            wrapper.Value.Event.BasicInfo.Version,
+                            wrapper.Value.Event.BasicInfo.Timestamp
                         }, trans) > 0;
                     }
                     trans.Commit();
@@ -215,12 +215,12 @@ namespace Ray.Storage.PostgreSQL
                         {
                             wrapper.TaskSource.TrySetResult(await conn.ExecuteAsync(saveSql, new
                             {
-                                wrapper.Value.Event.StateId,
+                                wrapper.Value.Event.ActorId,
                                 wrapper.Value.UniqueId,
                                 TypeCode = typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
                                 Data = wrapper.Value.EventUtf8String,
-                                wrapper.Value.Event.Base.Version,
-                                wrapper.Value.Event.Base.Timestamp
+                                wrapper.Value.Event.BasicInfo.Version,
+                                wrapper.Value.Event.BasicInfo.Timestamp
                             }) > 0);
                         }
                         catch (Exception ex)
@@ -234,8 +234,8 @@ namespace Ray.Storage.PostgreSQL
         static readonly ConcurrentDictionary<string, string> copySaveSqlDict = new ConcurrentDictionary<string, string>();
         public async Task TransactionBatchAppend(List<EventBox<PrimaryKey>> list)
         {
-            var minTimestamp = list.Min(t => t.FullyEvent.Base.Timestamp);
-            var maxTimestamp = list.Max(t => t.FullyEvent.Base.Timestamp);
+            var minTimestamp = list.Min(t => t.FullyEvent.BasicInfo.Timestamp);
+            var maxTimestamp = list.Max(t => t.FullyEvent.BasicInfo.Timestamp);
             var minTask = config.GetTable(minTimestamp);
             if (!minTask.IsCompletedSuccessfully)
                 await minTask;
@@ -251,12 +251,12 @@ namespace Ray.Storage.PostgreSQL
                     foreach (var wrapper in list)
                     {
                         writer.StartRow();
-                        writer.Write(wrapper.FullyEvent.StateId);
+                        writer.Write(wrapper.FullyEvent.ActorId);
                         writer.Write(wrapper.UniqueId, NpgsqlDbType.Varchar);
                         writer.Write(typeFinder.GetCode(wrapper.FullyEvent.Event.GetType()), NpgsqlDbType.Varchar);
                         writer.Write(wrapper.EventUtf8String, NpgsqlDbType.Json);
-                        writer.Write(wrapper.FullyEvent.Base.Version, NpgsqlDbType.Bigint);
-                        writer.Write(wrapper.FullyEvent.Base.Timestamp, NpgsqlDbType.Bigint);
+                        writer.Write(wrapper.FullyEvent.BasicInfo.Version, NpgsqlDbType.Bigint);
+                        writer.Write(wrapper.FullyEvent.BasicInfo.Timestamp, NpgsqlDbType.Bigint);
                     }
                     writer.Complete();
                 });
@@ -265,7 +265,7 @@ namespace Ray.Storage.PostgreSQL
             {
                 var groups = (await Task.WhenAll(list.Select(async t =>
                 {
-                    var task = config.GetTable(t.FullyEvent.Base.Timestamp);
+                    var task = config.GetTable(t.FullyEvent.BasicInfo.Timestamp);
                     if (!task.IsCompletedSuccessfully)
                         await task;
                     return (task.Result.SubTable, t);
@@ -281,12 +281,12 @@ namespace Ray.Storage.PostgreSQL
                             key => $"INSERT INTO {key}(stateid,uniqueId,typecode,data,version,timestamp) VALUES(@StateId,@UniqueId,@TypeCode,(@Data)::json,@Version,@Timestamp)");
                         await conn.ExecuteAsync(saveSql, group.Select(g => new
                         {
-                            g.t.FullyEvent.StateId,
+                            g.t.FullyEvent.ActorId,
                             g.t.UniqueId,
                             TypeCode = typeFinder.GetCode(g.t.FullyEvent.Event.GetType()),
                             Data = g.t.EventUtf8String,
-                            g.t.FullyEvent.Base.Version,
-                            g.t.FullyEvent.Base.Timestamp
+                            g.t.FullyEvent.BasicInfo.Version,
+                            g.t.FullyEvent.BasicInfo.Timestamp
                         }), trans);
                     }
                     trans.Commit();

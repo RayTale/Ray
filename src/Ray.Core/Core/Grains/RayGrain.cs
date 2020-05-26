@@ -229,7 +229,7 @@ namespace Ray.Core
                     {
                         Snapshot.Base.IncrementDoingVersion(GrainType);//标记将要处理的Version
                         SnapshotHandler.Apply(Snapshot, fullyEvent);
-                        Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
+                        Snapshot.Base.UpdateVersion(fullyEvent.BasicInfo, GrainType);//更新处理完成的Version
                     }
                     if (eventList.Count < CoreOptions.NumberOfEventsPerRead) break;
                 };
@@ -466,21 +466,21 @@ namespace Ray.Core
                 var fullyEvent = new FullyEvent<PrimaryKey>
                 {
                     Event = @event,
-                    Base = new EventBase
+                    BasicInfo = new EventBasicInfo
                     {
                         Version = Snapshot.Base.Version + 1
                     },
-                    StateId = Snapshot.Base.StateId
+                    ActorId = Snapshot.Base.StateId
                 };
                 string unique = default;
                 if (uid is null)
                 {
-                    fullyEvent.Base.Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    fullyEvent.BasicInfo.Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                     unique = fullyEvent.GetEventId();
                 }
                 else
                 {
-                    fullyEvent.Base.Timestamp = uid.Timestamp;
+                    fullyEvent.BasicInfo.Timestamp = uid.Timestamp;
                     unique = uid.UID;
                 }
                 var startTask = OnRaiseStart(fullyEvent);
@@ -488,13 +488,13 @@ namespace Ray.Core
                     await startTask;
                 Snapshot.Base.IncrementDoingVersion(GrainType);//标记将要处理的Version
                 var evtType = @event.GetType();
-                using var baseBytes = fullyEvent.Base.ConvertToBytes();
+                using var baseBytes = fullyEvent.BasicInfo.ConvertToBytes();
                 var typeCode = TypeFinder.GetCode(evtType);
                 var evtBytes = Serializer.SerializeToUtf8Bytes(@event, evtType);
                 if (await EventStorage.Append(fullyEvent, Encoding.UTF8.GetString(evtBytes), unique))
                 {
                     SnapshotHandler.Apply(Snapshot, fullyEvent);
-                    Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
+                    Snapshot.Base.UpdateVersion(fullyEvent.BasicInfo, GrainType);//更新处理完成的Version
                     var task = OnRaised(fullyEvent, new EventConverter(typeCode, Snapshot.Base.StateId, baseBytes.AsSpan(), evtBytes));
                     if (!task.IsCompletedSuccessfully)
                         await task;
@@ -582,28 +582,28 @@ namespace Ray.Core
                 await SnapshotStorage.UpdateIsLatest(Snapshot.Base.StateId, false);
                 Snapshot.Base.IsLatest = false;
             }
-            if (ClearedArchive != null && @event.Base.Timestamp < ClearedArchive.StartTimestamp)
+            if (ClearedArchive != null && @event.BasicInfo.Timestamp < ClearedArchive.StartTimestamp)
             {
                 throw new EventIsClearedException(@event.GetType().FullName, Serializer.Serialize(@event, @event.GetType()), ClearedArchive.Index);
             }
             if (SnapshotEventVersion > 0)
             {
-                if (@event.Base.Timestamp < Snapshot.Base.LatestMinEventTimestamp)
+                if (@event.BasicInfo.Timestamp < Snapshot.Base.LatestMinEventTimestamp)
                 {
-                    await SnapshotStorage.UpdateLatestMinEventTimestamp(Snapshot.Base.StateId, @event.Base.Timestamp);
+                    await SnapshotStorage.UpdateLatestMinEventTimestamp(Snapshot.Base.StateId, @event.BasicInfo.Timestamp);
                 }
-                if (@event.Base.Timestamp < Snapshot.Base.StartTimestamp)
+                if (@event.BasicInfo.Timestamp < Snapshot.Base.StartTimestamp)
                 {
-                    await SnapshotStorage.UpdateStartTimestamp(Snapshot.Base.StateId, @event.Base.Timestamp);
+                    await SnapshotStorage.UpdateStartTimestamp(Snapshot.Base.StateId, @event.BasicInfo.Timestamp);
                 }
             }
             if (ArchiveOptions.On &&
                 LastArchive != null &&
-                @event.Base.Timestamp < LastArchive.EndTimestamp)
+                @event.BasicInfo.Timestamp < LastArchive.EndTimestamp)
             {
-                foreach (var archive in BriefArchiveList.Where(a => @event.Base.Timestamp < a.EndTimestamp && !a.EventIsCleared).OrderByDescending(v => v.Index))
+                foreach (var archive in BriefArchiveList.Where(a => @event.BasicInfo.Timestamp < a.EndTimestamp && !a.EventIsCleared).OrderByDescending(v => v.Index))
                 {
-                    if (@event.Base.Timestamp < archive.EndTimestamp)
+                    if (@event.BasicInfo.Timestamp < archive.EndTimestamp)
                     {
                         await DeleteArchive(archive.Id);
                         if (NewArchive != null)
@@ -639,21 +639,21 @@ namespace Ray.Core
                 NewArchive = new ArchiveBrief
                 {
                     Id = (await ServiceProvider.GetService<IGrainFactory>().GetGrain<IUtcUID>(GrainType.FullName).NewID()),
-                    StartTimestamp = @event.Base.Timestamp,
-                    StartVersion = @event.Base.Version,
+                    StartTimestamp = @event.BasicInfo.Timestamp,
+                    StartVersion = @event.BasicInfo.Version,
                     Index = LastArchive != null ? LastArchive.Index + 1 : 0,
-                    EndTimestamp = @event.Base.Timestamp,
-                    EndVersion = @event.Base.Version
+                    EndTimestamp = @event.BasicInfo.Timestamp,
+                    EndVersion = @event.BasicInfo.Version
                 };
             }
             else
             {
                 //判定有没有时间戳小于前一个归档
-                if (NewArchive.StartTimestamp == 0 || @event.Base.Timestamp < NewArchive.StartTimestamp)
-                    NewArchive.StartTimestamp = @event.Base.Timestamp;
-                if (@event.Base.Timestamp > NewArchive.StartTimestamp)
-                    NewArchive.EndTimestamp = @event.Base.Timestamp;
-                NewArchive.EndVersion = @event.Base.Version;
+                if (NewArchive.StartTimestamp == 0 || @event.BasicInfo.Timestamp < NewArchive.StartTimestamp)
+                    NewArchive.StartTimestamp = @event.BasicInfo.Timestamp;
+                if (@event.BasicInfo.Timestamp > NewArchive.StartTimestamp)
+                    NewArchive.EndTimestamp = @event.BasicInfo.Timestamp;
+                NewArchive.EndVersion = @event.BasicInfo.Version;
             }
             var archiveTask = Archive();
             if (!archiveTask.IsCompletedSuccessfully)

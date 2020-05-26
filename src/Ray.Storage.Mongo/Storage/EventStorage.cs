@@ -55,9 +55,9 @@ namespace Ray.Storage.Mongo
                         {
                             list.Add(new FullyEvent<PrimaryKey>
                             {
-                                StateId = stateId,
+                                ActorId = stateId,
                                 Event = evt,
-                                Base = new EventBase(version, timestamp)
+                                BasicInfo = new EventBasicInfo(version, timestamp)
                             });
                         }
                     }
@@ -84,9 +84,9 @@ namespace Ray.Storage.Mongo
                     {
                         list.Add(new FullyEvent<PrimaryKey>
                         {
-                            StateId = stateId,
+                            ActorId = stateId,
                             Event = evt,
-                            Base = new EventBase(version, timestamp)
+                            BasicInfo = new EventBasicInfo(version, timestamp)
                         });
                     }
                 }
@@ -109,8 +109,8 @@ namespace Ray.Storage.Mongo
         }
         private async Task BatchInsertExecuter(List<AskInputBox<EventTaskBox<PrimaryKey>, bool>> wrapperList)
         {
-            var minTimestamp = wrapperList.Min(t => t.Value.Event.Base.Timestamp);
-            var maxTimestamp = wrapperList.Max(t => t.Value.Event.Base.Timestamp);
+            var minTimestamp = wrapperList.Min(t => t.Value.Event.BasicInfo.Timestamp);
+            var maxTimestamp = wrapperList.Max(t => t.Value.Event.BasicInfo.Timestamp);
             var minTask = grainConfig.GetCollection(minTimestamp);
             if (!minTask.IsCompletedSuccessfully)
                 await minTask;
@@ -122,7 +122,7 @@ namespace Ray.Storage.Mongo
             {
                 var groups = (await Task.WhenAll(wrapperList.Select(async t =>
                 {
-                    var task = grainConfig.GetCollection(t.Value.Event.Base.Timestamp);
+                    var task = grainConfig.GetCollection(t.Value.Event.BasicInfo.Timestamp);
                     if (!task.IsCompletedSuccessfully)
                         await task;
                     return (task.Result.SubTable, t);
@@ -137,12 +137,12 @@ namespace Ray.Storage.Mongo
                 var collection = grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, minTask.Result.SubTable);
                 var documents = list.Select(wrapper => (wrapper, new BsonDocument
                 {
-                    {"StateId",BsonValue.Create( wrapper.Value.Event.StateId) },
-                    {"Version",wrapper.Value.Event.Base.Version },
-                    {"Timestamp",wrapper.Value.Event.Base.Timestamp },
+                    {"StateId",BsonValue.Create( wrapper.Value.Event.ActorId) },
+                    {"Version",wrapper.Value.Event.BasicInfo.Version },
+                    {"Timestamp",wrapper.Value.Event.BasicInfo.Timestamp },
                     {"TypeCode",typeFinder.GetCode( wrapper.Value.Event.Event.GetType()) },
                     {"Data",wrapper.Value.EventUtf8String},
-                    {"UniqueId",string.IsNullOrEmpty(wrapper.Value.UniqueId) ? wrapper.Value.Event.Base.Version.ToString() : wrapper.Value.UniqueId }
+                    {"UniqueId",string.IsNullOrEmpty(wrapper.Value.UniqueId) ? wrapper.Value.Event.BasicInfo.Version.ToString() : wrapper.Value.UniqueId }
                 }));
                 var session = await grainConfig.Client.Client.StartSessionAsync();
                 session.StartTransaction(new MongoDB.Driver.TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
@@ -180,8 +180,8 @@ namespace Ray.Storage.Mongo
 
         public async Task TransactionBatchAppend(List<EventBox<PrimaryKey>> list)
         {
-            var minTimestamp = list.Min(t => t.FullyEvent.Base.Timestamp);
-            var maxTimestamp = list.Max(t => t.FullyEvent.Base.Timestamp);
+            var minTimestamp = list.Min(t => t.FullyEvent.BasicInfo.Timestamp);
+            var maxTimestamp = list.Max(t => t.FullyEvent.BasicInfo.Timestamp);
             var minTask = grainConfig.GetCollection(minTimestamp);
             if (!minTask.IsCompletedSuccessfully)
                 await minTask;
@@ -194,9 +194,9 @@ namespace Ray.Storage.Mongo
                 {
                     await grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, minTask.Result.SubTable).InsertManyAsync(session, list.Select(data => new BsonDocument
                         {
-                            {"StateId", BsonValue.Create( data.FullyEvent.StateId) },
-                            {"Version", data.FullyEvent.Base.Version },
-                            {"Timestamp", data.FullyEvent.Base.Timestamp},
+                            {"StateId", BsonValue.Create( data.FullyEvent.ActorId) },
+                            {"Version", data.FullyEvent.BasicInfo.Version },
+                            {"Timestamp", data.FullyEvent.BasicInfo.Timestamp},
                             {"TypeCode",typeFinder.GetCode( data.FullyEvent.Event.GetType()) },
                             {"Data", data.EventUtf8String},
                             {"UniqueId",data.UniqueId }
@@ -213,7 +213,7 @@ namespace Ray.Storage.Mongo
             {
                 var groups = (await Task.WhenAll(list.Select(async t =>
                 {
-                    var task = grainConfig.GetCollection(t.FullyEvent.Base.Timestamp);
+                    var task = grainConfig.GetCollection(t.FullyEvent.BasicInfo.Timestamp);
                     if (!task.IsCompletedSuccessfully)
                         await task;
                     return (task.Result.SubTable, t);
@@ -226,9 +226,9 @@ namespace Ray.Storage.Mongo
                     {
                         await grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, group.Key).InsertManyAsync(session, group.Select(data => new BsonDocument
                             {
-                                {"StateId", BsonValue.Create( data.t.FullyEvent.StateId) },
-                                {"Version", data.t.FullyEvent.Base.Version },
-                                {"Timestamp", data.t.FullyEvent.Base.Timestamp},
+                                {"StateId", BsonValue.Create( data.t.FullyEvent.ActorId) },
+                                {"Version", data.t.FullyEvent.BasicInfo.Version },
+                                {"Timestamp", data.t.FullyEvent.BasicInfo.Timestamp},
                                 {"TypeCode",typeFinder.GetCode( data.t.FullyEvent.Event.GetType()) },
                                 {"Data", data.t.EventUtf8String},
                                 {"UniqueId", data.t.UniqueId }
