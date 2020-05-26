@@ -62,15 +62,15 @@ namespace Ray.Storage.SQLServer
                         {
                             list.Add(new FullyEvent<PrimaryKey>
                             {
-                                StateId = stateId,
+                                ActorId = stateId,
                                 Event = evt,
-                                Base = new EventBase(item.Version, item.Timestamp)
+                                BasicInfo = new EventBasicInfo(item.Version, item.Timestamp)
                             });
                         }
                     }
                 }
             });
-            return list.OrderBy(e => e.Base.Version).ToList();
+            return list.OrderBy(e => e.BasicInfo.Version).ToList();
         }
         public async Task<IList<FullyEvent<PrimaryKey>>> GetListByType(PrimaryKey stateId, string typeCode, long startVersion, int limit)
         {
@@ -99,9 +99,9 @@ namespace Ray.Storage.SQLServer
                         {
                             list.Add(new FullyEvent<PrimaryKey>
                             {
-                                StateId = stateId,
+                                ActorId = stateId,
                                 Event = evt,
-                                Base = new EventBase(item.Version, item.Timestamp)
+                                BasicInfo = new EventBasicInfo(item.Version, item.Timestamp)
                             });
                         }
                     }
@@ -109,7 +109,7 @@ namespace Ray.Storage.SQLServer
                         break;
                 }
             }));
-            return list.OrderBy(e => e.Base.Version).ToList();
+            return list.OrderBy(e => e.BasicInfo.Version).ToList();
         }
 
         static readonly ConcurrentDictionary<string, string> saveSqlDict = new ConcurrentDictionary<string, string>();
@@ -127,8 +127,8 @@ namespace Ray.Storage.SQLServer
         }
         private async Task BatchInsertExecuter(List<AskInputBox<EventTaskBox<PrimaryKey>, bool>> wrapperList)
         {
-            var minTimestamp = wrapperList.Min(t => t.Value.Event.Base.Timestamp);
-            var maxTimestamp = wrapperList.Max(t => t.Value.Event.Base.Timestamp);
+            var minTimestamp = wrapperList.Min(t => t.Value.Event.BasicInfo.Timestamp);
+            var maxTimestamp = wrapperList.Max(t => t.Value.Event.BasicInfo.Timestamp);
             var minTask = config.GetTable(minTimestamp);
             if (!minTask.IsCompletedSuccessfully)
                 await minTask;
@@ -140,7 +140,7 @@ namespace Ray.Storage.SQLServer
             {
                 var groups = (await Task.WhenAll(wrapperList.Select(async t =>
                 {
-                    var task = config.GetTable(t.Value.Event.Base.Timestamp);
+                    var task = config.GetTable(t.Value.Event.BasicInfo.Timestamp);
                     if (!task.IsCompletedSuccessfully)
                         await task;
                     return (task.Result.SubTable, t);
@@ -170,12 +170,12 @@ namespace Ray.Storage.SQLServer
                     foreach (var item in wrapperList)
                     {
                         var row = dt.NewRow();
-                        row["stateid"] = item.Value.Event.StateId;
+                        row["stateid"] = item.Value.Event.ActorId;
                         row["uniqueId"] = item.Value.UniqueId;
                         row["typecode"] = typeFinder.GetCode(item.Value.Event.Event.GetType());
                         row["data"] = item.Value.EventUtf8String;
-                        row["version"] = item.Value.Event.Base.Version;
-                        row["timestamp"] = item.Value.Event.Base.Timestamp;
+                        row["version"] = item.Value.Event.BasicInfo.Version;
+                        row["timestamp"] = item.Value.Event.BasicInfo.Timestamp;
                         dt.Rows.Add(row);
                     }
                     await conn.OpenAsync();
@@ -202,12 +202,12 @@ namespace Ray.Storage.SQLServer
                     {
                         wrapper.Value.ReturnValue = await conn.ExecuteAsync(saveSql, new
                         {
-                            StateId = wrapper.Value.Event.StateId.ToString(),
+                            StateId = wrapper.Value.Event.ActorId.ToString(),
                             wrapper.Value.UniqueId,
                             TypeCode = typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
                             Data = wrapper.Value.EventUtf8String,
-                            wrapper.Value.Event.Base.Version,
-                            wrapper.Value.Event.Base.Timestamp
+                            wrapper.Value.Event.BasicInfo.Version,
+                            wrapper.Value.Event.BasicInfo.Timestamp
                         }, trans) > 0;
                     }
                     trans.Commit();
@@ -226,12 +226,12 @@ namespace Ray.Storage.SQLServer
                         {
                             wrapper.TaskSource.TrySetResult(await conn.ExecuteAsync(saveSql, new
                             {
-                                wrapper.Value.Event.StateId,
+                                wrapper.Value.Event.ActorId,
                                 wrapper.Value.UniqueId,
                                 TypeCode = typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
                                 Data = wrapper.Value.EventUtf8String,
-                                wrapper.Value.Event.Base.Version,
-                                wrapper.Value.Event.Base.Timestamp
+                                wrapper.Value.Event.BasicInfo.Version,
+                                wrapper.Value.Event.BasicInfo.Timestamp
                             }) > 0);
                         }
                         catch (Exception ex)
@@ -245,8 +245,8 @@ namespace Ray.Storage.SQLServer
         static readonly ConcurrentDictionary<string, string> copySaveSqlDict = new ConcurrentDictionary<string, string>();
         public async Task TransactionBatchAppend(List<EventBox<PrimaryKey>> list)
         {
-            var minTimestamp = list.Min(t => t.FullyEvent.Base.Timestamp);
-            var maxTimestamp = list.Max(t => t.FullyEvent.Base.Timestamp);
+            var minTimestamp = list.Min(t => t.FullyEvent.BasicInfo.Timestamp);
+            var maxTimestamp = list.Max(t => t.FullyEvent.BasicInfo.Timestamp);
             var minTask = config.GetTable(minTimestamp);
             if (!minTask.IsCompletedSuccessfully)
                 await minTask;
@@ -270,12 +270,12 @@ namespace Ray.Storage.SQLServer
                     foreach (var item in list)
                     {
                         var row = dt.NewRow();
-                        row["stateid"] = item.FullyEvent.StateId;
+                        row["stateid"] = item.FullyEvent.ActorId;
                         row["uniqueId"] = item.UniqueId;
                         row["typecode"] = typeFinder.GetCode(item.FullyEvent.Event.GetType());
                         row["data"] = item.EventUtf8String;
-                        row["version"] = item.FullyEvent.Base.Version;
-                        row["timestamp"] = item.FullyEvent.Base.Timestamp;
+                        row["version"] = item.FullyEvent.BasicInfo.Version;
+                        row["timestamp"] = item.FullyEvent.BasicInfo.Timestamp;
                         dt.Rows.Add(row);
                     }
                     await conn.OpenAsync();
@@ -286,7 +286,7 @@ namespace Ray.Storage.SQLServer
             {
                 var groups = (await Task.WhenAll(list.Select(async t =>
                 {
-                    var task = config.GetTable(t.FullyEvent.Base.Timestamp);
+                    var task = config.GetTable(t.FullyEvent.BasicInfo.Timestamp);
                     if (!task.IsCompletedSuccessfully)
                         await task;
                     return (task.Result.SubTable, t);
@@ -302,12 +302,12 @@ namespace Ray.Storage.SQLServer
                             key => $"INSERT INTO {key}(stateid,uniqueId,typecode,data,version,timestamp) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version,@Timestamp)");
                         await conn.ExecuteAsync(saveSql, group.Select(g => new
                         {
-                            g.t.FullyEvent.StateId,
+                            g.t.FullyEvent.ActorId,
                             g.t.UniqueId,
                             TypeCode = typeFinder.GetCode(g.t.FullyEvent.Event.GetType()),
                             Data = g.t.EventUtf8String,
-                            g.t.FullyEvent.Base.Version,
-                            g.t.FullyEvent.Base.Timestamp
+                            g.t.FullyEvent.BasicInfo.Version,
+                            g.t.FullyEvent.BasicInfo.Timestamp
                         }), trans);
                     }
                     trans.Commit();

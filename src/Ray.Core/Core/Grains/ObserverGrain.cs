@@ -24,9 +24,9 @@ namespace Ray.Core
 {
     public abstract class ObserverGrain<PrimaryKey, MainGrain> : Grain, IObserver
     {
-        private static readonly ConcurrentDictionary<Type, Func<object, IEvent, EventBase, FullyEvent<PrimaryKey>, Task>> grainHandlerDict = new ConcurrentDictionary<Type, Func<object, IEvent, EventBase, FullyEvent<PrimaryKey>, Task>>();
+        private static readonly ConcurrentDictionary<Type, Func<object, IEvent, EventBasicInfo, FullyEvent<PrimaryKey>, Task>> grainHandlerDict = new ConcurrentDictionary<Type, Func<object, IEvent, EventBasicInfo, FullyEvent<PrimaryKey>, Task>>();
         private static readonly ConcurrentDictionary<Type, EventIgnoreAttribute> grainIgnoreEventDict = new ConcurrentDictionary<Type, EventIgnoreAttribute>();
-        readonly Func<object, IEvent, EventBase, FullyEvent<PrimaryKey>, Task> handlerInvokeFunc;
+        readonly Func<object, IEvent, EventBasicInfo, FullyEvent<PrimaryKey>, Task> handlerInvokeFunc;
         readonly EventIgnoreAttribute handlerAttribute;
         public ObserverGrain()
         {
@@ -48,7 +48,7 @@ namespace Ray.Core
                     return parameters.Length >= 1 && parameters.Any(p => typeof(IEvent).IsAssignableFrom(p.ParameterType) && !p.ParameterType.IsInterface);
                 }).ToList();
                 var eventUIDMethod = typeof(CoreExtensions).GetMethod(nameof(CoreExtensions.GetNextUID)).MakeGenericMethod(typeof(PrimaryKey));
-                var dynamicMethod = new DynamicMethod($"Handler_Invoke", typeof(Task), new Type[] { typeof(object), typeof(IEvent), typeof(EventBase), typeof(FullyEvent<PrimaryKey>) }, type, true);
+                var dynamicMethod = new DynamicMethod($"Handler_Invoke", typeof(Task), new Type[] { typeof(object), typeof(IEvent), typeof(EventBasicInfo), typeof(FullyEvent<PrimaryKey>) }, type, true);
                 var ilGen = dynamicMethod.GetILGenerator();
                 var switchMethods = new List<SwitchMethodEmit>();
                 for (int i = 0; i < methods.Count; i++)
@@ -131,7 +131,7 @@ namespace Ray.Core
                     //加载第一个参数
                     if (item.Parameters[0].ParameterType == item.CaseType)
                         LdEventArgs(item, ilGen);
-                    else if (item.Parameters[0].ParameterType == typeof(EventBase))
+                    else if (item.Parameters[0].ParameterType == typeof(EventBasicInfo))
                         ilGen.Emit(OpCodes.Ldarg_2);
                     else if (item.Parameters[0].ParameterType == typeof(EventUID))
                     {
@@ -143,7 +143,7 @@ namespace Ray.Core
                     {
                         if (item.Parameters[1].ParameterType == item.CaseType)
                             LdEventArgs(item, ilGen);
-                        else if (item.Parameters[1].ParameterType == typeof(EventBase))
+                        else if (item.Parameters[1].ParameterType == typeof(EventBasicInfo))
                             ilGen.Emit(OpCodes.Ldarg_2);
                         else if (item.Parameters[1].ParameterType == typeof(EventUID))
                         {
@@ -156,7 +156,7 @@ namespace Ray.Core
                     {
                         if (item.Parameters[2].ParameterType == item.CaseType)
                             LdEventArgs(item, ilGen);
-                        else if (item.Parameters[2].ParameterType == typeof(EventBase))
+                        else if (item.Parameters[2].ParameterType == typeof(EventBasicInfo))
                             ilGen.Emit(OpCodes.Ldarg_2);
                         else if (item.Parameters[2].ParameterType == typeof(EventUID))
                         {
@@ -195,9 +195,9 @@ namespace Ray.Core
                 else
                     ilGen.Emit(OpCodes.Ldloc, declare_1);
                 ilGen.Emit(OpCodes.Ret);
-                var parames = new ParameterExpression[] { Expression.Parameter(typeof(object)), Expression.Parameter(typeof(IEvent)), Expression.Parameter(typeof(EventBase)), Expression.Parameter(typeof(FullyEvent<PrimaryKey>)) };
+                var parames = new ParameterExpression[] { Expression.Parameter(typeof(object)), Expression.Parameter(typeof(IEvent)), Expression.Parameter(typeof(EventBasicInfo)), Expression.Parameter(typeof(FullyEvent<PrimaryKey>)) };
                 var body = Expression.Call(dynamicMethod, parames);
-                return Expression.Lambda<Func<object, IEvent, EventBase, FullyEvent<PrimaryKey>, Task>>(body, parames).Compile();
+                return Expression.Lambda<Func<object, IEvent, EventBasicInfo, FullyEvent<PrimaryKey>, Task>>(body, parames).Compile();
             });
             //加载Event参数
             static void LdEventArgs(SwitchMethodEmit item, ILGenerator gen)
@@ -394,7 +394,7 @@ namespace Ray.Core
                         return Task.CompletedTask;
                 }));
                 var lastEvt = eventList.Last();
-                Snapshot.UnsafeUpdateVersion(lastEvt.Base);
+                Snapshot.UnsafeUpdateVersion(lastEvt.BasicInfo);
             }
             else
             {
@@ -404,7 +404,7 @@ namespace Ray.Core
                     var task = EventDelivered(@event);
                     if (!task.IsCompletedSuccessfully)
                         await task;
-                    Snapshot.UpdateVersion(@event.Base, GrainType);//更新处理完成的Version
+                    Snapshot.UpdateVersion(@event.BasicInfo, GrainType);//更新处理完成的Version
                 }
             }
             var saveTask = SaveSnapshotAsync();
@@ -456,7 +456,7 @@ namespace Ray.Core
                 var startVersion = Snapshot.Version;
                 if (UnprocessedEventList.Count > 0)
                 {
-                    startVersion = UnprocessedEventList.Last().Base.Version;
+                    startVersion = UnprocessedEventList.Last().BasicInfo.Version;
                 }
                 var evtList = items.Value.Select(bytes =>
                 {
@@ -466,13 +466,13 @@ namespace Ray.Core
                         var data = Serializer.Deserialize(transport.EventBytes, msgType);
                         if (data is IEvent @event)
                         {
-                            var eventBase = EventBase.Parse(transport.BaseBytes);
+                            var eventBase = transport.BaseBytes.ParseToEventBase();
                             if (eventBase.Version > startVersion)
                             {
                                 return new FullyEvent<PrimaryKey>
                                 {
-                                    StateId = GrainId,
-                                    Base = eventBase,
+                                    ActorId = GrainId,
+                                    BasicInfo = eventBase,
                                     Event = @event
                                 };
                             }
@@ -489,7 +489,7 @@ namespace Ray.Core
                             Logger.LogInformation($"{nameof(EventConverter.TryParseWithNoId)} failed");
                     }
                     return default;
-                }).Where(o => o != null).OrderBy(o => o.Base.Version).ToList();
+                }).Where(o => o != null).OrderBy(o => o.BasicInfo.Version).ToList();
                 await ConcurrentTell(evtList);
                 if (Logger.IsEnabled(LogLevel.Trace))
                     Logger.LogTrace("OnNext concurrent completed: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(evtList));
@@ -510,13 +510,13 @@ namespace Ray.Core
                 var data = Serializer.Deserialize(transport.EventBytes, msgType);
                 if (data is IEvent @event)
                 {
-                    var eventBase = EventBase.Parse(transport.BaseBytes);
+                    var eventBase = transport.BaseBytes.ParseToEventBase();
                     if (eventBase.Version > Snapshot.Version)
                     {
                         var tellTask = Tell(new FullyEvent<PrimaryKey>
                         {
-                            StateId = GrainId,
-                            Base = eventBase,
+                            ActorId = GrainId,
+                            BasicInfo = eventBase,
                             Event = @event
                         });
                         return tellTask.AsTask();
@@ -563,34 +563,34 @@ namespace Ray.Core
         {
             try
             {
-                if (fullyEvent.Base.Version == Snapshot.Version + 1)
+                if (fullyEvent.BasicInfo.Version == Snapshot.Version + 1)
                 {
                     var task = EventDelivered(fullyEvent);
                     if (!task.IsCompletedSuccessfully)
                         await task;
-                    Snapshot.FullUpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
+                    Snapshot.FullUpdateVersion(fullyEvent.BasicInfo, GrainType);//更新处理完成的Version
                 }
-                else if (fullyEvent.Base.Version > Snapshot.Version)
+                else if (fullyEvent.BasicInfo.Version > Snapshot.Version)
                 {
-                    var eventList = await EventStorage.GetList(GrainId, Snapshot.StartTimestamp, Snapshot.Version + 1, fullyEvent.Base.Version - 1);
+                    var eventList = await EventStorage.GetList(GrainId, Snapshot.StartTimestamp, Snapshot.Version + 1, fullyEvent.BasicInfo.Version - 1);
                     foreach (var evt in eventList)
                     {
                         var task = EventDelivered(evt);
                         if (!task.IsCompletedSuccessfully)
                             await task;
-                        Snapshot.FullUpdateVersion(evt.Base, GrainType);//更新处理完成的Version
+                        Snapshot.FullUpdateVersion(evt.BasicInfo, GrainType);//更新处理完成的Version
                     }
                 }
-                if (fullyEvent.Base.Version == Snapshot.Version + 1)
+                if (fullyEvent.BasicInfo.Version == Snapshot.Version + 1)
                 {
                     var task = EventDelivered(fullyEvent);
                     if (!task.IsCompletedSuccessfully)
                         await task;
-                    Snapshot.FullUpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
+                    Snapshot.FullUpdateVersion(fullyEvent.BasicInfo, GrainType);//更新处理完成的Version
                 }
-                if (fullyEvent.Base.Version > Snapshot.Version)
+                if (fullyEvent.BasicInfo.Version > Snapshot.Version)
                 {
-                    throw new EventVersionUnorderedException(GrainId.ToString(), GrainType, fullyEvent.Base.Version, Snapshot.Version);
+                    throw new EventVersionUnorderedException(GrainId.ToString(), GrainType, fullyEvent.BasicInfo.Version, Snapshot.Version);
                 }
                 var saveTask = SaveSnapshotAsync();
                 if (!saveTask.IsCompletedSuccessfully)
@@ -609,14 +609,14 @@ namespace Ray.Core
             var startVersion = Snapshot.Version;
             if (UnprocessedEventList.Count > 0)
             {
-                startVersion = UnprocessedEventList.Last().Base.Version;
+                startVersion = UnprocessedEventList.Last().BasicInfo.Version;
             }
             if (evtList.Count > 0)
             {
                 var inputLast = evtList.Last();
-                if (startVersion + evtList.Count < inputLast.Base.Version)
+                if (startVersion + evtList.Count < inputLast.BasicInfo.Version)
                 {
-                    var loadList = await EventStorage.GetList(GrainId, 0, startVersion + 1, inputLast.Base.Version - 1);
+                    var loadList = await EventStorage.GetList(GrainId, 0, startVersion + 1, inputLast.BasicInfo.Version - 1);
                     UnprocessedEventList.AddRange(loadList);
                     UnprocessedEventList.Add(inputLast);
                 }
@@ -634,7 +634,7 @@ namespace Ray.Core
                         return task.AsTask();
                     return Task.CompletedTask;
                 }));
-                Snapshot.UnsafeUpdateVersion(UnprocessedEventList.Last().Base);
+                Snapshot.UnsafeUpdateVersion(UnprocessedEventList.Last().BasicInfo);
                 var saveTask = SaveSnapshotAsync();
                 if (!saveTask.IsCompletedSuccessfully)
                     await saveTask;
@@ -647,9 +647,9 @@ namespace Ray.Core
             {
                 if (SnapshotEventVersion > 0 &&
                     Snapshot.Version > 0 &&
-                    fullyEvent.Base.Timestamp < Snapshot.StartTimestamp)
+                    fullyEvent.BasicInfo.Timestamp < Snapshot.StartTimestamp)
                 {
-                    await ObserverSnapshotStorage.UpdateStartTimestamp(Snapshot.StateId, fullyEvent.Base.Timestamp);
+                    await ObserverSnapshotStorage.UpdateStartTimestamp(Snapshot.StateId, fullyEvent.BasicInfo.Timestamp);
                 }
                 var task = OnEventDelivered(fullyEvent);
                 if (!task.IsCompletedSuccessfully)
@@ -671,7 +671,7 @@ namespace Ray.Core
         }
         protected virtual ValueTask OnEventDelivered(FullyEvent<PrimaryKey> fullyEvent)
         {
-            return new ValueTask(handlerInvokeFunc(this, fullyEvent.Event, fullyEvent.Base, fullyEvent));
+            return new ValueTask(handlerInvokeFunc(this, fullyEvent.Event, fullyEvent.BasicInfo, fullyEvent));
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask OnSaveSnapshot() => Consts.ValueTaskDone;

@@ -12,7 +12,7 @@ namespace Ray.Core.Snapshot
     public class SnapshotHandler<PrimaryKey, Snapshot> : ISnapshotHandler<PrimaryKey, Snapshot>
          where Snapshot : class, new()
     {
-        readonly Action<object, Snapshot, IEvent, EventBase> handlerInvokeFunc;
+        readonly Action<object, Snapshot, IEvent, EventBasicInfo> handlerInvokeFunc;
         readonly EventIgnoreAttribute handlerAttribute;
         public SnapshotHandler()
         {
@@ -27,7 +27,7 @@ namespace Ray.Core.Snapshot
                 var parameters = m.GetParameters();
                 return parameters.Length >= 2 && parameters.Any(p => p.ParameterType == typeof(Snapshot)) && parameters.Any(p => typeof(IEvent).IsAssignableFrom(p.ParameterType) && !p.ParameterType.IsInterface);
             }).ToList();
-            var dynamicMethod = new DynamicMethod($"Handler_Invoke", typeof(void), new Type[] { typeof(object), typeof(Snapshot), typeof(IEvent), typeof(EventBase) }, thisType, true);
+            var dynamicMethod = new DynamicMethod($"Handler_Invoke", typeof(void), new Type[] { typeof(object), typeof(Snapshot), typeof(IEvent), typeof(EventBasicInfo) }, thisType, true);
             var ilGen = dynamicMethod.GetILGenerator();
             var switchMethods = new List<SwitchMethodEmit>();
             for (int i = 0; i < methods.Count; i++)
@@ -108,14 +108,14 @@ namespace Ray.Core.Snapshot
                 //加载第一个参数
                 if (item.Parameters[0].ParameterType == typeof(Snapshot))
                     ilGen.Emit(OpCodes.Ldarg_1);
-                else if (item.Parameters[0].ParameterType == typeof(EventBase))
+                else if (item.Parameters[0].ParameterType == typeof(EventBasicInfo))
                     ilGen.Emit(OpCodes.Ldarg_3);
                 else
                     LdEventArgs(item, ilGen);
                 //加载第二个参数
                 if (item.Parameters[1].ParameterType == typeof(Snapshot))
                     ilGen.Emit(OpCodes.Ldarg_1);
-                else if (item.Parameters[1].ParameterType == typeof(EventBase))
+                else if (item.Parameters[1].ParameterType == typeof(EventBasicInfo))
                     ilGen.Emit(OpCodes.Ldarg_3);
                 else
                     LdEventArgs(item, ilGen);
@@ -124,7 +124,7 @@ namespace Ray.Core.Snapshot
                 {
                     if (item.Parameters[1].ParameterType == typeof(Snapshot))
                         ilGen.Emit(OpCodes.Ldarg_1);
-                    else if (item.Parameters[1].ParameterType == typeof(EventBase))
+                    else if (item.Parameters[1].ParameterType == typeof(EventBasicInfo))
                         ilGen.Emit(OpCodes.Ldarg_3);
                     else
                         LdEventArgs(item, ilGen);
@@ -137,9 +137,9 @@ namespace Ray.Core.Snapshot
             ilGen.Emit(OpCodes.Ldarg_2);
             ilGen.Emit(OpCodes.Call, thisType.GetMethod(nameof(DefaultHandler)));
             ilGen.Emit(OpCodes.Ret);
-            var parames = new ParameterExpression[] { Expression.Parameter(typeof(object)), Expression.Parameter(typeof(Snapshot)), Expression.Parameter(typeof(IEvent)), Expression.Parameter(typeof(EventBase)) };
+            var parames = new ParameterExpression[] { Expression.Parameter(typeof(object)), Expression.Parameter(typeof(Snapshot)), Expression.Parameter(typeof(IEvent)), Expression.Parameter(typeof(EventBasicInfo)) };
             var body = Expression.Call(dynamicMethod, parames);
-            handlerInvokeFunc = Expression.Lambda<Action<object, Snapshot, IEvent, EventBase>>(body, parames).Compile();
+            handlerInvokeFunc = Expression.Lambda<Action<object, Snapshot, IEvent, EventBasicInfo>>(body, parames).Compile();
             //加载Event参数
             static void LdEventArgs(SwitchMethodEmit item, ILGenerator gen)
             {
@@ -182,7 +182,7 @@ namespace Ray.Core.Snapshot
         }
         public virtual void Apply(Snapshot<PrimaryKey, Snapshot> snapshot, FullyEvent<PrimaryKey> fullyEvent)
         {
-            handlerInvokeFunc(this, snapshot.State, fullyEvent.Event, fullyEvent.Base);
+            handlerInvokeFunc(this, snapshot.State, fullyEvent.Event, fullyEvent.BasicInfo);
         }
         public void DefaultHandler(IEvent evt)
         {

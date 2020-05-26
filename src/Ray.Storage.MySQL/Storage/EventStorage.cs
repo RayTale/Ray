@@ -60,15 +60,15 @@ namespace Ray.Storage.MySQL
                         {
                             list.Add(new FullyEvent<PrimaryKey>
                             {
-                                StateId = stateId,
+                                ActorId = stateId,
                                 Event = evt,
-                                Base = new EventBase(item.Version, item.Timestamp)
+                                BasicInfo = new EventBasicInfo(item.Version, item.Timestamp)
                             });
                         }
                     }
                 }
             });
-            return list.OrderBy(e => e.Base.Version).ToList();
+            return list.OrderBy(e => e.BasicInfo.Version).ToList();
         }
         static readonly ConcurrentDictionary<string, string> getListByTypeSqlDict = new ConcurrentDictionary<string, string>();
         public async Task<IList<FullyEvent<PrimaryKey>>> GetListByType(PrimaryKey stateId, string typeCode, long startVersion, int limit)
@@ -98,9 +98,9 @@ namespace Ray.Storage.MySQL
                         {
                             list.Add(new FullyEvent<PrimaryKey>
                             {
-                                StateId = stateId,
+                                ActorId = stateId,
                                 Event = evt,
-                                Base = new EventBase(item.Version, item.Timestamp)
+                                BasicInfo = new EventBasicInfo(item.Version, item.Timestamp)
                             });
                         }
                     }
@@ -108,7 +108,7 @@ namespace Ray.Storage.MySQL
                         break;
                 }
             });
-            return list.OrderBy(e => e.Base.Version).ToList();
+            return list.OrderBy(e => e.BasicInfo.Version).ToList();
         }
 
         static readonly ConcurrentDictionary<string, string> saveSqlDict = new ConcurrentDictionary<string, string>();
@@ -137,8 +137,8 @@ namespace Ray.Storage.MySQL
         }
         private async Task BatchInsertExecuter(List<AskInputBox<EventTaskBox<PrimaryKey>, bool>> wrapperList)
         {
-            var minTimestamp = wrapperList.Min(t => t.Value.Event.Base.Timestamp);
-            var maxTimestamp = wrapperList.Max(t => t.Value.Event.Base.Timestamp);
+            var minTimestamp = wrapperList.Min(t => t.Value.Event.BasicInfo.Timestamp);
+            var maxTimestamp = wrapperList.Max(t => t.Value.Event.BasicInfo.Timestamp);
             var minTask = config.GetTable(minTimestamp);
             if (!minTask.IsCompletedSuccessfully)
                 await minTask;
@@ -150,7 +150,7 @@ namespace Ray.Storage.MySQL
             {
                 var groups = (await Task.WhenAll(wrapperList.Select(async t =>
                 {
-                    var task = config.GetTable(t.Value.Event.Base.Timestamp);
+                    var task = config.GetTable(t.Value.Event.BasicInfo.Timestamp);
                     if (!task.IsCompletedSuccessfully)
                         await task;
                     return (task.Result.SubTable, t);
@@ -167,12 +167,12 @@ namespace Ray.Storage.MySQL
                     using var conn = config.CreateConnection();
                     await conn.ExecuteAsync(GetCopySaveSql(tableName), list.Select(wrapper => new
                     {
-                        StateId = wrapper.Value.Event.StateId.ToString(),
+                        StateId = wrapper.Value.Event.ActorId.ToString(),
                         wrapper.Value.UniqueId,
                         TypeCode = typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
                         Data = wrapper.Value.EventUtf8String,
-                        wrapper.Value.Event.Base.Version,
-                        wrapper.Value.Event.Base.Timestamp
+                        wrapper.Value.Event.BasicInfo.Version,
+                        wrapper.Value.Event.BasicInfo.Timestamp
                     }));
                     list.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
                 }
@@ -195,12 +195,12 @@ namespace Ray.Storage.MySQL
                     {
                         wrapper.Value.ReturnValue = await conn.ExecuteAsync(saveSql, new
                         {
-                            StateId = wrapper.Value.Event.StateId.ToString(),
+                            StateId = wrapper.Value.Event.ActorId.ToString(),
                             wrapper.Value.UniqueId,
                             TypeCode = typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
                             Data = wrapper.Value.EventUtf8String,
-                            wrapper.Value.Event.Base.Version,
-                            wrapper.Value.Event.Base.Timestamp
+                            wrapper.Value.Event.BasicInfo.Version,
+                            wrapper.Value.Event.BasicInfo.Timestamp
                         }, trans) > 0;
                     }
                     trans.Commit();
@@ -219,12 +219,12 @@ namespace Ray.Storage.MySQL
                         {
                             wrapper.TaskSource.TrySetResult(await conn.ExecuteAsync(saveSql, new
                             {
-                                wrapper.Value.Event.StateId,
+                                wrapper.Value.Event.ActorId,
                                 wrapper.Value.UniqueId,
                                 TypeCode = typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
                                 Data = wrapper.Value.EventUtf8String,
-                                wrapper.Value.Event.Base.Version,
-                                wrapper.Value.Event.Base.Timestamp
+                                wrapper.Value.Event.BasicInfo.Version,
+                                wrapper.Value.Event.BasicInfo.Timestamp
                             }) > 0);
                         }
                         catch (Exception ex)
@@ -237,14 +237,14 @@ namespace Ray.Storage.MySQL
         }
         public async Task TransactionBatchAppend(List<EventBox<PrimaryKey>> list)
         {
-            var minTimestamp = list.Min(t => t.FullyEvent.Base.Timestamp);
-            var maxTimestamp = list.Max(t => t.FullyEvent.Base.Timestamp);
+            var minTimestamp = list.Min(t => t.FullyEvent.BasicInfo.Timestamp);
+            var maxTimestamp = list.Max(t => t.FullyEvent.BasicInfo.Timestamp);
             var minTask = config.GetTable(minTimestamp);
             if (!minTask.IsCompletedSuccessfully)
                 await minTask;
             var groups = (await Task.WhenAll(list.Select(async t =>
             {
-                var task = config.GetTable(t.FullyEvent.Base.Timestamp);
+                var task = config.GetTable(t.FullyEvent.BasicInfo.Timestamp);
                 if (!task.IsCompletedSuccessfully)
                     await task;
                 return (task.Result.SubTable, t);
@@ -258,12 +258,12 @@ namespace Ray.Storage.MySQL
                 {
                     await conn.ExecuteAsync(GetSaveSql(group.Key), group.Select(g => new
                     {
-                        g.t.FullyEvent.StateId,
+                        g.t.FullyEvent.ActorId,
                         g.t.UniqueId,
                         TypeCode = typeFinder.GetCode(g.t.FullyEvent.Event.GetType()),
                         Data = g.t.EventUtf8String,
-                        g.t.FullyEvent.Base.Version,
-                        g.t.FullyEvent.Base.Timestamp
+                        g.t.FullyEvent.BasicInfo.Version,
+                        g.t.FullyEvent.BasicInfo.Timestamp
                     }).ToArray(), trans);
                 }
                 trans.Commit();

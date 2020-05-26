@@ -1,7 +1,9 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Orleans.Hosting;
 using Ray.Core.Abstractions;
+using Ray.Core.Abstractions.Monitor;
 using Ray.Core.Channels;
+using Ray.Core.Monitor;
 using Ray.Core.Serialization;
 using Ray.Core.Snapshot;
 
@@ -20,6 +22,7 @@ namespace Ray.Core
             serviceCollection.AddSingleton<ISerializer, DefaultJsonSerializer>();
             serviceCollection.AddSingleton<IObserverUnitContainer, ObserverUnitContainer>();
             serviceCollection.AddSingleton<ITypeFinder, TypeFinder>();
+            serviceCollection.AddSingleton<IEventMonitor, EventMonitor>();
         }
         public static ISiloHostBuilder AddRay<StartupConfig>(this ISiloHostBuilder siloHostBuilder)
             where StartupConfig : IStartupConfig, new()

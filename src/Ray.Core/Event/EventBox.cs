@@ -29,7 +29,7 @@ namespace Ray.Core.Event
             {
                 var evtType = FullyEvent.Event.GetType();
                 _TypeCode = typeFinder.GetCode(evtType);
-                _EventBaseArray = FullyEvent.Base.ConvertToBytes();
+                _EventBaseArray = FullyEvent.BasicInfo.ConvertToBytes();
                 _EventBytes = serializer.SerializeToUtf8Bytes(FullyEvent.Event, evtType);
                 _Array = GetConverter().ConvertToBytes();
                 EventUtf8String = Encoding.UTF8.GetString(_EventBytes);
@@ -37,7 +37,7 @@ namespace Ray.Core.Event
         }
         public EventConverter GetConverter()
         {
-            return new EventConverter(_TypeCode, FullyEvent.StateId, _EventBaseArray.AsSpan(), _EventBytes);
+            return new EventConverter(_TypeCode, FullyEvent.ActorId, _EventBaseArray.AsSpan(), _EventBytes);
         }
         public Span<byte> GetSpan() => _Array.AsSpan();
         public void Dispose()

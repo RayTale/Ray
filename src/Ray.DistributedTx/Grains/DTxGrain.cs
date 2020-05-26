@@ -30,7 +30,7 @@ namespace Ray.DistributedTx
             //如果是带Id的事务，则加入事务事件，等待Complete
             if (transactionId > 0)
             {
-                TxRaiseEvent(new TxCommitEvent(CurrentTransactionId, CurrentTransactionStartVersion + 1, WaitingForTransactionTransports.Min(t => t.FullyEvent.Base.Timestamp)));
+                TxRaiseEvent(new TxCommitEvent(CurrentTransactionId, CurrentTransactionStartVersion + 1, WaitingForTransactionTransports.Min(t => t.FullyEvent.BasicInfo.Timestamp)));
             }
             return Consts.ValueTaskDone;
         }
@@ -45,7 +45,7 @@ namespace Ray.DistributedTx
                     {
                         //删除最后一个TransactionCommitEvent
                         await EventStorage.DeleteByVersion(Snapshot.Base.StateId, snapshotBase.TransactionStartVersion, snapshotBase.TransactionStartTimestamp);
-                        var txCommitEvent = WaitingForTransactionTransports.Single(o => o.FullyEvent.Base.Version == snapshotBase.TransactionStartVersion);
+                        var txCommitEvent = WaitingForTransactionTransports.Single(o => o.FullyEvent.BasicInfo.Version == snapshotBase.TransactionStartVersion);
                         WaitingForTransactionTransports.Remove(txCommitEvent);
                         snapshotBase.ClearTransactionInfo(true);
                         backupSnapshotBase.ClearTransactionInfo(true);

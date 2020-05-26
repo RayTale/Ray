@@ -72,7 +72,7 @@ namespace Ray.Core
                     var waitingEvents = await EventStorage.GetList(GrainId, snapshotBase.TransactionStartTimestamp, snapshotBase.TransactionStartVersion, Snapshot.Base.Version);
                     foreach (var evt in waitingEvents)
                     {
-                        var transport = new EventBox<PrimaryKey>(evt, string.Empty, evt.StateId.ToString());
+                        var transport = new EventBox<PrimaryKey>(evt, string.Empty, evt.ActorId.ToString());
                         transport.Parse(TypeFinder, Serializer);
                         WaitingForTransactionTransports.Add(transport);
                     }
@@ -279,15 +279,15 @@ namespace Ray.Core
         /// <param name="bytes">事件序列化之后的二进制数据</param>
         protected override ValueTask OnRaised(FullyEvent<PrimaryKey> fullyEvent, in EventConverter transport)
         {
-            if (BackupSnapshot.Base.Version + 1 == fullyEvent.Base.Version)
+            if (BackupSnapshot.Base.Version + 1 == fullyEvent.BasicInfo.Version)
             {
                 var copiedEvent = new FullyEvent<PrimaryKey>
                 {
                     Event = Serializer.Deserialize(transport.EventBytes, fullyEvent.Event.GetType()) as IEvent,
-                    Base = EventBase.Parse(transport.BaseBytes)
+                    BasicInfo = transport.BaseBytes.ParseToEventBase()
                 };
                 SnapshotHandler.Apply(BackupSnapshot, copiedEvent);
-                BackupSnapshot.Base.FullUpdateVersion(copiedEvent.Base, GrainType);//更新处理完成的Version
+                BackupSnapshot.Base.FullUpdateVersion(copiedEvent.BasicInfo, GrainType);//更新处理完成的Version
             }
             //父级涉及状态归档
             return base.OnRaised(fullyEvent, transport);
@@ -309,9 +309,9 @@ namespace Ray.Core
                 Snapshot.Base.IncrementDoingVersion(GrainType);//标记将要处理的Version
                 var fullyEvent = new FullyEvent<PrimaryKey>
                 {
-                    StateId = GrainId,
+                    ActorId = GrainId,
                     Event = @event,
-                    Base = new EventBase
+                    BasicInfo = new EventBasicInfo
                     {
                         Version = Snapshot.Base.Version + 1
                     }
@@ -319,17 +319,17 @@ namespace Ray.Core
                 string unique = default;
                 if (eUID is null)
                 {
-                    fullyEvent.Base.Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    fullyEvent.BasicInfo.Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                     unique = fullyEvent.GetEventId();
                 }
                 else
                 {
-                    fullyEvent.Base.Timestamp = eUID.Timestamp;
+                    fullyEvent.BasicInfo.Timestamp = eUID.Timestamp;
                     unique = eUID.UID;
                 }
-                WaitingForTransactionTransports.Add(new EventBox<PrimaryKey>(fullyEvent, unique, fullyEvent.StateId.ToString()));
+                WaitingForTransactionTransports.Add(new EventBox<PrimaryKey>(fullyEvent, unique, fullyEvent.ActorId.ToString()));
                 SnapshotHandler.Apply(Snapshot, fullyEvent);
-                Snapshot.Base.UpdateVersion(fullyEvent.Base, GrainType);//更新处理完成的Version
+                Snapshot.Base.UpdateVersion(fullyEvent.BasicInfo, GrainType);//更新处理完成的Version
                 if (Logger.IsEnabled(LogLevel.Trace))
                     Logger.LogTrace("TxRaiseEvent completed: {0}->{1}->{2}", GrainType.FullName, Serializer.Serialize(fullyEvent), Serializer.Serialize(Snapshot));
             }

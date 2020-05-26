@@ -3,7 +3,7 @@
     public class FullyEvent<PrimaryKey>
     {
         public IEvent Event { get; set; }
-        public EventBase Base { get; set; }
-        public PrimaryKey StateId { get; set; }
+        public EventBasicInfo BasicInfo { get; set; }
+        public PrimaryKey ActorId { get; set; }
     }
 }

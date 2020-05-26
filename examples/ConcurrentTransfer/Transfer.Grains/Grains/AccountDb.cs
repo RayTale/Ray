@@ -10,22 +10,22 @@ namespace Transfer.Grains.Grains
     [Observer(DefaultObserverGroup.secondary, "db", typeof(Account))]
     public sealed class AccountDb : ObserverGrain<long, Account>, IAccountDb
     {
-        public Task EventHandle(TransferEvent evt, EventBase eventBase)
+        public Task EventHandle(TransferEvent evt, EventBasicInfo eventBase)
         {
             //此处更新db
             return Task.CompletedTask;
         }
-        public Task EventHandle(TopupEvent evt, EventBase eventBase, EventUID fullyEvent)
+        public Task EventHandle(TopupEvent evt, EventBasicInfo eventBase, EventUID fullyEvent)
         {
             //此处更新db
             return Task.CompletedTask;
         }
-        public Task EventHandle(TransferArrivedEvent evt, EventBase eventBase)
+        public Task EventHandle(TransferArrivedEvent evt, EventBasicInfo eventBase)
         {
             //此处更新db
             return Task.CompletedTask;
         }
-        public Task EventHandle(TransferRefundsEvent evt, EventBase eventBase)
+        public Task EventHandle(TransferRefundsEvent evt, EventBasicInfo eventBase)
         {
             //此处更新db
             return Task.CompletedTask;
