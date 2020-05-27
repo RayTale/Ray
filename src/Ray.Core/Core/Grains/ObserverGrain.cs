@@ -24,9 +24,9 @@ namespace Ray.Core
 {
     public abstract class ObserverGrain<PrimaryKey, MainGrain> : Grain, IObserver
     {
-        private static readonly ConcurrentDictionary<Type, Func<object, IEvent, EventBasicInfo, FullyEvent<PrimaryKey>, Task>> grainHandlerDict = new ConcurrentDictionary<Type, Func<object, IEvent, EventBasicInfo, FullyEvent<PrimaryKey>, Task>>();
+        private static readonly ConcurrentDictionary<Type, Func<object, IEvent, EventBasicInfo, FullyEvent<PrimaryKey>, string, Task>> grainHandlerDict = new ConcurrentDictionary<Type, Func<object, IEvent, EventBasicInfo, FullyEvent<PrimaryKey>, string, Task>>();
         private static readonly ConcurrentDictionary<Type, EventIgnoreAttribute> grainIgnoreEventDict = new ConcurrentDictionary<Type, EventIgnoreAttribute>();
-        readonly Func<object, IEvent, EventBasicInfo, FullyEvent<PrimaryKey>, Task> handlerInvokeFunc;
+        readonly Func<object, IEvent, EventBasicInfo, FullyEvent<PrimaryKey>, string, Task> handlerInvokeFunc;
         readonly EventIgnoreAttribute handlerAttribute;
         public ObserverGrain()
         {
@@ -48,7 +48,7 @@ namespace Ray.Core
                     return parameters.Length >= 1 && parameters.Any(p => typeof(IEvent).IsAssignableFrom(p.ParameterType) && !p.ParameterType.IsInterface);
                 }).ToList();
                 var eventUIDMethod = typeof(CoreExtensions).GetMethod(nameof(CoreExtensions.GetNextUID)).MakeGenericMethod(typeof(PrimaryKey));
-                var dynamicMethod = new DynamicMethod($"Handler_Invoke", typeof(Task), new Type[] { typeof(object), typeof(IEvent), typeof(EventBasicInfo), typeof(FullyEvent<PrimaryKey>) }, type, true);
+                var dynamicMethod = new DynamicMethod($"Handler_Invoke", typeof(Task), new Type[] { typeof(object), typeof(IEvent), typeof(EventBasicInfo), typeof(FullyEvent<PrimaryKey>), typeof(string) }, type, true);
                 var ilGen = dynamicMethod.GetILGenerator();
                 var switchMethods = new List<SwitchMethodEmit>();
                 for (int i = 0; i < methods.Count; i++)
@@ -136,6 +136,7 @@ namespace Ray.Core
                     else if (item.Parameters[0].ParameterType == typeof(EventUID))
                     {
                         ilGen.Emit(OpCodes.Ldarg_3);
+                        ilGen.Emit(OpCodes.Ldarg_S, 4);
                         ilGen.Emit(OpCodes.Call, eventUIDMethod);
                     }
                     //加载第二个参数
@@ -148,6 +149,7 @@ namespace Ray.Core
                         else if (item.Parameters[1].ParameterType == typeof(EventUID))
                         {
                             ilGen.Emit(OpCodes.Ldarg_3);
+                            ilGen.Emit(OpCodes.Ldarg_S, 4);
                             ilGen.Emit(OpCodes.Call, eventUIDMethod);
                         }
                     }
@@ -161,6 +163,7 @@ namespace Ray.Core
                         else if (item.Parameters[2].ParameterType == typeof(EventUID))
                         {
                             ilGen.Emit(OpCodes.Ldarg_3);
+                            ilGen.Emit(OpCodes.Ldarg_S, 4);
                             ilGen.Emit(OpCodes.Call, eventUIDMethod);
                         }
                     }
@@ -195,9 +198,9 @@ namespace Ray.Core
                 else
                     ilGen.Emit(OpCodes.Ldloc, declare_1);
                 ilGen.Emit(OpCodes.Ret);
-                var parames = new ParameterExpression[] { Expression.Parameter(typeof(object)), Expression.Parameter(typeof(IEvent)), Expression.Parameter(typeof(EventBasicInfo)), Expression.Parameter(typeof(FullyEvent<PrimaryKey>)) };
+                var parames = new ParameterExpression[] { Expression.Parameter(typeof(object)), Expression.Parameter(typeof(IEvent)), Expression.Parameter(typeof(EventBasicInfo)), Expression.Parameter(typeof(FullyEvent<PrimaryKey>)), Expression.Parameter(typeof(string)) };
                 var body = Expression.Call(dynamicMethod, parames);
-                return Expression.Lambda<Func<object, IEvent, EventBasicInfo, FullyEvent<PrimaryKey>, Task>>(body, parames).Compile();
+                return Expression.Lambda<Func<object, IEvent, EventBasicInfo, FullyEvent<PrimaryKey>, string, Task>>(body, parames).Compile();
             });
             //加载Event参数
             static void LdEventArgs(SwitchMethodEmit item, ILGenerator gen)
@@ -671,7 +674,7 @@ namespace Ray.Core
         }
         protected virtual ValueTask OnEventDelivered(FullyEvent<PrimaryKey> fullyEvent)
         {
-            return new ValueTask(handlerInvokeFunc(this, fullyEvent.Event, fullyEvent.BasicInfo, fullyEvent));
+            return new ValueTask(handlerInvokeFunc(this, fullyEvent.Event, fullyEvent.BasicInfo, fullyEvent, typeof(MainGrain).Name));
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask OnSaveSnapshot() => Consts.ValueTaskDone;

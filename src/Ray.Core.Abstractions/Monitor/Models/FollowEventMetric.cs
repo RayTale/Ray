@@ -15,6 +15,10 @@
         /// </summary>
         public string Event { get; set; }
         /// <summary>
+        /// 事件量
+        /// </summary>
+        public int Events { get; set; }
+        /// <summary>
         /// 最大执行时间间隔(ms)
         /// </summary>
         public int MaxElapsedMs { get; set; }

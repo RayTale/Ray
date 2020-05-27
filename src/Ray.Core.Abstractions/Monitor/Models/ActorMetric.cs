@@ -15,6 +15,10 @@
         /// </summary>
         public int Events { get; set; }
         /// <summary>
+        /// 幂等忽略的事件量
+        /// </summary>
+        public int Ignores { get; set; }
+        /// <summary>
         /// 单Actor最大事件量
         /// </summary>
         public int MaxEventsPerActor { get; set; }

@@ -7,17 +7,25 @@
         /// </summary>
         public int ActorLives { get; set; }
         /// <summary>
-        /// 事件数量
+        /// 事件总数量
         /// </summary>
         public int Events { get; set; }
         /// <summary>
-        /// 异步产生的事件数量
+        /// 幂等忽略的事件量
         /// </summary>
-        public int FollowEvents { get; set; }
+        public int Ignores { get; set; }
         /// <summary>
-        /// 忽略的时间量
+        /// 单Actor最大事件量
         /// </summary>
-        public int IgnoreEvents { get; set; }
+        public int MaxEventsPerActor { get; set; }
+        /// <summary>
+        /// 单Actor平均事件量
+        /// </summary>
+        public int AvgEventsPerActor { get; set; }
+        /// <summary>
+        /// 单Actor最小事件量
+        /// </summary>
+        public int MinEventsPerActor { get; set; }
         /// <summary>
         /// 时间戳
         /// </summary>

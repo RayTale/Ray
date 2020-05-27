@@ -29,38 +29,45 @@ namespace Ray.Core.Monitor
                         Actor = group.Key,
                         Lives = actorGroup.Count(),
                         Events = group.Count(),
+                        Ignores = group.Where(g => g.Ignore).Count(),
                         MaxEventsPerActor = actorGroup.Max(ag => ag.Count()),
                         AvgEventsPerActor = (int)actorGroup.Average(ag => ag.Count()),
                         MinEventsPerActor = actorGroup.Min(ag => ag.Count())
                     });
-                }
-                foreach (var group in list.GroupBy(e => e.Event))
-                {
-                    var actorGroup = group.GroupBy(g => g.ActorId).ToList();
-                    eventMetrics.Add(new EventMetric
+                    foreach (var evtGroup in group.GroupBy(e => e.Event))
                     {
-                        Event = group.Key,
-                        Actor = group.First().Actor,
-                        Events = group.Count(),
-                        AvgInsertElapsedMs = (int)group.Average(e => e.InsertElapsedMs),
-                        MaxInsertElapsedMs = group.Max(e => e.InsertElapsedMs),
-                        MinInsertElapsedMs = group.Min(e => e.InsertElapsedMs),
-                        MaxPerActor = actorGroup.Max(ag => ag.Count()),
-                        AvgPerActor = (int)actorGroup.Average(ag => ag.Count()),
-                        MinPerActor = actorGroup.Min(ag => ag.Count()),
-                        Ignores = group.Where(g => g.Ignore).Count()
-                    });
-                    foreach (var fromGroup in group.GroupBy(child => child.FromEvent))
-                    {
-                        linkMetrics.Add(new EventLinkMetricElement
+                        var actorIdGroup = evtGroup.GroupBy(g => g.ActorId).ToList();
+                        eventMetrics.Add(new EventMetric
                         {
-                            Event = group.Key,
-                            FromEvent = fromGroup.Key,
-                            Actor = fromGroup.First().Actor,
-                            MaxElapsedMs = fromGroup.Max(fg => fg.IntervalPrevious),
-                            AvgElapsedMs = (int)fromGroup.Average(fg => fg.IntervalPrevious),
-                            MinElapsedMs = fromGroup.Min(fg => fg.IntervalPrevious)
+                            Event = evtGroup.Key,
+                            Actor = group.Key,
+                            Events = evtGroup.Count(),
+                            AvgInsertElapsedMs = (int)evtGroup.Average(e => e.InsertElapsedMs),
+                            MaxInsertElapsedMs = evtGroup.Max(e => e.InsertElapsedMs),
+                            MinInsertElapsedMs = evtGroup.Min(e => e.InsertElapsedMs),
+                            MaxPerActor = actorIdGroup.Max(ag => ag.Count()),
+                            AvgPerActor = (int)actorIdGroup.Average(ag => ag.Count()),
+                            MinPerActor = actorIdGroup.Min(ag => ag.Count()),
+                            Ignores = evtGroup.Where(g => g.Ignore).Count()
                         });
+                        foreach (var fromEvtActorGroup in evtGroup.GroupBy(child => child.FromEventActor))
+                        {
+                            foreach (var fromEvtGroup in fromEvtActorGroup.GroupBy(e => e.FromEvent))
+                            {
+                                linkMetrics.Add(new EventLinkMetricElement
+                                {
+                                    Event = evtGroup.Key,
+                                    FromEvent = fromEvtGroup.Key,
+                                    Actor = group.Key,
+                                    FromEventActor = fromEvtActorGroup.Key,
+                                    Events = fromEvtGroup.Count(),
+                                    Ignores = fromEvtGroup.Where(g => g.Ignore).Count(),
+                                    MaxElapsedMs = fromEvtGroup.Max(fg => fg.IntervalPrevious),
+                                    AvgElapsedMs = (int)fromEvtGroup.Average(fg => fg.IntervalPrevious),
+                                    MinElapsedMs = fromEvtGroup.Min(fg => fg.IntervalPrevious)
+                                });
+                            }
+                        }
                     }
                 }
                 await monitorActor.Report(eventMetrics, actorMetrics, linkMetrics);
@@ -87,6 +94,7 @@ namespace Ray.Core.Monitor
                             Actor = group.Key,
                             FromActor = group.First().FromActor,
                             Event = evtgroup.Key,
+                            Events = evtgroup.Count(),
                             AvgElapsedMs = (int)evtgroup.Average(g => g.ElapsedMs),
                             MaxElapsedMs = evtgroup.Max(g => g.ElapsedMs),
                             MinElapsedMs = evtgroup.Min(g => g.ElapsedMs)

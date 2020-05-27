@@ -7,6 +7,14 @@
         /// </summary>
         public EventLink Link { get; set; }
         /// <summary>
+        /// 事件总数量
+        /// </summary>
+        public int Events { get; set; }
+        /// <summary>
+        /// 幂等忽略的事件量
+        /// </summary>
+        public int Ignores { get; set; }
+        /// <summary>
         /// 过程最大耗时(ms)
         /// </summary>
         public int MaxElapsedMs { get; set; }
