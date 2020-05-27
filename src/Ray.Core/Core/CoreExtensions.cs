@@ -60,7 +60,7 @@ namespace Ray.Core
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static EventUID GetNextUID<PrimaryKey>(this FullyEvent<PrimaryKey> @event, string fromActor)
         {
-            return new EventUID(@event.GetEventId(), @event.BasicInfo.Timestamp, @event.Event.GetType().FullName, fromActor, @event.ActorId.ToString(), @event.BasicInfo.Version);
+            return new EventUID(@event.GetEventId(), @event.BasicInfo.Timestamp, @event.Event.GetType().Name, fromActor, @event.ActorId.ToString(), @event.BasicInfo.Version);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void UnsafeUpdateVersion<PrimaryKey>(this IObserverSnapshot<PrimaryKey> snapshot, EventBasicInfo eventBase)

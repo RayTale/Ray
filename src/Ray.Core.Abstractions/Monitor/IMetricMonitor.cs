@@ -2,7 +2,7 @@
 
 namespace Ray.Core.Abstractions.Monitor
 {
-    public interface IEventMonitor
+    public interface IMetricMonitor
     {
         void Report(EventMetricElement element);
         void Report(List<EventMetricElement> elements);
