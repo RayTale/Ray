@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Orleans;
 using Ray.Core.Abstractions;
+using Ray.Core.Abstractions.Monitor;
 using Ray.Core.Configuration;
 using Ray.Core.Event;
 using Ray.Core.EventBus;
@@ -86,6 +87,10 @@ namespace Ray.Core
         /// </summary>
         protected IProducer EventBusProducer { get; private set; }
         /// <summary>
+        /// 指标收集器
+        /// </summary>
+        protected IMetricMonitor MetricMonitor { get; private set; }
+        /// <summary>
         /// 事件处理器
         /// </summary>
         protected List<Func<BytesBox, Task>> ObserverEventHandlers { get; private set; }
@@ -97,6 +102,7 @@ namespace Ray.Core
             CoreOptions = ServiceProvider.GetOptionsByName<CoreOptions>(GrainType.FullName);
             ArchiveOptions = ServiceProvider.GetOptionsByName<ArchiveOptions>(GrainType.FullName);
             Logger = (ILogger)ServiceProvider.GetService(typeof(ILogger<>).MakeGenericType(GrainType));
+            MetricMonitor = ServiceProvider.GetService<IMetricMonitor>();
             ProducerContainer = ServiceProvider.GetService<IProducerContainer>();
             Serializer = ServiceProvider.GetService<ISerializer>();
             TypeFinder = ServiceProvider.GetService<ITypeFinder>();
@@ -491,7 +497,21 @@ namespace Ray.Core
                 using var baseBytes = fullyEvent.BasicInfo.ConvertToBytes();
                 var typeCode = TypeFinder.GetCode(evtType);
                 var evtBytes = Serializer.SerializeToUtf8Bytes(@event, evtType);
-                if (await EventStorage.Append(fullyEvent, Encoding.UTF8.GetString(evtBytes), unique))
+                var startTime = DateTimeOffset.UtcNow;
+                var appendResult = await EventStorage.Append(fullyEvent, Encoding.UTF8.GetString(evtBytes), unique);
+                var nowTime = DateTimeOffset.UtcNow;
+                MetricMonitor.Report(new EventMetricElement
+                {
+                    Actor = GrainType.Name,
+                    ActorId = GrainId.ToString(),
+                    Event = evtType.Name,
+                    FromEvent = uid?.FromEvent,
+                    FromEventActor = uid?.FromActor,
+                    InsertElapsedMs = (int)nowTime.Subtract(startTime).TotalMilliseconds,
+                    IntervalPrevious = uid == default ? 0 : (int)(nowTime.ToUnixTimeMilliseconds() - uid.Timestamp),
+                    Ignore = !appendResult,
+                });
+                if (appendResult)
                 {
                     SnapshotHandler.Apply(Snapshot, fullyEvent);
                     Snapshot.Base.UpdateVersion(fullyEvent.BasicInfo, GrainType);//更新处理完成的Version

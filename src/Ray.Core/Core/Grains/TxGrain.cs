@@ -1,9 +1,11 @@
 ﻿using Microsoft.Extensions.Logging;
+using Ray.Core.Abstractions.Monitor;
 using Ray.Core.Event;
 using Ray.Core.Exceptions;
 using Ray.Core.Snapshot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -72,7 +74,7 @@ namespace Ray.Core
                     var waitingEvents = await EventStorage.GetList(GrainId, snapshotBase.TransactionStartTimestamp, snapshotBase.TransactionStartVersion, Snapshot.Base.Version);
                     foreach (var evt in waitingEvents)
                     {
-                        var transport = new EventBox<PrimaryKey>(evt, string.Empty, evt.ActorId.ToString());
+                        var transport = new EventBox<PrimaryKey>(evt, default, string.Empty, evt.ActorId.ToString());
                         transport.Parse(TypeFinder, Serializer);
                         WaitingForTransactionTransports.Add(transport);
                     }
@@ -159,7 +161,21 @@ namespace Ray.Core
                             await startTask;
                         transport.Parse(TypeFinder, Serializer);
                     }
+                    var startTime = DateTimeOffset.UtcNow;
                     await EventStorage.TransactionBatchAppend(WaitingForTransactionTransports);
+                    var nowTime = DateTimeOffset.UtcNow;
+                    var metricList = WaitingForTransactionTransports.Select(evt => new EventMetricElement
+                    {
+                        Actor = GrainType.Name,
+                        ActorId = GrainId.ToString(),
+                        Event = evt.FullyEvent.Event.GetType().Name,
+                        FromEvent = evt.EventUID?.FromEvent,
+                        FromEventActor = evt.EventUID?.FromActor,
+                        InsertElapsedMs = (int)nowTime.Subtract(startTime).TotalMilliseconds,
+                        IntervalPrevious = evt.EventUID == default ? 0 : (int)(nowTime.ToUnixTimeMilliseconds() - evt.EventUID.Timestamp),
+                        Ignore = false,
+                    }).ToList();
+                    MetricMonitor.Report(metricList);
                     if (Logger.IsEnabled(LogLevel.Trace))
                         Logger.LogTrace("Transaction Commited: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), transactionId);
                 }
@@ -327,7 +343,7 @@ namespace Ray.Core
                     fullyEvent.BasicInfo.Timestamp = eUID.Timestamp;
                     unique = eUID.UID;
                 }
-                WaitingForTransactionTransports.Add(new EventBox<PrimaryKey>(fullyEvent, unique, fullyEvent.ActorId.ToString()));
+                WaitingForTransactionTransports.Add(new EventBox<PrimaryKey>(fullyEvent, eUID, unique, fullyEvent.ActorId.ToString()));
                 SnapshotHandler.Apply(Snapshot, fullyEvent);
                 Snapshot.Base.UpdateVersion(fullyEvent.BasicInfo, GrainType);//更新处理完成的Version
                 if (Logger.IsEnabled(LogLevel.Trace))

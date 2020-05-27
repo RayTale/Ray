@@ -12,14 +12,16 @@ namespace Ray.Core.Event
         private byte[] _EventBytes;
         private SharedArray _EventBaseArray;
         private SharedArray _Array;
-        public EventBox(FullyEvent<PrimaryKey> fullyEvent, string uniqueId, string hashKey)
+        public EventBox(FullyEvent<PrimaryKey> fullyEvent, EventUID eventUID, string uniqueId, string hashKey)
         {
             FullyEvent = fullyEvent;
+            EventUID = eventUID;
             UniqueId = uniqueId;
             HashKey = hashKey;
 
         }
         public FullyEvent<PrimaryKey> FullyEvent { get; }
+        public EventUID EventUID { get; set; }
         public string UniqueId { get; set; }
         public string HashKey { get; set; }
         public string EventUtf8String { get; private set; }

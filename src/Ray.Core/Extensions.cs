@@ -22,7 +22,7 @@ namespace Ray.Core
             serviceCollection.AddSingleton<ISerializer, DefaultJsonSerializer>();
             serviceCollection.AddSingleton<IObserverUnitContainer, ObserverUnitContainer>();
             serviceCollection.AddSingleton<ITypeFinder, TypeFinder>();
-            serviceCollection.AddSingleton<IEventMonitor, EventMonitor>();
+            serviceCollection.AddSingleton<IMetricMonitor, MetricMonitor>();
         }
         public static ISiloHostBuilder AddRay<StartupConfig>(this ISiloHostBuilder siloHostBuilder)
             where StartupConfig : IStartupConfig, new()
