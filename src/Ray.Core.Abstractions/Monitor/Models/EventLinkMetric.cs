@@ -3,9 +3,21 @@
     public class EventLinkMetric
     {
         /// <summary>
-        /// 链路
+        /// Actor的类型
         /// </summary>
-        public EventLink Link { get; set; }
+        public string Actor { get; set; }
+        /// <summary>
+        /// 当前事件类型名称
+        /// </summary>
+        public string Event { get; set; }
+        /// <summary>
+        /// 上级Actor
+        /// </summary>
+        public string ParentActor { get; set; }
+        /// <summary>
+        /// 上级事件
+        /// </summary>
+        public string ParentEvent { get; set; }
         /// <summary>
         /// 事件总数量
         /// </summary>

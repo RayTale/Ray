@@ -20,7 +20,7 @@ namespace Ray.Core.Monitor.Actors
         readonly Subject<EventLinkMetricElement> eventLinkSubject = new Subject<EventLinkMetricElement>();
         readonly Subject<FollowActorMetric> followActorSubject = new Subject<FollowActorMetric>();
         readonly Subject<FollowEventMetric> followEventSubject = new Subject<FollowEventMetric>();
-        readonly ConcurrentDictionary<string, ConcurrentDictionary<string, EventLink>> eventLinkDict = new ConcurrentDictionary<string, ConcurrentDictionary<string, EventLink>>();
+        readonly ConcurrentDictionary<string, ConcurrentDictionary<string, List<EventLink>>> eventLinkDict = new ConcurrentDictionary<string, ConcurrentDictionary<string, List<EventLink>>>();
         public MonitorActor(IMonitorRepository monitorRepository, IOptions<MonitorOptions> options)
         {
             this.monitorRepository = monitorRepository;
@@ -48,7 +48,7 @@ namespace Ray.Core.Monitor.Actors
                         });
                     }
                 }
-                //TODO 存储
+                //TODO 存储&发布
             });
             actorSubject.Buffer(TimeSpan.FromSeconds(options.Value.ActorMetricFrequency)).Where(list => list.Count > 0).Subscribe(list =>
             {
@@ -78,28 +78,50 @@ namespace Ray.Core.Monitor.Actors
                         Timestamp = timestamp
                     });
                 }
-                //TODO 存储
+                //TODO 存储&发布
             });
             eventLinkSubject.Buffer(TimeSpan.FromSeconds(options.Value.EventLinkMetricFrequency)).Where(list => list.Count > 0).Subscribe(list =>
             {
                 var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 var eventLinkMetrics = new List<EventLinkMetric>();
-                foreach (var evtGroup in list.GroupBy(e => e.Event))
+                foreach (var actorGroup in list.GroupBy(e => e.Actor))
                 {
-                    var linkDict = eventLinkDict.GetOrAdd(evtGroup.Key, key => new ConcurrentDictionary<string, EventLink>());
-                    foreach (var actorGroup in evtGroup.GroupBy(e => e.Actor))
+                    var actorLinkDict = eventLinkDict.GetOrAdd(actorGroup.Key, key => new ConcurrentDictionary<string, List<EventLink>>());
+                    foreach (var evtGroup in actorGroup.GroupBy(e => e.Event))
                     {
-
-                        foreach (var fromEvtActorGroup in evtGroup.GroupBy(e => e.FromEventActor))
+                        foreach (var fromActorGroup in evtGroup.GroupBy(e => e.FromEventActor))
                         {
-                            foreach (var fromEvtGroup in evtGroup.GroupBy(e => e.FromEvent))
+                            foreach (var fromEvtGroup in fromActorGroup.GroupBy(e => e.FromEvent))
                             {
-
+                                var eventLinkList = actorLinkDict.GetOrAdd(evtGroup.Key, key => new List<EventLink>());
+                                if (!eventLinkList.Exists(o => o.ParentActor == fromActorGroup.Key && o.ParentEvent == fromEvtGroup.Key))
+                                {
+                                    eventLinkList.Add(new EventLink
+                                    {
+                                        Actor = actorGroup.Key,
+                                        Event = evtGroup.Key,
+                                        ParentActor = fromActorGroup.Key,
+                                        ParentEvent = fromEvtGroup.Key
+                                    });
+                                }
+                                eventLinkMetrics.Add(new EventLinkMetric
+                                {
+                                    Actor = actorGroup.Key,
+                                    Event = evtGroup.Key,
+                                    ParentActor = fromActorGroup.Key,
+                                    ParentEvent = fromEvtGroup.Key,
+                                    Events = fromEvtGroup.Sum(e => e.Events),
+                                    Ignores = fromEvtGroup.Sum(e => e.Ignores),
+                                    AvgElapsedMs = (int)fromEvtGroup.Average(e => e.AvgElapsedMs),
+                                    MaxElapsedMs = fromEvtGroup.Max(e => e.MaxElapsedMs),
+                                    MinElapsedMs = fromEvtGroup.Min(e => e.MinElapsedMs),
+                                    Timestamp = timestamp
+                                });
                             }
                         }
                     }
                 }
-                //TODO 存储
+                //TODO 存储&发布
             });
             followActorSubject.Buffer(TimeSpan.FromSeconds(options.Value.FollowActorMetricFrequency)).Where(list => list.Count > 0).Subscribe(list =>
             {
@@ -118,7 +140,7 @@ namespace Ray.Core.Monitor.Actors
                         Timestamp = timestamp
                     });
                 }
-                //TODO 存储
+                //TODO 存储&发布
             });
             followEventSubject.Buffer(TimeSpan.FromSeconds(options.Value.FollowEventMetricFrequency)).Where(list => list.Count > 0).Subscribe(list =>
             {
