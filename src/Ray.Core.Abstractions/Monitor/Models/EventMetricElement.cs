@@ -11,9 +11,13 @@
         /// </summary>
         public string FromEvent { get; set; }
         /// <summary>
-        /// 事件来源的Actor名称
+        /// 事件归属Actor
         /// </summary>
         public string Actor { get; set; }
+        /// <summary>
+        /// 来源事件的Actor
+        /// </summary>
+        public string FromEventActor { get; set; }
         /// <summary>
         /// 事件来源的ActorId
         /// </summary>

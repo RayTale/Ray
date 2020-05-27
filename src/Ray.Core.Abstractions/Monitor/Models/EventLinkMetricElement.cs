@@ -3,6 +3,14 @@
     public class EventLinkMetricElement
     {
         /// <summary>
+        /// Actor的类型
+        /// </summary>
+        public string Actor { get; set; }
+        /// <summary>
+        /// 来源的Actor类型
+        /// </summary>
+        public string FromEventActor { get; set; }
+        /// <summary>
         /// 当前事件类型
         /// </summary>
         public string Event { get; set; }
@@ -11,9 +19,13 @@
         /// </summary>
         public string FromEvent { get; set; }
         /// <summary>
-        /// Actor的类型
+        /// 事件总数量
         /// </summary>
-        public string Actor { get; set; }
+        public int Events { get; set; }
+        /// <summary>
+        /// 幂等忽略的事件量
+        /// </summary>
+        public int Ignores { get; set; }
         /// <summary>
         /// 过程最大耗时(ms)
         /// </summary>
