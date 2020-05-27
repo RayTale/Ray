@@ -50,16 +50,17 @@ namespace Ray.Core.Monitor
                             MinPerActor = actorIdGroup.Min(ag => ag.Count()),
                             Ignores = evtGroup.Where(g => g.Ignore).Count()
                         });
-                        foreach (var fromEvtActorGroup in evtGroup.GroupBy(child => child.FromEventActor))
+
+                        foreach (var fromEvtActorGroup in evtGroup.GroupBy(e => e.FromEventActor))
                         {
                             foreach (var fromEvtGroup in fromEvtActorGroup.GroupBy(e => e.FromEvent))
                             {
                                 linkMetrics.Add(new EventLinkMetricElement
                                 {
                                     Event = evtGroup.Key,
+                                    FromEventActor = fromEvtActorGroup.Key,
                                     FromEvent = fromEvtGroup.Key,
                                     Actor = group.Key,
-                                    FromEventActor = fromEvtActorGroup.Key,
                                     Events = fromEvtGroup.Count(),
                                     Ignores = fromEvtGroup.Where(g => g.Ignore).Count(),
                                     MaxElapsedMs = fromEvtGroup.Max(fg => fg.IntervalPrevious),

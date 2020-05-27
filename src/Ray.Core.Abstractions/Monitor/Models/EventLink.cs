@@ -11,8 +11,12 @@
         /// </summary>
         public string Event { get; set; }
         /// <summary>
-        /// 上级
+        /// 上级Actor
         /// </summary>
-        public EventLink Parent { get; set; }
+        public string ParentActor { get; set; }
+        /// <summary>
+        /// 上级事件
+        /// </summary>
+        public string ParentEvent { get; set; }
     }
 }
