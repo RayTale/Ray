@@ -302,6 +302,10 @@ namespace Ray.Core
         /// </summary>
         protected IMetricMonitor MetricMonitor { get; private set; }
         /// <summary>
+        /// 所在的组
+        /// </summary>
+        protected string Group { get; private set; }
+        /// <summary>
         /// 事件存储器
         /// </summary>
         protected IEventStorage<PrimaryKey> EventStorage { get; private set; }
@@ -319,6 +323,7 @@ namespace Ray.Core
             Serializer = ServiceProvider.GetService<ISerializer>();
             TypeFinder = ServiceProvider.GetService<ITypeFinder>();
             Logger = (ILogger)ServiceProvider.GetService(typeof(ILogger<>).MakeGenericType(GrainType));
+            Group = ServiceProvider.GetService<IObserverUnitContainer>().GetUnit<PrimaryKey>(GrainType).GetGroup(GrainType);
             MetricMonitor = ServiceProvider.GetService<IMetricMonitor>();
             var configureBuilder = ServiceProvider.GetService<IConfigureBuilder<PrimaryKey, MainGrain>>();
             var storageConfigTask = configureBuilder.GetConfig(ServiceProvider, GrainId);
@@ -660,9 +665,19 @@ namespace Ray.Core
                 {
                     await ObserverSnapshotStorage.UpdateStartTimestamp(Snapshot.StateId, fullyEvent.BasicInfo.Timestamp);
                 }
+                var startTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 var task = OnEventDelivered(fullyEvent);
                 if (!task.IsCompletedSuccessfully)
                     await task;
+                MetricMonitor.Report(new FollowMetricElement
+                {
+                    Actor = GrainType.Name,
+                    Event = fullyEvent.Event.GetType().Name,
+                    FromActor = typeof(MainGrain).Name,
+                    ElapsedMs = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - startTime),
+                    DeliveryElapsedMs = (int)(startTime - fullyEvent.BasicInfo.Timestamp),
+                    Group = Group
+                });
             }
             catch (Exception ex)
             {

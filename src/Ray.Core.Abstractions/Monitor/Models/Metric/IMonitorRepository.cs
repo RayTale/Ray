@@ -11,6 +11,7 @@ namespace Ray.Core.Abstractions.Monitor
         Task Insert(List<EventLinkMetric> eventLinkMetrics);
         Task Insert(List<FollowActorMetric> actorMetrics);
         Task Insert(List<FollowEventMetric> followEventMetrics);
+        Task Insert(List<FollowGroupMetric> followGroupMetrics);
         Task Insert(List<SnapshotMetric> snapshotMetrics);
         Task Insert(SnapshotSummaryMetric snapshotSummaryMetric);
         Task Insert(List<DtxMetric> dtxMetrics);

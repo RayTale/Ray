@@ -13,7 +13,7 @@ namespace Ray.Core.Monitor
     public class MetricMonitor : IMetricMonitor
     {
         readonly Subject<EventMetricElement> eventSubject = new Subject<EventMetricElement>();
-        readonly Subject<FollowEventMetricElement> followSubject = new Subject<FollowEventMetricElement>();
+        readonly Subject<FollowMetricElement> followSubject = new Subject<FollowMetricElement>();
         readonly Subject<SnapshotMetricElement> snapshotSubject = new Subject<SnapshotMetricElement>();
         readonly Subject<DtxMetricElement> dtxSubject = new Subject<DtxMetricElement>();
         public MetricMonitor(ILogger<MetricMonitor> logger, IGrainFactory grainFactory)
@@ -89,6 +89,7 @@ namespace Ray.Core.Monitor
                 {
                     var followActorMetrics = new List<FollowActorMetric>();
                     var followEventMetrics = new List<FollowEventMetric>();
+                    var followGroupMetrics = new List<FollowGroupMetric>();
                     foreach (var group in list.GroupBy(e => e.Actor))
                     {
                         followActorMetrics.Add(new FollowActorMetric
@@ -114,7 +115,18 @@ namespace Ray.Core.Monitor
                             });
                         }
                     }
-                    await monitorActor.Report(followActorMetrics, followEventMetrics);
+                    foreach (var group in list.GroupBy(e => e.Group))
+                    {
+                        followGroupMetrics.Add(new FollowGroupMetric
+                        {
+                            Group = group.Key,
+                            Events = group.Count(),
+                            MaxElapsedMs = group.Max(g => g.ElapsedMs),
+                            AvgElapsedMs = (int)group.Average(g => g.ElapsedMs),
+                            MinElapsedMs = group.Min(g => g.ElapsedMs)
+                        });
+                    }
+                    await monitorActor.Report(followActorMetrics, followEventMetrics, followGroupMetrics);
                 }
                 catch (Exception ex)
                 {
@@ -182,12 +194,12 @@ namespace Ray.Core.Monitor
         {
             elements.ForEach(e => eventSubject.OnNext(e));
         }
-        public void Report(FollowEventMetricElement element)
+        public void Report(FollowMetricElement element)
         {
             followSubject.OnNext(element);
         }
 
-        public void Report(List<FollowEventMetricElement> elements)
+        public void Report(List<FollowMetricElement> elements)
         {
             elements.ForEach(e => followSubject.OnNext(e));
         }

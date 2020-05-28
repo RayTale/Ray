@@ -101,7 +101,7 @@ namespace Ray.Core
                 throw new UnfindObserverUnitException(grainType.FullName);
         }
 
-        public void Register(IGrainID observerUnit)
+        public void Register(IObserverUnit observerUnit)
         {
             if (!unitDict.TryAdd(observerUnit.GrainType, observerUnit))
             {

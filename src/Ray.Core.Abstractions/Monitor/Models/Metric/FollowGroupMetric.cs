@@ -1,23 +1,27 @@
 ﻿namespace Ray.Core.Abstractions.Monitor
 {
-    public class FollowEventMetric
+    public class FollowGroupMetric
     {
         /// <summary>
-        /// Actor的类型
+        /// Follow分组
         /// </summary>
-        public string Actor { get; set; }
+        public string Group { get; set; }
         /// <summary>
-        /// 归属的Actor的类型
-        /// </summary>
-        public string FromActor { get; set; }
-        /// <summary>
-        /// 事件
-        /// </summary>
-        public string Event { get; set; }
-        /// <summary>
-        /// 事件量
+        /// 执行的事件量
         /// </summary>
         public int Events { get; set; }
+        /// <summary>
+        /// 事件送达的最大耗时(ms)
+        /// </summary>
+        public int MaxDeliveryElapsedMs { get; set; }
+        /// <summary>
+        /// 事件送达的平均耗时(ms)
+        /// </summary>
+        public int AvgDeliveryElapsedMs { get; set; }
+        /// <summary>
+        /// 事件送达的最小耗时(ms)
+        /// </summary>
+        public int MinDeliveryElapsedMs { get; set; }
         /// <summary>
         /// 最大执行时间间隔(ms)
         /// </summary>

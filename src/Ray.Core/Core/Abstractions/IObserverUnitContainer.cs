@@ -6,6 +6,6 @@ namespace Ray.Core.Abstractions
     {
         IObserverUnit<PrimaryKey> GetUnit<PrimaryKey>(Type grainType);
         object GetUnit(Type grainType);
-        void Register(IGrainID followUnit);
+        void Register(IObserverUnit followUnit);
     }
 }
