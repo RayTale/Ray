@@ -1,6 +1,6 @@
 ﻿namespace Ray.Core.Abstractions.Monitor
 {
-    public class SummaryMetric
+    public class EventSummaryMetric
     {
         /// <summary>
         /// 活跃的Actor数量

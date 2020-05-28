@@ -38,9 +38,5 @@
         /// 过程平均耗时(ms)
         /// </summary>
         public int AvgElapsedMs { get; set; }
-        /// <summary>
-        /// 统计时间戳
-        /// </summary>
-        public long Timestamp { get; set; }
     }
 }

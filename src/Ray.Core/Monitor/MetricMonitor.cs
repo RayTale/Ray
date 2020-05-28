@@ -14,6 +14,8 @@ namespace Ray.Core.Monitor
     {
         readonly Subject<EventMetricElement> eventSubject = new Subject<EventMetricElement>();
         readonly Subject<FollowEventMetricElement> followSubject = new Subject<FollowEventMetricElement>();
+        readonly Subject<SnapshotMetricElement> snapshotSubject = new Subject<SnapshotMetricElement>();
+        readonly Subject<DtxMetricElement> dtxSubject = new Subject<DtxMetricElement>();
         public MetricMonitor(ILogger<MetricMonitor> logger, IGrainFactory grainFactory)
         {
             var monitorActor = grainFactory.GetGrain<IMonitorActor>(0);
@@ -119,6 +121,58 @@ namespace Ray.Core.Monitor
                     logger.LogError(ex, ex.Message);
                 }
             });
+            snapshotSubject.Buffer(TimeSpan.FromSeconds(1)).Subscribe(async list =>
+            {
+                try
+                {
+                    var snapshotMetric = new List<SnapshotMetric>();
+                    foreach (var group in list.GroupBy(e => e.Actor))
+                    {
+                        snapshotMetric.Add(new SnapshotMetric
+                        {
+                            Actor = group.Key,
+                            Snapshot = group.First().Snapshot,
+                            SaveCount = group.Count(),
+                            AvgElapsedVersion = (int)group.Average(e => e.ElapsedVersion),
+                            MaxElapsedVersion = group.Max(e => e.ElapsedVersion),
+                            MinElapsedVersion = group.Min(e => e.ElapsedVersion),
+                            AvgSaveElapsedMs = (int)group.Average(e => e.SaveElapsedMs),
+                            MaxSaveElapsedMs = group.Max(e => e.SaveElapsedMs),
+                            MinSaveElapsedMs = group.Min(e => e.SaveElapsedMs)
+                        });
+                    }
+                    await monitorActor.Report(snapshotMetric);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, ex.Message);
+                }
+            });
+            dtxSubject.Buffer(TimeSpan.FromSeconds(1)).Subscribe(async list =>
+            {
+                try
+                {
+                    var dtxMetrics = new List<DtxMetric>();
+                    foreach (var group in list.GroupBy(e => e.Actor))
+                    {
+                        dtxMetrics.Add(new DtxMetric
+                        {
+                            Actor = group.Key,
+                            Times = group.Count(),
+                            Commits = group.Where(e => e.IsCommit).Count(),
+                            Rollbacks = group.Where(e => e.IsRollback).Count(),
+                            AvgElapsedMs = (int)group.Average(g => g.ElapsedMs),
+                            MaxElapsedMs = group.Max(g => g.ElapsedMs),
+                            MinElapsedMs = group.Min(g => g.ElapsedMs)
+                        });
+                    }
+                    await monitorActor.Report(dtxMetrics);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, ex.Message);
+                }
+            });
         }
         public void Report(EventMetricElement element)
         {
@@ -136,6 +190,16 @@ namespace Ray.Core.Monitor
         public void Report(List<FollowEventMetricElement> elements)
         {
             elements.ForEach(e => followSubject.OnNext(e));
+        }
+
+        public void Report(SnapshotMetricElement element)
+        {
+            snapshotSubject.OnNext(element);
+        }
+
+        public void Report(DtxMetricElement element)
+        {
+            dtxSubject.OnNext(element);
         }
     }
 }

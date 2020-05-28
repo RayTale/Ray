@@ -3,9 +3,13 @@
     public class FollowEventMetricElement
     {
         /// <summary>
-        /// Actor的类型
+        /// FollowActor的类型
         /// </summary>
         public string Actor { get; set; }
+        /// <summary>
+        /// Follow所属的Group
+        /// </summary>
+        public string Group { get; set; }
         /// <summary>
         /// 归属的Actor的类型
         /// </summary>

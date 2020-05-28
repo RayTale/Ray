@@ -41,7 +41,8 @@ namespace Ray.Storage.Mongo.Storage
                     UnitName = unitName,
                     TransactionId = commit.TransactionId,
                     Data = serializer.Serialize(commit.Data),
-                    Status = commit.Status
+                    Status = commit.Status,
+                    Timestamp = commit.Timestamp
                 });
                 var writeTask = mpscChannel.WriteAsync(wrap);
                 if (!writeTask.IsCompletedSuccessfully)
@@ -50,7 +51,7 @@ namespace Ray.Storage.Mongo.Storage
             });
         }
 
-        public Task Delete(string unitName, long transactionId)
+        public Task Delete(string unitName, string transactionId)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("UnitName", unitName) & Builders<BsonDocument>.Filter.Eq("TransactionId", transactionId);
             return client.GetCollection<BsonDocument>(transactionOptions.Value.Database, transactionOptions.Value.CollectionName).DeleteOneAsync(filter);
@@ -65,15 +66,16 @@ namespace Ray.Storage.Mongo.Storage
             {
                 list.Add(new Commit<Input>
                 {
-                    TransactionId = document["TransactionId"].AsInt64,
+                    TransactionId = document["TransactionId"].AsString,
                     Status = (TransactionStatus)document["Status"].AsInt32,
-                    Data = serializer.Deserialize<Input>(document["Data"].AsString)
+                    Data = serializer.Deserialize<Input>(document["Data"].AsString),
+                    Timestamp = document["Timestamp"].AsInt64
                 });
             }
             return list;
         }
 
-        public async Task<bool> Update(string unitName, long transactionId, TransactionStatus status)
+        public async Task<bool> Update(string unitName, string transactionId, TransactionStatus status)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("UnitName", unitName) & Builders<BsonDocument>.Filter.Eq("TransactionId", transactionId);
             var update = Builders<BsonDocument>.Update.Set("Status", (short)status);
@@ -88,7 +90,8 @@ namespace Ray.Storage.Mongo.Storage
                     {"UnitName",BsonValue.Create( wrapper.Value.UnitName) },
                     {"TransactionId",wrapper.Value.TransactionId },
                     {"Data",wrapper.Value.Data},
-                    {"Status",(int)wrapper.Value.Status }
+                    {"Status",(int)wrapper.Value.Status },
+                    {"Timestamp",wrapper.Value.Timestamp}
                 }));
             var session = await client.Client.StartSessionAsync();
             session.StartTransaction(new MongoDB.Driver.TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
@@ -125,9 +128,10 @@ namespace Ray.Storage.Mongo.Storage
     }
     public class CommitModel
     {
-        public long TransactionId { get; set; }
+        public string TransactionId { get; set; }
         public string Data { get; set; }
         public TransactionStatus Status { get; set; }
+        public long Timestamp { get; set; }
     }
     public class AppendInput : CommitModel
     {

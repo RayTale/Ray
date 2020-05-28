@@ -4,9 +4,9 @@ namespace Ray.DistributedTx
 {
     public class TxFinishedEvent : IEvent
     {
-        public long Id { get; set; }
+        public string Id { get; set; }
         public TxFinishedEvent() { }
-        public TxFinishedEvent(long transactionId)
+        public TxFinishedEvent(string transactionId)
         {
             Id = transactionId;
         }

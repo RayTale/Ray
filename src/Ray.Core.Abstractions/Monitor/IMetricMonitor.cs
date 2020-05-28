@@ -9,5 +9,7 @@ namespace Ray.Core.Abstractions.Monitor
         void Report(FollowEventMetricElement element);
 
         void Report(List<FollowEventMetricElement> elements);
+        void Report(SnapshotMetricElement element);
+        void Report(DtxMetricElement element);
     }
 }

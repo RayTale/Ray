@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Orleans;
 using Orleans.Configuration;
@@ -52,17 +53,19 @@ namespace RayCore.Tests
             .ConfigureLogging(logging => logging.AddConsole());
         }
     }
-    public class TestSiloConfigurator : ISiloBuilderConfigurator
+    public class TestSiloConfigurator : IHostConfigurator
     {
-        public void Configure(ISiloHostBuilder hostBuilder)
+        public void Configure(IHostBuilder hostBuilder)
         {
-            hostBuilder
-            .AddRay<TransferConfig>()
-            .Configure<EndpointOptions>(options => options.AdvertisedIPAddress = IPAddress.Loopback)
-            .ConfigureApplicationParts(parts =>
+            hostBuilder.UseOrleans(builder =>
             {
-                parts.AddApplicationPart(typeof(Account).Assembly).WithReferences();
-                parts.AddApplicationPart(typeof(UtcUIDGrain).Assembly).WithReferences();
+                builder.AddRay<TransferConfig>()
+                .Configure<EndpointOptions>(options => options.AdvertisedIPAddress = IPAddress.Loopback)
+                .ConfigureApplicationParts(parts =>
+                {
+                    parts.AddApplicationPart(typeof(Account).Assembly).WithReferences();
+                    parts.AddApplicationPart(typeof(UtcUIDGrain).Assembly).WithReferences();
+                });
             })
             .ConfigureServices((context, servicecollection) =>
             {

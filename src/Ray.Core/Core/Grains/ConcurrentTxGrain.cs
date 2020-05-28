@@ -13,7 +13,7 @@ namespace Ray.Core
     public abstract class ConcurrentTxGrain<PrimaryKey, SnapshotType> : TxGrain<PrimaryKey, SnapshotType>
         where SnapshotType : class, ICloneable<SnapshotType>, new()
     {
-        public long defaultTransactionId = 0;
+        public string defaultTransactionId = string.Empty;
         protected IMpscChannel<EventTaskComplexBox<Snapshot<PrimaryKey, SnapshotType>>> ConcurrentChannel { get; private set; }
 
         public override async Task OnActivateAsync()
@@ -43,11 +43,11 @@ namespace Ray.Core
             return await taskSource.Task;
         }
         protected async Task<bool> ConcurrentTxRaiseEvent(
-            long transactionId,
+            string transactionId,
             Func<Snapshot<PrimaryKey, SnapshotType>, Func<IEvent, EventUID, Task>, Task> handler)
         {
             var taskSource = new TaskCompletionSource<bool>();
-            if (transactionId <= 0)
+            if (transactionId == default)
                 throw new TxIdException();
             var writeTask = ConcurrentChannel.WriteAsync(new EventTaskComplexBox<Snapshot<PrimaryKey, SnapshotType>>(transactionId, handler, taskSource));
             if (!writeTask.IsCompletedSuccessfully)

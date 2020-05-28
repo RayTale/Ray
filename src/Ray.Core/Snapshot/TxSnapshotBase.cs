@@ -17,7 +17,7 @@
         /// 当前正在进行中的事务Id(无需持久化)
         /// 本地事务不会记录该值
         /// </summary>
-        public long TransactionId { get; set; }
+        public string TransactionId { get; set; }
         /// <summary>
         /// 事务开始时的版本号(无需持久化)
         /// 本地事务不会记录该值
@@ -36,7 +36,7 @@
             if (TransactionStartVersion != -1)
             {
                 TransactionStartVersion = -1;
-                TransactionId = 0;
+                TransactionId = string.Empty;
                 TransactionStartTimestamp = 0;
                 if (clearTransactionEvent)
                 {
