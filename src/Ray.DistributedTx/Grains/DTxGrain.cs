@@ -25,18 +25,18 @@ namespace Ray.DistributedTx
                 throw new SnapshotHandlerTypeException(SnapshotHandler.GetType().FullName);
             }
         }
-        protected override ValueTask OnCommitTransaction(long transactionId)
+        protected override ValueTask OnCommitTransaction(string transactionId)
         {
             //如果是带Id的事务，则加入事务事件，等待Complete
-            if (transactionId > 0)
+            if (!string.IsNullOrEmpty(transactionId))
             {
                 TxRaiseEvent(new TxCommitEvent(CurrentTransactionId, CurrentTransactionStartVersion + 1, WaitingForTransactionTransports.Min(t => t.FullyEvent.BasicInfo.Timestamp)));
             }
             return Consts.ValueTaskDone;
         }
-        protected override async ValueTask OnFinshTransaction(long transactionId)
+        protected override async ValueTask OnFinshTransaction(string transactionId)
         {
-            if (transactionId > 0)
+            if (!string.IsNullOrEmpty(transactionId))
             {
                 if (!TransactionOptions.RetainTxEvents)
                 {

@@ -31,7 +31,7 @@ namespace Ray.DistributedTx
         protected Type GrainType { get; }
         private IDistributedTxStorage transactionStorage;
         protected ILogger Logger { get; private set; }
-        private readonly ConcurrentDictionary<long, Commit<Input>> inputDict = new ConcurrentDictionary<long, Commit<Input>>();
+        private readonly ConcurrentDictionary<string, Commit<Input>> inputDict = new ConcurrentDictionary<string, Commit<Input>>();
         public override async Task OnActivateAsync()
         {
             Logger = (ILogger)ServiceProvider.GetService(typeof(ILogger<>).MakeGenericType(GrainType));
@@ -160,9 +160,10 @@ namespace Ray.DistributedTx
         {
             var commit = new Commit<Input>
             {
-                TransactionId = long.Parse(NewID()),
+                TransactionId = $"{GrainType.Name}{NewID()}",
                 Status = TransactionStatus.None,
-                Data = input
+                Data = input,
+                Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
             };
             return await Work(commit);
         }

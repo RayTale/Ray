@@ -27,10 +27,10 @@ namespace Ray.Core
         /// </summary>
         protected long TransactionStartMilliseconds { get; private set; }
         /// <summary>
-        /// 0:本地事务
-        /// >0:分布式事务
+        /// empty:本地事务
+        /// !empty:分布式事务
         /// </summary>
-        protected long CurrentTransactionId { get; private set; }
+        protected string CurrentTransactionId { get; private set; }
         /// <summary>
         /// 事务中待提交的数据列表
         /// </summary>
@@ -68,7 +68,7 @@ namespace Ray.Core
             //如果失活之前已提交事务还没有Complete,则消耗信号量，防止产生新的事物
             if (Snapshot.Base is TxSnapshotBase<PrimaryKey> snapshotBase)
             {
-                if (snapshotBase.TransactionId != 0)
+                if (snapshotBase.TransactionId != string.Empty)
                 {
                     await TransactionSemaphore.WaitAsync();
                     var waitingEvents = await EventStorage.GetList(GrainId, snapshotBase.TransactionStartTimestamp, snapshotBase.TransactionStartVersion, Snapshot.Base.Version);
@@ -92,12 +92,12 @@ namespace Ray.Core
         /// </summary>
         private void RestoreTransactionTemporaryState()
         {
-            CurrentTransactionId = 0;
+            CurrentTransactionId = string.Empty;
             CurrentTransactionStartVersion = -1;
             TransactionStartMilliseconds = 0;
         }
         private SemaphoreSlim TransactionTimeoutLock { get; } = new SemaphoreSlim(1, 1);
-        protected async Task BeginTransaction(long transactionId)
+        protected async Task BeginTransaction(string transactionId)
         {
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace("Transaction begin: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), transactionId);
@@ -143,7 +143,7 @@ namespace Ray.Core
             }
 
         }
-        public async Task CommitTransaction(long transactionId)
+        public async Task CommitTransaction(string transactionId)
         {
             if (WaitingForTransactionTransports.Count > 0)
             {
@@ -186,8 +186,8 @@ namespace Ray.Core
                 }
             }
         }
-        protected virtual ValueTask OnCommitTransaction(long transactionId) => Consts.ValueTaskDone;
-        public async Task RollbackTransaction(long transactionId)
+        protected virtual ValueTask OnCommitTransaction(string transactionId) => Consts.ValueTaskDone;
+        public async Task RollbackTransaction(string transactionId)
         {
             if (CurrentTransactionId == transactionId && CurrentTransactionStartVersion != -1 && Snapshot.Base.Version >= CurrentTransactionStartVersion)
             {
@@ -221,7 +221,7 @@ namespace Ray.Core
                 }
             }
         }
-        public async Task FinishTransaction(long transactionId)
+        public async Task FinishTransaction(string transactionId)
         {
             if (CurrentTransactionId == transactionId)
             {
@@ -259,7 +259,7 @@ namespace Ray.Core
                 TransactionSemaphore.Release();
             }
         }
-        protected virtual ValueTask OnFinshTransaction(long transactionId) => Consts.ValueTaskDone;
+        protected virtual ValueTask OnFinshTransaction(string transactionId) => Consts.ValueTaskDone;
         private void SnapshotCheck()
         {
             if (BackupSnapshot.Base.Version != Snapshot.Base.Version)
@@ -285,7 +285,7 @@ namespace Ray.Core
             }
             else
             {
-                throw new BeginTxTimeoutException(GrainId.ToString(), -1, GrainType);
+                throw new BeginTxTimeoutException(GrainId.ToString(), string.Empty, GrainType);
             }
         }
         /// <summary>
@@ -356,9 +356,9 @@ namespace Ray.Core
                 throw;
             }
         }
-        protected async Task TxRaiseEvent(long transactionId, IEvent @event, EventUID uniqueId = null)
+        protected async Task TxRaiseEvent(string transactionId, IEvent @event, EventUID uniqueId = null)
         {
-            if (transactionId <= 0)
+            if (transactionId == default)
                 throw new TxIdException();
             if (transactionId != CurrentTransactionId)
             {

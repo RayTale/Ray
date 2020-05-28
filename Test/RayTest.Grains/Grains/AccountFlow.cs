@@ -1,14 +1,14 @@
 ﻿using Ray.Core;
+using Ray.Core.Abstractions.Observer;
 using Ray.Core.Event;
-using Ray.Core.Observer;
-using System.Threading.Tasks;
 using RayTest.Grains.Events;
 using RayTest.IGrains;
+using System.Threading.Tasks;
 
 namespace RayTest.Grains.Grains
 {
     [EventIgnore(typeof(TopupEvent), typeof(TransferArrivedEvent), typeof(TransferRefundsEvent))]
-    [Observer(DefaultObserverGroup.primary, "flow", typeof(Account))]
+    [Observer(DefaultName.Flow, typeof(Account))]
     public sealed class AccountFlow : ObserverGrain<long, Account>, IAccountFlow
     {
         public Task EventHandle(TransferEvent evt, EventUID uid)

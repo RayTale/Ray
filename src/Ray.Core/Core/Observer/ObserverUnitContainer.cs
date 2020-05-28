@@ -2,8 +2,8 @@
 using Microsoft.Extensions.Logging;
 using Orleans;
 using Ray.Core.Abstractions;
+using Ray.Core.Abstractions.Observer;
 using Ray.Core.Exceptions;
-using Ray.Core.Observer;
 using Ray.Core.Utils;
 using System;
 using System.Collections.Concurrent;

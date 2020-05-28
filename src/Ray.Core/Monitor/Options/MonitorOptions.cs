@@ -22,5 +22,13 @@
         /// 异步事件指标统计频率(s)
         /// </summary>
         public int FollowEventMetricFrequency { get; set; } = 1;
+        /// <summary>
+        /// 快照指标统计频率(s)
+        /// </summary>
+        public int SnapshotMetricFrequency { get; set; } = 1;
+        /// <summary>
+        /// 分布式事务指标统计频率(s)
+        /// </summary>
+        public int DtxMetricFrequency { get; set; } = 1;
     }
 }

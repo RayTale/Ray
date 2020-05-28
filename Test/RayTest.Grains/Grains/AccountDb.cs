@@ -1,13 +1,13 @@
 ﻿using Ray.Core;
+using Ray.Core.Abstractions.Observer;
 using Ray.Core.Event;
-using Ray.Core.Observer;
-using System.Threading.Tasks;
 using RayTest.Grains.Events;
 using RayTest.IGrains;
+using System.Threading.Tasks;
 
 namespace RayTest.Grains.Grains
 {
-    [Observer(DefaultObserverGroup.secondary, "db", typeof(Account))]
+    [Observer(DefaultName.Db, typeof(Account))]
     public sealed class AccountDb : ObserverGrain<long, Account>, IAccountFlow
     {
         public Task EventHandle(TransferEvent evt, EventBasicInfo eventBase)

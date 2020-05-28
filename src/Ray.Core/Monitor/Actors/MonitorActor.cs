@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 
 namespace Ray.Core.Monitor.Actors
 {
+    [Orleans.Concurrency.Reentrant]
     public class MonitorActor : Grain, IMonitorActor
     {
         readonly IMonitorRepository monitorRepository;
@@ -20,11 +21,13 @@ namespace Ray.Core.Monitor.Actors
         readonly Subject<EventLinkMetricElement> eventLinkSubject = new Subject<EventLinkMetricElement>();
         readonly Subject<FollowActorMetric> followActorSubject = new Subject<FollowActorMetric>();
         readonly Subject<FollowEventMetric> followEventSubject = new Subject<FollowEventMetric>();
+        readonly Subject<SnapshotMetric> snapshotSubject = new Subject<SnapshotMetric>();
+        readonly Subject<DtxMetric> dtxSubject = new Subject<DtxMetric>();
         readonly ConcurrentDictionary<string, ConcurrentDictionary<string, List<EventLink>>> eventLinkDict = new ConcurrentDictionary<string, ConcurrentDictionary<string, List<EventLink>>>();
         public MonitorActor(IMonitorRepository monitorRepository, IOptions<MonitorOptions> options)
         {
             this.monitorRepository = monitorRepository;
-            eventSubject.Buffer(TimeSpan.FromSeconds(options.Value.EventMetricFrequency)).Where(list => list.Count > 0).Subscribe(list =>
+            eventSubject.Buffer(TimeSpan.FromSeconds(options.Value.EventMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
             {
                 var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 var eventMetrics = new List<EventMetric>();
@@ -48,22 +51,12 @@ namespace Ray.Core.Monitor.Actors
                         });
                     }
                 }
-                //TODO 存储&发布
+                await monitorRepository.Insert(eventMetrics);
             });
-            actorSubject.Buffer(TimeSpan.FromSeconds(options.Value.ActorMetricFrequency)).Where(list => list.Count > 0).Subscribe(list =>
+            actorSubject.Buffer(TimeSpan.FromSeconds(options.Value.ActorMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
             {
                 var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 var actorMetrics = new List<ActorMetric>();
-                var summaryMetric = new SummaryMetric
-                {
-                    Events = list.Sum(e => e.Events),
-                    Ignores = list.Sum(e => e.Ignores),
-                    ActorLives = list.Sum(e => e.Lives),
-                    AvgEventsPerActor = (int)list.Average(e => e.AvgEventsPerActor),
-                    MaxEventsPerActor = list.Max(e => e.MaxEventsPerActor),
-                    MinEventsPerActor = list.Min(e => e.MinEventsPerActor),
-                    Timestamp = timestamp
-                };
                 foreach (var actorGroup in list.GroupBy(e => e.Actor))
                 {
                     actorMetrics.Add(new ActorMetric
@@ -78,9 +71,20 @@ namespace Ray.Core.Monitor.Actors
                         Timestamp = timestamp
                     });
                 }
-                //TODO 存储&发布
+                var summaryMetric = new EventSummaryMetric
+                {
+                    Events = actorMetrics.Sum(e => e.Events),
+                    Ignores = actorMetrics.Sum(e => e.Ignores),
+                    ActorLives = actorMetrics.Sum(e => e.Lives),
+                    AvgEventsPerActor = (int)actorMetrics.Average(e => e.AvgEventsPerActor),
+                    MaxEventsPerActor = actorMetrics.Max(e => e.MaxEventsPerActor),
+                    MinEventsPerActor = actorMetrics.Min(e => e.MinEventsPerActor),
+                    Timestamp = timestamp
+                };
+                await monitorRepository.Insert(summaryMetric);
+                await monitorRepository.Insert(actorMetrics);
             });
-            eventLinkSubject.Buffer(TimeSpan.FromSeconds(options.Value.EventLinkMetricFrequency)).Where(list => list.Count > 0).Subscribe(list =>
+            eventLinkSubject.Buffer(TimeSpan.FromSeconds(options.Value.EventLinkMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
             {
                 var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 var eventLinkMetrics = new List<EventLinkMetric>();
@@ -121,9 +125,9 @@ namespace Ray.Core.Monitor.Actors
                         }
                     }
                 }
-                //TODO 存储&发布
+                await monitorRepository.Insert(eventLinkMetrics);
             });
-            followActorSubject.Buffer(TimeSpan.FromSeconds(options.Value.FollowActorMetricFrequency)).Where(list => list.Count > 0).Subscribe(list =>
+            followActorSubject.Buffer(TimeSpan.FromSeconds(options.Value.FollowActorMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
             {
                 var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 var followActorMetrics = new List<FollowActorMetric>();
@@ -140,9 +144,9 @@ namespace Ray.Core.Monitor.Actors
                         Timestamp = timestamp
                     });
                 }
-                //TODO 存储&发布
+                await monitorRepository.Insert(followActorMetrics);
             });
-            followEventSubject.Buffer(TimeSpan.FromSeconds(options.Value.FollowEventMetricFrequency)).Where(list => list.Count > 0).Subscribe(list =>
+            followEventSubject.Buffer(TimeSpan.FromSeconds(options.Value.FollowEventMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
             {
                 var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 var followEventMetrics = new List<FollowEventMetric>();
@@ -162,7 +166,72 @@ namespace Ray.Core.Monitor.Actors
                         });
                     }
                 }
-                //TODO 存储
+                await monitorRepository.Insert(followEventMetrics);
+            });
+            snapshotSubject.Buffer(TimeSpan.FromSeconds(options.Value.SnapshotMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
+            {
+                var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                var snapshotMetrics = new List<SnapshotMetric>();
+                foreach (var group in list.GroupBy(e => e.Actor))
+                {
+                    snapshotMetrics.Add(new SnapshotMetric
+                    {
+                        Actor = group.Key,
+                        Snapshot = group.First().Snapshot,
+                        SaveCount = list.Sum(e => e.SaveCount),
+                        AvgElapsedVersion = (int)list.Average(e => e.AvgElapsedVersion),
+                        AvgSaveElapsedMs = (int)list.Average(e => e.AvgSaveElapsedMs),
+                        MaxElapsedVersion = list.Max(e => e.MaxElapsedVersion),
+                        MaxSaveElapsedMs = list.Max(e => e.MaxSaveElapsedMs),
+                        MinElapsedVersion = list.Min(e => e.MinElapsedVersion),
+                        MinSaveElapsedMs = list.Min(e => e.MinSaveElapsedMs),
+                        Timestamp = timestamp
+                    });
+                }
+                var summaryMetric = new SnapshotSummaryMetric
+                {
+                    SaveCount = snapshotMetrics.Sum(e => e.SaveCount),
+                    AvgElapsedVersion = (int)snapshotMetrics.Average(e => e.AvgElapsedVersion),
+                    AvgSaveElapsedMs = (int)snapshotMetrics.Average(e => e.AvgSaveElapsedMs),
+                    MaxElapsedVersion = snapshotMetrics.Max(e => e.MaxElapsedVersion),
+                    MaxSaveElapsedMs = snapshotMetrics.Max(e => e.MaxSaveElapsedMs),
+                    MinElapsedVersion = snapshotMetrics.Min(e => e.MinElapsedVersion),
+                    MinSaveElapsedMs = snapshotMetrics.Min(e => e.MinSaveElapsedMs),
+                    Timestamp = timestamp
+                };
+                await monitorRepository.Insert(snapshotMetrics);
+                await monitorRepository.Insert(summaryMetric);
+            });
+            dtxSubject.Buffer(TimeSpan.FromSeconds(options.Value.DtxMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
+            {
+                var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                var dtxMetrics = new List<DtxMetric>();
+                foreach (var group in list.GroupBy(e => e.Actor))
+                {
+                    dtxMetrics.Add(new DtxMetric
+                    {
+                        Actor = group.Key,
+                        Times = group.Sum(e => e.Times),
+                        Commits = group.Sum(e => e.Commits),
+                        Rollbacks = group.Sum(e => e.Rollbacks),
+                        AvgElapsedMs = (int)group.Average(e => e.AvgElapsedMs),
+                        MaxElapsedMs = group.Max(e => e.MaxElapsedMs),
+                        MinElapsedMs = group.Min(e => e.MinElapsedMs),
+                        Timestamp = timestamp
+                    });
+                }
+                var summaryMetric = new DtxSummaryMetric
+                {
+                    Times = dtxMetrics.Sum(e => e.Times),
+                    Commits = dtxMetrics.Sum(e => e.Commits),
+                    Rollbacks = dtxMetrics.Sum(e => e.Rollbacks),
+                    AvgElapsedMs = (int)dtxMetrics.Average(e => e.AvgElapsedMs),
+                    MaxElapsedMs = dtxMetrics.Max(e => e.MaxElapsedMs),
+                    MinElapsedMs = dtxMetrics.Min(e => e.MinElapsedMs),
+                    Timestamp = timestamp
+                };
+                await monitorRepository.Insert(dtxMetrics);
+                await monitorRepository.Insert(summaryMetric);
             });
         }
         public Task Report(List<EventMetric> eventMetrics, List<ActorMetric> actorMetrics, List<EventLinkMetricElement> eventLinkMetrics)
@@ -177,6 +246,18 @@ namespace Ray.Core.Monitor.Actors
         {
             followActorMetrics.ForEach(e => followActorSubject.OnNext(e));
             followEventMetrics.ForEach(e => followEventSubject.OnNext(e));
+            return Task.CompletedTask;
+        }
+
+        public Task Report(List<SnapshotMetric> snapshotMetrics)
+        {
+            snapshotMetrics.ForEach(e => snapshotSubject.OnNext(e));
+            return Task.CompletedTask;
+        }
+
+        public Task Report(List<DtxMetric> snapshotMetrics)
+        {
+            snapshotMetrics.ForEach(e => dtxSubject.OnNext(e));
             return Task.CompletedTask;
         }
     }

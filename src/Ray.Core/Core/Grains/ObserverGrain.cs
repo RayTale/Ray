@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Orleans;
 using Orleans.Concurrency;
 using Ray.Core.Abstractions;
+using Ray.Core.Abstractions.Monitor;
 using Ray.Core.Configuration;
 using Ray.Core.Event;
 using Ray.Core.Exceptions;
@@ -297,6 +298,10 @@ namespace Ray.Core
         /// </summary>
         protected Type GrainType { get; }
         /// <summary>
+        /// 指标收集器
+        /// </summary>
+        protected IMetricMonitor MetricMonitor { get; private set; }
+        /// <summary>
         /// 事件存储器
         /// </summary>
         protected IEventStorage<PrimaryKey> EventStorage { get; private set; }
@@ -314,6 +319,7 @@ namespace Ray.Core
             Serializer = ServiceProvider.GetService<ISerializer>();
             TypeFinder = ServiceProvider.GetService<ITypeFinder>();
             Logger = (ILogger)ServiceProvider.GetService(typeof(ILogger<>).MakeGenericType(GrainType));
+            MetricMonitor = ServiceProvider.GetService<IMetricMonitor>();
             var configureBuilder = ServiceProvider.GetService<IConfigureBuilder<PrimaryKey, MainGrain>>();
             var storageConfigTask = configureBuilder.GetConfig(ServiceProvider, GrainId);
             if (!storageConfigTask.IsCompletedSuccessfully)

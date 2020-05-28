@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 
-namespace Ray.Core.Observer
+namespace Ray.Core.Abstractions.Observer
 {
     /// <summary>
     /// 标记为观察者
@@ -10,6 +8,14 @@ namespace Ray.Core.Observer
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
     public class ObserverAttribute : Attribute
     {
+        public ObserverAttribute(DefaultName name, Type observable, Type observer = default)
+            : this(GetGroup(name), name.ToString(), observable, observer)
+        {
+        }
+        public ObserverAttribute(DefaultGroup group, DefaultName name, Type observable, Type observer = default)
+           : this(group.ToString(), name.ToString(), observable, observer)
+        {
+        }
         /// <summary>
         /// 事件监听者标记
         /// </summary>
@@ -23,6 +29,16 @@ namespace Ray.Core.Observer
             Name = name;
             Observable = observable;
             Observer = observer;
+        }
+        private static string GetGroup(DefaultName name)
+        {
+            return name switch
+            {
+                DefaultName.Flow => DefaultGroup.primary.ToString(),
+                DefaultName.Shadow => DefaultGroup.primary.ToString(),
+                DefaultName.Db => DefaultGroup.second.ToString(),
+                _ => DefaultGroup.third.ToString()
+            };
         }
         /// <summary>
         /// 监听者分组

@@ -7,7 +7,7 @@ namespace Ray.Core.Event
     {
         readonly TaskCompletionSource<bool> taskCompletionSource;
         public EventTaskComplexBox(
-            long transactionId,
+            string transactionId,
             Func<Snapshot, Func<IEvent, EventUID, Task>, Task> handler,
             TaskCompletionSource<bool> taskCompletionSource)
         {
@@ -15,7 +15,7 @@ namespace Ray.Core.Event
             Handler = handler;
             this.taskCompletionSource = taskCompletionSource;
         }
-        public long TransactionId { get; set; }
+        public string TransactionId { get; set; }
         public bool Executed { get; set; }
         public Func<Snapshot, Func<IEvent, EventUID, Task>, Task> Handler { get; }
         public void Completed(bool result)

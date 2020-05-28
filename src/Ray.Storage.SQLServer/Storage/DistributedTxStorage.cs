@@ -40,7 +40,7 @@ namespace Ray.Storage.SQLServer
             delete_sql = $"delete from {options.Value.TableName} WHERE UnitName=@UnitName and TransactionId=@TransactionId";
             select_list_sql = $"select * from {options.Value.TableName} WHERE UnitName=@UnitName";
             update_sql = $"update {options.Value.TableName} set Status=@Status where UnitName=@UnitName and TransactionId=@TransactionId";
-            insert_sql = $"INSERT INTO {options.Value.TableName}(UnitName,TransactionId,Data,Status) VALUES(@UnitName,@TransactionId,@Data,@Status)";
+            insert_sql = $"INSERT INTO {options.Value.TableName}(UnitName,TransactionId,Data,Status,Timestamp) VALUES(@UnitName,@TransactionId,@Data,@Status,@Timestamp)";
         }
         public DbConnection CreateConnection()
         {
@@ -52,9 +52,10 @@ namespace Ray.Storage.SQLServer
                 if not exists(select 1 from sysobjects where id = object_id('{options.Value.TableName}')and type = 'U')
                 CREATE TABLE {options.Value.TableName}(
                      UnitName varchar(500) not null,
-                     TransactionId bigint not null,
+                     TransactionId varchar(500) not null,
                      Data nvarchar(max) not null,
                      Status int not null,
+                     Timestamp bigint NOT NULL,
                      INDEX UnitName_TransId UNIQUE(UnitName, TransactionId)
                     );";
             using var connection = CreateConnection();
@@ -69,7 +70,8 @@ namespace Ray.Storage.SQLServer
                     UnitName = unitName,
                     TransactionId = commit.TransactionId,
                     Data = serializer.Serialize(commit.Data),
-                    Status = commit.Status
+                    Status = commit.Status,
+                    Timestamp = commit.Timestamp
                 });
                 var writeTask = mpscChannel.WriteAsync(wrap);
                 if (!writeTask.IsCompletedSuccessfully)
@@ -78,7 +80,7 @@ namespace Ray.Storage.SQLServer
             });
         }
 
-        public async Task Delete(string unitName, long transactionId)
+        public async Task Delete(string unitName, string transactionId)
         {
             using var conn = CreateConnection();
             await conn.ExecuteAsync(delete_sql, new { UnitName = unitName, TransactionId = transactionId });
@@ -93,11 +95,12 @@ namespace Ray.Storage.SQLServer
             {
                 TransactionId = model.TransactionId,
                 Status = model.Status,
-                Data = serializer.Deserialize<Input>(model.Data)
+                Data = serializer.Deserialize<Input>(model.Data),
+                Timestamp = model.Timestamp
             }).AsList();
         }
 
-        public async Task<bool> Update(string unitName, long transactionId, TransactionStatus status)
+        public async Task<bool> Update(string unitName, string transactionId, TransactionStatus status)
         {
             using var conn = CreateConnection();
             return await conn.ExecuteAsync(update_sql, new { UnitName = unitName, TransactionId = transactionId, Status = status }) > 0;
@@ -116,9 +119,10 @@ namespace Ray.Storage.SQLServer
                 };
                 using var dt = new DataTable();
                 dt.Columns.Add("UnitName", typeof(string));
-                dt.Columns.Add("TransactionId", typeof(long));
+                dt.Columns.Add("TransactionId", typeof(string));
                 dt.Columns.Add("Data", typeof(string));
                 dt.Columns.Add("Status", typeof(int));
+                dt.Columns.Add("Timestamp", typeof(long));
                 foreach (var item in wrapperList)
                 {
                     var row = dt.NewRow();
@@ -126,6 +130,7 @@ namespace Ray.Storage.SQLServer
                     row["TransactionId"] = item.Value.TransactionId;
                     row["Data"] = item.Value.Data;
                     row["Status"] = (int)item.Value.Status;
+                    row["Timestamp"] = item.Value.Timestamp;
                     dt.Rows.Add(row);
                 }
                 await conn.OpenAsync();
@@ -144,7 +149,8 @@ namespace Ray.Storage.SQLServer
                         wrapper.Value.UnitName,
                         wrapper.Value.TransactionId,
                         wrapper.Value.Data,
-                        Status = (short)wrapper.Value.Status
+                        Status = (short)wrapper.Value.Status,
+                        wrapper.Value.Timestamp
                     }).ToList(), insert_trans);
                     insert_trans.Commit();
                     wrapperList.ForEach(wrap => wrap.TaskSource.TrySetResult(true));
@@ -159,9 +165,10 @@ namespace Ray.Storage.SQLServer
     }
     public class CommitModel
     {
-        public long TransactionId { get; set; }
+        public string TransactionId { get; set; }
         public string Data { get; set; }
         public TransactionStatus Status { get; set; }
+        public long Timestamp { get; set; }
     }
     public class AppendInput : CommitModel
     {
