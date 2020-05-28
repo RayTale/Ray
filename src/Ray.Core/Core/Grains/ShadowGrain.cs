@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Orleans;
 using Orleans.Concurrency;
 using Ray.Core.Abstractions;
+using Ray.Core.Abstractions.Monitor;
 using Ray.Core.Configuration;
 using Ray.Core.Event;
 using Ray.Core.Exceptions;
@@ -75,6 +76,14 @@ namespace Ray.Core
         /// </summary>
         protected Type GrainType { get; }
         /// <summary>
+        /// 指标收集器
+        /// </summary>
+        protected IMetricMonitor MetricMonitor { get; private set; }
+        /// <summary>
+        /// 所在的组
+        /// </summary>
+        protected string Group { get; private set; }
+        /// <summary>
         /// 事件存储器
         /// </summary>
         protected IEventStorage<PrimaryKey> EventStorage { get; private set; }
@@ -95,6 +104,8 @@ namespace Ray.Core
         protected async virtual ValueTask DependencyInjection()
         {
             Logger = (ILogger)ServiceProvider.GetService(typeof(ILogger<>).MakeGenericType(GrainType));
+            Group = ServiceProvider.GetService<IObserverUnitContainer>().GetUnit<PrimaryKey>(GrainType).GetGroup(GrainType);
+            MetricMonitor = ServiceProvider.GetService<IMetricMonitor>();
             CoreOptions = ServiceProvider.GetOptionsByName<CoreOptions>(typeof(Main).FullName);
             TypeFinder = ServiceProvider.GetService<ITypeFinder>();
             ArchiveOptions = ServiceProvider.GetOptionsByName<ArchiveOptions>(typeof(Main).FullName);
@@ -316,7 +327,7 @@ namespace Ray.Core
         {
             if (@event.BasicInfo.Version == Snapshot.Base.Version + 1)
             {
-                var onEventDeliveredTask = OnEventDelivered(@event);
+                var onEventDeliveredTask = EventDelivered(@event);
                 if (!onEventDeliveredTask.IsCompletedSuccessfully)
                     await onEventDeliveredTask;
                 Snapshot.Base.FullUpdateVersion(@event.BasicInfo, GrainType);//更新处理完成的Version
@@ -326,7 +337,7 @@ namespace Ray.Core
                 var eventList = await EventStorage.GetList(GrainId, Snapshot.Base.StartTimestamp, Snapshot.Base.Version + 1, @event.BasicInfo.Version - 1);
                 foreach (var evt in eventList)
                 {
-                    var onEventDeliveredTask = OnEventDelivered(evt);
+                    var onEventDeliveredTask = EventDelivered(evt);
                     if (!onEventDeliveredTask.IsCompletedSuccessfully)
                         await onEventDeliveredTask;
                     Snapshot.Base.FullUpdateVersion(evt.BasicInfo, GrainType);//更新处理完成的Version
@@ -334,7 +345,7 @@ namespace Ray.Core
             }
             if (@event.BasicInfo.Version == Snapshot.Base.Version + 1)
             {
-                var onEventDeliveredTask = OnEventDelivered(@event);
+                var onEventDeliveredTask = EventDelivered(@event);
                 if (!onEventDeliveredTask.IsCompletedSuccessfully)
                     await onEventDeliveredTask;
                 Snapshot.Base.FullUpdateVersion(@event.BasicInfo, GrainType);//更新处理完成的Version
@@ -344,19 +355,32 @@ namespace Ray.Core
                 throw new EventVersionUnorderedException(GrainId.ToString(), GrainType, @event.BasicInfo.Version, Snapshot.Base.Version);
             }
         }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected virtual ValueTask OnEventDelivered(FullyEvent<PrimaryKey> @event)
+        private async ValueTask EventDelivered(FullyEvent<PrimaryKey> fullyEvent)
         {
             try
             {
-                SnapshotHandler.Apply(Snapshot, @event);
+                var startTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                SnapshotHandler.Apply(Snapshot, fullyEvent);
+                var task = OnEventDelivered(fullyEvent);
+                if (!task.IsCompletedSuccessfully)
+                    await task;
+                MetricMonitor.Report(new FollowMetricElement
+                {
+                    Actor = GrainType.Name,
+                    Event = fullyEvent.Event.GetType().Name,
+                    FromActor = typeof(Main).Name,
+                    ElapsedMs = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - startTime),
+                    DeliveryElapsedMs = (int)(startTime - fullyEvent.BasicInfo.Timestamp),
+                    Group = Group
+                });
             }
             catch (Exception ex)
             {
-                Logger.LogCritical(ex, "Delivered failed: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(@event, @event.GetType()));
+                Logger.LogCritical(ex, "Delivered failed: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(fullyEvent, fullyEvent.Event.GetType()));
             }
-            return Consts.ValueTaskDone;
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        protected virtual ValueTask OnEventDelivered(FullyEvent<PrimaryKey> @event) => Consts.ValueTaskDone;
         public virtual Task Reset()
         {
             return ReadSnapshotAsync();

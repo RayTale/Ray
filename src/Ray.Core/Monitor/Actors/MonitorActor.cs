@@ -21,6 +21,7 @@ namespace Ray.Core.Monitor.Actors
         readonly Subject<EventLinkMetricElement> eventLinkSubject = new Subject<EventLinkMetricElement>();
         readonly Subject<FollowActorMetric> followActorSubject = new Subject<FollowActorMetric>();
         readonly Subject<FollowEventMetric> followEventSubject = new Subject<FollowEventMetric>();
+        readonly Subject<FollowGroupMetric> followGroupSubject = new Subject<FollowGroupMetric>();
         readonly Subject<SnapshotMetric> snapshotSubject = new Subject<SnapshotMetric>();
         readonly Subject<DtxMetric> dtxSubject = new Subject<DtxMetric>();
         readonly ConcurrentDictionary<string, ConcurrentDictionary<string, List<EventLink>>> eventLinkDict = new ConcurrentDictionary<string, ConcurrentDictionary<string, List<EventLink>>>();
@@ -233,6 +234,24 @@ namespace Ray.Core.Monitor.Actors
                 await monitorRepository.Insert(dtxMetrics);
                 await monitorRepository.Insert(summaryMetric);
             });
+            followGroupSubject.Buffer(TimeSpan.FromSeconds(options.Value.FollowGroupMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
+            {
+                var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                var followGroupMetrics = new List<FollowGroupMetric>();
+                foreach (var group in list.GroupBy(e => e.Group))
+                {
+                    followGroupMetrics.Add(new FollowGroupMetric
+                    {
+                        Group = group.Key,
+                        Events = group.Sum(e => e.Events),
+                        AvgElapsedMs = (int)group.Average(e => e.AvgElapsedMs),
+                        MaxElapsedMs = group.Max(e => e.MaxElapsedMs),
+                        MinElapsedMs = group.Min(e => e.MinElapsedMs),
+                        Timestamp = timestamp
+                    });
+                }
+                await monitorRepository.Insert(followGroupMetrics);
+            });
         }
         public Task Report(List<EventMetric> eventMetrics, List<ActorMetric> actorMetrics, List<EventLinkMetricElement> eventLinkMetrics)
         {
@@ -242,10 +261,11 @@ namespace Ray.Core.Monitor.Actors
             return Task.CompletedTask;
         }
 
-        public Task Report(List<FollowActorMetric> followActorMetrics, List<FollowEventMetric> followEventMetrics)
+        public Task Report(List<FollowActorMetric> followActorMetrics, List<FollowEventMetric> followEventMetrics, List<FollowGroupMetric> followGroupMetrics)
         {
             followActorMetrics.ForEach(e => followActorSubject.OnNext(e));
             followEventMetrics.ForEach(e => followEventSubject.OnNext(e));
+            followGroupMetrics.ForEach(e => followGroupSubject.OnNext(e));
             return Task.CompletedTask;
         }
 

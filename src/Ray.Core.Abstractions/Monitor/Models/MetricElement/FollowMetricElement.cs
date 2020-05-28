@@ -1,6 +1,6 @@
 ﻿namespace Ray.Core.Abstractions.Monitor
 {
-    public class FollowEventMetricElement
+    public class FollowMetricElement
     {
         /// <summary>
         /// FollowActor的类型
@@ -18,6 +18,10 @@
         /// 事件
         /// </summary>
         public string Event { get; set; }
+        /// <summary>
+        /// 事件送达的耗时(ms)
+        /// </summary>
+        public int DeliveryElapsedMs { get; set; }
         /// <summary>
         /// 执行耗时
         /// </summary>

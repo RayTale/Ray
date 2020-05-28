@@ -29,6 +29,7 @@ namespace Ray.Core
         readonly List<Func<PrimaryKey, long, Task<long>>> observerVersionHandlers = new List<Func<PrimaryKey, long, Task<long>>>();
         readonly List<Func<PrimaryKey, Task>> observerResetHandlers = new List<Func<PrimaryKey, Task>>();
         readonly List<Func<PrimaryKey, long, Task<bool>>> observerSyncHandlers = new List<Func<PrimaryKey, long, Task<bool>>>();
+        readonly Dictionary<Type, string> observerGroupDict = new Dictionary<Type, string>();
         protected ILogger Logger { get; private set; }
         public Type GrainType { get; }
 
@@ -157,6 +158,7 @@ namespace Ray.Core
         {
             if (!typeof(IObserver).IsAssignableFrom(observerType))
                 throw new NotSupportedException($"{observerType.FullName} must inheritance from IObserver");
+            observerGroupDict.Add(observerType, group);
             GetEventHandlers(group).Add(EventHandler);
             GetBatchEventHandlers(group).Add(BatchEventHandler);
             eventHandlers.Add(EventHandler);
@@ -229,6 +231,11 @@ namespace Ray.Core
                 return Expression.Lambda<Func<IClusterClient, PrimaryKey, string, IObserver>>(body, clientParams, primaryKeyParams, grainClassNamePrefixParams).Compile();
             });
             return func(clusterClient, primaryKey, null);
+        }
+
+        public string GetGroup(Type observerType)
+        {
+            return observerGroupDict[observerType];
         }
     }
     public static class ClusterClientExtensions

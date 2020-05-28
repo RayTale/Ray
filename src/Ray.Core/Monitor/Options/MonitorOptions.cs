@@ -23,6 +23,10 @@
         /// </summary>
         public int FollowEventMetricFrequency { get; set; } = 1;
         /// <summary>
+        /// 异步事件分组指标统计频率(s)
+        /// </summary>
+        public int FollowGroupMetricFrequency { get; set; } = 1;
+        /// <summary>
         /// 快照指标统计频率(s)
         /// </summary>
         public int SnapshotMetricFrequency { get; set; } = 1;
