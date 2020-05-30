@@ -1,7 +1,8 @@
 ﻿using Microsoft.Extensions.Options;
 using Orleans;
 using Ray.Core.Abstractions.Monitor;
-using Ray.Core.Abstractions.Monitor.Actors;
+using Ray.Metrics.Metric;
+using Ray.Metrics.Options;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -10,7 +11,7 @@ using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Threading.Tasks;
 
-namespace Ray.Core.Monitor.Actors
+namespace Ray.Metrics.Actors
 {
     [Orleans.Concurrency.Reentrant]
     public class MonitorActor : Grain, IMonitorActor
@@ -18,7 +19,7 @@ namespace Ray.Core.Monitor.Actors
         readonly IMonitorRepository monitorRepository;
         readonly Subject<EventMetric> eventSubject = new Subject<EventMetric>();
         readonly Subject<ActorMetric> actorSubject = new Subject<ActorMetric>();
-        readonly Subject<EventLinkMetricElement> eventLinkSubject = new Subject<EventLinkMetricElement>();
+        readonly Subject<EventLinkMetric> eventLinkSubject = new Subject<EventLinkMetric>();
         readonly Subject<FollowActorMetric> followActorSubject = new Subject<FollowActorMetric>();
         readonly Subject<FollowEventMetric> followEventSubject = new Subject<FollowEventMetric>();
         readonly Subject<FollowGroupMetric> followGroupSubject = new Subject<FollowGroupMetric>();
@@ -94,18 +95,18 @@ namespace Ray.Core.Monitor.Actors
                     var actorLinkDict = eventLinkDict.GetOrAdd(actorGroup.Key, key => new ConcurrentDictionary<string, List<EventLink>>());
                     foreach (var evtGroup in actorGroup.GroupBy(e => e.Event))
                     {
-                        foreach (var fromActorGroup in evtGroup.GroupBy(e => e.FromEventActor))
+                        foreach (var parentActorGroup in evtGroup.GroupBy(e => e.ParentActor))
                         {
-                            foreach (var fromEvtGroup in fromActorGroup.GroupBy(e => e.FromEvent))
+                            foreach (var fromEvtGroup in parentActorGroup.GroupBy(e => e.ParentEvent))
                             {
                                 var eventLinkList = actorLinkDict.GetOrAdd(evtGroup.Key, key => new List<EventLink>());
-                                if (!eventLinkList.Exists(o => o.ParentActor == fromActorGroup.Key && o.ParentEvent == fromEvtGroup.Key))
+                                if (!eventLinkList.Exists(o => o.ParentActor == parentActorGroup.Key && o.ParentEvent == fromEvtGroup.Key))
                                 {
                                     eventLinkList.Add(new EventLink
                                     {
                                         Actor = actorGroup.Key,
                                         Event = evtGroup.Key,
-                                        ParentActor = fromActorGroup.Key,
+                                        ParentActor = parentActorGroup.Key,
                                         ParentEvent = fromEvtGroup.Key
                                     });
                                 }
@@ -113,7 +114,7 @@ namespace Ray.Core.Monitor.Actors
                                 {
                                     Actor = actorGroup.Key,
                                     Event = evtGroup.Key,
-                                    ParentActor = fromActorGroup.Key,
+                                    ParentActor = parentActorGroup.Key,
                                     ParentEvent = fromEvtGroup.Key,
                                     Events = fromEvtGroup.Sum(e => e.Events),
                                     Ignores = fromEvtGroup.Sum(e => e.Ignores),
@@ -253,7 +254,7 @@ namespace Ray.Core.Monitor.Actors
                 await monitorRepository.Insert(followGroupMetrics);
             });
         }
-        public Task Report(List<EventMetric> eventMetrics, List<ActorMetric> actorMetrics, List<EventLinkMetricElement> eventLinkMetrics)
+        public Task Report(List<EventMetric> eventMetrics, List<ActorMetric> actorMetrics, List<EventLinkMetric> eventLinkMetrics)
         {
             eventMetrics.ForEach(e => eventSubject.OnNext(e));
             actorMetrics.ForEach(e => actorSubject.OnNext(e));

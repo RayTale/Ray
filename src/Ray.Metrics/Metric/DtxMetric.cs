@@ -1,29 +1,33 @@
-﻿namespace Ray.Core.Abstractions.Monitor
+﻿namespace Ray.Metrics.Metric
 {
-    public class FollowActorMetric
+    public class DtxMetric
     {
         /// <summary>
-        /// Actor的类型
+        /// 所属Actor
         /// </summary>
         public string Actor { get; set; }
         /// <summary>
-        /// 归属的Actor的类型
+        /// 事务执行次数
         /// </summary>
-        public string FromActor { get; set; }
+        public int Times { get; set; }
         /// <summary>
-        /// 执行的事件量
+        /// 事务执行总次数
         /// </summary>
-        public int Events{ get; set; }
+        public int Commits { get; set; }
         /// <summary>
-        /// 最大执行时间间隔(ms)
+        /// 回滚次数
+        /// </summary>
+        public int Rollbacks { get; set; }
+        /// <summary>
+        ///执行最大耗时(ms)
         /// </summary>
         public int MaxElapsedMs { get; set; }
         /// <summary>
-        /// 最小执行时间间隔(ms)
+        /// 执行最小耗时(ms)
         /// </summary>
         public int MinElapsedMs { get; set; }
         /// <summary>
-        /// 平均执行时间间隔(ms)
+        /// 执行平均耗时(ms)
         /// </summary>
         public int AvgElapsedMs { get; set; }
         /// <summary>

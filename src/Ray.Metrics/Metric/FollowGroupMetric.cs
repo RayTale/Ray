@@ -1,21 +1,13 @@
-﻿namespace Ray.Core.Abstractions.Monitor
+﻿namespace Ray.Metrics.Metric
 {
-    public class FollowEventMetric
+    public class FollowGroupMetric
     {
         /// <summary>
-        /// Actor的类型
+        /// Follow分组
         /// </summary>
-        public string Actor { get; set; }
+        public string Group { get; set; }
         /// <summary>
-        /// 归属的Actor的类型
-        /// </summary>
-        public string FromActor { get; set; }
-        /// <summary>
-        /// 事件
-        /// </summary>
-        public string Event { get; set; }
-        /// <summary>
-        /// 事件量
+        /// 执行的事件量
         /// </summary>
         public int Events { get; set; }
         /// <summary>

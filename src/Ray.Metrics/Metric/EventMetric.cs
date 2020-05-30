@@ -1,4 +1,4 @@
-﻿namespace Ray.Core.Abstractions.Monitor
+﻿namespace Ray.Metrics.Metric
 {
     /// <summary>
     /// 事件监控指标

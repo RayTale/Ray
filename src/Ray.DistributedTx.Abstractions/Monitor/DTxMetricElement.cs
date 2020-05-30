@@ -1,6 +1,6 @@
-﻿namespace Ray.Core.Abstractions.Monitor
+﻿namespace Ray.DistributedTx.Abstractions
 {
-    public class DtxMetricElement
+    public class DTxMetricElement
     {
         /// <summary>
         /// 所属Actor

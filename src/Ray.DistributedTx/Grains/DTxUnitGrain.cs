@@ -31,11 +31,16 @@ namespace Ray.DistributedTx
         protected Type GrainType { get; }
         private IDistributedTxStorage transactionStorage;
         protected ILogger Logger { get; private set; }
+        /// <summary>
+        /// 指标收集器
+        /// </summary>
+        protected IDTxMetricMonitor MetricMonitor { get; private set; }
         private readonly ConcurrentDictionary<string, Commit<Input>> inputDict = new ConcurrentDictionary<string, Commit<Input>>();
         public override async Task OnActivateAsync()
         {
             Logger = (ILogger)ServiceProvider.GetService(typeof(ILogger<>).MakeGenericType(GrainType));
             transactionStorage = ServiceProvider.GetService<IDistributedTxStorage>();
+            MetricMonitor = ServiceProvider.GetService<IDTxMetricMonitor>();
             var inputList = await transactionStorage.GetList<Input>(GrainType.FullName);
             foreach (var input in inputList)
             {
@@ -120,6 +125,16 @@ namespace Ray.DistributedTx
                     Logger.LogCritical(ex, ex.Message);
                 }
             }
+            if (MetricMonitor != default)
+            {
+                MetricMonitor.Report(new DTxMetricElement
+                {
+                    Actor = GrainType.Name,
+                    ElapsedMs = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - commit.Timestamp),
+                    IsCommit = true,
+                    IsRollback = false
+                });
+            }
         }
         private async Task Rollback(Commit<Input> commit, IDistributedTx[] actors)
         {
@@ -131,6 +146,16 @@ namespace Ray.DistributedTx
                 inputDict.TryRemove(commit.TransactionId, out var _);
                 if (commit.Status >= TransactionStatus.Persistence)
                     await transactionStorage.Delete(GrainType.FullName, commit.TransactionId);
+            }
+            if (MetricMonitor != default)
+            {
+                MetricMonitor.Report(new DTxMetricElement
+                {
+                    Actor = GrainType.Name,
+                    ElapsedMs = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - commit.Timestamp),
+                    IsCommit = false,
+                    IsRollback = true
+                });
             }
         }
         protected Task Rollback(Commit<Input> commit)

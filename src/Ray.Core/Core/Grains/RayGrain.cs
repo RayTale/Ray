@@ -336,13 +336,36 @@ namespace Ray.Core
                         await onSaveSnapshotTask;
                     Snapshot.Base.LatestMinEventTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                     Snapshot.Base.IsLatest = isLatest;
-                    if (SnapshotEventVersion == 0)
+                    if (MetricMonitor != default)
                     {
-                        await SnapshotStorage.Insert(Snapshot);
+                        var startTime = DateTimeOffset.UtcNow;
+                        if (SnapshotEventVersion == 0)
+                        {
+                            await SnapshotStorage.Insert(Snapshot);
+                        }
+                        else
+                        {
+                            await SnapshotStorage.Update(Snapshot);
+                        }
+                        var metric = new SnapshotMetricElement
+                        {
+                            Actor = GrainType.Name,
+                            ElapsedVersion = (int)(Snapshot.Base.Version - SnapshotEventVersion),
+                            SaveElapsedMs = (int)DateTimeOffset.UtcNow.Subtract(startTime).TotalMilliseconds,
+                            Snapshot = typeof(StateType).Name
+                        };
+                        MetricMonitor.Report(metric);
                     }
                     else
                     {
-                        await SnapshotStorage.Update(Snapshot);
+                        if (SnapshotEventVersion == 0)
+                        {
+                            await SnapshotStorage.Insert(Snapshot);
+                        }
+                        else
+                        {
+                            await SnapshotStorage.Update(Snapshot);
+                        }
                     }
                     SnapshotEventVersion = Snapshot.Base.Version;
                     if (Logger.IsEnabled(LogLevel.Trace))
@@ -497,20 +520,28 @@ namespace Ray.Core
                 using var baseBytes = fullyEvent.BasicInfo.ConvertToBytes();
                 var typeCode = TypeFinder.GetCode(evtType);
                 var evtBytes = Serializer.SerializeToUtf8Bytes(@event, evtType);
-                var startTime = DateTimeOffset.UtcNow;
-                var appendResult = await EventStorage.Append(fullyEvent, Encoding.UTF8.GetString(evtBytes), unique);
-                var nowTime = DateTimeOffset.UtcNow;
-                MetricMonitor.Report(new EventMetricElement
+                bool appendResult;
+                if (MetricMonitor != default)
                 {
-                    Actor = GrainType.Name,
-                    ActorId = GrainId.ToString(),
-                    Event = evtType.Name,
-                    FromEvent = uid?.FromEvent,
-                    FromEventActor = uid?.FromActor,
-                    InsertElapsedMs = (int)nowTime.Subtract(startTime).TotalMilliseconds,
-                    IntervalPrevious = uid == default ? 0 : (int)(nowTime.ToUnixTimeMilliseconds() - uid.Timestamp),
-                    Ignore = !appendResult,
-                });
+                    var startTime = DateTimeOffset.UtcNow;
+                    appendResult = await EventStorage.Append(fullyEvent, Encoding.UTF8.GetString(evtBytes), unique);
+                    var nowTime = DateTimeOffset.UtcNow;
+                    MetricMonitor.Report(new EventMetricElement
+                    {
+                        Actor = GrainType.Name,
+                        ActorId = GrainId.ToString(),
+                        Event = evtType.Name,
+                        FromEvent = uid?.FromEvent,
+                        FromEventActor = uid?.FromActor,
+                        InsertElapsedMs = (int)nowTime.Subtract(startTime).TotalMilliseconds,
+                        IntervalPrevious = uid == default ? 0 : (int)(nowTime.ToUnixTimeMilliseconds() - uid.Timestamp),
+                        Ignore = !appendResult,
+                    });
+                }
+                else
+                {
+                    appendResult = await EventStorage.Append(fullyEvent, Encoding.UTF8.GetString(evtBytes), unique);
+                }
                 if (appendResult)
                 {
                     SnapshotHandler.Apply(Snapshot, fullyEvent);

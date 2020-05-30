@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace Ray.Core.Abstractions.Monitor
+namespace Ray.Metrics.Metric
 {
     public interface IMonitorRepository
     {
