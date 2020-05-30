@@ -161,21 +161,28 @@ namespace Ray.Core
                             await startTask;
                         transport.Parse(TypeFinder, Serializer);
                     }
-                    var startTime = DateTimeOffset.UtcNow;
-                    await EventStorage.TransactionBatchAppend(WaitingForTransactionTransports);
-                    var nowTime = DateTimeOffset.UtcNow;
-                    var metricList = WaitingForTransactionTransports.Select(evt => new EventMetricElement
+                    if (MetricMonitor != default)
                     {
-                        Actor = GrainType.Name,
-                        ActorId = GrainId.ToString(),
-                        Event = evt.FullyEvent.Event.GetType().Name,
-                        FromEvent = evt.EventUID?.FromEvent,
-                        FromEventActor = evt.EventUID?.FromActor,
-                        InsertElapsedMs = (int)nowTime.Subtract(startTime).TotalMilliseconds,
-                        IntervalPrevious = evt.EventUID == default ? 0 : (int)(nowTime.ToUnixTimeMilliseconds() - evt.EventUID.Timestamp),
-                        Ignore = false,
-                    }).ToList();
-                    MetricMonitor.Report(metricList);
+                        var startTime = DateTimeOffset.UtcNow;
+                        await EventStorage.TransactionBatchAppend(WaitingForTransactionTransports);
+                        var nowTime = DateTimeOffset.UtcNow;
+                        var metricList = WaitingForTransactionTransports.Select(evt => new EventMetricElement
+                        {
+                            Actor = GrainType.Name,
+                            ActorId = GrainId.ToString(),
+                            Event = evt.FullyEvent.Event.GetType().Name,
+                            FromEvent = evt.EventUID?.FromEvent,
+                            FromEventActor = evt.EventUID?.FromActor,
+                            InsertElapsedMs = (int)nowTime.Subtract(startTime).TotalMilliseconds,
+                            IntervalPrevious = evt.EventUID == default ? 0 : (int)(nowTime.ToUnixTimeMilliseconds() - evt.EventUID.Timestamp),
+                            Ignore = false,
+                        }).ToList();
+                        MetricMonitor.Report(metricList);
+                    }
+                    else
+                    {
+                        await EventStorage.TransactionBatchAppend(WaitingForTransactionTransports);
+                    }
                     if (Logger.IsEnabled(LogLevel.Trace))
                         Logger.LogTrace("Transaction Commited: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), transactionId);
                 }

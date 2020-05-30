@@ -359,20 +359,30 @@ namespace Ray.Core
         {
             try
             {
-                var startTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                SnapshotHandler.Apply(Snapshot, fullyEvent);
-                var task = OnEventDelivered(fullyEvent);
-                if (!task.IsCompletedSuccessfully)
-                    await task;
-                MetricMonitor.Report(new FollowMetricElement
+                if (MetricMonitor != default)
                 {
-                    Actor = GrainType.Name,
-                    Event = fullyEvent.Event.GetType().Name,
-                    FromActor = typeof(Main).Name,
-                    ElapsedMs = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - startTime),
-                    DeliveryElapsedMs = (int)(startTime - fullyEvent.BasicInfo.Timestamp),
-                    Group = Group
-                });
+                    var startTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    SnapshotHandler.Apply(Snapshot, fullyEvent);
+                    var task = OnEventDelivered(fullyEvent);
+                    if (!task.IsCompletedSuccessfully)
+                        await task;
+                    MetricMonitor.Report(new FollowMetricElement
+                    {
+                        Actor = GrainType.Name,
+                        Event = fullyEvent.Event.GetType().Name,
+                        FromActor = typeof(Main).Name,
+                        ElapsedMs = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - startTime),
+                        DeliveryElapsedMs = (int)(startTime - fullyEvent.BasicInfo.Timestamp),
+                        Group = Group
+                    });
+                }
+                else
+                {
+                    SnapshotHandler.Apply(Snapshot, fullyEvent);
+                    var task = OnEventDelivered(fullyEvent);
+                    if (!task.IsCompletedSuccessfully)
+                        await task;
+                }
             }
             catch (Exception ex)
             {

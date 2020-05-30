@@ -665,19 +665,28 @@ namespace Ray.Core
                 {
                     await ObserverSnapshotStorage.UpdateStartTimestamp(Snapshot.StateId, fullyEvent.BasicInfo.Timestamp);
                 }
-                var startTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                var task = OnEventDelivered(fullyEvent);
-                if (!task.IsCompletedSuccessfully)
-                    await task;
-                MetricMonitor.Report(new FollowMetricElement
+                if (MetricMonitor != default)
                 {
-                    Actor = GrainType.Name,
-                    Event = fullyEvent.Event.GetType().Name,
-                    FromActor = typeof(MainGrain).Name,
-                    ElapsedMs = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - startTime),
-                    DeliveryElapsedMs = (int)(startTime - fullyEvent.BasicInfo.Timestamp),
-                    Group = Group
-                });
+                    var startTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    var task = OnEventDelivered(fullyEvent);
+                    if (!task.IsCompletedSuccessfully)
+                        await task;
+                    MetricMonitor.Report(new FollowMetricElement
+                    {
+                        Actor = GrainType.Name,
+                        Event = fullyEvent.Event.GetType().Name,
+                        FromActor = typeof(MainGrain).Name,
+                        ElapsedMs = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - startTime),
+                        DeliveryElapsedMs = (int)(startTime - fullyEvent.BasicInfo.Timestamp),
+                        Group = Group
+                    });
+                }
+                else
+                {
+                    var task = OnEventDelivered(fullyEvent);
+                    if (!task.IsCompletedSuccessfully)
+                        await task;
+                }
             }
             catch (Exception ex)
             {
@@ -713,13 +722,36 @@ namespace Ray.Core
                         var onSaveSnapshotTask = OnSaveSnapshot();//自定义保存项
                         if (!onSaveSnapshotTask.IsCompletedSuccessfully)
                             await onSaveSnapshotTask;
-                        if (SnapshotEventVersion == 0)
+                        if (MetricMonitor != default)
                         {
-                            await ObserverSnapshotStorage.Insert(Snapshot);
+                            var startTime = DateTimeOffset.UtcNow;
+                            if (SnapshotEventVersion == 0)
+                            {
+                                await ObserverSnapshotStorage.Insert(Snapshot);
+                            }
+                            else
+                            {
+                                await ObserverSnapshotStorage.Update(Snapshot);
+                            }
+                            var metric = new SnapshotMetricElement
+                            {
+                                Actor = GrainType.Name,
+                                ElapsedVersion = (int)(Snapshot.Version - SnapshotEventVersion),
+                                SaveElapsedMs = (int)DateTimeOffset.UtcNow.Subtract(startTime).TotalMilliseconds,
+                                Snapshot = typeof(ObserverSnapshot<PrimaryKey>).Name
+                            };
+                            MetricMonitor.Report(metric);
                         }
                         else
                         {
-                            await ObserverSnapshotStorage.Update(Snapshot);
+                            if (SnapshotEventVersion == 0)
+                            {
+                                await ObserverSnapshotStorage.Insert(Snapshot);
+                            }
+                            else
+                            {
+                                await ObserverSnapshotStorage.Update(Snapshot);
+                            }
                         }
                         SnapshotEventVersion = Snapshot.Version;
                         var onSavedSnapshotTask = OnSavedSnapshot();

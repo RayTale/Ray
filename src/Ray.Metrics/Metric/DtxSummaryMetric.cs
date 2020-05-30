@@ -1,11 +1,7 @@
-﻿namespace Ray.Core.Abstractions.Monitor
+﻿namespace Ray.Metrics.Metric
 {
-    public class DtxMetric
+    public class DtxSummaryMetric
     {
-        /// <summary>
-        /// 所属Actor
-        /// </summary>
-        public string Actor { get; set; }
         /// <summary>
         /// 事务执行次数
         /// </summary>

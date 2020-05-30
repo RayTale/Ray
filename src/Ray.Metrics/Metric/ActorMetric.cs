@@ -1,4 +1,4 @@
-﻿namespace Ray.Core.Abstractions.Monitor
+﻿namespace Ray.Metrics.Metric
 {
     public class ActorMetric
     {

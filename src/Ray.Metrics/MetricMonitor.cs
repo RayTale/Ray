@@ -1,21 +1,23 @@
 ﻿using Microsoft.Extensions.Logging;
 using Orleans;
 using Ray.Core.Abstractions.Monitor;
-using Ray.Core.Abstractions.Monitor.Actors;
+using Ray.DistributedTx.Abstractions;
+using Ray.Metrics.Actors;
+using Ray.Metrics.Metric;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 
-namespace Ray.Core.Monitor
+namespace Ray.Metrics
 {
-    public class MetricMonitor : IMetricMonitor
+    public class MetricMonitor : IMetricMonitor, IDTxMetricMonitor
     {
         readonly Subject<EventMetricElement> eventSubject = new Subject<EventMetricElement>();
         readonly Subject<FollowMetricElement> followSubject = new Subject<FollowMetricElement>();
         readonly Subject<SnapshotMetricElement> snapshotSubject = new Subject<SnapshotMetricElement>();
-        readonly Subject<DtxMetricElement> dtxSubject = new Subject<DtxMetricElement>();
+        readonly Subject<DTxMetricElement> dtxSubject = new Subject<DTxMetricElement>();
         public MetricMonitor(ILogger<MetricMonitor> logger, IGrainFactory grainFactory)
         {
             var monitorActor = grainFactory.GetGrain<IMonitorActor>(0);
@@ -24,7 +26,7 @@ namespace Ray.Core.Monitor
                 try
                 {
                     var eventMetrics = new List<EventMetric>();
-                    var linkMetrics = new List<EventLinkMetricElement>();
+                    var linkMetrics = new List<EventLinkMetric>();
                     var actorMetrics = new List<ActorMetric>();
                     foreach (var group in list.GroupBy(e => e.Actor))
                     {
@@ -60,11 +62,11 @@ namespace Ray.Core.Monitor
                             {
                                 foreach (var fromEvtGroup in fromEvtActorGroup.GroupBy(e => e.FromEvent))
                                 {
-                                    linkMetrics.Add(new EventLinkMetricElement
+                                    linkMetrics.Add(new EventLinkMetric
                                     {
                                         Event = evtGroup.Key,
-                                        FromEventActor = fromEvtActorGroup.Key,
-                                        FromEvent = fromEvtGroup.Key,
+                                        ParentActor = fromEvtActorGroup.Key,
+                                        ParentEvent = fromEvtGroup.Key,
                                         Actor = group.Key,
                                         Events = fromEvtGroup.Count(),
                                         Ignores = fromEvtGroup.Where(g => g.Ignore).Count(),
@@ -199,17 +201,12 @@ namespace Ray.Core.Monitor
             followSubject.OnNext(element);
         }
 
-        public void Report(List<FollowMetricElement> elements)
-        {
-            elements.ForEach(e => followSubject.OnNext(e));
-        }
-
         public void Report(SnapshotMetricElement element)
         {
             snapshotSubject.OnNext(element);
         }
 
-        public void Report(DtxMetricElement element)
+        public void Report(DTxMetricElement element)
         {
             dtxSubject.OnNext(element);
         }
