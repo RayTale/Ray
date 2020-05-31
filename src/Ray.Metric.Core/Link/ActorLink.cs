@@ -1,4 +1,4 @@
-﻿namespace Ray.Metrics
+﻿namespace Ray.Metric.Core
 {
     public class ActorLink
     {

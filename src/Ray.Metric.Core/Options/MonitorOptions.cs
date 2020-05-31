@@ -1,4 +1,4 @@
-﻿namespace Ray.Metrics.Options
+﻿namespace Ray.Metric.Core.Options
 {
     public class MonitorOptions
     {

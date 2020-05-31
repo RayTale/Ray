@@ -1,9 +1,9 @@
 ﻿using Orleans;
-using Ray.Metrics.Metric;
+using Ray.Metric.Core.Metric;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace Ray.Metrics.Actors
+namespace Ray.Metric.Core.Actors
 {
     public interface IMonitorActor : IGrainWithIntegerKey
     {
