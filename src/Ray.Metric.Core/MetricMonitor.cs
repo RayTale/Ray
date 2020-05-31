@@ -2,15 +2,15 @@
 using Orleans;
 using Ray.Core.Abstractions.Monitor;
 using Ray.DistributedTx.Abstractions;
-using Ray.Metrics.Actors;
-using Ray.Metrics.Metric;
+using Ray.Metric.Core.Actors;
+using Ray.Metric.Core.Metric;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 
-namespace Ray.Metrics
+namespace Ray.Metric.Core
 {
     public class MetricMonitor : IMetricMonitor, IDTxMetricMonitor
     {

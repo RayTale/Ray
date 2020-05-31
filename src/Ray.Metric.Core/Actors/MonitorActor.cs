@@ -1,8 +1,7 @@
 ﻿using Microsoft.Extensions.Options;
 using Orleans;
-using Ray.Core.Abstractions.Monitor;
-using Ray.Metrics.Metric;
-using Ray.Metrics.Options;
+using Ray.Metric.Core.Metric;
+using Ray.Metric.Core.Options;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -11,12 +10,12 @@ using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Threading.Tasks;
 
-namespace Ray.Metrics.Actors
+namespace Ray.Metric.Core.Actors
 {
     [Orleans.Concurrency.Reentrant]
     public class MonitorActor : Grain, IMonitorActor
     {
-        readonly IMonitorRepository monitorRepository;
+        readonly IMetricStream metricStream;
         readonly Subject<EventMetric> eventSubject = new Subject<EventMetric>();
         readonly Subject<ActorMetric> actorSubject = new Subject<ActorMetric>();
         readonly Subject<EventLinkMetric> eventLinkSubject = new Subject<EventLinkMetric>();
@@ -26,9 +25,9 @@ namespace Ray.Metrics.Actors
         readonly Subject<SnapshotMetric> snapshotSubject = new Subject<SnapshotMetric>();
         readonly Subject<DtxMetric> dtxSubject = new Subject<DtxMetric>();
         readonly ConcurrentDictionary<string, ConcurrentDictionary<string, List<EventLink>>> eventLinkDict = new ConcurrentDictionary<string, ConcurrentDictionary<string, List<EventLink>>>();
-        public MonitorActor(IMonitorRepository monitorRepository, IOptions<MonitorOptions> options)
+        public MonitorActor(IOptions<MonitorOptions> options)
         {
-            this.monitorRepository = monitorRepository;
+            this.metricStream = new MetricStream(GetStreamProvider("MetricProvider"));
             eventSubject.Buffer(TimeSpan.FromSeconds(options.Value.EventMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
             {
                 var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -53,7 +52,7 @@ namespace Ray.Metrics.Actors
                         });
                     }
                 }
-                await monitorRepository.Insert(eventMetrics);
+                await metricStream.OnNext(eventMetrics);
             });
             actorSubject.Buffer(TimeSpan.FromSeconds(options.Value.ActorMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
             {
@@ -83,8 +82,7 @@ namespace Ray.Metrics.Actors
                     MinEventsPerActor = actorMetrics.Min(e => e.MinEventsPerActor),
                     Timestamp = timestamp
                 };
-                await monitorRepository.Insert(summaryMetric);
-                await monitorRepository.Insert(actorMetrics);
+                await Task.WhenAll(metricStream.OnNext(summaryMetric), metricStream.OnNext(actorMetrics));
             });
             eventLinkSubject.Buffer(TimeSpan.FromSeconds(options.Value.EventLinkMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
             {
@@ -127,7 +125,7 @@ namespace Ray.Metrics.Actors
                         }
                     }
                 }
-                await monitorRepository.Insert(eventLinkMetrics);
+                await metricStream.OnNext(eventLinkMetrics);
             });
             followActorSubject.Buffer(TimeSpan.FromSeconds(options.Value.FollowActorMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
             {
@@ -146,7 +144,7 @@ namespace Ray.Metrics.Actors
                         Timestamp = timestamp
                     });
                 }
-                await monitorRepository.Insert(followActorMetrics);
+                await metricStream.OnNext(followActorMetrics);
             });
             followEventSubject.Buffer(TimeSpan.FromSeconds(options.Value.FollowEventMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
             {
@@ -168,7 +166,7 @@ namespace Ray.Metrics.Actors
                         });
                     }
                 }
-                await monitorRepository.Insert(followEventMetrics);
+                await metricStream.OnNext(followEventMetrics);
             });
             snapshotSubject.Buffer(TimeSpan.FromSeconds(options.Value.SnapshotMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
             {
@@ -201,8 +199,7 @@ namespace Ray.Metrics.Actors
                     MinSaveElapsedMs = snapshotMetrics.Min(e => e.MinSaveElapsedMs),
                     Timestamp = timestamp
                 };
-                await monitorRepository.Insert(snapshotMetrics);
-                await monitorRepository.Insert(summaryMetric);
+                await Task.WhenAll(metricStream.OnNext(snapshotMetrics), metricStream.OnNext(summaryMetric));
             });
             dtxSubject.Buffer(TimeSpan.FromSeconds(options.Value.DtxMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
             {
@@ -232,8 +229,7 @@ namespace Ray.Metrics.Actors
                     MinElapsedMs = dtxMetrics.Min(e => e.MinElapsedMs),
                     Timestamp = timestamp
                 };
-                await monitorRepository.Insert(dtxMetrics);
-                await monitorRepository.Insert(summaryMetric);
+                await Task.WhenAll(metricStream.OnNext(dtxMetrics), metricStream.OnNext(summaryMetric));
             });
             followGroupSubject.Buffer(TimeSpan.FromSeconds(options.Value.FollowGroupMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
             {
@@ -251,9 +247,10 @@ namespace Ray.Metrics.Actors
                         Timestamp = timestamp
                     });
                 }
-                await monitorRepository.Insert(followGroupMetrics);
+                await metricStream.OnNext(followGroupMetrics);
             });
         }
+
         public Task Report(List<EventMetric> eventMetrics, List<ActorMetric> actorMetrics, List<EventLinkMetric> eventLinkMetrics)
         {
             eventMetrics.ForEach(e => eventSubject.OnNext(e));

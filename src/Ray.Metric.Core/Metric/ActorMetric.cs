@@ -1,4 +1,4 @@
-﻿namespace Ray.Metrics.Metric
+﻿namespace Ray.Metric.Core.Metric
 {
     public class ActorMetric
     {

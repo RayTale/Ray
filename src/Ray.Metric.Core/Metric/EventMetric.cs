@@ -1,4 +1,4 @@
-﻿namespace Ray.Metrics.Metric
+﻿namespace Ray.Metric.Core.Metric
 {
     /// <summary>
     /// 事件监控指标

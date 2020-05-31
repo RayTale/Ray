@@ -1,0 +1,9 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Prometheus.Client" Version="3.1.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Ray.Metric.Core\Ray.Metric.Core.csproj" />
+  </ItemGroup>
+
+</Project>
