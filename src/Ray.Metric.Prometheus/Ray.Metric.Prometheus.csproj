@@ -1,9 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <PackageReference Include="Prometheus.Client" Version="3.1.0" />
+    <PackageReference Include="Prometheus.Client.MetricPusher" Version="1.1.0" />
+    <PackageReference Include="Prometheus.Client.MetricServer" Version="3.1.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Ray.Metric.Core\Ray.Metric.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Update="Microsoft.SourceLink.GitHub" Version="1.0.0" />
   </ItemGroup>
 
 </Project>

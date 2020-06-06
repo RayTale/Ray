@@ -1,16 +1,21 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <PackageReference Include="Microsoft.Orleans.OrleansProviders" Version="3.2.0-rc2" />
+    <PackageReference Include="Microsoft.Orleans.OrleansProviders" Version="3.2.0" />
     <PackageReference Include="System.Reactive" Version="4.4.1" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Ray.Core.Abstractions\Ray.Core.Abstractions.csproj" />
+    <ProjectReference Include="..\Ray.Core\Ray.Core.csproj" />
     <ProjectReference Include="..\Ray.DistributedTx.Abstractions\Ray.DistributedTx.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Update="Microsoft.SourceLink.GitHub" Version="1.0.0" />
+    <PackageReference Include="Microsoft.Orleans.CodeGenerator.MSBuild" Version="3.2.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 
 </Project>

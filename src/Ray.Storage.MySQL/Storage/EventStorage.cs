@@ -60,7 +60,7 @@ namespace Ray.Storage.MySQL
                         {
                             list.Add(new FullyEvent<PrimaryKey>
                             {
-                                ActorId = stateId,
+                                StateId = stateId,
                                 Event = evt,
                                 BasicInfo = new EventBasicInfo(item.Version, item.Timestamp)
                             });
@@ -98,7 +98,7 @@ namespace Ray.Storage.MySQL
                         {
                             list.Add(new FullyEvent<PrimaryKey>
                             {
-                                ActorId = stateId,
+                                StateId = stateId,
                                 Event = evt,
                                 BasicInfo = new EventBasicInfo(item.Version, item.Timestamp)
                             });
@@ -167,7 +167,7 @@ namespace Ray.Storage.MySQL
                     using var conn = config.CreateConnection();
                     await conn.ExecuteAsync(GetCopySaveSql(tableName), list.Select(wrapper => new
                     {
-                        StateId = wrapper.Value.Event.ActorId.ToString(),
+                        StateId = wrapper.Value.Event.StateId.ToString(),
                         wrapper.Value.UniqueId,
                         TypeCode = typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
                         Data = wrapper.Value.EventUtf8String,
@@ -195,7 +195,7 @@ namespace Ray.Storage.MySQL
                     {
                         wrapper.Value.ReturnValue = await conn.ExecuteAsync(saveSql, new
                         {
-                            StateId = wrapper.Value.Event.ActorId.ToString(),
+                            StateId = wrapper.Value.Event.StateId.ToString(),
                             wrapper.Value.UniqueId,
                             TypeCode = typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
                             Data = wrapper.Value.EventUtf8String,
@@ -219,7 +219,7 @@ namespace Ray.Storage.MySQL
                         {
                             wrapper.TaskSource.TrySetResult(await conn.ExecuteAsync(saveSql, new
                             {
-                                wrapper.Value.Event.ActorId,
+                                wrapper.Value.Event.StateId,
                                 wrapper.Value.UniqueId,
                                 TypeCode = typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
                                 Data = wrapper.Value.EventUtf8String,
@@ -258,7 +258,7 @@ namespace Ray.Storage.MySQL
                 {
                     await conn.ExecuteAsync(GetSaveSql(group.Key), group.Select(g => new
                     {
-                        g.t.FullyEvent.ActorId,
+                        g.t.FullyEvent.StateId,
                         g.t.UniqueId,
                         TypeCode = typeFinder.GetCode(g.t.FullyEvent.Event.GetType()),
                         Data = g.t.EventUtf8String,

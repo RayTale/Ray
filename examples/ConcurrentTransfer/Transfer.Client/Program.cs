@@ -21,12 +21,13 @@ namespace Transfer.Client
             using var client = await StartClientWithRetries();
             Console.WriteLine($"账户1的初始余额为{await client.GetGrain<IAccount>(1).GetBalance()}");
             Console.WriteLine($"账户2的初始余额为{await client.GetGrain<IAccount>(2).GetBalance()}");
+            var rd = new Random();
             while (true)
             {
                 try
                 {
                     Console.WriteLine("Please enter the number of executions");
-                    var times = int.Parse(Console.ReadLine());
+                    var times = rd.Next(1000);
                     var topupWatch = new Stopwatch();
                     topupWatch.Start();
                     await Task.WhenAll(Enumerable.Range(0, times).Select(x => client.GetGrain<IAccount>(1).TopUp(100)));
@@ -41,6 +42,7 @@ namespace Transfer.Client
                     Console.WriteLine($"账户1的余额为{await client.GetGrain<IAccount>(1).GetBalance()}");
                     await Task.Delay(1000);
                     Console.WriteLine($"账户2的余额为{await client.GetGrain<IAccount>(2).GetBalance()}");
+                    await Task.Delay(500);
                 }
                 catch (Exception e)
                 {
@@ -58,7 +60,10 @@ namespace Transfer.Client
                 {
                     var builder = new ClientBuilder()
                    .UseLocalhostClustering()
-                   .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IAccount).Assembly).WithReferences())
+                   .ConfigureApplicationParts(parts =>
+                   {
+                       parts.AddApplicationPart(typeof(IAccount).Assembly).WithReferences();
+                   })
                    .ConfigureLogging(logging => logging.AddConsole());
                     client = builder.Build();
                     await client.Connect();

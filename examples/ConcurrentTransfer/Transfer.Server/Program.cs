@@ -7,6 +7,9 @@ using Orleans.Hosting;
 using Ray.Core;
 using Ray.Core.Services;
 using Ray.EventBus.RabbitMQ;
+using Ray.Metric.Core;
+using Ray.Metric.Core.Actors;
+using Ray.Metric.Prometheus;
 using Ray.Storage.PostgreSQL;
 using System;
 using System.Net;
@@ -33,8 +36,15 @@ namespace Transfer.Server
                         .UseDashboard()
                         .AddRay<TransferConfig>()
                         .Configure<EndpointOptions>(options => options.AdvertisedIPAddress = IPAddress.Loopback)
+                        .AddRayMetric()
+                        .MetricPushToPrometheus(options =>
+                        {
+                            options.ServiceName = "concurrent-transfer";
+                            options.PushEndpoint = "http://localhost:9091";
+                        })
                         .ConfigureApplicationParts(parts =>
                         {
+                            parts.AddApplicationPart(typeof(MonitorActor).Assembly).WithReferences();
                             parts.AddApplicationPart(typeof(Account).Assembly).WithReferences();
                             parts.AddApplicationPart(typeof(UtcUIDGrain).Assembly).WithReferences();
                         });

@@ -62,7 +62,7 @@ namespace Ray.Storage.SQLServer
                         {
                             list.Add(new FullyEvent<PrimaryKey>
                             {
-                                ActorId = stateId,
+                                StateId = stateId,
                                 Event = evt,
                                 BasicInfo = new EventBasicInfo(item.Version, item.Timestamp)
                             });
@@ -99,7 +99,7 @@ namespace Ray.Storage.SQLServer
                         {
                             list.Add(new FullyEvent<PrimaryKey>
                             {
-                                ActorId = stateId,
+                                StateId = stateId,
                                 Event = evt,
                                 BasicInfo = new EventBasicInfo(item.Version, item.Timestamp)
                             });
@@ -170,7 +170,7 @@ namespace Ray.Storage.SQLServer
                     foreach (var item in wrapperList)
                     {
                         var row = dt.NewRow();
-                        row["stateid"] = item.Value.Event.ActorId;
+                        row["stateid"] = item.Value.Event.StateId;
                         row["uniqueId"] = item.Value.UniqueId;
                         row["typecode"] = typeFinder.GetCode(item.Value.Event.Event.GetType());
                         row["data"] = item.Value.EventUtf8String;
@@ -202,7 +202,7 @@ namespace Ray.Storage.SQLServer
                     {
                         wrapper.Value.ReturnValue = await conn.ExecuteAsync(saveSql, new
                         {
-                            StateId = wrapper.Value.Event.ActorId.ToString(),
+                            StateId = wrapper.Value.Event.StateId.ToString(),
                             wrapper.Value.UniqueId,
                             TypeCode = typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
                             Data = wrapper.Value.EventUtf8String,
@@ -226,7 +226,7 @@ namespace Ray.Storage.SQLServer
                         {
                             wrapper.TaskSource.TrySetResult(await conn.ExecuteAsync(saveSql, new
                             {
-                                wrapper.Value.Event.ActorId,
+                                wrapper.Value.Event.StateId,
                                 wrapper.Value.UniqueId,
                                 TypeCode = typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
                                 Data = wrapper.Value.EventUtf8String,
@@ -270,7 +270,7 @@ namespace Ray.Storage.SQLServer
                     foreach (var item in list)
                     {
                         var row = dt.NewRow();
-                        row["stateid"] = item.FullyEvent.ActorId;
+                        row["stateid"] = item.FullyEvent.StateId;
                         row["uniqueId"] = item.UniqueId;
                         row["typecode"] = typeFinder.GetCode(item.FullyEvent.Event.GetType());
                         row["data"] = item.EventUtf8String;
@@ -302,7 +302,7 @@ namespace Ray.Storage.SQLServer
                             key => $"INSERT INTO {key}(stateid,uniqueId,typecode,data,version,timestamp) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version,@Timestamp)");
                         await conn.ExecuteAsync(saveSql, group.Select(g => new
                         {
-                            g.t.FullyEvent.ActorId,
+                            g.t.FullyEvent.StateId,
                             g.t.UniqueId,
                             TypeCode = typeFinder.GetCode(g.t.FullyEvent.Event.GetType()),
                             Data = g.t.EventUtf8String,

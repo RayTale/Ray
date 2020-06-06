@@ -55,7 +55,7 @@ namespace Ray.Storage.Mongo
                         {
                             list.Add(new FullyEvent<PrimaryKey>
                             {
-                                ActorId = stateId,
+                                StateId = stateId,
                                 Event = evt,
                                 BasicInfo = new EventBasicInfo(version, timestamp)
                             });
@@ -84,7 +84,7 @@ namespace Ray.Storage.Mongo
                     {
                         list.Add(new FullyEvent<PrimaryKey>
                         {
-                            ActorId = stateId,
+                            StateId = stateId,
                             Event = evt,
                             BasicInfo = new EventBasicInfo(version, timestamp)
                         });
@@ -137,7 +137,7 @@ namespace Ray.Storage.Mongo
                 var collection = grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, minTask.Result.SubTable);
                 var documents = list.Select(wrapper => (wrapper, new BsonDocument
                 {
-                    {"StateId",BsonValue.Create( wrapper.Value.Event.ActorId) },
+                    {"StateId",BsonValue.Create( wrapper.Value.Event.StateId) },
                     {"Version",wrapper.Value.Event.BasicInfo.Version },
                     {"Timestamp",wrapper.Value.Event.BasicInfo.Timestamp },
                     {"TypeCode",typeFinder.GetCode( wrapper.Value.Event.Event.GetType()) },
@@ -194,7 +194,7 @@ namespace Ray.Storage.Mongo
                 {
                     await grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, minTask.Result.SubTable).InsertManyAsync(session, list.Select(data => new BsonDocument
                         {
-                            {"StateId", BsonValue.Create( data.FullyEvent.ActorId) },
+                            {"StateId", BsonValue.Create( data.FullyEvent.StateId) },
                             {"Version", data.FullyEvent.BasicInfo.Version },
                             {"Timestamp", data.FullyEvent.BasicInfo.Timestamp},
                             {"TypeCode",typeFinder.GetCode( data.FullyEvent.Event.GetType()) },
@@ -226,7 +226,7 @@ namespace Ray.Storage.Mongo
                     {
                         await grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, group.Key).InsertManyAsync(session, group.Select(data => new BsonDocument
                             {
-                                {"StateId", BsonValue.Create( data.t.FullyEvent.ActorId) },
+                                {"StateId", BsonValue.Create( data.t.FullyEvent.StateId) },
                                 {"Version", data.t.FullyEvent.BasicInfo.Version },
                                 {"Timestamp", data.t.FullyEvent.BasicInfo.Timestamp},
                                 {"TypeCode",typeFinder.GetCode( data.t.FullyEvent.Event.GetType()) },

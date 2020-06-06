@@ -1,7 +1,15 @@
-﻿namespace Ray.Metric.Core.Metric
+﻿namespace Ray.Metric.Core.Element
 {
-    public class SnapshotSummaryMetric
+    public class SnapshotMetric
     {
+        /// <summary>
+        /// Actor的类型
+        /// </summary>
+        public string Actor { get; set; }
+        /// <summary>
+        /// 快照类型
+        /// </summary>
+        public string Snapshot { get; set; }
         /// <summary>
         /// 保存次数
         /// </summary>

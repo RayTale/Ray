@@ -9,11 +9,12 @@ namespace Ray.Metric.Core
 {
     public static class Extensions
     {
-        public static void AddRayMetric(this ISiloBuilder builder, Action<MonitorOptions> optionInit = null)
+        public static ISiloBuilder AddRayMetric(this ISiloBuilder builder, Action<MonitorOptions> optionInit = null)
         {
             builder.ConfigureServices(service =>
             {
                 service.AddSingleton<MetricMonitor>();
+                service.AddSingleton<EventContainer>();
                 service.AddSingleton<IMetricMonitor>(provider => provider.GetService<MetricMonitor>());
                 service.AddSingleton<IDTxMetricMonitor>(provider => provider.GetService<MetricMonitor>());
             });
@@ -22,6 +23,7 @@ namespace Ray.Metric.Core
                 builder.Configure(optionInit);
             }
             builder.AddSimpleMessageStreamProvider("MetricProvider").AddMemoryGrainStorage("PubSubStore");
+            return builder;
         }
     }
 }

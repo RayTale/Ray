@@ -499,7 +499,7 @@ namespace Ray.Core
                     {
                         Version = Snapshot.Base.Version + 1
                     },
-                    ActorId = Snapshot.Base.StateId
+                    StateId = Snapshot.Base.StateId
                 };
                 string unique = default;
                 if (uid is null)

@@ -323,7 +323,7 @@ namespace Ray.Core
             Serializer = ServiceProvider.GetService<ISerializer>();
             TypeFinder = ServiceProvider.GetService<ITypeFinder>();
             Logger = (ILogger)ServiceProvider.GetService(typeof(ILogger<>).MakeGenericType(GrainType));
-            Group = ServiceProvider.GetService<IObserverUnitContainer>().GetUnit<PrimaryKey>(GrainType).GetGroup(GrainType);
+            Group = ServiceProvider.GetService<IObserverUnitContainer>().GetUnit<PrimaryKey>(typeof(MainGrain)).GetGroup(GrainType);
             MetricMonitor = ServiceProvider.GetService<IMetricMonitor>();
             var configureBuilder = ServiceProvider.GetService<IConfigureBuilder<PrimaryKey, MainGrain>>();
             var storageConfigTask = configureBuilder.GetConfig(ServiceProvider, GrainId);
@@ -485,7 +485,7 @@ namespace Ray.Core
                             {
                                 return new FullyEvent<PrimaryKey>
                                 {
-                                    ActorId = GrainId,
+                                    StateId = GrainId,
                                     BasicInfo = eventBase,
                                     Event = @event
                                 };
@@ -529,7 +529,7 @@ namespace Ray.Core
                     {
                         var tellTask = Tell(new FullyEvent<PrimaryKey>
                         {
-                            ActorId = GrainId,
+                            StateId = GrainId,
                             BasicInfo = eventBase,
                             Event = @event
                         });

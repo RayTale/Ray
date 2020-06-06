@@ -39,7 +39,7 @@ namespace Ray.Core.Event
         }
         public EventConverter GetConverter()
         {
-            return new EventConverter(_TypeCode, FullyEvent.ActorId, _EventBaseArray.AsSpan(), _EventBytes);
+            return new EventConverter(_TypeCode, FullyEvent.StateId, _EventBaseArray.AsSpan(), _EventBytes);
         }
         public Span<byte> GetSpan() => _Array.AsSpan();
         public void Dispose()

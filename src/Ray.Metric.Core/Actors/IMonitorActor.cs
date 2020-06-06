@@ -1,5 +1,5 @@
 ﻿using Orleans;
-using Ray.Metric.Core.Metric;
+using Ray.Metric.Core.Element;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 

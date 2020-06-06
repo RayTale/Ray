@@ -4,6 +4,6 @@
     {
         public IEvent Event { get; set; }
         public EventBasicInfo BasicInfo { get; set; }
-        public PrimaryKey ActorId { get; set; }
+        public PrimaryKey StateId { get; set; }
     }
 }
