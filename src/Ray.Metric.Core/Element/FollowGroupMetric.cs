@@ -1,4 +1,4 @@
-﻿namespace Ray.Metric.Core.Metric
+﻿namespace Ray.Metric.Core.Element
 {
     public class FollowGroupMetric
     {

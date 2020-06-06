@@ -107,7 +107,7 @@ namespace Ray.Core
                         var eventBase = transport.BaseBytes.ParseToEventBase();
                         var tellTask = handler(serviceProvider, new FullyEvent<PrimaryKey>
                         {
-                            ActorId = actorId,
+                            StateId = actorId,
                             BasicInfo = eventBase,
                             Event = @event
                         });
@@ -131,7 +131,7 @@ namespace Ray.Core
                                 var eventBase = transport.BaseBytes.ParseToEventBase();
                                 var fullEvent = new FullyEvent<PrimaryKey>
                                 {
-                                    ActorId = actorId,
+                                    StateId = actorId,
                                     BasicInfo = eventBase,
                                     Event = @event
                                 };
@@ -141,7 +141,7 @@ namespace Ray.Core
                         return default;
                     })
                     .Where(o => o != default)
-                    .GroupBy(o => o.fullEvent.ActorId);
+                    .GroupBy(o => o.fullEvent.StateId);
                 return Task.WhenAll(groups.Select(async groupItems =>
                 {
                     foreach (var item in groupItems)
@@ -235,7 +235,7 @@ namespace Ray.Core
 
         public string GetGroup(Type observerType)
         {
-            return observerGroupDict[observerType];
+            return observerGroupDict.Single(kv => kv.Key.IsAssignableFrom(observerType)).Value;
         }
     }
     public static class ClusterClientExtensions

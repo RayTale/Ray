@@ -1,7 +1,11 @@
-﻿namespace Ray.Metric.Core.Metric
+﻿namespace Ray.Metric.Core.Element
 {
-    public class DtxSummaryMetric
+    public class DtxMetric
     {
+        /// <summary>
+        /// 所属Actor
+        /// </summary>
+        public string Actor { get; set; }
         /// <summary>
         /// 事务执行次数
         /// </summary>

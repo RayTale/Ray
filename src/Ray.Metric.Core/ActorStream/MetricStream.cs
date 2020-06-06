@@ -1,5 +1,5 @@
 ﻿using Orleans.Streams;
-using Ray.Metric.Core.Metric;
+using Ray.Metric.Core.Element;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;

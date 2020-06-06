@@ -1,6 +1,6 @@
 ﻿using Ray.Core;
+using Ray.Core.Abstractions.Observer;
 using Ray.Core.Event;
-using Ray.Core.Observer;
 using System.Threading.Tasks;
 using Transfer.Grains.Events;
 using Transfer.IGrains;
@@ -8,7 +8,7 @@ using Transfer.IGrains;
 namespace Transfer.Grains.Grains
 {
     [EventIgnore(typeof(TopupEvent), typeof(TransferArrivedEvent), typeof(TransferRefundsEvent))]
-    [Observer(DefaultObserverGroup.primary, "flow", typeof(Account))]
+    [Observer(DefaultGroup.primary, DefaultName.Flow, typeof(Account))]
     public sealed class AccountFlow : ObserverGrain<long, Account>, IAccountFlow
     {
         protected override bool ConcurrentHandle => true;

@@ -1,9 +1,8 @@
 ﻿using Microsoft.Extensions.Options;
 using Orleans;
-using Ray.Metric.Core.Metric;
+using Ray.Metric.Core.Element;
 using Ray.Metric.Core.Options;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Linq;
@@ -15,7 +14,6 @@ namespace Ray.Metric.Core.Actors
     [Orleans.Concurrency.Reentrant]
     public class MonitorActor : Grain, IMonitorActor
     {
-        readonly IMetricStream metricStream;
         readonly Subject<EventMetric> eventSubject = new Subject<EventMetric>();
         readonly Subject<ActorMetric> actorSubject = new Subject<ActorMetric>();
         readonly Subject<EventLinkMetric> eventLinkSubject = new Subject<EventLinkMetric>();
@@ -24,10 +22,8 @@ namespace Ray.Metric.Core.Actors
         readonly Subject<FollowGroupMetric> followGroupSubject = new Subject<FollowGroupMetric>();
         readonly Subject<SnapshotMetric> snapshotSubject = new Subject<SnapshotMetric>();
         readonly Subject<DtxMetric> dtxSubject = new Subject<DtxMetric>();
-        readonly ConcurrentDictionary<string, ConcurrentDictionary<string, List<EventLink>>> eventLinkDict = new ConcurrentDictionary<string, ConcurrentDictionary<string, List<EventLink>>>();
-        public MonitorActor(IOptions<MonitorOptions> options)
+        public MonitorActor(IOptions<MonitorOptions> options, IMetricStream metricStream)
         {
-            this.metricStream = new MetricStream(GetStreamProvider("MetricProvider"));
             eventSubject.Buffer(TimeSpan.FromSeconds(options.Value.EventMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
             {
                 var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -90,24 +86,12 @@ namespace Ray.Metric.Core.Actors
                 var eventLinkMetrics = new List<EventLinkMetric>();
                 foreach (var actorGroup in list.GroupBy(e => e.Actor))
                 {
-                    var actorLinkDict = eventLinkDict.GetOrAdd(actorGroup.Key, key => new ConcurrentDictionary<string, List<EventLink>>());
                     foreach (var evtGroup in actorGroup.GroupBy(e => e.Event))
                     {
                         foreach (var parentActorGroup in evtGroup.GroupBy(e => e.ParentActor))
                         {
                             foreach (var fromEvtGroup in parentActorGroup.GroupBy(e => e.ParentEvent))
                             {
-                                var eventLinkList = actorLinkDict.GetOrAdd(evtGroup.Key, key => new List<EventLink>());
-                                if (!eventLinkList.Exists(o => o.ParentActor == parentActorGroup.Key && o.ParentEvent == fromEvtGroup.Key))
-                                {
-                                    eventLinkList.Add(new EventLink
-                                    {
-                                        Actor = actorGroup.Key,
-                                        Event = evtGroup.Key,
-                                        ParentActor = parentActorGroup.Key,
-                                        ParentEvent = fromEvtGroup.Key
-                                    });
-                                }
                                 eventLinkMetrics.Add(new EventLinkMetric
                                 {
                                     Actor = actorGroup.Key,

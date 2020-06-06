@@ -74,7 +74,7 @@ namespace Ray.Core
                     var waitingEvents = await EventStorage.GetList(GrainId, snapshotBase.TransactionStartTimestamp, snapshotBase.TransactionStartVersion, Snapshot.Base.Version);
                     foreach (var evt in waitingEvents)
                     {
-                        var transport = new EventBox<PrimaryKey>(evt, default, string.Empty, evt.ActorId.ToString());
+                        var transport = new EventBox<PrimaryKey>(evt, default, string.Empty, evt.StateId.ToString());
                         transport.Parse(TypeFinder, Serializer);
                         WaitingForTransactionTransports.Add(transport);
                     }
@@ -332,7 +332,7 @@ namespace Ray.Core
                 Snapshot.Base.IncrementDoingVersion(GrainType);//标记将要处理的Version
                 var fullyEvent = new FullyEvent<PrimaryKey>
                 {
-                    ActorId = GrainId,
+                    StateId = GrainId,
                     Event = @event,
                     BasicInfo = new EventBasicInfo
                     {
@@ -350,7 +350,7 @@ namespace Ray.Core
                     fullyEvent.BasicInfo.Timestamp = eUID.Timestamp;
                     unique = eUID.UID;
                 }
-                WaitingForTransactionTransports.Add(new EventBox<PrimaryKey>(fullyEvent, eUID, unique, fullyEvent.ActorId.ToString()));
+                WaitingForTransactionTransports.Add(new EventBox<PrimaryKey>(fullyEvent, eUID, unique, fullyEvent.StateId.ToString()));
                 SnapshotHandler.Apply(Snapshot, fullyEvent);
                 Snapshot.Base.UpdateVersion(fullyEvent.BasicInfo, GrainType);//更新处理完成的Version
                 if (Logger.IsEnabled(LogLevel.Trace))

@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <PackageReference Include="Microsoft.Orleans.Runtime.Abstractions" Version="3.2.0-rc2" />
+    <PackageReference Include="Microsoft.Orleans.Runtime.Abstractions" Version="3.2.0" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Update="Microsoft.SourceLink.GitHub" Version="1.0.0" />

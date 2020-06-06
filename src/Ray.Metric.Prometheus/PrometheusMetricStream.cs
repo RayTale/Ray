@@ -1,82 +1,114 @@
-﻿using System;
+﻿using Ray.Metric.Core;
+using Ray.Metric.Core.Element;
+using Ray.Metric.Prometheus.MetricHandler;
 using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
-using Prometheus.Client;
-using Ray.Metric.Core;
-using Ray.Metric.Core.Metric;
 
 namespace Ray.Metric.Prometheus
 {
     public class PrometheusMetricStream : IMetricStream
     {
-        readonly Gauge _Event_Count_Gauge;
-        readonly Gauge _Event_MaxPerActor_Gauge;
-        public PrometheusMetricStream()
+        readonly EventMetricHandler eventMetricHandler;
+        readonly ActorMetricHandler actorMetricHandler;
+        readonly EventSummaryMetricHandler eventSummaryMetric;
+        readonly EventLinkMetricHandler eventLinkMetricHandler;
+        readonly FollowActorMetricHandler followActorMetricHandler;
+        readonly FollowFollowEventMetricHandler followFollowEventMetricHandler;
+        readonly FollowGroupMetricHandler followGroupMetricHandler;
+        readonly SnapshotMetricHandler snapshotMetricHandler;
+        readonly SnapshotSummaryMetricHandler snapshotSummaryMetricHandler;
+        readonly DtxMetricHandler dtxMetricHandler;
+        readonly DtxSummaryMetricHandler dtxSummaryMetricHandler;
+
+        public PrometheusMetricStream(
+            EventMetricHandler eventMetricHandler,
+            ActorMetricHandler actorMetricHandler,
+            EventSummaryMetricHandler eventSummaryMetric,
+            EventLinkMetricHandler eventLinkMetricHandler,
+            FollowActorMetricHandler followActorMetricHandler,
+            FollowFollowEventMetricHandler followFollowEventMetricHandler,
+            FollowGroupMetricHandler followGroupMetricHandler,
+            SnapshotMetricHandler snapshotMetricHandler,
+            SnapshotSummaryMetricHandler snapshotSummaryMetricHandler,
+            DtxMetricHandler dtxMetricHandler,
+            DtxSummaryMetricHandler dtxSummaryMetricHandler)
         {
-            _Event_Count_Gauge = Metrics.CreateGauge($"{nameof(EventMetric)}_{nameof(EventMetric.Events)}", "number of events per event", nameof(EventMetric.Actor), nameof(EventMetric.Event));
-            _Event_MaxPerActor_Gauge = Metrics.CreateGauge($"{nameof(EventMetric)}_{nameof(EventMetric.Events)}", "max number of events per actor", nameof(EventMetric.Actor), nameof(EventMetric.Event));
+            this.eventMetricHandler = eventMetricHandler;
+            this.actorMetricHandler = actorMetricHandler;
+            this.eventSummaryMetric = eventSummaryMetric;
+            this.eventLinkMetricHandler = eventLinkMetricHandler;
+            this.followActorMetricHandler = followActorMetricHandler;
+            this.followFollowEventMetricHandler = followFollowEventMetricHandler;
+            this.followGroupMetricHandler = followGroupMetricHandler;
+            this.snapshotMetricHandler = snapshotMetricHandler;
+            this.snapshotSummaryMetricHandler = snapshotSummaryMetricHandler;
+            this.dtxMetricHandler = dtxMetricHandler;
+            this.dtxSummaryMetricHandler = dtxSummaryMetricHandler;
         }
         public Task OnNext(List<EventMetric> eventMetrics)
         {
-            foreach (var item in eventMetrics)
-            {
-                var _Event_Count_Gauge_LabelMetric = _Event_Count_Gauge.WithLabels(item.Actor, item.Event);
-                _Event_Count_Gauge_LabelMetric.Set(item.Events, item.Timestamp);
-                var _Event_MaxPerActor_Gauge_LabelMetric = _Event_MaxPerActor_Gauge.WithLabels(item.Actor, item.Event);
-                _Event_MaxPerActor_Gauge_LabelMetric.Set(item.Events, item.Timestamp);
-            }
+            eventMetricHandler.Handle(eventMetrics);
             return Task.CompletedTask;
         }
 
         public Task OnNext(List<ActorMetric> actorMetrics)
         {
-            throw new NotImplementedException();
+            actorMetricHandler.Handle(actorMetrics);
+            return Task.CompletedTask;
         }
 
         public Task OnNext(EventSummaryMetric summaryMetric)
         {
-            throw new NotImplementedException();
+            eventSummaryMetric.Handle(summaryMetric);
+            return Task.CompletedTask;
         }
 
         public Task OnNext(List<EventLinkMetric> eventLinkMetrics)
         {
-            throw new NotImplementedException();
+            eventLinkMetricHandler.Handle(eventLinkMetrics);
+            return Task.CompletedTask;
         }
 
-        public Task OnNext(List<FollowActorMetric> actorMetrics)
+        public Task OnNext(List<FollowActorMetric> followActorMetrics)
         {
-            throw new NotImplementedException();
+            followActorMetricHandler.Handle(followActorMetrics);
+            return Task.CompletedTask;
         }
 
         public Task OnNext(List<FollowEventMetric> followEventMetrics)
         {
-            throw new NotImplementedException();
+            followFollowEventMetricHandler.Handle(followEventMetrics);
+            return Task.CompletedTask;
         }
 
         public Task OnNext(List<FollowGroupMetric> followGroupMetrics)
         {
-            throw new NotImplementedException();
+            followGroupMetricHandler.Handle(followGroupMetrics);
+            return Task.CompletedTask;
         }
 
         public Task OnNext(List<SnapshotMetric> snapshotMetrics)
         {
-            throw new NotImplementedException();
+            snapshotMetricHandler.Handle(snapshotMetrics);
+            return Task.CompletedTask;
         }
 
         public Task OnNext(SnapshotSummaryMetric snapshotSummaryMetric)
         {
-            throw new NotImplementedException();
+            snapshotSummaryMetricHandler.Handle(snapshotSummaryMetric);
+            return Task.CompletedTask;
         }
 
         public Task OnNext(List<DtxMetric> dtxMetrics)
         {
-            throw new NotImplementedException();
+            dtxMetricHandler.Handle(dtxMetrics);
+            return Task.CompletedTask;
         }
 
         public Task OnNext(DtxSummaryMetric dtxSummaryMetric)
         {
-            throw new NotImplementedException();
+            dtxSummaryMetricHandler.Handle(dtxSummaryMetric);
+            return Task.CompletedTask;
         }
     }
 }

@@ -61,7 +61,7 @@ namespace Ray.Storage.PostgreSQL
                             {
                                 list.Add(new FullyEvent<PrimaryKey>
                                 {
-                                    ActorId = stateId,
+                                    StateId = stateId,
                                     Event = evt,
                                     BasicInfo = new EventBasicInfo(version, timestamp)
                                 });
@@ -98,7 +98,7 @@ namespace Ray.Storage.PostgreSQL
                         {
                             list.Add(new FullyEvent<PrimaryKey>
                             {
-                                ActorId = stateId,
+                                StateId = stateId,
                                 Event = evt,
                                 BasicInfo = new EventBasicInfo(version, timestamp)
                             });
@@ -161,7 +161,7 @@ namespace Ray.Storage.PostgreSQL
                     foreach (var wrapper in list)
                     {
                         writer.StartRow();
-                        writer.Write(wrapper.Value.Event.ActorId);
+                        writer.Write(wrapper.Value.Event.StateId);
                         writer.Write(wrapper.Value.UniqueId, NpgsqlDbType.Varchar);
                         writer.Write(typeFinder.GetCode(wrapper.Value.Event.Event.GetType()), NpgsqlDbType.Varchar);
                         writer.Write(wrapper.Value.EventUtf8String, NpgsqlDbType.Json);
@@ -191,7 +191,7 @@ namespace Ray.Storage.PostgreSQL
                     {
                         wrapper.Value.ReturnValue = await conn.ExecuteAsync(saveSql, new
                         {
-                            StateId = wrapper.Value.Event.ActorId.ToString(),
+                            StateId = wrapper.Value.Event.StateId.ToString(),
                             wrapper.Value.UniqueId,
                             TypeCode = typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
                             Data = wrapper.Value.EventUtf8String,
@@ -215,7 +215,7 @@ namespace Ray.Storage.PostgreSQL
                         {
                             wrapper.TaskSource.TrySetResult(await conn.ExecuteAsync(saveSql, new
                             {
-                                wrapper.Value.Event.ActorId,
+                                wrapper.Value.Event.StateId,
                                 wrapper.Value.UniqueId,
                                 TypeCode = typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
                                 Data = wrapper.Value.EventUtf8String,
@@ -251,7 +251,7 @@ namespace Ray.Storage.PostgreSQL
                     foreach (var wrapper in list)
                     {
                         writer.StartRow();
-                        writer.Write(wrapper.FullyEvent.ActorId);
+                        writer.Write(wrapper.FullyEvent.StateId);
                         writer.Write(wrapper.UniqueId, NpgsqlDbType.Varchar);
                         writer.Write(typeFinder.GetCode(wrapper.FullyEvent.Event.GetType()), NpgsqlDbType.Varchar);
                         writer.Write(wrapper.EventUtf8String, NpgsqlDbType.Json);
@@ -281,7 +281,7 @@ namespace Ray.Storage.PostgreSQL
                             key => $"INSERT INTO {key}(stateid,uniqueId,typecode,data,version,timestamp) VALUES(@StateId,@UniqueId,@TypeCode,(@Data)::json,@Version,@Timestamp)");
                         await conn.ExecuteAsync(saveSql, group.Select(g => new
                         {
-                            g.t.FullyEvent.ActorId,
+                            g.t.FullyEvent.StateId,
                             g.t.UniqueId,
                             TypeCode = typeFinder.GetCode(g.t.FullyEvent.Event.GetType()),
                             Data = g.t.EventUtf8String,

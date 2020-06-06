@@ -1,6 +1,6 @@
-﻿namespace Ray.Metric.Core.Metric
+﻿namespace Ray.Metric.Core.Element
 {
-    public class FollowEventMetric
+    public class FollowActorMetric
     {
         /// <summary>
         /// Actor的类型
@@ -11,25 +11,9 @@
         /// </summary>
         public string FromActor { get; set; }
         /// <summary>
-        /// 事件
+        /// 执行的事件量
         /// </summary>
-        public string Event { get; set; }
-        /// <summary>
-        /// 事件量
-        /// </summary>
-        public int Events { get; set; }
-        /// <summary>
-        /// 事件送达的最大耗时(ms)
-        /// </summary>
-        public int MaxDeliveryElapsedMs { get; set; }
-        /// <summary>
-        /// 事件送达的平均耗时(ms)
-        /// </summary>
-        public int AvgDeliveryElapsedMs { get; set; }
-        /// <summary>
-        /// 事件送达的最小耗时(ms)
-        /// </summary>
-        public int MinDeliveryElapsedMs { get; set; }
+        public int Events{ get; set; }
         /// <summary>
         /// 最大执行时间间隔(ms)
         /// </summary>

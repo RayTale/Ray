@@ -12,6 +12,7 @@
             LatestMinEventTimestamp = snapshotBase.LatestMinEventTimestamp;
             IsLatest = snapshotBase.IsLatest;
             IsOver = snapshotBase.IsOver;
+            TransactionId = string.Empty;
         }
         /// <summary>
         /// 当前正在进行中的事务Id(无需持久化)
