@@ -14,7 +14,6 @@ namespace Ray.Metric.Core
             builder.ConfigureServices(service =>
             {
                 service.AddSingleton<MetricMonitor>();
-                service.AddSingleton<EventContainer>();
                 service.AddSingleton<IMetricMonitor>(provider => provider.GetService<MetricMonitor>());
                 service.AddSingleton<IDTxMetricMonitor>(provider => provider.GetService<MetricMonitor>());
             });
