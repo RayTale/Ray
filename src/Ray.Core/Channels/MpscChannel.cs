@@ -13,11 +13,11 @@ namespace Ray.Core.Channels
     /// multi producter single consumer channel
     /// </summary>
     /// <typeparam name="T">data type produced by producer</typeparam>
-    public class MpscChannel<T> : IMpscChannel<T>
+    public class MpscChannel<T> : IMpscChannel<T>, ISequenceMpscChannel
     {
         readonly BufferBlock<T> buffer = new BufferBlock<T>();
         private Func<List<T>, Task> consumer;
-        readonly List<IBaseMpscChannel> consumerSequence = new List<IBaseMpscChannel>();
+        readonly List<ISequenceMpscChannel> consumerSequence = new List<ISequenceMpscChannel>();
         private Task<bool> waitToReadTask;
         readonly ILogger logger;
         private Task consumerTask;
@@ -38,15 +38,18 @@ namespace Ray.Core.Channels
         public bool IsDisposed { get; private set; }
         public bool IsChildren { get; set; }
 
-        public void BindConsumer(Func<List<T>, Task> consumer)
+        public void BindConsumer(Func<List<T>, Task> consumer, bool active = true)
         {
-            if (Interlocked.CompareExchange(ref this.consumer, consumer, null) is null)
+            if (active)
             {
-                this.consumer = consumer;
-                consumerTask = ActiveAutoConsumer();
+                if (Interlocked.CompareExchange(ref this.consumer, consumer, null) is null)
+                {
+                    this.consumer = consumer;
+                    consumerTask = ActiveAutoConsumer();
+                }
+                else
+                    throw new RebindConsumerException(GetType().Name);
             }
-            else
-                throw new RebindConsumerException(GetType().Name);
         }
         public void Config(int maxBatchSize, int maxMillisecondsDelay)
         {
@@ -76,7 +79,7 @@ namespace Ray.Core.Channels
                 }
             }
         }
-        public void Join(IBaseMpscChannel channel)
+        public void Join(ISequenceMpscChannel channel)
         {
             if (consumerSequence.IndexOf(channel) == -1)
             {

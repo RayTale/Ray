@@ -123,8 +123,8 @@ namespace Ray.EventBus.RabbitMQ
         {
             try
             {
-                if (logger.IsEnabled(LogLevel.Information))
-                    logger.LogInformation("EventBus Background Service is checking.");
+                if (logger.IsEnabled(LogLevel.Debug))
+                    logger.LogDebug("EventBus Background Service is checking.");
                 if (Interlocked.CompareExchange(ref heathCheckTimerLock, 1, 0) == 0)
                 {
                     await Task.WhenAll(ConsumerRunners.Values.Select(runner => runner.HeathCheck()));
@@ -139,7 +139,7 @@ namespace Ray.EventBus.RabbitMQ
         }
         public Task StartAsync(CancellationToken cancellationToken)
         {
-            if (logger.IsEnabled(LogLevel.Information))
+            if (logger.IsEnabled(LogLevel.Debug))
                 logger.LogInformation("EventBus Background Service is starting.");
             DistributedMonitorTime = new Timer(state => DistributedStart().Wait(), null, 1000, _MonitTime);
             DistributedHoldTimer = new Timer(state => DistributedHold().Wait(), null, _HoldTime, _HoldTime);
