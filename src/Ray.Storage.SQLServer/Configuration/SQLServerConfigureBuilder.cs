@@ -12,7 +12,6 @@ namespace Ray.Storage.SQLServer
                         base((provider, id, parameter) =>
                         {
                             var result = generator(provider, id, parameter);
-                            result.Connection = provider.GetService<IOptions<SQLServerConnections>>().Value.ConnectionDict[result.ConnectionKey];
                             result.CreateConnectionFunc = connection => SQLServerFactory.CreateConnection(connection);
                             result.BuildRepository = new SQLServerBuildService(result);
                             return result;

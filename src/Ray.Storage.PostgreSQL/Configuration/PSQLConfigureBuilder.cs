@@ -12,7 +12,6 @@ namespace Ray.Storage.PostgreSQL
                         base((provider, id, parameter) =>
                         {
                             var result = generator(provider, id, parameter);
-                            result.Connection = provider.GetService<IOptions<PSQLConnections>>().Value.ConnectionDict[result.ConnectionKey];
                             result.CreateConnectionFunc = connection => PSQLFactory.CreateConnection(connection);
                             result.BuildRepository = new PSQLBuildService(result);
                             return result;

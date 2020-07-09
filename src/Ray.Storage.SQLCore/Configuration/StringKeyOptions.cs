@@ -4,9 +4,9 @@ namespace Ray.Storage.SQLCore.Configuration
 {
     public class StringKeyOptions : StorageOptions
     {
-        public StringKeyOptions(IServiceProvider serviceProvider, string connectionKey, string uniqueName, long subTableDaysInterval = 30, int stateIdLength = 200) : base(serviceProvider)
+        public StringKeyOptions(IServiceProvider serviceProvider, string connectionStr, string uniqueName, long subTableDaysInterval = 30, int stateIdLength = 200) : base(serviceProvider)
         {
-            ConnectionKey = connectionKey;
+            Connection = connectionStr;
             StateIdLength = stateIdLength;
             UniqueName = uniqueName;
             SubTableMillionSecondsInterval = subTableDaysInterval * 24 * 60 * 60 * 1000;
