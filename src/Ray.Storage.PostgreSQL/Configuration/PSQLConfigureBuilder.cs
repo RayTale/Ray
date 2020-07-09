@@ -12,9 +12,12 @@ namespace Ray.Storage.PostgreSQL
                         base((provider, id, parameter) =>
                         {
                             var result = generator(provider, id, parameter);
-                            result.Connection = provider.GetService<IOptions<PSQLConnections>>().Value.ConnectionDict[result.ConnectionKey];
-                            result.CreateConnectionFunc = connection => PSQLFactory.CreateConnection(connection);
-                            result.BuildRepository = new PSQLBuildService(result);
+                            if (string.IsNullOrEmpty(result.Connection))
+                                result.Connection = provider.GetService<IOptions<PSQLConnections>>().Value.ConnectionDict[result.ConnectionKey];
+                            if (result.CreateConnectionFunc == default)
+                                result.CreateConnectionFunc = connection => PSQLFactory.CreateConnection(connection);
+                            if (result.BuildRepository == default)
+                                result.BuildRepository = new PSQLBuildService(result);
                             return result;
                         }, singleton)
         {

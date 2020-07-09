@@ -12,9 +12,12 @@ namespace Ray.Storage.MySQL
             base((provider, id, parameter) =>
             {
                 var result = generator(provider, id, parameter);
-                result.Connection = provider.GetService<IOptions<MySQLConnections>>().Value.ConnectionDict[result.ConnectionKey];
-                result.CreateConnectionFunc = connection => MySQLFactory.CreateConnection(connection);
-                result.BuildRepository = new MySQLBuildService(result);
+                if (string.IsNullOrEmpty(result.Connection))
+                    result.Connection = provider.GetService<IOptions<MySQLConnections>>().Value.ConnectionDict[result.ConnectionKey];
+                if (result.CreateConnectionFunc == default)
+                    result.CreateConnectionFunc = connection => MySQLFactory.CreateConnection(connection);
+                if (result.BuildRepository == default)
+                    result.BuildRepository = new MySQLBuildService(result);
                 return result;
             }, singleton)
         {
