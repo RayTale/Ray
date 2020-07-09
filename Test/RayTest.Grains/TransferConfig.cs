@@ -25,7 +25,12 @@ namespace RayTest.Grains
                 options.ArchiveEventOnOver = true;
                 options.PriorityAsyncEventBus = true;
             });
-            serviceCollection.AddSingleton<IConfigureBuilder<long, Account>>(new PSQLConfigureBuilder<long, Account>((provider, id, parameter) =>new IntegerKeyOptions(provider, "core_event", "account")).AutoRegistrationObserver());
+            serviceCollection.AddSingleton<IConfigureBuilder<long, Account>>(new PSQLConfigureBuilder<long, Account>((provider, id, parameter) =>
+            {
+                var connectionContainer = provider.GetRequiredService<ConnectionContainer>();
+                var connStr = connectionContainer.GetConnStr("core_event");
+                return new IntegerKeyOptions(provider,connStr , "account");
+            }).AutoRegistrationObserver());
 
         }
 
