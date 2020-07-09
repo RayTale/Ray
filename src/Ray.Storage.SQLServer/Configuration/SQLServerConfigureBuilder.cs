@@ -12,9 +12,12 @@ namespace Ray.Storage.SQLServer
                         base((provider, id, parameter) =>
                         {
                             var result = generator(provider, id, parameter);
-                            result.Connection = provider.GetService<IOptions<SQLServerConnections>>().Value.ConnectionDict[result.ConnectionKey];
-                            result.CreateConnectionFunc = connection => SQLServerFactory.CreateConnection(connection);
-                            result.BuildRepository = new SQLServerBuildService(result);
+                            if (string.IsNullOrEmpty(result.Connection))
+                                result.Connection = provider.GetService<IOptions<SQLServerConnections>>().Value.ConnectionDict[result.ConnectionKey];
+                            if (result.CreateConnectionFunc == default)
+                                result.CreateConnectionFunc = connection => SQLServerFactory.CreateConnection(connection);
+                            if (result.BuildRepository == default)
+                                result.BuildRepository = new SQLServerBuildService(result);
                             return result;
                         }, singleton)
         {
