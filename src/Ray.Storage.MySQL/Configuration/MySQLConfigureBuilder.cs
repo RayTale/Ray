@@ -12,7 +12,6 @@ namespace Ray.Storage.MySQL
             base((provider, id, parameter) =>
             {
                 var result = generator(provider, id, parameter);
-                result.Connection = provider.GetService<IOptions<MySQLConnections>>().Value.ConnectionDict[result.ConnectionKey];
                 result.CreateConnectionFunc = connection => MySQLFactory.CreateConnection(connection);
                 result.BuildRepository = new MySQLBuildService(result);
                 return result;
