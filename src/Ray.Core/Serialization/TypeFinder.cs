@@ -13,7 +13,8 @@ namespace Ray.Core.Serialization
     {
         private readonly ConcurrentDictionary<string, Type> codeDict = new ConcurrentDictionary<string, Type>();
         private readonly ConcurrentDictionary<Type, string> typeDict = new ConcurrentDictionary<Type, string>();
-        readonly ILogger<TypeFinder> logger;
+        private readonly ILogger<TypeFinder> logger;
+
         public TypeFinder(ILogger<TypeFinder> logger)
         {
             this.logger = logger;
@@ -26,18 +27,21 @@ namespace Ray.Core.Serialization
                     if (baseEventType.IsAssignableFrom(type))
                     {
                         var attribute = type.GetCustomAttributes(attributeType, false).FirstOrDefault();
-                        if (attribute != null && attribute is EventNameAttribute tCode)
+                        if (attribute != null && attribute is EventNameAttribute tCode
+                                              && tCode.Code != default)
                         {
                             if (!codeDict.TryAdd(tCode.Code, type))
                             {
                                 throw new TypeCodeRepeatedException(tCode.Code, type.FullName);
                             }
+
                             typeDict.TryAdd(type, tCode.Code);
                         }
                         else
                         {
                             typeDict.TryAdd(type, type.FullName);
                         }
+
                         if (!codeDict.TryAdd(type.FullName, type))
                         {
                             throw new TypeCodeRepeatedException(type.FullName, type.FullName);
@@ -46,6 +50,7 @@ namespace Ray.Core.Serialization
                 }
             }
         }
+
         /// <summary>
         /// 通过code获取Type对象
         /// </summary>
@@ -63,12 +68,14 @@ namespace Ray.Core.Serialization
                         return type;
                     }
                 }
+
                 return Type.GetType(typeCode, false);
             });
             if (value is null)
-                throw new UnknowTypeCodeException(typeCode);
+                throw new UnknownTypeCodeException(typeCode);
             return value;
         }
+
         /// <summary>
         /// 获取Type对象的code字符串
         /// </summary>
