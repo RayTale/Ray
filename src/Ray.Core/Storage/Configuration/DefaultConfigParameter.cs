@@ -4,9 +4,8 @@
     {
         public DefaultConfigParameter(bool singleton)
         {
-            this.Singleton = singleton;
+            Singleton = singleton;
         }
-
         public bool Singleton { get; set; }
     }
 }

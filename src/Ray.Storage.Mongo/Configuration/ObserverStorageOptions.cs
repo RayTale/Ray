@@ -7,26 +7,25 @@ namespace Ray.Storage.Mongo.Configuration
 {
     public class ObserverStorageOptions : IObserverStorageOptions
     {
-        private StorageOptions baseConfig;
-
+        StorageOptions _baseConfig;
         public IStorageOptions Config
         {
-            get => this.baseConfig;
-            set => this.baseConfig = value as StorageOptions;
+            get => _baseConfig;
+            set
+            {
+                _baseConfig = value as StorageOptions;
+            }
         }
-
         public string ObserverName { get; set; }
-
-        public string ObserverSnapshotTable => $"{this.baseConfig.SnapshotCollection}_{this.ObserverName}";
+        public string ObserverSnapshotTable => $"{_baseConfig.SnapshotCollection}_{ObserverName}";
 
         public ValueTask Build()
         {
-            return new ValueTask(this.CreateObserverSnapshotIndex());
+            return new ValueTask(CreateObserverSnapshotIndex());
         }
-
         private async Task CreateObserverSnapshotIndex()
         {
-            var stateCollection = this.baseConfig.Client.GetCollection<BsonDocument>(this.baseConfig.DataBase, this.ObserverSnapshotTable);
+            var stateCollection = _baseConfig.Client.GetCollection<BsonDocument>(_baseConfig.DataBase, ObserverSnapshotTable);
             var stateIndex = await stateCollection.Indexes.ListAsync();
             var stateIndexList = await stateIndex.ToListAsync();
             if (!stateIndexList.Exists(p => p["name"] == "State"))

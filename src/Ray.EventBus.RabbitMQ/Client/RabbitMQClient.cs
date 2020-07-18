@@ -6,31 +6,27 @@ namespace Ray.EventBus.RabbitMQ
 {
     public class RabbitMQClient : IRabbitMQClient
     {
-        private readonly ConnectionFactory connectionFactory;
-        private readonly RabbitOptions options;
-        private readonly DefaultObjectPool<ModelWrapper> pool;
-
+        readonly ConnectionFactory connectionFactory;
+        readonly RabbitOptions options;
+        readonly DefaultObjectPool<ModelWrapper> pool;
         public RabbitMQClient(IOptions<RabbitOptions> config)
         {
-            this.options = config.Value;
-            this.connectionFactory = new ConnectionFactory
+            options = config.Value;
+            connectionFactory = new ConnectionFactory
             {
-                UserName = this.options.UserName,
-                Password = this.options.Password,
-                VirtualHost = this.options.VirtualHost,
+                UserName = options.UserName,
+                Password = options.Password,
+                VirtualHost = options.VirtualHost,
                 AutomaticRecoveryEnabled = false
             };
-            this.pool = new DefaultObjectPool<ModelWrapper>(new ModelPooledObjectPolicy(this.connectionFactory, this.options));
+            pool = new DefaultObjectPool<ModelWrapper>(new ModelPooledObjectPolicy(connectionFactory, options));
         }
 
         public ModelWrapper PullModel()
         {
-            var result = this.pool.Get();
+            var result = pool.Get();
             if (result.Pool is null)
-            {
-                result.Pool = this.pool;
-            }
-
+                result.Pool = pool;
             return result;
         }
     }

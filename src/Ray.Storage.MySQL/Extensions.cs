@@ -11,7 +11,6 @@ namespace Ray.Storage.MySQL
             serviceCollection.Configure<MySQLConnections>(config => configAction(config));
             serviceCollection.AddSingleton<StorageFactory>();
         }
-
         public static void AddMySQLTxStorage(this IServiceCollection serviceCollection, Action<TransactionOptions> configAction)
         {
             serviceCollection.Configure<TransactionOptions>(config => configAction(config));

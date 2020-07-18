@@ -9,19 +9,17 @@ namespace Ray.Core
 {
     public class SiloStartupTask : IStartupTask
     {
-        private readonly IServiceProvider serviceProvider;
-        private readonly IStartupConfig startupConfig;
-
+        readonly IServiceProvider serviceProvider;
+        readonly IStartupConfig startupConfig;
         public SiloStartupTask(IServiceProvider serviceProvider, IStartupConfig startupConfig)
         {
             this.serviceProvider = serviceProvider;
             this.startupConfig = startupConfig;
         }
-
         public async Task Execute(CancellationToken cancellationToken)
         {
-            await this.startupConfig.ConfigureObserverUnit(this.serviceProvider, this.serviceProvider.GetService<IObserverUnitContainer>());
-            await Startup.StartRay(this.serviceProvider);
+            await startupConfig.ConfigureObserverUnit(serviceProvider, serviceProvider.GetService<IObserverUnitContainer>());
+            await Startup.StartRay(serviceProvider);
         }
     }
 }

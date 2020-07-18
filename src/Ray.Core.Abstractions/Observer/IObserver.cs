@@ -7,13 +7,11 @@ namespace Ray.Core.Observer
     public interface IObserver : IVersion
     {
         Task OnNext(Immutable<byte[]> bytes);
-
         Task OnNext(Immutable<List<byte[]>> items);
-
         /// <summary>
         /// 重置状态
         /// </summary>
-        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+        /// <returns></returns>
         Task Reset();
     }
 }

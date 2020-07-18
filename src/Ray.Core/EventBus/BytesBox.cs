@@ -4,14 +4,11 @@
     {
         public BytesBox(byte[] value, object origin)
         {
-            this.Value = value;
-            this.Origin = origin;
+            Value = value;
+            Origin = origin;
         }
-
         public byte[] Value { get; }
-
         public bool Success { get; set; }
-
         public object Origin { get; set; }
     }
 }

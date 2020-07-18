@@ -15,9 +15,7 @@ namespace Ray.Core.Snapshot
                 {
                     var handlerType = type.GetInterfaces().SingleOrDefault(t => !string.IsNullOrEmpty(t.FullName) && t.FullName.StartsWith("Ray.Core.Snapshot.ISnapshotHandler"));
                     if (handlerType != null && !type.IsAbstract)
-                    {
                         serviceCollection.AddSingleton(handlerType, type);
-                    }
                 }
             }
         }

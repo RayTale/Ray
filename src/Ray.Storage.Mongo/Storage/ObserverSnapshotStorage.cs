@@ -9,25 +9,23 @@ namespace Ray.Storage.Mongo
 {
     public class ObserverSnapshotStorage<PrimaryKey> : IObserverSnapshotStorage<PrimaryKey>
     {
-        private readonly ObserverStorageOptions grainConfig;
-
+        readonly ObserverStorageOptions grainConfig;
         public ObserverSnapshotStorage(ObserverStorageOptions table)
         {
-            this.grainConfig = table;
+            grainConfig = table;
         }
-
         public Task Delete(PrimaryKey id)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", id);
-            var baseConfig = this.grainConfig.Config as StorageOptions;
-            return baseConfig.Client.GetCollection<BsonDocument>(baseConfig.DataBase, this.grainConfig.ObserverSnapshotTable).DeleteManyAsync(filter);
+            var baseConfig = grainConfig.Config as StorageOptions;
+            return baseConfig.Client.GetCollection<BsonDocument>(baseConfig.DataBase, grainConfig.ObserverSnapshotTable).DeleteManyAsync(filter);
         }
 
         public async Task<ObserverSnapshot<PrimaryKey>> Get(PrimaryKey id)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", id);
-            var baseConfig = this.grainConfig.Config as StorageOptions;
-            var cursor = await baseConfig.Client.GetCollection<BsonDocument>(baseConfig.DataBase, this.grainConfig.ObserverSnapshotTable).FindAsync<BsonDocument>(filter);
+            var baseConfig = grainConfig.Config as StorageOptions;
+            var cursor = await baseConfig.Client.GetCollection<BsonDocument>(baseConfig.DataBase, grainConfig.ObserverSnapshotTable).FindAsync<BsonDocument>(filter);
             var document = await cursor.FirstOrDefaultAsync();
             if (document != default)
             {
@@ -39,7 +37,6 @@ namespace Ray.Storage.Mongo
                     StartTimestamp = document["StartTimestamp"].AsInt64
                 };
             }
-
             return default;
         }
 
@@ -51,8 +48,8 @@ namespace Ray.Storage.Mongo
                 { "Version", snapshot.Version },
                 { "StartTimestamp", snapshot.StartTimestamp }
             };
-            var baseConfig = this.grainConfig.Config as StorageOptions;
-            return baseConfig.Client.GetCollection<BsonDocument>(baseConfig.DataBase, this.grainConfig.ObserverSnapshotTable).InsertOneAsync(doc);
+            var baseConfig = grainConfig.Config as StorageOptions;
+            return baseConfig.Client.GetCollection<BsonDocument>(baseConfig.DataBase, grainConfig.ObserverSnapshotTable).InsertOneAsync(doc);
         }
 
         public Task Update(ObserverSnapshot<PrimaryKey> snapshot)
@@ -62,16 +59,16 @@ namespace Ray.Storage.Mongo
                 Builders<BsonDocument>.Update.
                 Set("Version", snapshot.Version).
                 Set("StartTimestamp", snapshot.StartTimestamp);
-            var baseConfig = this.grainConfig.Config as StorageOptions;
-            return baseConfig.Client.GetCollection<BsonDocument>(baseConfig.DataBase, this.grainConfig.ObserverSnapshotTable).UpdateOneAsync(filter, update);
+            var baseConfig = grainConfig.Config as StorageOptions;
+            return baseConfig.Client.GetCollection<BsonDocument>(baseConfig.DataBase, grainConfig.ObserverSnapshotTable).UpdateOneAsync(filter, update);
         }
 
         public Task UpdateStartTimestamp(PrimaryKey id, long timestamp)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", id);
             var update = Builders<BsonDocument>.Update.Set("StartTimestamp", timestamp);
-            var baseConfig = this.grainConfig.Config as StorageOptions;
-            return baseConfig.Client.GetCollection<BsonDocument>(baseConfig.DataBase, this.grainConfig.ObserverSnapshotTable).UpdateOneAsync(filter, update);
+            var baseConfig = grainConfig.Config as StorageOptions;
+            return baseConfig.Client.GetCollection<BsonDocument>(baseConfig.DataBase, grainConfig.ObserverSnapshotTable).UpdateOneAsync(filter, update);
         }
     }
 }

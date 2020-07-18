@@ -12,9 +12,8 @@ namespace Ray.Core.Event
     {
         public EventIgnoreAttribute(params Type[] ignores)
         {
-            this.Ignores = ignores.ToList();
+            Ignores = ignores.ToList();
         }
-
         /// <summary>
         /// 需要忽略的Event类型，不然系统会强制检查并抛出异常
         /// </summary>

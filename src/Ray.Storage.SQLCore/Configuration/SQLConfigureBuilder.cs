@@ -1,40 +1,32 @@
-﻿using System;
-using Ray.Core.Storage;
+﻿using Ray.Core.Storage;
+using System;
 
 namespace Ray.Storage.SQLCore.Configuration
 {
-    public class SQLConfigureBuilder<TFactory, TPrimaryKey, TGrain> :
-        ConfigureBuilder<TPrimaryKey, TGrain, StorageOptions, ObserverStorageOptions, DefaultConfigParameter>
-        where TFactory : IStorageFactory
+    public class SQLConfigureBuilder<Factory, PrimaryKey, Grain> :
+        ConfigureBuilder<PrimaryKey, Grain, StorageOptions, ObserverStorageOptions, DefaultConfigParameter>
+        where Factory : IStorageFactory
     {
-        public SQLConfigureBuilder(
-            Func<IServiceProvider, TPrimaryKey, DefaultConfigParameter, StorageOptions> generator,
-            bool singleton = true)
-            : base(generator, new DefaultConfigParameter(singleton))
+        public SQLConfigureBuilder(Func<IServiceProvider, PrimaryKey, DefaultConfigParameter, StorageOptions> generator, bool singleton = true) :
+            base(generator, new DefaultConfigParameter(singleton))
         {
         }
-
-        public override Type StorageFactory => typeof(TFactory);
-
-        public SQLConfigureBuilder<TFactory, TPrimaryKey, TGrain> Observe<TFollowGrain>(string observerName = null)
-            where TFollowGrain : Orleans.Grain
+        public override Type StorageFactory => typeof(Factory);
+        public SQLConfigureBuilder<Factory, PrimaryKey, Grain> Observe<FollowGrain>(string observerName = null)
+            where FollowGrain : Orleans.Grain
         {
-            this.Observe<TFollowGrain>((provider, id, parameter) => new ObserverStorageOptions { ObserverName = observerName });
+            Observe<FollowGrain>((provider, id, parameter) => new ObserverStorageOptions { ObserverName = observerName });
             return this;
         }
-
-        public SQLConfigureBuilder<TFactory, TPrimaryKey, TGrain> AutoRegistrationObserver()
+        public SQLConfigureBuilder<Factory, PrimaryKey, Grain> AutoRegistrationObserver()
         {
             foreach (var (type, observer) in Core.CoreExtensions.AllObserverAttribute)
             {
-                if (observer.Observable == typeof(TGrain))
+                if (observer.Observable == typeof(Grain))
                 {
-                    this.Observe(
-                        type,
-                        (provider, id, parameter) => new ObserverStorageOptions { ObserverName = observer.Name });
+                    Observe(type, (provider, id, parameter) => new ObserverStorageOptions { ObserverName = observer.Name });
                 }
             }
-
             return this;
         }
     }

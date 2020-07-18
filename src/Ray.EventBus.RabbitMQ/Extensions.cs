@@ -22,13 +22,9 @@ namespace Ray.EventBus.RabbitMQ
             {
                 var container = serviceProvider.GetService<IRabbitEventBusContainer>();
                 if (eventBusConfig != default)
-                {
                     await eventBusConfig(container);
-                }
                 else
-                {
                     await container.AutoRegister();
-                }
             });
         }
     }

@@ -16,67 +16,55 @@ namespace Ray.Storage.Mongo
     {
         private readonly IIndexBuildService indexBuildService;
         private readonly string subTableRecordCollection;
-
         public StorageOptions(IServiceProvider serviceProvider, string connectionKey, string database, string uniqueName, long subTableMinutesInterval = 30, string subTableRecordCollection = "SubTable")
         {
             this.subTableRecordCollection = subTableRecordCollection;
-            this.Client = ClientFactory.CreateClient(serviceProvider.GetService<IOptions<MongoConnections>>().Value.ConnectionDict[connectionKey]);
-            this.indexBuildService = serviceProvider.GetService<IIndexBuildService>();
-            this.DataBase = database;
-            this.UniqueName = uniqueName;
-            this.SubTableMillionSecondsInterval = subTableMinutesInterval * 24 * 60 * 60 * 1000;
+            Client = ClientFactory.CreateClient(serviceProvider.GetService<IOptions<MongoConnections>>().Value.ConnectionDict[connectionKey]);
+            indexBuildService = serviceProvider.GetService<IIndexBuildService>();
+            DataBase = database;
+            UniqueName = uniqueName;
+            SubTableMillionSecondsInterval = subTableMinutesInterval * 24 * 60 * 60 * 1000;
         }
-
         public ICustomClient Client { get; }
-
         public string UniqueName { get; set; }
-
         public bool Singleton { get; set; }
-
         public string DataBase { get; set; }
-
-        public string EventCollection => $"{this.UniqueName}_Event";
-
-        public string SnapshotCollection => $"{this.UniqueName}_Snapshot";
-
-        public string SnapshotArchiveTable => $"{this.SnapshotCollection}_Archive";
-
-        public string EventArchiveTable => $"{this.EventCollection}_Archive";
-
+        public string EventCollection => $"{UniqueName}_Event";
+        public string SnapshotCollection => $"{UniqueName}_Snapshot";
+        public string SnapshotArchiveTable => $"{SnapshotCollection}_Archive";
+        public string EventArchiveTable => $"{EventCollection}_Archive";
         public long SubTableMillionSecondsInterval { get; set; }
 
-        private bool builded = false;
-        private List<SubCollectionInfo> subTables;
-        private readonly SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
-
+        bool builded = false;
+        private List<SubCollectionInfo> _subTables;
+        readonly SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
         public async ValueTask Build()
         {
-            if (!this.builded)
+            if (!builded)
             {
-                await this.semaphore.WaitAsync();
+                await semaphore.WaitAsync();
                 try
                 {
-                    if (!this.builded)
+                    if (!builded)
                     {
-                        await this.indexBuildService.CreateSubTableRecordIndex(this.Client, this.DataBase, this.subTableRecordCollection);
-                        await this.indexBuildService.CreateSnapshotIndex(this.Client, this.DataBase, this.SnapshotCollection);
-                        await this.indexBuildService.CreateSnapshotArchiveIndex(this.Client, this.DataBase, this.SnapshotArchiveTable);
-                        await this.indexBuildService.CreateEventArchiveIndex(this.Client, this.DataBase, this.EventArchiveTable);
-                        this.subTables = await this.GetSubTables();
-                        this.builded = true;
+                        await indexBuildService.CreateSubTableRecordIndex(Client, DataBase, subTableRecordCollection);
+                        await indexBuildService.CreateSnapshotIndex(Client, DataBase, SnapshotCollection);
+                        await indexBuildService.CreateSnapshotArchiveIndex(Client, DataBase, SnapshotArchiveTable);
+                        await indexBuildService.CreateEventArchiveIndex(Client, DataBase, EventArchiveTable);
+                        _subTables = await GetSubTables();
+                        builded = true;
                     }
                 }
                 finally
                 {
-                    this.semaphore.Release();
+                    semaphore.Release();
                 }
             }
         }
-
         private async Task<List<SubCollectionInfo>> GetSubTables()
         {
-            var filter = Builders<BsonDocument>.Filter.Eq("Table", this.EventCollection);
-            var cursor = await this.Client.GetCollection<BsonDocument>(this.DataBase, this.subTableRecordCollection).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(10000).Token);
+            var filter = Builders<BsonDocument>.Filter.Eq("Table", EventCollection);
+            var cursor = await Client.GetCollection<BsonDocument>(DataBase, subTableRecordCollection).FindAsync<BsonDocument>(filter, cancellationToken: new CancellationTokenSource(10000).Token);
             var list = new List<SubCollectionInfo>();
             foreach (var document in cursor.ToEnumerable())
             {
@@ -89,91 +77,82 @@ namespace Ray.Storage.Mongo
                     EndTime = document["EndTime"].AsInt64
                 });
             }
-
             return list;
         }
-
         public async ValueTask<List<SubCollectionInfo>> GetCollectionList()
         {
-            var lastSubTable = this.subTables.LastOrDefault();
+            var lastSubTable = _subTables.LastOrDefault();
             if (lastSubTable is null || lastSubTable.EndTime <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
             {
-                await this.semaphore.WaitAsync();
+                await semaphore.WaitAsync();
                 try
                 {
                     if (lastSubTable is null || lastSubTable.EndTime <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
                     {
-                        this.subTables = await this.GetSubTables();
+                        _subTables = await GetSubTables();
                     }
                 }
                 finally
                 {
-                    this.semaphore.Release();
+                    semaphore.Release();
                 }
             }
-
-            return this.subTables;
+            return _subTables;
         }
-
         public async ValueTask<SubCollectionInfo> GetCollection(long eventTimestamp)
         {
-            var getTask = this.GetCollectionList();
+            var getTask = GetCollectionList();
             if (!getTask.IsCompletedSuccessfully)
-            {
                 await getTask;
-            }
-
-            var subTable = this.SubTableMillionSecondsInterval == 0 ? getTask.Result.LastOrDefault() : getTask.Result.SingleOrDefault(table => table.StartTime <= eventTimestamp && table.EndTime > eventTimestamp);
+            var subTable = SubTableMillionSecondsInterval == 0 ? getTask.Result.LastOrDefault() : getTask.Result.SingleOrDefault(table => table.StartTime <= eventTimestamp && table.EndTime > eventTimestamp);
             if (subTable is null)
             {
-                await this.semaphore.WaitAsync();
-                subTable = this.SubTableMillionSecondsInterval == 0 ? getTask.Result.LastOrDefault() : getTask.Result.SingleOrDefault(table => table.StartTime <= eventTimestamp && table.EndTime > eventTimestamp);
+                await semaphore.WaitAsync();
+                subTable = SubTableMillionSecondsInterval == 0 ? getTask.Result.LastOrDefault() : getTask.Result.SingleOrDefault(table => table.StartTime <= eventTimestamp && table.EndTime > eventTimestamp);
                 try
                 {
                     if (subTable is null)
                     {
                         var lastSubTable = getTask.Result.LastOrDefault();
-                        var startTime = lastSubTable != null ? (lastSubTable.EndTime == lastSubTable.StartTime ? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() : lastSubTable.EndTime) : eventTimestamp;
+                        var startTime = lastSubTable != null? (lastSubTable.EndTime == lastSubTable.StartTime ? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() : lastSubTable.EndTime) : eventTimestamp;
                         var index = lastSubTable is null ? 0 : lastSubTable.Index + 1;
                         subTable = new SubCollectionInfo
                         {
-                            Table = this.EventCollection,
-                            SubTable = $"{this.EventCollection}_{index}",
+                            Table = EventCollection,
+                            SubTable = $"{EventCollection}_{index}",
                             Index = index,
                             StartTime = startTime,
-                            EndTime = startTime + this.SubTableMillionSecondsInterval
+                            EndTime = startTime + SubTableMillionSecondsInterval
                         };
                         try
                         {
-                            await this.Client.GetCollection<BsonDocument>(this.DataBase, this.subTableRecordCollection).InsertOneAsync(new BsonDocument
+                            await Client.GetCollection<BsonDocument>(DataBase, subTableRecordCollection).InsertOneAsync(new BsonDocument
                             {
-                                { "Table", subTable.Table },
-                                { "SubTable", subTable.SubTable },
-                                { "Index", subTable.Index },
-                                { "StartTime", subTable.StartTime },
-                                { "EndTime", subTable.EndTime }
+                                { "Table",subTable.Table},
+                                { "SubTable",subTable.SubTable},
+                                { "Index",subTable.Index},
+                                { "StartTime",subTable.StartTime},
+                                { "EndTime",subTable.EndTime}
                             });
-                            await this.indexBuildService.CreateEventIndex(this.Client, this.DataBase, subTable.SubTable);
-                            this.subTables.Add(subTable);
+                            await indexBuildService.CreateEventIndex(Client, DataBase, subTable.SubTable);
+                            _subTables.Add(subTable);
                         }
                         catch
                         {
                             subTable = default;
-                            this.subTables = await this.GetSubTables();
+                            _subTables = await GetSubTables();
                         }
                     }
                 }
                 finally
                 {
-                    this.semaphore.Release();
+                    semaphore.Release();
                 }
             }
-
             if (subTable is null)
             {
-                subTable = await this.GetCollection(eventTimestamp);
+                subTable = await GetCollection(eventTimestamp);
             }
-
             return subTable;
         }
     }

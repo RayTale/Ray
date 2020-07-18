@@ -7,43 +7,33 @@ namespace Ray.Core.Serialization
 {
     public class DefaultJsonSerializer : ISerializer
     {
-        private static readonly JsonSerializerOptions options = new JsonSerializerOptions() { Encoder = JavaScriptEncoder.Create(UnicodeRanges.All) };
-
-        public T Deserialize<T>(string json)
-            where T : class, new()
+        static readonly JsonSerializerOptions options = new JsonSerializerOptions() { Encoder = JavaScriptEncoder.Create(UnicodeRanges.All) };
+        public T Deserialize<T>(string json) where T : class, new()
         {
             return JsonSerializer.Deserialize<T>(json);
         }
-
         public object Deserialize(ReadOnlySpan<byte> bytes, Type type)
         {
             return JsonSerializer.Deserialize(bytes, type);
         }
-
         public object Deserialize(byte[] bytes, Type type)
         {
             return JsonSerializer.Deserialize(bytes, type);
         }
-
-        public string Serialize<T>(T data)
-            where T : class, new()
+        public string Serialize<T>(T data) where T : class, new()
         {
             return JsonSerializer.Serialize(data, options);
         }
-
         public string Serialize(object data, Type type)
         {
             return JsonSerializer.Serialize(data, type, options);
         }
-
-        public byte[] SerializeToUtf8Bytes<T>(T data)
-            where T : class, new()
+        public byte[] SerializeToUtf8Bytes<T>(T data) where T : class, new()
         {
             return JsonSerializer.SerializeToUtf8Bytes(data, data.GetType(), options);
         }
 
-        public T Deserialize<T>(byte[] bytes)
-            where T : class, new()
+        public T Deserialize<T>(byte[] bytes) where T : class, new()
         {
             return JsonSerializer.Deserialize<T>(bytes);
         }

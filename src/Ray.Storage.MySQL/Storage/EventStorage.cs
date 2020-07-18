@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Dapper;
+﻿using Dapper;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Ray.Core.Abstractions;
@@ -14,42 +8,42 @@ using Ray.Core.Serialization;
 using Ray.Core.Storage;
 using Ray.Storage.SQLCore;
 using Ray.Storage.SQLCore.Configuration;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace Ray.Storage.MySQL
 {
     public class EventStorage<PrimaryKey> : IEventStorage<PrimaryKey>
     {
-        private readonly StorageOptions config;
-        private readonly IMpscChannel<AskInputBox<EventTaskBox<PrimaryKey>, bool>> mpscChannel;
-        private readonly ILogger<EventStorage<PrimaryKey>> logger;
-        private readonly ISerializer serializer;
-        private readonly ITypeFinder typeFinder;
-
+        readonly StorageOptions config;
+        readonly IMpscChannel<AskInputBox<EventTaskBox<PrimaryKey>, bool>> mpscChannel;
+        readonly ILogger<EventStorage<PrimaryKey>> logger;
+        readonly ISerializer serializer;
+        readonly ITypeFinder typeFinder;
         public EventStorage(IServiceProvider serviceProvider, StorageOptions config)
         {
-            this.logger = serviceProvider.GetService<ILogger<EventStorage<PrimaryKey>>>();
-            this.serializer = serviceProvider.GetService<ISerializer>();
-            this.typeFinder = serviceProvider.GetService<ITypeFinder>();
-            this.mpscChannel = serviceProvider.GetService<IMpscChannel<AskInputBox<EventTaskBox<PrimaryKey>, bool>>>();
-            this.mpscChannel.BindConsumer(this.BatchInsertExecuter);
+            logger = serviceProvider.GetService<ILogger<EventStorage<PrimaryKey>>>();
+            serializer = serviceProvider.GetService<ISerializer>();
+            typeFinder = serviceProvider.GetService<ITypeFinder>();
+            mpscChannel = serviceProvider.GetService<IMpscChannel<AskInputBox<EventTaskBox<PrimaryKey>, bool>>>();
+            mpscChannel.BindConsumer(BatchInsertExecuter);
             this.config = config;
         }
-
-        private static readonly ConcurrentDictionary<string, string> getListSqlDict = new ConcurrentDictionary<string, string>();
-
+        static readonly ConcurrentDictionary<string, string> getListSqlDict = new ConcurrentDictionary<string, string>();
         public async Task<IList<FullyEvent<PrimaryKey>>> GetList(PrimaryKey stateId, long latestTimestamp, long startVersion, long endVersion)
         {
             var list = new List<FullyEvent<PrimaryKey>>((int)(endVersion - startVersion));
             await Task.Run(async () =>
             {
-                var getTableListTask = this.config.GetSubTables();
+                var getTableListTask = config.GetSubTables();
                 if (!getTableListTask.IsCompletedSuccessfully)
-                {
                     await getTableListTask;
-                }
-
                 var stateIdStr = typeof(PrimaryKey) == typeof(long) ? stateId.ToString() : $"'{stateId.ToString()}'";
-                using var conn = this.config.CreateConnection();
+                using var conn = config.CreateConnection();
                 await conn.OpenAsync();
                 foreach (var table in getTableListTask.Result.Where(t => t.EndTime >= latestTimestamp))
                 {
@@ -62,7 +56,7 @@ namespace Ray.Storage.MySQL
                     });
                     foreach (var item in originList)
                     {
-                        if (this.serializer.Deserialize(Encoding.UTF8.GetBytes(item.Data), this.typeFinder.FindType(item.TypeCode)) is IEvent evt)
+                        if (serializer.Deserialize(Encoding.UTF8.GetBytes(item.Data), typeFinder.FindType(item.TypeCode)) is IEvent evt)
                         {
                             list.Add(new FullyEvent<PrimaryKey>
                             {
@@ -76,22 +70,17 @@ namespace Ray.Storage.MySQL
             });
             return list.OrderBy(e => e.BasicInfo.Version).ToList();
         }
-
-        private static readonly ConcurrentDictionary<string, string> getListByTypeSqlDict = new ConcurrentDictionary<string, string>();
-
+        static readonly ConcurrentDictionary<string, string> getListByTypeSqlDict = new ConcurrentDictionary<string, string>();
         public async Task<IList<FullyEvent<PrimaryKey>>> GetListByType(PrimaryKey stateId, string typeCode, long startVersion, int limit)
         {
-            var type = this.typeFinder.FindType(typeCode);
+            var type = typeFinder.FindType(typeCode);
             var list = new List<FullyEvent<PrimaryKey>>(limit);
             await Task.Run(async () =>
             {
-                var getTableListTask = this.config.GetSubTables();
+                var getTableListTask = config.GetSubTables();
                 if (!getTableListTask.IsCompletedSuccessfully)
-                {
                     await getTableListTask;
-                }
-
-                using var conn = this.config.CreateConnection();
+                using var conn = config.CreateConnection();
                 await conn.OpenAsync();
                 foreach (var table in getTableListTask.Result)
                 {
@@ -105,7 +94,7 @@ namespace Ray.Storage.MySQL
                     });
                     foreach (var item in originList)
                     {
-                        if (this.serializer.Deserialize(Encoding.UTF8.GetBytes(item.Data), type) is IEvent evt)
+                        if (serializer.Deserialize(Encoding.UTF8.GetBytes(item.Data), type) is IEvent evt)
                         {
                             list.Add(new FullyEvent<PrimaryKey>
                             {
@@ -115,59 +104,44 @@ namespace Ray.Storage.MySQL
                             });
                         }
                     }
-
                     if (list.Count >= limit)
-                    {
                         break;
-                    }
                 }
             });
             return list.OrderBy(e => e.BasicInfo.Version).ToList();
         }
 
-        private static readonly ConcurrentDictionary<string, string> saveSqlDict = new ConcurrentDictionary<string, string>();
-        private static readonly ConcurrentDictionary<string, string> copySaveSqlDict = new ConcurrentDictionary<string, string>();
-
+        static readonly ConcurrentDictionary<string, string> saveSqlDict = new ConcurrentDictionary<string, string>();
+        static readonly ConcurrentDictionary<string, string> copySaveSqlDict = new ConcurrentDictionary<string, string>();
         public Task<bool> Append(FullyEvent<PrimaryKey> fullyEvent, string eventJson, string unique)
         {
             var input = new EventTaskBox<PrimaryKey>(fullyEvent, eventJson, unique);
             return Task.Run(async () =>
             {
                 var wrap = new AskInputBox<EventTaskBox<PrimaryKey>, bool>(input);
-                var writeTask = this.mpscChannel.WriteAsync(wrap);
+                var writeTask = mpscChannel.WriteAsync(wrap);
                 if (!writeTask.IsCompletedSuccessfully)
-                {
                     await writeTask;
-                }
-
                 return await wrap.TaskSource.Task;
             });
         }
-
         private string GetSaveSql(string tableName)
         {
-            return saveSqlDict.GetOrAdd(
-                tableName,
+            return saveSqlDict.GetOrAdd(tableName,
                              key => $"INSERT ignore INTO {key}(StateId,UniqueId,TypeCode,Data,Version,Timestamp) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version,@Timestamp)");
         }
-
         private string GetCopySaveSql(string tableName)
         {
-            return copySaveSqlDict.GetOrAdd(
-                tableName,
+            return copySaveSqlDict.GetOrAdd(tableName,
                              key => $"INSERT INTO {key}(StateId,UniqueId,TypeCode,Data,Version,Timestamp) VALUES(@StateId,@UniqueId,@TypeCode,@Data,@Version,@Timestamp)");
         }
-
         private async Task BatchInsertExecuter(List<AskInputBox<EventTaskBox<PrimaryKey>, bool>> wrapperList)
         {
             var minTimestamp = wrapperList.Min(t => t.Value.Event.BasicInfo.Timestamp);
             var maxTimestamp = wrapperList.Max(t => t.Value.Event.BasicInfo.Timestamp);
-            var minTask = this.config.GetTable(minTimestamp);
+            var minTask = config.GetTable(minTimestamp);
             if (!minTask.IsCompletedSuccessfully)
-            {
                 await minTask;
-            }
-
             if (minTask.Result.EndTime > maxTimestamp)
             {
                 await BatchCopy(minTask.Result.SubTable, wrapperList);
@@ -176,12 +150,9 @@ namespace Ray.Storage.MySQL
             {
                 var groups = (await Task.WhenAll(wrapperList.Select(async t =>
                 {
-                    var task = this.config.GetTable(t.Value.Event.BasicInfo.Timestamp);
+                    var task = config.GetTable(t.Value.Event.BasicInfo.Timestamp);
                     if (!task.IsCompletedSuccessfully)
-                    {
                         await task;
-                    }
-
                     return (task.Result.SubTable, t);
                 }))).GroupBy(t => t.SubTable);
                 foreach (var group in groups)
@@ -189,17 +160,16 @@ namespace Ray.Storage.MySQL
                     await BatchCopy(group.Key, group.Select(t => t.t).ToList());
                 }
             }
-
             async Task BatchCopy(string tableName, List<AskInputBox<EventTaskBox<PrimaryKey>, bool>> list)
             {
                 try
                 {
-                    using var conn = this.config.CreateConnection();
-                    await conn.ExecuteAsync(this.GetCopySaveSql(tableName), list.Select(wrapper => new
+                    using var conn = config.CreateConnection();
+                    await conn.ExecuteAsync(GetCopySaveSql(tableName), list.Select(wrapper => new
                     {
                         StateId = wrapper.Value.Event.StateId.ToString(),
                         wrapper.Value.UniqueId,
-                        TypeCode = this.typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
+                        TypeCode = typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
                         Data = wrapper.Value.EventUtf8String,
                         wrapper.Value.Event.BasicInfo.Version,
                         wrapper.Value.Event.BasicInfo.Timestamp
@@ -208,16 +178,15 @@ namespace Ray.Storage.MySQL
                 }
                 catch (Exception ex)
                 {
-                    this.logger.LogError(ex, ex.Message);
+                    logger.LogError(ex, ex.Message);
                     await BatchInsert(tableName, wrapperList);
                 }
             }
-
             async Task BatchInsert(string tableName, List<AskInputBox<EventTaskBox<PrimaryKey>, bool>> list)
             {
                 bool isSuccess = false;
-                var saveSql = this.GetSaveSql(tableName);
-                using var conn = this.config.CreateConnection();
+                var saveSql = GetSaveSql(tableName);
+                using var conn = config.CreateConnection();
                 await conn.OpenAsync();
                 using var trans = conn.BeginTransaction();
                 try
@@ -228,13 +197,12 @@ namespace Ray.Storage.MySQL
                         {
                             StateId = wrapper.Value.Event.StateId.ToString(),
                             wrapper.Value.UniqueId,
-                            TypeCode = this.typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
+                            TypeCode = typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
                             Data = wrapper.Value.EventUtf8String,
                             wrapper.Value.Event.BasicInfo.Version,
                             wrapper.Value.Event.BasicInfo.Timestamp
                         }, trans) > 0;
                     }
-
                     trans.Commit();
                     isSuccess = true;
                     list.ForEach(wrap => wrap.TaskSource.TrySetResult(wrap.Value.ReturnValue));
@@ -243,7 +211,6 @@ namespace Ray.Storage.MySQL
                 {
                     trans.Rollback();
                 }
-
                 if (!isSuccess)
                 {
                     foreach (var wrapper in list)
@@ -254,7 +221,7 @@ namespace Ray.Storage.MySQL
                             {
                                 wrapper.Value.Event.StateId,
                                 wrapper.Value.UniqueId,
-                                TypeCode = this.typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
+                                TypeCode = typeFinder.GetCode(wrapper.Value.Event.Event.GetType()),
                                 Data = wrapper.Value.EventUtf8String,
                                 wrapper.Value.Event.BasicInfo.Version,
                                 wrapper.Value.Event.BasicInfo.Timestamp
@@ -268,51 +235,43 @@ namespace Ray.Storage.MySQL
                 }
             }
         }
-
         public async Task TransactionBatchAppend(List<EventBox<PrimaryKey>> list)
         {
             var minTimestamp = list.Min(t => t.FullyEvent.BasicInfo.Timestamp);
             var maxTimestamp = list.Max(t => t.FullyEvent.BasicInfo.Timestamp);
-            var minTask = this.config.GetTable(minTimestamp);
+            var minTask = config.GetTable(minTimestamp);
             if (!minTask.IsCompletedSuccessfully)
-            {
                 await minTask;
-            }
-
             var groups = (await Task.WhenAll(list.Select(async t =>
             {
-                var task = this.config.GetTable(t.FullyEvent.BasicInfo.Timestamp);
+                var task = config.GetTable(t.FullyEvent.BasicInfo.Timestamp);
                 if (!task.IsCompletedSuccessfully)
-                {
                     await task;
-                }
-
                 return (task.Result.SubTable, t);
             }))).GroupBy(t => t.SubTable);
-            using var conn = this.config.CreateConnection();
+            using var conn = config.CreateConnection();
             await conn.OpenAsync();
             using var trans = conn.BeginTransaction();
             try
             {
                 foreach (var group in groups)
                 {
-                    await conn.ExecuteAsync(this.GetSaveSql(group.Key), group.Select(g => new
+                    await conn.ExecuteAsync(GetSaveSql(group.Key), group.Select(g => new
                     {
                         g.t.FullyEvent.StateId,
                         g.t.UniqueId,
-                        TypeCode = this.typeFinder.GetCode(g.t.FullyEvent.Event.GetType()),
+                        TypeCode = typeFinder.GetCode(g.t.FullyEvent.Event.GetType()),
                         Data = g.t.EventUtf8String,
                         g.t.FullyEvent.BasicInfo.Version,
                         g.t.FullyEvent.BasicInfo.Timestamp
                     }).ToArray(), trans);
                 }
-
                 trans.Commit();
             }
             catch (Exception ex)
             {
                 trans.Rollback();
-                this.logger.LogError(ex, nameof(this.TransactionBatchAppend));
+                logger.LogError(ex, nameof(TransactionBatchAppend));
                 throw;
             }
         }
@@ -321,14 +280,11 @@ namespace Ray.Storage.MySQL
         {
             return Task.Run(async () =>
             {
-                var getTableListTask = this.config.GetSubTables();
+                var getTableListTask = config.GetSubTables();
                 if (!getTableListTask.IsCompletedSuccessfully)
-                {
                     await getTableListTask;
-                }
-
                 var tableList = getTableListTask.Result.Where(t => t.EndTime >= startTimestamp);
-                using var conn = this.config.CreateConnection();
+                using var conn = config.CreateConnection();
                 await conn.OpenAsync();
                 using var trans = conn.BeginTransaction();
                 try
@@ -338,7 +294,6 @@ namespace Ray.Storage.MySQL
                         var sql = $"delete from {table.SubTable} WHERE StateId=@StateId and Version<=@EndVersion";
                         await conn.ExecuteAsync(sql, new { StateId = stateId, EndVersion = toVersion }, transaction: trans);
                     }
-
                     trans.Commit();
                 }
                 catch
@@ -353,14 +308,11 @@ namespace Ray.Storage.MySQL
         {
             return Task.Run(async () =>
             {
-                var getTableListTask = this.config.GetSubTables();
+                var getTableListTask = config.GetSubTables();
                 if (!getTableListTask.IsCompletedSuccessfully)
-                {
                     await getTableListTask;
-                }
-
                 var tableList = getTableListTask.Result.Where(t => t.EndTime >= startTimestamp);
-                using var conn = this.config.CreateConnection();
+                using var conn = config.CreateConnection();
                 await conn.OpenAsync();
                 using var trans = conn.BeginTransaction();
                 try
@@ -370,7 +322,6 @@ namespace Ray.Storage.MySQL
                         var sql = $"delete from {table.SubTable} WHERE StateId=@StateId and Version>=@StartVersion";
                         await conn.ExecuteAsync(sql, new { StateId = stateId, StartVersion = fromVersion });
                     }
-
                     trans.Commit();
                 }
                 catch
@@ -380,19 +331,15 @@ namespace Ray.Storage.MySQL
                 }
             });
         }
-
         public Task DeleteByVersion(PrimaryKey stateId, long version, long timestamp)
         {
             return Task.Run(async () =>
             {
-                var getTableListTask = this.config.GetSubTables();
+                var getTableListTask = config.GetSubTables();
                 if (!getTableListTask.IsCompletedSuccessfully)
-                {
                     await getTableListTask;
-                }
-
                 var table = getTableListTask.Result.SingleOrDefault(t => t.StartTime <= timestamp && t.EndTime >= timestamp);
-                using var conn = this.config.CreateConnection();
+                using var conn = config.CreateConnection();
                 var sql = $"delete from {table.SubTable} WHERE StateId=@StateId and Version=@Version";
                 await conn.ExecuteAsync(sql, new { StateId = stateId, Version = version });
             });

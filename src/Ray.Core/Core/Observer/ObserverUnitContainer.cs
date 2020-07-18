@@ -1,21 +1,20 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Orleans;
 using Ray.Core.Abstractions;
 using Ray.Core.Abstractions.Observer;
 using Ray.Core.Exceptions;
 using Ray.Core.Utils;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Ray.Core
 {
     public class ObserverUnitContainer : IObserverUnitContainer
     {
-        private readonly ConcurrentDictionary<Type, object> unitDict = new ConcurrentDictionary<Type, object>();
-
+        readonly ConcurrentDictionary<Type, object> unitDict = new ConcurrentDictionary<Type, object>();
         public ObserverUnitContainer(IServiceProvider serviceProvider)
         {
             var observableList = new List<Type>();
@@ -43,12 +42,8 @@ namespace Ray.Core
                                     t != typeof(IGrainWithStringKey) &&
                                     t != typeof(IGrainWithIntegerKey));
                                 }
-
                                 if (observer.Observer is null)
-                                {
                                     throw new NullReferenceException($"{nameof(ObserverAttribute.Observer)} in {type.FullName}");
-                                }
-
                                 observerList.Add(observer);
                                 break;
                             }
@@ -56,7 +51,6 @@ namespace Ray.Core
                     }
                 }
             }
-
             foreach (var observable in observableList)
             {
                 if (typeof(IGrainWithIntegerKey).IsAssignableFrom(observable))
@@ -67,8 +61,7 @@ namespace Ray.Core
                     {
                         unit.Observer(observer.Group, observer.Observer);
                     }
-
-                    this.Register(unit);
+                    Register(unit);
                 }
                 else if (typeof(IGrainWithStringKey).IsAssignableFrom(observable))
                 {
@@ -78,50 +71,39 @@ namespace Ray.Core
                     {
                         unit.Observer(observer.Group, observer.Observer);
                     }
-
-                    this.Register(unit);
+                    Register(unit);
                 }
                 else
-                {
                     throw new PrimaryKeyTypeException($"Ray can't support {observable.FullName} primary key type.");
-                }
             }
         }
-
         public IObserverUnit<PrimaryKey> GetUnit<PrimaryKey>(Type grainType)
         {
-            if (this.unitDict.TryGetValue(grainType, out var unit))
+            if (unitDict.TryGetValue(grainType, out var unit))
             {
                 if (unit is IObserverUnit<PrimaryKey> result)
                 {
                     return result;
                 }
                 else
-                {
                     throw new UnmatchObserverUnitException(grainType.FullName, unit.GetType().FullName);
-                }
             }
             else
-            {
                 throw new UnfindObserverUnitException(grainType.FullName);
-            }
         }
-
         public object GetUnit(Type grainType)
         {
-            if (this.unitDict.TryGetValue(grainType, out var unit))
+            if (unitDict.TryGetValue(grainType, out var unit))
             {
                 return unit;
             }
             else
-            {
                 throw new UnfindObserverUnitException(grainType.FullName);
-            }
         }
 
         public void Register(IObserverUnit observerUnit)
         {
-            if (!this.unitDict.TryAdd(observerUnit.GrainType, observerUnit))
+            if (!unitDict.TryAdd(observerUnit.GrainType, observerUnit))
             {
                 throw new ObserverUnitRepeatedException(observerUnit.GrainType.FullName);
             }

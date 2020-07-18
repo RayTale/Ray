@@ -30,19 +30,19 @@ namespace Ray.Core.Serialization
                         if (attribute != null && attribute is EventNameAttribute tCode
                                               && tCode.Code != default)
                         {
-                            if (!this.codeDict.TryAdd(tCode.Code, type))
+                            if (!codeDict.TryAdd(tCode.Code, type))
                             {
                                 throw new TypeCodeRepeatedException(tCode.Code, type.FullName);
                             }
 
-                            this.typeDict.TryAdd(type, tCode.Code);
+                            typeDict.TryAdd(type, tCode.Code);
                         }
                         else
                         {
-                            this.typeDict.TryAdd(type, type.FullName);
+                            typeDict.TryAdd(type, type.FullName);
                         }
 
-                        if (!this.codeDict.TryAdd(type.FullName, type))
+                        if (!codeDict.TryAdd(type.FullName, type))
                         {
                             throw new TypeCodeRepeatedException(type.FullName, type.FullName);
                         }
@@ -58,9 +58,9 @@ namespace Ray.Core.Serialization
         /// <returns></returns>
         public Type FindType(string typeCode)
         {
-            var value = this.codeDict.GetOrAdd(typeCode, key =>
+            var value = codeDict.GetOrAdd(typeCode, key =>
             {
-                foreach (var assembly in AssemblyHelper.GetAssemblies(this.logger))
+                foreach (var assembly in AssemblyHelper.GetAssemblies(logger))
                 {
                     var type = assembly.GetType(typeCode, false);
                     if (type != default)
@@ -72,10 +72,7 @@ namespace Ray.Core.Serialization
                 return Type.GetType(typeCode, false);
             });
             if (value is null)
-            {
                 throw new UnknownTypeCodeException(typeCode);
-            }
-
             return value;
         }
 
@@ -86,11 +83,8 @@ namespace Ray.Core.Serialization
         /// <returns></returns>
         public string GetCode(Type type)
         {
-            if (!this.typeDict.TryGetValue(type, out var value))
-            {
+            if (!typeDict.TryGetValue(type, out var value))
                 return type.FullName;
-            }
-
             return value;
         }
     }

@@ -12,28 +12,25 @@ namespace Ray.Storage.MySQL
         private readonly StringKeyOptions stringStorageOptions;
         private readonly StorageOptions storageOptions;
         private readonly bool stateIdIsString;
-
         public MySQLBuildService(StorageOptions storageOptions)
         {
             this.storageOptions = storageOptions;
             if (storageOptions is StringKeyOptions options)
             {
-                this.stateIdIsString = true;
-                this.stringStorageOptions = options;
+                stateIdIsString = true;
+                stringStorageOptions = options;
             }
             else
             {
-                this.stateIdIsString = false;
+                stateIdIsString = false;
             }
         }
-
         public async Task<List<EventSubTable>> GetSubTables()
         {
             string sql = "SELECT * FROM SubTable_Records where TableName=@TableName";
-            using var connection = this.storageOptions.CreateConnection();
-            return (await connection.QueryAsync<EventSubTable>(sql, new { TableName = this.storageOptions.EventTable })).AsList();
+            using var connection = storageOptions.CreateConnection();
+            return (await connection.QueryAsync<EventSubTable>(sql, new { TableName = storageOptions.EventTable })).AsList();
         }
-
         public async Task<bool> CreateEventSubTable()
         {
             const string sql = @"
@@ -45,13 +42,12 @@ namespace Ray.Storage.MySQL
                                       `Index` int(255) NULL DEFAULT NULL,
                                       UNIQUE INDEX `SubTable_Records`(`TableName`, `Index`) USING BTREE
                                     );";
-            using var connection = this.storageOptions.CreateConnection();
+            using var connection = storageOptions.CreateConnection();
             return await connection.ExecuteAsync(sql) > 0;
         }
-
         public async Task CreateEventTable(EventSubTable subTable)
         {
-            var stateIdSql = this.stateIdIsString ? $"`StateId` varchar({this.stringStorageOptions.StateIdLength}) NOT NULL" : "`StateId` bigint(20) NOT NULL";
+            var stateIdSql = stateIdIsString ? $"`StateId` varchar({stringStorageOptions.StateIdLength}) NOT NULL" : "`StateId` bigint(20) NOT NULL";
             var sql = $@"
                     create table if not exists `{subTable.SubTable}` (
                             {stateIdSql},
@@ -64,7 +60,7 @@ namespace Ray.Storage.MySQL
                             UNIQUE INDEX `Version`(`StateId`, `Version`) USING BTREE
                             );";
             const string insertSql = "INSERT INTO SubTable_Records(TableName,SubTable,`Index`,StartTime,EndTime)  VALUES(@TableName,@SubTable,@Index,@StartTime,@EndTime)";
-            using var connection = this.storageOptions.CreateConnection();
+            using var connection = storageOptions.CreateConnection();
             await connection.OpenAsync();
             using var trans = connection.BeginTransaction();
             try
@@ -79,12 +75,11 @@ namespace Ray.Storage.MySQL
                 throw;
             }
         }
-
         public async Task CreateEventArchiveTable()
         {
-            var stateIdSql = this.stateIdIsString ? $"`StateId` varchar({this.stringStorageOptions.StateIdLength}) NOT NULL" : "`StateId` int8 NOT NULL";
+            var stateIdSql = stateIdIsString ? $"`StateId` varchar({stringStorageOptions.StateIdLength}) NOT NULL" : "`StateId` int8 NOT NULL";
             var sql = $@"
-                    create table if not exists `{this.storageOptions.EventArchiveTable}` (
+                    create table if not exists `{storageOptions.EventArchiveTable}` (
                             {stateIdSql},
                             `UniqueId` varchar(250)  null,
                             `TypeCode` varchar(300)  NOT NULL,
@@ -94,27 +89,27 @@ namespace Ray.Storage.MySQL
                             UNIQUE INDEX `id_unique`(`StateId`, `TypeCode`, `UniqueId`) USING BTREE,
                             UNIQUE INDEX `Version`(`StateId`, `Version`) USING BTREE
                             );";
-            using var connection = this.storageOptions.CreateConnection();
+            using var connection = storageOptions.CreateConnection();
             await connection.ExecuteAsync(sql);
         }
 
         public async Task CreateObserverSnapshotTable(string observerSnapshotTable)
         {
-            var stateIdSql = this.stateIdIsString ? $"`StateId` varchar({this.stringStorageOptions.StateIdLength}) NOT NULL PRIMARY KEY" : "`StateId` int8 NOT NULL PRIMARY KEY";
+            var stateIdSql = stateIdIsString ? $"`StateId` varchar({stringStorageOptions.StateIdLength}) NOT NULL PRIMARY KEY" : "`StateId` int8 NOT NULL PRIMARY KEY";
             var sql = $@"
                      CREATE TABLE if not exists `{observerSnapshotTable}`(
                      {stateIdSql},
                      `StartTimestamp` int8 NOT NULL,
                      `Version` int8 NOT NULL);";
-            using var connection = this.storageOptions.CreateConnection();
+            using var connection = storageOptions.CreateConnection();
             await connection.ExecuteAsync(sql);
         }
 
         public async Task CreateSnapshotArchiveTable()
         {
-            var stateIdSql = this.stateIdIsString ? $"`StateId` varchar({this.stringStorageOptions.StateIdLength}) NOT NULL" : "`StateId` int8 NOT NULL";
+            var stateIdSql = stateIdIsString ? $"`StateId` varchar({stringStorageOptions.StateIdLength}) NOT NULL" : "`StateId` int8 NOT NULL";
             var sql = $@"
-                     CREATE TABLE if not exists `{this.storageOptions.SnapshotArchiveTable}`(
+                     CREATE TABLE if not exists `{storageOptions.SnapshotArchiveTable}`(
                      `Id` varchar(50) NOT NULL PRIMARY KEY,
                      {stateIdSql},
                      `StartVersion` int8 NOT NULL,
@@ -127,15 +122,15 @@ namespace Ray.Storage.MySQL
                      `IsOver` bool NOT NULL,
                      `Version` int8 NOT NULL,
                      INDEX `StateId`(`StateId`) USING BTREE);";
-            using var connection = this.storageOptions.CreateConnection();
+            using var connection = storageOptions.CreateConnection();
             await connection.ExecuteAsync(sql);
         }
 
         public async Task CreateSnapshotTable()
         {
-            var stateIdSql = this.stateIdIsString ? $"`StateId` varchar({this.stringStorageOptions.StateIdLength}) NOT NULL PRIMARY KEY" : "`StateId` int8 NOT NULL PRIMARY KEY";
+            var stateIdSql = stateIdIsString ? $"`StateId` varchar({stringStorageOptions.StateIdLength}) NOT NULL PRIMARY KEY" : "`StateId` int8 NOT NULL PRIMARY KEY";
             var sql = $@"
-                     CREATE TABLE if not exists `{this.storageOptions.SnapshotTable}`(
+                     CREATE TABLE if not exists `{storageOptions.SnapshotTable}`(
                      {stateIdSql},
                      `Data` json NOT NULL,
                      `Version` int8 NOT NULL,
@@ -143,7 +138,7 @@ namespace Ray.Storage.MySQL
                      `LatestMinEventTimestamp` int8 NOT NULL,
                      `IsLatest` bool NOT NULL,
                      `IsOver` bool NOT NULL);";
-            using var connection = this.storageOptions.CreateConnection();
+            using var connection = storageOptions.CreateConnection();
             await connection.ExecuteAsync(sql);
         }
     }

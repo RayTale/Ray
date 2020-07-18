@@ -7,21 +7,17 @@ namespace Ray.EventBus.Kafka
     {
         public ProducerAttribute(string topic = default, int lBCount = 1, int retryCount = 3, int retryIntervals = 500)
         {
-            this.Topic = topic;
-            this.LBCount = lBCount;
-            this.RetryCount = retryCount;
-            this.RetryIntervals = retryIntervals;
+            Topic = topic;
+            LBCount = lBCount;
+            RetryCount = retryCount;
+            RetryIntervals = retryIntervals;
         }
-
         public string Topic { get; }
-
         public int LBCount { get; }
-
         /// <summary>
         /// 发生异常重试次数
         /// </summary>
         public int RetryCount { get; set; }
-
         /// <summary>
         /// 重试间隔(ms)
         /// </summary>

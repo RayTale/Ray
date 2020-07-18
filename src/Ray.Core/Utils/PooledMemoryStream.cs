@@ -12,35 +12,31 @@ namespace Ray.Core.Utils
             : this(ArrayPool<byte>.Shared)
         {
         }
-
         /// <summary>create writable memory stream with specified ArrayPool</summary>
         /// <remarks>buffer is allocated from ArrayPool</remarks>
         public PooledMemoryStream(ArrayPool<byte> pool)
             : this(pool, 4096)
         {
         }
-
         /// <summary>create writable memory stream with ensuring buffer length</summary>
         /// <remarks>buffer is allocated from ArrayPool</remarks>
         public PooledMemoryStream(ArrayPool<byte> pool, int capacity)
         {
-            this._mPool = pool;
-            this.currentbuffer = this._mPool.Rent(capacity);
-            this.length = 0;
-            this.canWrite = true;
-            this.position = 0;
+            m_Pool = pool;
+            _currentbuffer = m_Pool.Rent(capacity);
+            _Length = 0;
+            _CanWrite = true;
+            _Position = 0;
         }
-
         /// <summary>create readonly MemoryStream without buffer copy</summary>
         /// <remarks>data will be read from 'data' parameter</summary>
         public PooledMemoryStream(byte[] data)
         {
-            this._mPool = null;
-            this.currentbuffer = data;
-            this.length = data.Length;
-            this.canWrite = false;
+            m_Pool = null;
+            _currentbuffer = data;
+            _Length = data.Length;
+            _CanWrite = false;
         }
-
         public override bool CanRead
         {
             get
@@ -51,16 +47,16 @@ namespace Ray.Core.Utils
 
         public override bool CanSeek => true;
 
-        public override bool CanWrite => this.canWrite;
+        public override bool CanWrite => _CanWrite;
 
-        public override long Length => this.length;
+        public override long Length => _Length;
 
         public override long Position
         {
-            get => this.position;
+            get => _Position;
             set
             {
-                this.position = value;
+                _Position = value;
             }
         }
 
@@ -70,11 +66,15 @@ namespace Ray.Core.Utils
 
         public override int Read(byte[] buffer, int offset, int count)
         {
-            int readlen = count > (int)(this.length - this.position) ? (int)(this.length - this.position) : count;
+            int readlen = count > (int)(_Length - _Position) ? (int)(_Length - _Position) : count;
             if (readlen > 0)
             {
-                Buffer.BlockCopy(this.currentbuffer, (int)this.position, buffer, offset, readlen);
-                this.position += readlen;
+                Buffer.BlockCopy(_currentbuffer
+                    , (int)_Position
+                    , buffer, offset
+                    , readlen)
+                    ;
+                _Position += readlen;
                 return readlen;
             }
             else
@@ -85,149 +85,117 @@ namespace Ray.Core.Utils
 
         public override long Seek(long offset, SeekOrigin origin)
         {
-            long oldValue = this.position;
+            long oldValue = _Position;
             switch ((int)origin)
             {
                 case (int)SeekOrigin.Begin:
-                    this.position = offset;
+                    _Position = offset;
                     break;
                 case (int)SeekOrigin.End:
-                    this.position = this.length - offset;
+                    _Position = _Length - offset;
                     break;
                 case (int)SeekOrigin.Current:
-                    this.position += offset;
+                    _Position += offset;
                     break;
                 default:
                     throw new InvalidOperationException("unknown SeekOrigin");
             }
-
-            if (this.position < 0 || this.position > this.length)
+            if (_Position < 0 || _Position > _Length)
             {
-                this.position = oldValue;
+                _Position = oldValue;
                 throw new IndexOutOfRangeException();
             }
-
-            return this.position;
+            return _Position;
         }
-
-        private void ReallocateBuffer(int minimumRequired)
+        void ReallocateBuffer(int minimumRequired)
         {
-            var tmp = this._mPool.Rent(minimumRequired);
-            Buffer.BlockCopy(this.currentbuffer, 0, tmp, 0, this.currentbuffer.Length);
-            this._mPool.Return(this.currentbuffer);
-            this.currentbuffer = tmp;
+            var tmp = m_Pool.Rent(minimumRequired);
+            Buffer.BlockCopy(_currentbuffer, 0, tmp, 0, _currentbuffer.Length);
+            m_Pool.Return(_currentbuffer);
+            _currentbuffer = tmp;
         }
-
         public override void SetLength(long value)
         {
-            if (!this.canWrite)
+            if (!_CanWrite)
             {
                 throw new NotSupportedException("stream is readonly");
             }
-
             if (value > int.MaxValue)
             {
                 throw new IndexOutOfRangeException("overflow");
             }
-
             if (value < 0)
             {
                 throw new IndexOutOfRangeException("underflow");
             }
-
-            this.length = value;
-            if (this.currentbuffer.Length < this.length)
+            _Length = value;
+            if (_currentbuffer.Length < _Length)
             {
-                this.ReallocateBuffer((int)this.length);
+                ReallocateBuffer((int)_Length);
             }
         }
-
-        /// <summary>
-        /// write data to stream
-        /// </summary>
+        /// <summary>write data to stream</summary>
         /// <remarks>if stream data length is over int.MaxValue, this method throws IndexOutOfRangeException</remarks>
-        /// <param name="buffer">buffer</param>
-        /// <param name="offset">offset</param>
-        /// <param name="count">count</param>
         public override void Write(byte[] buffer, int offset, int count)
         {
-            if (!this.canWrite)
+            if (!_CanWrite)
             {
                 throw new InvalidOperationException("stream is readonly");
             }
-
-            long endOffset = this.position + count;
-            if (endOffset > this.currentbuffer.Length)
+            long endOffset = _Position + count;
+            if (endOffset > _currentbuffer.Length)
             {
-                this.ReallocateBuffer((int)(endOffset) * 2);
+                ReallocateBuffer((int)(endOffset) * 2);
             }
-
-            Buffer.BlockCopy(buffer, offset, this.currentbuffer, (int)this.position, count);
-            if (endOffset > this.length)
+            Buffer.BlockCopy(buffer, offset,
+                _currentbuffer, (int)_Position, count);
+            if (endOffset > _Length)
             {
-                this.length = endOffset;
+                _Length = endOffset;
             }
-
-            this.position = endOffset;
+            _Position = endOffset;
         }
 
         protected override void Dispose(bool disposing)
         {
             base.Dispose(disposing);
-            if (this._mPool != null && this.currentbuffer != null)
+            if (m_Pool != null && _currentbuffer != null)
             {
-                this._mPool.Return(this.currentbuffer);
-                this.currentbuffer = null;
+                m_Pool.Return(_currentbuffer);
+                _currentbuffer = null;
             }
         }
-
-        /// <summary>
-        /// ensure the buffer size
-        /// </summary>
-        /// <remarks>
-        /// capacity != stream buffer length
-        /// </remarks>
-        /// <param name="capacity">size to reserve</param>
+        /// <summary>ensure the buffer size</summary>
+        /// <remarks>capacity != stream buffer length</remarks>
         public void Reserve(int capacity)
         {
-            if (capacity > this.currentbuffer.Length)
+            if (capacity > _currentbuffer.Length)
             {
-                this.ReallocateBuffer(capacity);
+                ReallocateBuffer(capacity);
             }
         }
 
-        /// <summary>
-        /// Create newly allocated buffer and copy the stream data
-        /// </summary>
-        /// <returns>A new buffer</returns>
+        /// <summary>Create newly allocated buffer and copy the stream data</summary>
         public byte[] ToArray()
         {
-            var ret = new byte[this.length];
-            Buffer.BlockCopy(this.currentbuffer, 0, ret, 0, (int)this.length);
+            var ret = new byte[_Length];
+            Buffer.BlockCopy(_currentbuffer, 0, ret, 0, (int)_Length);
             return ret;
         }
-
         /// <summary>Create ArraySegment for current stream data without allocation buffer</summary>
-        /// <remarks>After disposing stream, manipulating returned value(read or write) may cause undefined behavior</remarks>
-        /// <returns>Returns a segment for current stream.</returns>
+        /// <remarks>After disposing stream, manupilating returned value(read or write) may cause undefined behavior</remarks>
         public ArraySegment<byte> ToUnsafeArraySegment()
         {
-            return new ArraySegment<byte>(this.currentbuffer, 0, (int)this.length);
+            return new ArraySegment<byte>(_currentbuffer, 0, (int)_Length);
         }
-
-        /// <summary>
-        /// Converts a buffer to readonly memory
-        /// </summary>
-        /// <returns>Readonly Memory is returned.</returns>
         public ReadOnlyMemory<byte> ToReadOnlyMemory()
         {
-            return new ReadOnlyMemory<byte>(this.currentbuffer, 0, (int)this.length);
+            return new ReadOnlyMemory<byte>(_currentbuffer, 0, (int)_Length);
         }
-
-        private readonly ArrayPool<byte> _mPool;
-        private byte[] currentbuffer;
-        private readonly bool canWrite;
-        private long length;
-        private long position;
+        ArrayPool<byte> m_Pool;
+        byte[] _currentbuffer;
+        readonly bool _CanWrite;
+        long _Length;
+        long _Position;
     }
 }

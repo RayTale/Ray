@@ -11,14 +11,14 @@ namespace Ray.Core.Serialization.Tests.Serialization
     [TestFixture]
     public class TypeFinderTests
     {
-        private TypeFinder sut;
-        private ILogger<TypeFinder> logger;
+        private TypeFinder _sut;
+        private ILogger<TypeFinder> _logger;
 
         [SetUp]
         public void Setup()
         {
-            this.logger = A.Fake<ILogger<TypeFinder>>();
-            this.sut = new TypeFinder(this.logger);
+            this._logger = A.Fake<ILogger<TypeFinder>>();
+            this._sut = new TypeFinder(this._logger);
         }
 
         [Test]
@@ -29,7 +29,7 @@ namespace Ray.Core.Serialization.Tests.Serialization
         [TestCase(typeof(TestEventWithNoAttributeAndInterface))]
         public void Can_Find_Test_With_EventNameAttribute(Type type)
         {
-            var result = this.sut.FindType(type.FullName);
+            var result = this._sut.FindType(type.FullName);
             result.Should().Be(type);
         }
 
@@ -37,7 +37,7 @@ namespace Ray.Core.Serialization.Tests.Serialization
         public void Invalid_Type_Code_Should_Throw_UnknownTypeCodeException()
         {
             const string fakeType = "not a real type code";
-            Action act = () => this.sut.FindType(fakeType);
+            Action act = () => this._sut.FindType(fakeType);
 
             act.Should().Throw<UnknownTypeCodeException>()
                 .WithMessage(fakeType);
@@ -46,16 +46,17 @@ namespace Ray.Core.Serialization.Tests.Serialization
         [Test]
         public void A_ValidEventTypeCode_Should_Be_Found_by_Type()
         {
-            var result = this.sut.GetCode(typeof(TestEventWithDefaultConstructor));
+            var result = this._sut.GetCode(typeof(TestEventWithDefaultConstructor));
             result.Should().Be(typeof(TestEventWithDefaultConstructor).FullName);
         }
 
         [Test]
         public void An_UnregisteredType_Should_Return_FullName_OfPassedInType()
         {
-            var result = this.sut.GetCode(typeof(string));
+            var result = this._sut.GetCode(typeof(string));
             result.Should().Be(typeof(string).FullName);
         }
+
 
         [EventName]
         private class TestEventWithDefaultConstructor

@@ -1,8 +1,8 @@
-﻿using System;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Orleans.Hosting;
 using Ray.Metric.Core;
 using Ray.Metric.Prometheus.MetricHandler;
+using System;
 
 namespace Ray.Metric.Prometheus
 {

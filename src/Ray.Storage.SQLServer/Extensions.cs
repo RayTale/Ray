@@ -11,7 +11,6 @@ namespace Ray.Storage.SQLServer
             serviceCollection.Configure<SQLServerConnections>(config => configAction(config));
             serviceCollection.AddSingleton<StorageFactory>();
         }
-
         public static void AddSQLServerTxStorage(this IServiceCollection serviceCollection, Action<TransactionOptions> configAction)
         {
             serviceCollection.Configure<TransactionOptions>(config => configAction(config));

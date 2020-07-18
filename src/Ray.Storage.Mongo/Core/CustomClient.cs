@@ -6,19 +6,16 @@ namespace Ray.Storage.Mongo
     {
         public CustomClient(string connection)
         {
-            this.Client = new MongoClient(connection);
+            Client = new MongoClient(connection);
         }
-
         public MongoClient Client { get; }
-
         public IMongoDatabase GetDatabase(string name)
         {
-            return this.Client.GetDatabase(name);
+            return Client.GetDatabase(name);
         }
-
         public IMongoCollection<T> GetCollection<T>(string databaseName, string collectionName)
         {
-            return this.Client.GetDatabase(databaseName).GetCollection<T>(collectionName);
+            return Client.GetDatabase(databaseName).GetCollection<T>(collectionName);
         }
     }
 }

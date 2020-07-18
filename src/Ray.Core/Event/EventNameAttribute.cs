@@ -14,8 +14,7 @@ namespace Ray.Core.Event
         {
         }
 
-        public EventNameAttribute(string code) => this.Code = code;
-
+        public EventNameAttribute(string code) => Code = code;
         /// <summary>
         /// 类型唯一码
         /// </summary>

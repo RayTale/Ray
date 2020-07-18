@@ -1,11 +1,11 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Orleans;
+﻿using Orleans;
 using Ray.Core;
 using Ray.Core.Event;
 using Ray.Core.Snapshot;
 using Ray.DistributedTx.Configuration;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Ray.DistributedTx.Grains
 {
@@ -13,23 +13,17 @@ namespace Ray.DistributedTx.Grains
         where StateType : class, ICloneable<StateType>, new()
     {
         protected DistributedTxOptions TransactionOptions { get; private set; }
-
         protected override ValueTask DependencyInjection()
         {
-            this.TransactionOptions = this.ServiceProvider.GetOptionsByName<DistributedTxOptions>(this.GrainType.FullName);
+            TransactionOptions = ServiceProvider.GetOptionsByName<DistributedTxOptions>(GrainType.FullName);
             return base.DependencyInjection();
         }
-
         protected override ValueTask Tell(IEnumerable<FullyEvent<PrimaryKey>> eventList)
         {
-            if (!this.TransactionOptions.RetainTxEvents)
-            {
+            if (!TransactionOptions.RetainTxEvents)
                 return base.Tell(eventList.Where(e => !(e is TxCommitEvent)));
-            }
             else
-            {
                 return base.Tell(eventList);
-            }
         }
     }
 }

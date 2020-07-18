@@ -8,26 +8,22 @@ namespace Ray.Core.Serialization
     {
         public TransportMessage(string name, byte[] bytes)
         {
-            this.Name = name;
-            this.Bytes = bytes;
+            Name = name;
+            Bytes = bytes;
         }
-
         public string Name { get; set; }
-
         public byte[] Bytes { get; set; }
-
         public SharedArray ConvertToBytes()
         {
-            var typeBytes = Encoding.UTF8.GetBytes(this.Name);
-            var array = SharedArray.Rent(typeBytes.Length + 1 + this.Bytes.Length + sizeof(ushort));
+            var typeBytes = Encoding.UTF8.GetBytes(Name);
+            var array = SharedArray.Rent(typeBytes.Length + 1 + Bytes.Length + sizeof(ushort));
             var span = array.AsSpan();
             span[0] = (byte)HeaderType.Common;
             BitConverter.TryWriteBytes(span.Slice(1), (ushort)typeBytes.Length);
             typeBytes.CopyTo(span.Slice(1 + sizeof(ushort)));
-            this.Bytes.CopyTo(span.Slice(1 + sizeof(ushort) + typeBytes.Length));
+            Bytes.CopyTo(span.Slice(1 + sizeof(ushort) + typeBytes.Length));
             return array;
         }
-
         public static bool TryParse(byte[] bytes, out TransportMessage wrapper)
         {
             if (bytes[0] == (byte)HeaderType.Common)
@@ -41,7 +37,6 @@ namespace Ray.Core.Serialization
                 };
                 return true;
             }
-
             wrapper = default;
             return false;
         }

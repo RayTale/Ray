@@ -1,7 +1,7 @@
-﻿using System;
+﻿using Ray.Core.EventBus;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Ray.Core.EventBus;
 
 namespace Ray.Core.Abstractions
 {
@@ -12,32 +12,24 @@ namespace Ray.Core.Abstractions
         /// </summary>
         /// <param name="primaryKey">GrainId</param>
         /// <param name="srcVersion">Observable的Version</param>
-        /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
+        /// <returns></returns>
         Task<bool[]> SyncAllObservers(PrimaryKey primaryKey, long srcVersion);
-
         /// <summary>
         /// 获取所有监听者分组
         /// </summary>
         /// <returns></returns>
         List<string> GetGroups();
-
         Task<long[]> GetAndSaveVersion(PrimaryKey primaryKey, long srcVersion);
-
         /// <summary>
         /// 重置Grain
         /// </summary>
         /// <param name="primaryKey">重置Grain</param>
-        /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
+        /// <returns></returns>
         Task Reset(PrimaryKey primaryKey);
-
         List<Func<BytesBox, Task>> GetEventHandlers(string observerGroup);
-
         List<Func<BytesBox, Task>> GetAllEventHandlers();
-
         List<Func<List<BytesBox>, Task>> GetBatchEventHandlers(string observerGroup);
-
         List<Func<List<BytesBox>, Task>> GetAllBatchEventHandlers();
-
         /// <summary>
         /// 获取Observer所在的组
         /// </summary>

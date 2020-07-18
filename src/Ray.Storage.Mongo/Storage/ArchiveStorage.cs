@@ -12,38 +12,36 @@ namespace Ray.Storage.Mongo
     public class ArchiveStorage<PrimaryKey, StateType> : IArchiveStorage<PrimaryKey, StateType>
            where StateType : class, new()
     {
-        private readonly StorageOptions grainConfig;
-        private readonly ISerializer serializer;
-
+        readonly StorageOptions grainConfig;
+        readonly ISerializer serializer;
         public ArchiveStorage(ISerializer serializer, StorageOptions grainConfig)
         {
             this.serializer = serializer;
             this.grainConfig = grainConfig;
         }
-
         public Task Delete(PrimaryKey stateId, string briefId)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", stateId) & Builders<BsonDocument>.Filter.Eq("Id", briefId);
-            return this.grainConfig.Client.GetCollection<BsonDocument>(this.grainConfig.DataBase, this.grainConfig.SnapshotArchiveTable).DeleteOneAsync(filter);
+            return grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotArchiveTable).DeleteOneAsync(filter);
         }
 
         public Task DeleteAll(PrimaryKey stateId)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", stateId);
-            return this.grainConfig.Client.GetCollection<BsonDocument>(this.grainConfig.DataBase, this.grainConfig.SnapshotArchiveTable).DeleteManyAsync(filter);
+            return grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotArchiveTable).DeleteManyAsync(filter);
         }
 
         public Task EventIsClear(PrimaryKey stateId, string briefId)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", stateId) & Builders<BsonDocument>.Filter.Eq("Id", briefId);
             var update = Builders<BsonDocument>.Update.Set("EventIsCleared", true);
-            return this.grainConfig.Client.GetCollection<BsonDocument>(this.grainConfig.DataBase, this.grainConfig.SnapshotArchiveTable).UpdateOneAsync(filter, update);
+            return grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotArchiveTable).UpdateOneAsync(filter, update);
         }
 
         public async Task<List<ArchiveBrief>> GetBriefList(PrimaryKey stateId)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", stateId);
-            var cursor = await this.grainConfig.Client.GetCollection<BsonDocument>(this.grainConfig.DataBase, this.grainConfig.SnapshotArchiveTable).FindAsync<BsonDocument>(filter);
+            var cursor = await grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotArchiveTable).FindAsync<BsonDocument>(filter);
             var result = new List<ArchiveBrief>();
             await cursor.ForEachAsync(doc =>
             {
@@ -65,7 +63,7 @@ namespace Ray.Storage.Mongo
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", stateId);
             var sort = Builders<BsonDocument>.Sort.Descending("Index");
-            var doc = await this.grainConfig.Client.GetCollection<BsonDocument>(this.grainConfig.DataBase, this.grainConfig.SnapshotArchiveTable).Find(filter).Sort(sort).FirstOrDefaultAsync();
+            var doc = await grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotArchiveTable).Find(filter).Sort(sort).FirstOrDefaultAsync();
             if (doc != default)
             {
                 return new ArchiveBrief
@@ -79,21 +77,20 @@ namespace Ray.Storage.Mongo
                     Index = doc["Index"].AsInt32
                 };
             }
-
             return default;
         }
 
         public async Task<Snapshot<PrimaryKey, StateType>> GetById(string briefId)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("id", briefId);
-            var doc = await this.grainConfig.Client.GetCollection<BsonDocument>(this.grainConfig.DataBase, this.grainConfig.SnapshotArchiveTable).Find(filter).SingleOrDefaultAsync();
+            var doc = await grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotArchiveTable).Find(filter).SingleOrDefaultAsync();
             if (doc != default)
             {
                 return new Snapshot<PrimaryKey, StateType>()
                 {
                     Base = new SnapshotBase<PrimaryKey>
                     {
-                        StateId = (PrimaryKey)this.serializer.Deserialize(doc["StateId"].AsString, typeof(PrimaryKey)),
+                        StateId = (PrimaryKey)serializer.Deserialize(doc["StateId"].AsString, typeof(PrimaryKey)),
                         Version = doc["Version"].AsInt64,
                         DoingVersion = doc["DoingVersion"].AsInt64,
                         IsLatest = false,
@@ -101,10 +98,9 @@ namespace Ray.Storage.Mongo
                         StartTimestamp = doc["StartTimestamp"].AsInt64,
                         LatestMinEventTimestamp = doc["LatestMinEventTimestamp"].AsInt64
                     },
-                    State = this.serializer.Deserialize<StateType>(doc["Data"].AsString)
+                    State = serializer.Deserialize<StateType>(doc["Data"].AsString)
                 };
             }
-
             return default;
         }
 
@@ -120,42 +116,37 @@ namespace Ray.Storage.Mongo
                 { "EndTimestamp", brief.EndTimestamp },
                 { "Index", brief.Index },
                 { "EventIsCleared", brief.EventIsCleared },
-                { "Data", this.serializer.Serialize(snapshot.State) },
+                { "Data", serializer.Serialize(snapshot.State) },
                 { "IsOver", snapshot.Base.IsOver },
                 { "Version", snapshot.Base.Version }
             };
-            return this.grainConfig.Client.GetCollection<BsonDocument>(this.grainConfig.DataBase, this.grainConfig.SnapshotArchiveTable).InsertOneAsync(doc);
+            return grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotArchiveTable).InsertOneAsync(doc);
         }
 
         public Task Over(PrimaryKey stateId, bool isOver)
         {
             var filter = Builders<BsonDocument>.Filter.Eq("StateId", stateId);
             var update = Builders<BsonDocument>.Update.Set("IsOver", isOver);
-            return this.grainConfig.Client.GetCollection<BsonDocument>(this.grainConfig.DataBase, this.grainConfig.SnapshotArchiveTable).UpdateOneAsync(filter, update);
+            return grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.SnapshotArchiveTable).UpdateOneAsync(filter, update);
         }
-
         public async Task EventArichive(PrimaryKey stateId, long endVersion, long startTimestamp)
         {
             var filterBuilder = Builders<BsonDocument>.Filter;
             var filter = filterBuilder.Eq("StateId", stateId) & filterBuilder.Lte("Version", endVersion);
-            var collectionListTask = this.grainConfig.GetCollectionList();
+            var collectionListTask = grainConfig.GetCollectionList();
             if (!collectionListTask.IsCompletedSuccessfully)
-            {
                 await collectionListTask;
-            }
-
-            var session = await this.grainConfig.Client.Client.StartSessionAsync();
+            var session = await grainConfig.Client.Client.StartSessionAsync();
             session.StartTransaction(new global::MongoDB.Driver.TransactionOptions(readConcern: ReadConcern.Snapshot, writeConcern: WriteConcern.WMajority));
             try
             {
-                var archiveCollection = this.grainConfig.Client.GetCollection<BsonDocument>(this.grainConfig.DataBase, this.grainConfig.EventArchiveTable);
+                var archiveCollection = grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, grainConfig.EventArchiveTable);
                 foreach (var collection in collectionListTask.Result.Where(c => c.EndTime >= startTimestamp))
                 {
-                    var deleteCollection = this.grainConfig.Client.GetCollection<BsonDocument>(this.grainConfig.DataBase, collection.SubTable);
+                    var deleteCollection = grainConfig.Client.GetCollection<BsonDocument>(grainConfig.DataBase, collection.SubTable);
                     await archiveCollection.InsertManyAsync(session, await (await deleteCollection.FindAsync<BsonDocument>(filter)).ToListAsync());
                     await deleteCollection.DeleteManyAsync(session, filter);
                 }
-
                 await session.CommitTransactionAsync();
             }
             catch

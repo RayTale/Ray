@@ -5,14 +5,9 @@ namespace Ray.DistributedTx
 {
     public interface IDistributedTxStorage
     {
-        Task Append<TInput>(string unitName, Commit<TInput> commit)
-            where TInput : class, new();
-
+        Task Append<Input>(string unitName, Commit<Input> commit) where Input : class, new();
         Task<bool> Update(string unitName, string transactionId, TransactionStatus status);
-
         Task Delete(string unitName, string transactionId);
-
-        Task<IList<Commit<TInput>>> GetList<TInput>(string unitName)
-            where TInput : class, new();
+        Task<IList<Commit<Input>>> GetList<Input>(string unitName) where Input : class, new();
     }
 }
