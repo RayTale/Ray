@@ -1,0 +1,36 @@
+{
+    "$schema": "https://raw.githubusercontent.com/DotNetAnalyzers/StyleCopAnalyzers/master/StyleCop.Analyzers/StyleCop.Analyzers/Settings/stylecop.schema.json",
+    "settings": {
+      "indentation": {
+        "indentationSize": 4,
+        "tabSize": 4,
+        "useTabs": false
+      },
+      "orderingRules": {
+        "elementOrder": [ "kind", "constant", "static", "readonly" ],
+        "systemUsingDirectivesFirst": true,
+        "usingDirectivesPlacement": "outsideNamespace"
+      },
+      "namingRules": {
+        "allowCommonHungarianPrefixes": true
+      },
+      "layoutRules": {
+        "newlineAtEndOfFile": "allow"
+      },
+      "documentationRules": {
+        "documentInterfaces": true,
+        "documentExposedElements": true,
+        "documentInternalElements": false,
+        "documentPrivateElements": false,
+        "documentPrivateFields": false,
+        "xmlHeader": true,
+        "fileNamingConvention": "stylecop",
+        "companyName": "Ray Project",
+        "copyrightText": "Copyright (c) {companyName}. All rights reserved.\nLicensed under the {licenseName} license. See {licenseFile} file in the project root for full license information.",
+        "variables": {
+          "licenseName": "MIT",
+          "licenseFile": "LICENSE"
+        }
+      }
+    }
+  }

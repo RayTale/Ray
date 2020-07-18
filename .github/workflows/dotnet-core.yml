@@ -23,4 +23,20 @@ jobs:
     - name: Build
       run: dotnet build --configuration Release --no-restore
     - name: Test
-      run: dotnet test --no-build --verbosity normal
+      run: dotnet test --configuration Release --no-build --verbosity normal --logger:trx
+    - name: Upload Test Results
+      uses: actions/upload-artifact@v2
+      with:
+        # Artifact name
+        name: Test Results
+        # A file, directory or wildcard pattern that describes what to upload
+        path: '**/*.trx'
+    - name: Pack the NuGets
+      run: dotnet pack --configuration Release --no-build
+    - name: Upload Packages
+      uses: actions/upload-artifact@v2
+      with:
+        # Artifact name
+        name: NuGet Packages
+        # A file, directory or wildcard pattern that describes what to upload
+        path: '**/*.*nupkg'

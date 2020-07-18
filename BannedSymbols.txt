@@ -1,0 +1,6 @@
+M:System.TimeZoneInfo.FindSystemTimeZoneById(System.String);Use TZConvert.GetTimeZoneInfo From NuGet instead
+M:FakeItEasy.Configuration.IRepeatSpecification.Times(System.Int32)~FakeItEasy.Repeated; Use new overload
+M:FakeItEasy.Configuration.IRepeatSpecification.Once~FakeItEasy.Repeated; Use new overload
+M:FakeItEasy.Configuration.IRepeatSpecification.Twice~FakeItEasy.Repeated; Use new overload
+M:FakeItEasy.Configuration.IAssertConfiguration.MustHaveHappened(FakeItEasy.Repeated)~FakeItEasy.Configuration.UnorderedCallAssertion; Use new overload.
+T:System.Configuration.ConfigurationManager;Don't use ConfigurationManager
