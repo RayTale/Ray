@@ -43,26 +43,11 @@ namespace Ray.Core
         protected Snapshot<PrimaryKey, StateType> Snapshot { get; set; }
         private PrimaryKey _GrainId;
         private bool _GrainIdAcquired = false;
-        public PrimaryKey GrainId
-        {
-            get
-            {
-                if (!_GrainIdAcquired)
-                {
-                    var type = typeof(PrimaryKey);
-                    if (type == typeof(long) && this.GetPrimaryKeyLong() is PrimaryKey longKey)
-                        _GrainId = longKey;
-                    else if (type == typeof(string) && this.GetPrimaryKeyString() is PrimaryKey stringKey)
-                        _GrainId = stringKey;
-                    else if (type == typeof(Guid) && this.GetPrimaryKey() is PrimaryKey guidKey)
-                        _GrainId = guidKey;
-                    else
-                        throw new ArgumentOutOfRangeException(typeof(PrimaryKey).FullName);
-                    _GrainIdAcquired = true;
-                }
-                return _GrainId;
-            }
-        }
+        /// <summary>
+        /// Primary key of actor
+        /// Because there are multiple types, dynamic assignment in OnActivateAsync
+        /// </summary>
+        public PrimaryKey GrainId { get; private set; }
         /// <summary>
         /// 分批次批量读取事件的时候每次读取的数据量
         /// </summary>
@@ -136,6 +121,15 @@ namespace Ray.Core
         }
         public override async Task OnActivateAsync()
         {
+            var type = typeof(PrimaryKey);
+            if (type == typeof(long) && this.GetPrimaryKeyLong() is PrimaryKey longKey)
+                GrainId = longKey;
+            else if (type == typeof(string) && this.GetPrimaryKeyString() is PrimaryKey stringKey)
+                GrainId = stringKey;
+            else if (type == typeof(Guid) && this.GetPrimaryKey() is PrimaryKey guidKey)
+                GrainId = guidKey;
+            else
+                throw new ArgumentOutOfRangeException(typeof(PrimaryKey).FullName);
             var dITask = DependencyInjection();
             if (!dITask.IsCompletedSuccessfully)
                 await dITask;
