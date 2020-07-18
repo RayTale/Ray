@@ -1,7 +1,7 @@
-﻿using Confluent.Kafka;
+﻿using System.Threading.Tasks;
+using Confluent.Kafka;
 using Ray.Core;
 using Ray.Core.EventBus;
-using System.Threading.Tasks;
 
 namespace Ray.EventBus.Kafka
 {
@@ -10,8 +10,9 @@ namespace Ray.EventBus.Kafka
     /// </summary>
     public class KafkaProducer : IProducer
     {
-        readonly KafkaEventBus publisher;
-        readonly IKafkaClient client;
+        private readonly KafkaEventBus publisher;
+        private readonly IKafkaClient client;
+
         public KafkaProducer(
             IKafkaClient client,
             KafkaEventBus publisher)
@@ -19,10 +20,11 @@ namespace Ray.EventBus.Kafka
             this.publisher = publisher;
             this.client = client;
         }
+
         public ValueTask Publish(byte[] bytes, string hashKey)
         {
-            var topic = publisher.GetRoute(hashKey);
-            using var producer = client.GetProducer();
+            var topic = this.publisher.GetRoute(hashKey);
+            using var producer = this.client.GetProducer();
             producer.Handler.Produce(topic, new Message<string, byte[]> { Key = hashKey, Value = bytes });
             return Consts.ValueTaskDone;
         }

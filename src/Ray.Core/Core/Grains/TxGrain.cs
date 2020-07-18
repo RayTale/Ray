@@ -1,13 +1,13 @@
-﻿using Microsoft.Extensions.Logging;
-using Ray.Core.Abstractions.Monitor;
-using Ray.Core.Event;
-using Ray.Core.Exceptions;
-using Ray.Core.Snapshot;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Ray.Core.Abstractions.Monitor;
+using Ray.Core.Event;
+using Ray.Core.Exceptions;
+using Ray.Core.Snapshot;
 
 namespace Ray.Core
 {
@@ -18,158 +18,189 @@ namespace Ray.Core
         /// 事务过程中用于回滚的备份快照
         /// </summary>
         protected Snapshot<PrimaryKey, StateType> BackupSnapshot { get; set; }
+
         /// <summary>
         /// 事务的开始版本
         /// </summary>
         protected long CurrentTransactionStartVersion { get; private set; } = -1;
+
         /// <summary>
         /// 事务开始的时间(用作超时处理)
         /// </summary>
         protected long TransactionStartMilliseconds { get; private set; }
+
         /// <summary>
         /// empty:本地事务
         /// !empty:分布式事务
         /// </summary>
         protected string CurrentTransactionId { get; private set; }
+
         /// <summary>
         /// 事务中待提交的数据列表
         /// </summary>
         protected readonly List<EventBox<PrimaryKey>> WaitingForTransactionTransports = new List<EventBox<PrimaryKey>>();
+
         /// <summary>
         /// 保证同一时间只有一个事务启动的信号量控制器
         /// </summary>
         private SemaphoreSlim TransactionSemaphore { get; } = new SemaphoreSlim(1, 1);
+
         protected override async Task RecoverySnapshot()
         {
             await base.RecoverySnapshot();
-            BackupSnapshot = new TxSnapshot<PrimaryKey, StateType>(GrainId)
+            this.BackupSnapshot = new TxSnapshot<PrimaryKey, StateType>(this.GrainId)
             {
-                Base = Snapshot.Base.Clone(),
-                State = Snapshot.State.Clone()
+                Base = this.Snapshot.Base.Clone(),
+                State = this.Snapshot.State.Clone()
             };
         }
+
         protected override ValueTask CreateSnapshot()
         {
-            Snapshot = new TxSnapshot<PrimaryKey, StateType>(GrainId);
+            this.Snapshot = new TxSnapshot<PrimaryKey, StateType>(this.GrainId);
             return Consts.ValueTaskDone;
         }
+
         protected override async Task ReadSnapshotAsync()
         {
             await base.ReadSnapshotAsync();
-            Snapshot = new TxSnapshot<PrimaryKey, StateType>()
+            this.Snapshot = new TxSnapshot<PrimaryKey, StateType>()
             {
-                Base = new TxSnapshotBase<PrimaryKey>(Snapshot.Base),
-                State = Snapshot.State
+                Base = new TxSnapshotBase<PrimaryKey>(this.Snapshot.Base),
+                State = this.Snapshot.State
             };
         }
+
         public override async Task OnActivateAsync()
         {
             await base.OnActivateAsync();
             //如果失活之前已提交事务还没有Complete,则消耗信号量，防止产生新的事物
-            if (Snapshot.Base is TxSnapshotBase<PrimaryKey> snapshotBase)
+            if (this.Snapshot.Base is TxSnapshotBase<PrimaryKey> snapshotBase)
             {
                 if (snapshotBase.TransactionId != string.Empty)
                 {
-                    await TransactionSemaphore.WaitAsync();
-                    var waitingEvents = await EventStorage.GetList(GrainId, snapshotBase.TransactionStartTimestamp, snapshotBase.TransactionStartVersion, Snapshot.Base.Version);
+                    await this.TransactionSemaphore.WaitAsync();
+                    var waitingEvents = await this.EventStorage.GetList(this.GrainId, snapshotBase.TransactionStartTimestamp, snapshotBase.TransactionStartVersion, this.Snapshot.Base.Version);
                     foreach (var evt in waitingEvents)
                     {
                         var transport = new EventBox<PrimaryKey>(evt, default, string.Empty, evt.StateId.ToString());
-                        transport.Parse(TypeFinder, Serializer);
-                        WaitingForTransactionTransports.Add(transport);
+                        transport.Parse(this.TypeFinder, this.Serializer);
+                        this.WaitingForTransactionTransports.Add(transport);
                     }
-                    CurrentTransactionId = snapshotBase.TransactionId;
-                    CurrentTransactionStartVersion = snapshotBase.TransactionStartVersion;
+
+                    this.CurrentTransactionId = snapshotBase.TransactionId;
+                    this.CurrentTransactionStartVersion = snapshotBase.TransactionStartVersion;
                 }
             }
             else
             {
-                throw new SnapshotNotSupportTxException(Snapshot.GetType());
+                throw new SnapshotNotSupportTxException(this.Snapshot.GetType());
             }
         }
+
         /// <summary>
         /// 复原事务临时状态
         /// </summary>
         private void RestoreTransactionTemporaryState()
         {
-            CurrentTransactionId = string.Empty;
-            CurrentTransactionStartVersion = -1;
-            TransactionStartMilliseconds = 0;
+            this.CurrentTransactionId = string.Empty;
+            this.CurrentTransactionStartVersion = -1;
+            this.TransactionStartMilliseconds = 0;
         }
+
         private SemaphoreSlim TransactionTimeoutLock { get; } = new SemaphoreSlim(1, 1);
+
         protected async Task BeginTransaction(string transactionId)
         {
-            if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace("Transaction begin: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), transactionId);
-            if (TransactionStartMilliseconds != 0 &&
-                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - TransactionStartMilliseconds > CoreOptions.TransactionTimeout)
+            if (this.Logger.IsEnabled(LogLevel.Trace))
             {
-                if (await TransactionTimeoutLock.WaitAsync(CoreOptions.TransactionTimeout))
+                this.Logger.LogTrace("Transaction begin: {0}->{1}->{2}", this.GrainType.FullName, this.GrainId.ToString(), transactionId);
+            }
+
+            if (this.TransactionStartMilliseconds != 0 &&
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - this.TransactionStartMilliseconds > this.CoreOptions.TransactionTimeout)
+            {
+                if (await this.TransactionTimeoutLock.WaitAsync(this.CoreOptions.TransactionTimeout))
                 {
                     try
                     {
-                        if (TransactionStartMilliseconds != 0 &&
-                            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - TransactionStartMilliseconds > CoreOptions.TransactionTimeout)
+                        if (this.TransactionStartMilliseconds != 0 &&
+                            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - this.TransactionStartMilliseconds > this.CoreOptions.TransactionTimeout)
                         {
-                            if (Logger.IsEnabled(LogLevel.Trace))
-                                Logger.LogTrace("Transaction timeout: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), transactionId);
-                            await RollbackTransaction(CurrentTransactionId);//事务超时自动回滚
+                            if (this.Logger.IsEnabled(LogLevel.Trace))
+                            {
+                                this.Logger.LogTrace("Transaction timeout: {0}->{1}->{2}", this.GrainType.FullName, this.GrainId.ToString(), transactionId);
+                            }
+
+                            await this.RollbackTransaction(this.CurrentTransactionId);//事务超时自动回滚
                         }
                     }
                     finally
                     {
-                        TransactionTimeoutLock.Release();
+                        this.TransactionTimeoutLock.Release();
                     }
                 }
             }
-            if (await TransactionSemaphore.WaitAsync(CoreOptions.TransactionTimeout))
+
+            if (await this.TransactionSemaphore.WaitAsync(this.CoreOptions.TransactionTimeout))
             {
                 try
                 {
-                    SnapshotCheck();
-                    CurrentTransactionStartVersion = Snapshot.Base.Version + 1;
-                    CurrentTransactionId = transactionId;
-                    TransactionStartMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    this.SnapshotCheck();
+                    this.CurrentTransactionStartVersion = this.Snapshot.Base.Version + 1;
+                    this.CurrentTransactionId = transactionId;
+                    this.TransactionStartMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 }
                 catch
                 {
-                    TransactionSemaphore.Release();
+                    this.TransactionSemaphore.Release();
                     throw;
                 }
             }
             else
             {
-                throw new BeginTxTimeoutException(GrainId.ToString(), transactionId, GrainType);
+                throw new BeginTxTimeoutException(this.GrainId.ToString(), transactionId, this.GrainType);
             }
 
         }
+
         public async Task CommitTransaction(string transactionId)
         {
-            if (WaitingForTransactionTransports.Count > 0)
+            if (this.WaitingForTransactionTransports.Count > 0)
             {
-                if (CurrentTransactionId != transactionId)
+                if (this.CurrentTransactionId != transactionId)
+                {
                     throw new TxCommitException();
+                }
+
                 try
                 {
-                    var onCommitTask = OnCommitTransaction(transactionId);
+                    var onCommitTask = this.OnCommitTransaction(transactionId);
                     if (!onCommitTask.IsCompletedSuccessfully)
-                        await onCommitTask;
-                    foreach (var transport in WaitingForTransactionTransports)
                     {
-                        var startTask = OnRaiseStart(transport.FullyEvent);
-                        if (!startTask.IsCompletedSuccessfully)
-                            await startTask;
-                        transport.Parse(TypeFinder, Serializer);
+                        await onCommitTask;
                     }
-                    if (MetricMonitor != default)
+
+                    foreach (var transport in this.WaitingForTransactionTransports)
+                    {
+                        var startTask = this.OnRaiseStart(transport.FullyEvent);
+                        if (!startTask.IsCompletedSuccessfully)
+                        {
+                            await startTask;
+                        }
+
+                        transport.Parse(this.TypeFinder, this.Serializer);
+                    }
+
+                    if (this.MetricMonitor != default)
                     {
                         var startTime = DateTimeOffset.UtcNow;
-                        await EventStorage.TransactionBatchAppend(WaitingForTransactionTransports);
+                        await this.EventStorage.TransactionBatchAppend(this.WaitingForTransactionTransports);
                         var nowTime = DateTimeOffset.UtcNow;
-                        var metricList = WaitingForTransactionTransports.Select(evt => new EventMetricElement
+                        var metricList = this.WaitingForTransactionTransports.Select(evt => new EventMetricElement
                         {
-                            Actor = GrainType.Name,
-                            ActorId = GrainId.ToString(),
+                            Actor = this.GrainType.Name,
+                            ActorId = this.GrainId.ToString(),
                             Event = evt.FullyEvent.Event.GetType().Name,
                             FromEvent = evt.EventUID?.FromEvent,
                             FromEventActor = evt.EventUID?.FromActor,
@@ -177,144 +208,172 @@ namespace Ray.Core
                             IntervalPrevious = evt.EventUID == default ? 0 : (int)(nowTime.ToUnixTimeMilliseconds() - evt.EventUID.Timestamp),
                             Ignore = false,
                         }).ToList();
-                        MetricMonitor.Report(metricList);
+                        this.MetricMonitor.Report(metricList);
                     }
                     else
                     {
-                        await EventStorage.TransactionBatchAppend(WaitingForTransactionTransports);
+                        await this.EventStorage.TransactionBatchAppend(this.WaitingForTransactionTransports);
                     }
-                    if (Logger.IsEnabled(LogLevel.Trace))
-                        Logger.LogTrace("Transaction Commited: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), transactionId);
+
+                    if (this.Logger.IsEnabled(LogLevel.Trace))
+                    {
+                        this.Logger.LogTrace("Transaction Commited: {0}->{1}->{2}", this.GrainType.FullName, this.GrainId.ToString(), transactionId);
+                    }
                 }
                 catch (Exception ex)
                 {
-                    Logger.LogCritical(ex, "Transaction failed: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), transactionId);
+                    this.Logger.LogCritical(ex, "Transaction failed: {0}->{1}->{2}", this.GrainType.FullName, this.GrainId.ToString(), transactionId);
                     throw;
                 }
             }
         }
+
         protected virtual ValueTask OnCommitTransaction(string transactionId) => Consts.ValueTaskDone;
+
         public async Task RollbackTransaction(string transactionId)
         {
-            if (CurrentTransactionId == transactionId && CurrentTransactionStartVersion != -1 && Snapshot.Base.Version >= CurrentTransactionStartVersion)
+            if (this.CurrentTransactionId == transactionId && this.CurrentTransactionStartVersion != -1 && this.Snapshot.Base.Version >= this.CurrentTransactionStartVersion)
             {
                 try
                 {
-                    if (BackupSnapshot.Base.Version == CurrentTransactionStartVersion - 1)
+                    if (this.BackupSnapshot.Base.Version == this.CurrentTransactionStartVersion - 1)
                     {
-                        Snapshot = new Snapshot<PrimaryKey, StateType>(GrainId)
+                        this.Snapshot = new Snapshot<PrimaryKey, StateType>(this.GrainId)
                         {
-                            Base = BackupSnapshot.Base.Clone(),
-                            State = BackupSnapshot.State.Clone()
+                            Base = this.BackupSnapshot.Base.Clone(),
+                            State = this.BackupSnapshot.State.Clone()
                         };
                     }
                     else
                     {
-                        if (BackupSnapshot.Base.Version >= CurrentTransactionStartVersion)
-                            await EventStorage.DeleteAfter(Snapshot.Base.StateId, CurrentTransactionStartVersion, Snapshot.Base.LatestMinEventTimestamp);
-                        await RecoverySnapshot();
+                        if (this.BackupSnapshot.Base.Version >= this.CurrentTransactionStartVersion)
+                        {
+                            await this.EventStorage.DeleteAfter(this.Snapshot.Base.StateId, this.CurrentTransactionStartVersion, this.Snapshot.Base.LatestMinEventTimestamp);
+                        }
+
+                        await this.RecoverySnapshot();
                     }
 
-                    WaitingForTransactionTransports.Clear();
-                    RestoreTransactionTemporaryState();
-                    TransactionSemaphore.Release();
-                    if (Logger.IsEnabled(LogLevel.Trace))
-                        Logger.LogTrace("Transaction rollbacked: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), transactionId);
+                    this.WaitingForTransactionTransports.Clear();
+                    this.RestoreTransactionTemporaryState();
+                    this.TransactionSemaphore.Release();
+                    if (this.Logger.IsEnabled(LogLevel.Trace))
+                    {
+                        this.Logger.LogTrace("Transaction rollbacked: {0}->{1}->{2}", this.GrainType.FullName, this.GrainId.ToString(), transactionId);
+                    }
                 }
                 catch (Exception ex)
                 {
-                    Logger.LogCritical(ex, "Transaction rollback failed: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), transactionId);
+                    this.Logger.LogCritical(ex, "Transaction rollback failed: {0}->{1}->{2}", this.GrainType.FullName, this.GrainId.ToString(), transactionId);
                     throw;
                 }
             }
         }
+
         public async Task FinishTransaction(string transactionId)
         {
-            if (CurrentTransactionId == transactionId)
+            if (this.CurrentTransactionId == transactionId)
             {
                 //如果副本快照没有更新，则更新副本集
-                foreach (var transport in WaitingForTransactionTransports)
+                foreach (var transport in this.WaitingForTransactionTransports)
                 {
-                    var task = OnRaised(transport.FullyEvent, transport.GetConverter());
+                    var task = this.OnRaised(transport.FullyEvent, transport.GetConverter());
                     if (!task.IsCompletedSuccessfully)
+                    {
                         await task;
+                    }
                 }
-                var onFinishTask = OnFinshTransaction(transactionId);
+
+                var onFinishTask = this.OnFinshTransaction(transactionId);
                 if (!onFinishTask.IsCompletedSuccessfully)
+                {
                     await onFinishTask;
-                var saveSnapshotTask = SaveSnapshotAsync();
+                }
+
+                var saveSnapshotTask = this.SaveSnapshotAsync();
                 if (!saveSnapshotTask.IsCompletedSuccessfully)
+                {
                     await saveSnapshotTask;
-                var handlers = ObserverUnit.GetAllEventHandlers();
+                }
+
+                var handlers = this.ObserverUnit.GetAllEventHandlers();
                 if (handlers.Count > 0)
                 {
                     try
                     {
-                        foreach (var transport in WaitingForTransactionTransports)
+                        foreach (var transport in this.WaitingForTransactionTransports)
                         {
-                            await PublishToEventBus(transport.GetSpan().ToArray(), transport.HashKey);
+                            await this.PublishToEventBus(transport.GetSpan().ToArray(), transport.HashKey);
                         }
                     }
                     catch (Exception ex)
                     {
-                        Logger.LogError(ex, ex.Message);
+                        this.Logger.LogError(ex, ex.Message);
                     }
                 }
-                WaitingForTransactionTransports.ForEach(transport => transport.Dispose());
-                WaitingForTransactionTransports.Clear();
-                RestoreTransactionTemporaryState();
-                TransactionSemaphore.Release();
+
+                this.WaitingForTransactionTransports.ForEach(transport => transport.Dispose());
+                this.WaitingForTransactionTransports.Clear();
+                this.RestoreTransactionTemporaryState();
+                this.TransactionSemaphore.Release();
             }
         }
+
         protected virtual ValueTask OnFinshTransaction(string transactionId) => Consts.ValueTaskDone;
+
         private void SnapshotCheck()
         {
-            if (BackupSnapshot.Base.Version != Snapshot.Base.Version)
+            if (this.BackupSnapshot.Base.Version != this.Snapshot.Base.Version)
             {
-                var ex = new TxSnapshotException(Snapshot.Base.StateId.ToString(), Snapshot.Base.Version, BackupSnapshot.Base.Version);
-                Logger.LogCritical(ex, nameof(SnapshotCheck));
+                var ex = new TxSnapshotException(this.Snapshot.Base.StateId.ToString(), this.Snapshot.Base.Version, this.BackupSnapshot.Base.Version);
+                this.Logger.LogCritical(ex, nameof(this.SnapshotCheck));
                 throw ex;
             }
         }
+
         protected override async Task<bool> RaiseEvent(IEvent @event, EventUID uniqueId = null)
         {
-            if (await TransactionSemaphore.WaitAsync(CoreOptions.TransactionTimeout))
+            if (await this.TransactionSemaphore.WaitAsync(this.CoreOptions.TransactionTimeout))
             {
                 try
                 {
-                    SnapshotCheck();
+                    this.SnapshotCheck();
                     return await base.RaiseEvent(@event, uniqueId);
                 }
                 finally
                 {
-                    TransactionSemaphore.Release();
+                    this.TransactionSemaphore.Release();
                 }
             }
             else
             {
-                throw new BeginTxTimeoutException(GrainId.ToString(), string.Empty, GrainType);
+                throw new BeginTxTimeoutException(this.GrainId.ToString(), string.Empty, this.GrainType);
             }
         }
+
         /// <summary>
         /// 防止对象在Snapshot和BackupSnapshot中互相干扰，所以反序列化一个全新的Event对象给BackupSnapshot
         /// </summary>
         /// <param name="fullyEvent">事件本体</param>
         /// <param name="bytes">事件序列化之后的二进制数据</param>
+        /// <returns></returns>
         protected override ValueTask OnRaised(FullyEvent<PrimaryKey> fullyEvent, in EventConverter transport)
         {
-            if (BackupSnapshot.Base.Version + 1 == fullyEvent.BasicInfo.Version)
+            if (this.BackupSnapshot.Base.Version + 1 == fullyEvent.BasicInfo.Version)
             {
                 var copiedEvent = new FullyEvent<PrimaryKey>
                 {
-                    Event = Serializer.Deserialize(transport.EventBytes, fullyEvent.Event.GetType()) as IEvent,
+                    Event = this.Serializer.Deserialize(transport.EventBytes, fullyEvent.Event.GetType()) as IEvent,
                     BasicInfo = transport.BaseBytes.ParseToEventBase()
                 };
-                SnapshotHandler.Apply(BackupSnapshot, copiedEvent);
-                BackupSnapshot.Base.FullUpdateVersion(copiedEvent.BasicInfo, GrainType);//更新处理完成的Version
+                this.SnapshotHandler.Apply(this.BackupSnapshot, copiedEvent);
+                this.BackupSnapshot.Base.FullUpdateVersion(copiedEvent.BasicInfo, this.GrainType);//更新处理完成的Version
             }
+
             //父级涉及状态归档
             return base.OnRaised(fullyEvent, transport);
         }
+
         /// <summary>
         /// 事务性事件提交
         /// 使用该函数前必须开启事务，不然会出现异常
@@ -325,18 +384,19 @@ namespace Ray.Core
         {
             try
             {
-                if (CurrentTransactionStartVersion == -1)
+                if (this.CurrentTransactionStartVersion == -1)
                 {
-                    throw new UnopenedTransactionException(GrainId.ToString(), GrainType, nameof(TxRaiseEvent));
+                    throw new UnopenedTransactionException(this.GrainId.ToString(), this.GrainType, nameof(this.TxRaiseEvent));
                 }
-                Snapshot.Base.IncrementDoingVersion(GrainType);//标记将要处理的Version
+
+                this.Snapshot.Base.IncrementDoingVersion(this.GrainType);//标记将要处理的Version
                 var fullyEvent = new FullyEvent<PrimaryKey>
                 {
-                    StateId = GrainId,
+                    StateId = this.GrainId,
                     Event = @event,
                     BasicInfo = new EventBasicInfo
                     {
-                        Version = Snapshot.Base.Version + 1
+                        Version = this.Snapshot.Base.Version + 1
                     }
                 };
                 string unique = default;
@@ -350,28 +410,36 @@ namespace Ray.Core
                     fullyEvent.BasicInfo.Timestamp = eUID.Timestamp;
                     unique = eUID.UID;
                 }
-                WaitingForTransactionTransports.Add(new EventBox<PrimaryKey>(fullyEvent, eUID, unique, fullyEvent.StateId.ToString()));
-                SnapshotHandler.Apply(Snapshot, fullyEvent);
-                Snapshot.Base.UpdateVersion(fullyEvent.BasicInfo, GrainType);//更新处理完成的Version
-                if (Logger.IsEnabled(LogLevel.Trace))
-                    Logger.LogTrace("TxRaiseEvent completed: {0}->{1}->{2}", GrainType.FullName, Serializer.Serialize(fullyEvent), Serializer.Serialize(Snapshot));
+
+                this.WaitingForTransactionTransports.Add(new EventBox<PrimaryKey>(fullyEvent, eUID, unique, fullyEvent.StateId.ToString()));
+                this.SnapshotHandler.Apply(this.Snapshot, fullyEvent);
+                this.Snapshot.Base.UpdateVersion(fullyEvent.BasicInfo, this.GrainType);//更新处理完成的Version
+                if (this.Logger.IsEnabled(LogLevel.Trace))
+                {
+                    this.Logger.LogTrace("TxRaiseEvent completed: {0}->{1}->{2}", this.GrainType.FullName, this.Serializer.Serialize(fullyEvent), this.Serializer.Serialize(this.Snapshot));
+                }
             }
             catch (Exception ex)
             {
-                Logger.LogCritical(ex, "TxRaiseEvent failed: {0}->{1}->{2}", GrainType.FullName, Serializer.Serialize(@event, @event.GetType()), Serializer.Serialize(Snapshot));
-                Snapshot.Base.DecrementDoingVersion();//还原doing Version
+                this.Logger.LogCritical(ex, "TxRaiseEvent failed: {0}->{1}->{2}", this.GrainType.FullName, this.Serializer.Serialize(@event, @event.GetType()), this.Serializer.Serialize(this.Snapshot));
+                this.Snapshot.Base.DecrementDoingVersion();//还原doing Version
                 throw;
             }
         }
+
         protected async Task TxRaiseEvent(string transactionId, IEvent @event, EventUID uniqueId = null)
         {
             if (transactionId == default)
-                throw new TxIdException();
-            if (transactionId != CurrentTransactionId)
             {
-                await BeginTransaction(transactionId);
+                throw new TxIdException();
             }
-            TxRaiseEvent(@event, uniqueId);
+
+            if (transactionId != this.CurrentTransactionId)
+            {
+                await this.BeginTransaction(transactionId);
+            }
+
+            this.TxRaiseEvent(@event, uniqueId);
         }
     }
 }

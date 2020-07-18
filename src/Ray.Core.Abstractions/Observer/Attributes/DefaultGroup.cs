@@ -2,9 +2,9 @@
 {
     public enum DefaultGroup
     {
-        primary,
-        second,
-        third,
-        fourth,
+        Primary,
+        Second,
+        Third,
+        Fourth,
     }
 }

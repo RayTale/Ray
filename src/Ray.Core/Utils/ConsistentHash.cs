@@ -8,68 +8,73 @@ namespace Ray.Core.Utils
 {
     public class ConsistentHash
     {
-        readonly SortedDictionary<int, string> circle = new SortedDictionary<int, string>();
-        int _replicate = 200;    //default _replicate count
-        int[] ayKeys = null;    //cache the ordered keys for better performance
+        private readonly SortedDictionary<int, string> circle = new SortedDictionary<int, string>();
+        private int replicate = 200;    //default _replicate count
+        private int[] ayKeys = null;    //cache the ordered keys for better performance
 
         //it's better you override the GetHashCode() of T.
         //we will use GetHashCode() to identify different node.
         public ConsistentHash(IEnumerable<string> nodes)
         {
-            Init(nodes, _replicate);
+            this.Init(nodes, this.replicate);
         }
 
         public ConsistentHash(IEnumerable<string> nodes, int replicate)
         {
-            Init(nodes, replicate);
+            this.Init(nodes, replicate);
         }
+
         private void Init(IEnumerable<string> nodes, int replicate)
         {
-            _replicate = replicate;
+            this.replicate = replicate;
 
             foreach (string node in nodes)
             {
-                Add(node, false);
+                this.Add(node, false);
             }
-            ayKeys = circle.Keys.ToArray();
+
+            this.ayKeys = this.circle.Keys.ToArray();
         }
 
         public void Add(string node)
         {
-            Add(node, true);
+            this.Add(node, true);
         }
 
         public void Add(string node, bool updateKeyArray)
         {
-            for (int i = 0; i < _replicate; i++)
+            for (int i = 0; i < this.replicate; i++)
             {
                 int hash = BetterHash(node + i);
-                circle[hash] = node;
+                this.circle[hash] = node;
             }
 
             if (updateKeyArray)
             {
-                ayKeys = circle.Keys.ToArray();
+                this.ayKeys = this.circle.Keys.ToArray();
             }
         }
 
         public void Remove(string node)
         {
-            for (int i = 0; i < _replicate; i++)
+            for (int i = 0; i < this.replicate; i++)
             {
                 int hash = BetterHash(node + i);
-                if (!circle.Remove(hash))
+                if (!this.circle.Remove(hash))
                 {
                     throw new Exception("can not remove a node that not added");
                 }
             }
-            ayKeys = circle.Keys.ToArray();
+
+            this.ayKeys = this.circle.Keys.ToArray();
         }
+
         public string GetNode(string key)
         {
-            int first = First_ge(ayKeys, BetterHash(key));
-            return circle[ayKeys[first]];
+            int first = First_ge(this.ayKeys, BetterHash(key));
+            return this.circle[this.ayKeys[first]];
         }
+
         //return the index of first item that >= val.
         //if not exist, return 0;
         //ay should be ordered array.

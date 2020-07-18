@@ -15,27 +15,32 @@ namespace Ray.Core.Channels
     /// <typeparam name="T">data type produced by producer</typeparam>
     public class MpscChannel<T> : IMpscChannel<T>, ISequenceMpscChannel
     {
-        readonly BufferBlock<T> buffer = new BufferBlock<T>();
+        private readonly BufferBlock<T> buffer = new BufferBlock<T>();
         private Func<List<T>, Task> consumer;
-        readonly List<ISequenceMpscChannel> consumerSequence = new List<ISequenceMpscChannel>();
+        private readonly List<ISequenceMpscChannel> consumerSequence = new List<ISequenceMpscChannel>();
         private Task<bool> waitToReadTask;
-        readonly ILogger logger;
+        private readonly ILogger logger;
         private Task consumerTask;
+
         /// <summary>
         /// 批量数据处理每次处理的最大数据量
         /// </summary>
-        int _MaxBatchSize;
+        private int MaxBatchSize;
+
         /// <summary>
         /// 批量数据接收的最大延时
         /// </summary>
-        int _MaxMillisecondsDelay;
+        private int MaxMillisecondsDelay;
+
         public MpscChannel(ILogger<MpscChannel<T>> logger, IOptions<ChannelOptions> options)
         {
             this.logger = logger;
-            _MaxBatchSize = options.Value.MaxBatchSize;
-            _MaxMillisecondsDelay = options.Value.MaxMillisecondsDelay;
+            this.MaxBatchSize = options.Value.MaxBatchSize;
+            this.MaxMillisecondsDelay = options.Value.MaxMillisecondsDelay;
         }
+
         public bool IsDisposed { get; private set; }
+
         public bool IsChildren { get; set; }
 
         public void BindConsumer(Func<List<T>, Task> consumer, bool active = true)
@@ -45,96 +50,116 @@ namespace Ray.Core.Channels
                 if (Interlocked.CompareExchange(ref this.consumer, consumer, null) is null)
                 {
                     this.consumer = consumer;
-                    consumerTask = ActiveAutoConsumer();
+                    this.consumerTask = this.ActiveAutoConsumer();
                 }
                 else
-                    throw new RebindConsumerException(GetType().Name);
+                {
+                    throw new RebindConsumerException(this.GetType().Name);
+                }
             }
         }
+
         public void Config(int maxBatchSize, int maxMillisecondsDelay)
         {
-            _MaxBatchSize = maxBatchSize;
-            _MaxMillisecondsDelay = maxMillisecondsDelay;
+            this.MaxBatchSize = maxBatchSize;
+            this.MaxMillisecondsDelay = maxMillisecondsDelay;
         }
+
         public async ValueTask<bool> WriteAsync(T data)
         {
-            if (consumer is null)
-                throw new NoBindConsumerException(GetType().Name);
-            if (!buffer.Post(data))
-                return await buffer.SendAsync(data);
+            if (this.consumer is null)
+            {
+                throw new NoBindConsumerException(this.GetType().Name);
+            }
+
+            if (!this.buffer.Post(data))
+            {
+                return await this.buffer.SendAsync(data);
+            }
+
             return true;
         }
+
         private async Task ActiveAutoConsumer()
         {
-            while (!IsDisposed)
+            while (!this.IsDisposed)
             {
                 try
                 {
-                    await WaitToReadAsync();
-                    await ManualConsume();
+                    await this.WaitToReadAsync();
+                    await this.ManualConsume();
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError(ex, ex.Message);
+                    this.logger.LogError(ex, ex.Message);
                 }
             }
         }
+
         public void Join(ISequenceMpscChannel channel)
         {
-            if (consumerSequence.IndexOf(channel) == -1)
+            if (this.consumerSequence.IndexOf(channel) == -1)
             {
                 channel.IsChildren = true;
-                consumerSequence.Add(channel);
+                this.consumerSequence.Add(channel);
             }
         }
+
         public async Task ManualConsume()
         {
-            if (waitToReadTask.IsCompletedSuccessfully && waitToReadTask.Result)
+            if (this.waitToReadTask.IsCompletedSuccessfully && this.waitToReadTask.Result)
             {
                 var dataList = new List<T>();
                 var startTime = DateTimeOffset.UtcNow;
-                while (buffer.TryReceive(out var value))
+                while (this.buffer.TryReceive(out var value))
                 {
                     dataList.Add(value);
-                    if (dataList.Count > _MaxBatchSize)
+                    if (dataList.Count > this.MaxBatchSize)
                     {
                         break;
                     }
-                    else if ((DateTimeOffset.UtcNow - startTime).TotalMilliseconds > _MaxMillisecondsDelay)
+                    else if ((DateTimeOffset.UtcNow - startTime).TotalMilliseconds > this.MaxMillisecondsDelay)
                     {
                         break;
                     }
                 }
+
                 if (dataList.Count > 0)
-                    await consumer(dataList);
+                {
+                    await this.consumer(dataList);
+                }
             }
-            foreach (var joinConsumer in consumerSequence)
+
+            foreach (var joinConsumer in this.consumerSequence)
             {
                 await joinConsumer.ManualConsume();
             }
         }
+
         public async Task<bool> WaitToReadAsync()
         {
-            waitToReadTask = buffer.OutputAvailableAsync();
-            if (consumerSequence.Count == 0)
+            this.waitToReadTask = this.buffer.OutputAvailableAsync();
+            if (this.consumerSequence.Count == 0)
             {
-                return await waitToReadTask;
+                return await this.waitToReadTask;
             }
             else
             {
-                var taskList = consumerSequence.Select(c => c.WaitToReadAsync()).ToList();
-                taskList.Add(waitToReadTask);
+                var taskList = this.consumerSequence.Select(c => c.WaitToReadAsync()).ToList();
+                taskList.Add(this.waitToReadTask);
                 return await await Task.WhenAny(taskList);
             }
         }
+
         public void Dispose()
         {
-            IsDisposed = true;
-            foreach (var joinConsumer in consumerSequence)
+            this.IsDisposed = true;
+            foreach (var joinConsumer in this.consumerSequence)
             {
                 joinConsumer.Dispose();
             }
-            buffer.Complete();
+
+            this.buffer.Complete();
         }
     }
 }
