@@ -1,27 +1,28 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reactive.Linq;
+using System.Reactive.Subjects;
+using Microsoft.Extensions.Logging;
 using Orleans;
 using Ray.Core.Abstractions.Monitor;
 using Ray.DistributedTx.Abstractions;
 using Ray.Metric.Core.Actors;
 using Ray.Metric.Core.Element;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
 
 namespace Ray.Metric.Core
 {
     public class MetricMonitor : IMetricMonitor, IDTxMetricMonitor
     {
-        readonly Subject<EventMetricElement> eventSubject = new Subject<EventMetricElement>();
-        readonly Subject<FollowMetricElement> followSubject = new Subject<FollowMetricElement>();
-        readonly Subject<SnapshotMetricElement> snapshotSubject = new Subject<SnapshotMetricElement>();
-        readonly Subject<DTxMetricElement> dtxSubject = new Subject<DTxMetricElement>();
+        private readonly Subject<EventMetricElement> eventSubject = new Subject<EventMetricElement>();
+        private readonly Subject<FollowMetricElement> followSubject = new Subject<FollowMetricElement>();
+        private readonly Subject<SnapshotMetricElement> snapshotSubject = new Subject<SnapshotMetricElement>();
+        private readonly Subject<DTxMetricElement> dtxSubject = new Subject<DTxMetricElement>();
+
         public MetricMonitor(ILogger<MetricMonitor> logger, IGrainFactory grainFactory)
         {
             var monitorActor = grainFactory.GetGrain<IMonitorActor>(0);
-            eventSubject.Buffer(TimeSpan.FromSeconds(1)).Where(list => list.Count > 0).Subscribe(async list =>
+            this.eventSubject.Buffer(TimeSpan.FromSeconds(1)).Where(list => list.Count > 0).Subscribe(async list =>
             {
                 try
                 {
@@ -78,6 +79,7 @@ namespace Ray.Metric.Core
                             }
                         }
                     }
+
                     await monitorActor.Report(eventMetrics, actorMetrics, linkMetrics);
                 }
                 catch (Exception ex)
@@ -85,7 +87,7 @@ namespace Ray.Metric.Core
                     logger.LogError(ex, ex.Message);
                 }
             });
-            followSubject.Buffer(TimeSpan.FromSeconds(1)).Where(list => list.Count > 0).Subscribe(async list =>
+            this.followSubject.Buffer(TimeSpan.FromSeconds(1)).Where(list => list.Count > 0).Subscribe(async list =>
             {
                 try
                 {
@@ -117,6 +119,7 @@ namespace Ray.Metric.Core
                             });
                         }
                     }
+
                     foreach (var group in list.GroupBy(e => e.Group))
                     {
                         followGroupMetrics.Add(new FollowGroupMetric
@@ -128,6 +131,7 @@ namespace Ray.Metric.Core
                             MinElapsedMs = group.Min(g => g.ElapsedMs)
                         });
                     }
+
                     await monitorActor.Report(followActorMetrics, followEventMetrics, followGroupMetrics);
                 }
                 catch (Exception ex)
@@ -135,7 +139,7 @@ namespace Ray.Metric.Core
                     logger.LogError(ex, ex.Message);
                 }
             });
-            snapshotSubject.Buffer(TimeSpan.FromSeconds(1)).Subscribe(async list =>
+            this.snapshotSubject.Buffer(TimeSpan.FromSeconds(1)).Subscribe(async list =>
             {
                 try
                 {
@@ -155,6 +159,7 @@ namespace Ray.Metric.Core
                             MinSaveElapsedMs = group.Min(e => e.SaveElapsedMs)
                         });
                     }
+
                     await monitorActor.Report(snapshotMetric);
                 }
                 catch (Exception ex)
@@ -162,7 +167,7 @@ namespace Ray.Metric.Core
                     logger.LogError(ex, ex.Message);
                 }
             });
-            dtxSubject.Buffer(TimeSpan.FromSeconds(1)).Subscribe(async list =>
+            this.dtxSubject.Buffer(TimeSpan.FromSeconds(1)).Subscribe(async list =>
             {
                 try
                 {
@@ -180,6 +185,7 @@ namespace Ray.Metric.Core
                             MinElapsedMs = group.Min(g => g.ElapsedMs)
                         });
                     }
+
                     await monitorActor.Report(dtxMetrics);
                 }
                 catch (Exception ex)
@@ -188,27 +194,30 @@ namespace Ray.Metric.Core
                 }
             });
         }
+
         public void Report(EventMetricElement element)
         {
-            eventSubject.OnNext(element);
+            this.eventSubject.OnNext(element);
         }
+
         public void Report(List<EventMetricElement> elements)
         {
-            elements.ForEach(e => eventSubject.OnNext(e));
+            elements.ForEach(e => this.eventSubject.OnNext(e));
         }
+
         public void Report(FollowMetricElement element)
         {
-            followSubject.OnNext(element);
+            this.followSubject.OnNext(element);
         }
 
         public void Report(SnapshotMetricElement element)
         {
-            snapshotSubject.OnNext(element);
+            this.snapshotSubject.OnNext(element);
         }
 
         public void Report(DTxMetricElement element)
         {
-            dtxSubject.OnNext(element);
+            this.dtxSubject.OnNext(element);
         }
     }
 }

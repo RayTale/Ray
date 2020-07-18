@@ -4,7 +4,8 @@ namespace Ray.Core.Exceptions
 {
     public class EventBusRepeatBindingProducerException : Exception
     {
-        public EventBusRepeatBindingProducerException(string name) : base(name)
+        public EventBusRepeatBindingProducerException(string name)
+            : base(name)
         {
         }
     }

@@ -4,7 +4,8 @@ namespace Ray.Core.Channels
 {
     public class RebindConsumerException : Exception
     {
-        public RebindConsumerException(string message) : base(message)
+        public RebindConsumerException(string message)
+            : base(message)
         {
         }
     }

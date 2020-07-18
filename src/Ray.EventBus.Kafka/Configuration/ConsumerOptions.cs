@@ -9,6 +9,7 @@
         /// 发生异常重试次数
         /// </summary>
         public int RetryCount { get; set; } = 3;
+
         /// <summary>
         /// 重试间隔(ms)
         /// </summary>

@@ -11,59 +11,66 @@ namespace Ray.Core.Event
     {
         public EventConverter(string eventUniqueName, object grainId, Span<byte> baseBytes, Span<byte> eventBytes)
         {
-            EventUniqueName = eventUniqueName;
-            GrainId = grainId;
-            BaseBytes = baseBytes;
-            EventBytes = eventBytes;
+            this.EventUniqueName = eventUniqueName;
+            this.GrainId = grainId;
+            this.BaseBytes = baseBytes;
+            this.EventBytes = eventBytes;
         }
+
         /// <summary>
         /// 事件唯一名称
         /// </summary>
         public string EventUniqueName { get; }
+
         /// <summary>
         /// 事件GrainId
         /// </summary>
         public object GrainId { get; }
+
         /// <summary>
         /// 事件base信息的bytes
         /// </summary>
         public Span<byte> BaseBytes { get; }
+
         /// <summary>
         /// 事件本身的bytes
         /// </summary>
         public Span<byte> EventBytes { get; }
+
         public SharedArray ConvertToBytes()
         {
-            var eventTypeBytes = Encoding.UTF8.GetBytes(EventUniqueName);
+            var eventTypeBytes = Encoding.UTF8.GetBytes(this.EventUniqueName);
             byte[] actorIdBytes;
-            if (GrainId is long id)
+            if (this.GrainId is long id)
             {
                 actorIdBytes = BitConverter.GetBytes(id);
             }
-            else if (GrainId is string strId)
+            else if (this.GrainId is string strId)
             {
                 actorIdBytes = Encoding.UTF8.GetBytes(strId);
             }
             else
             {
-                throw new PrimaryKeyTypeException(EventUniqueName);
+                throw new PrimaryKeyTypeException(this.EventUniqueName);
             }
-            var buffer = SharedArray.Rent(1 + sizeof(ushort) * 3 + sizeof(int) + eventTypeBytes.Length + actorIdBytes.Length + BaseBytes.Length + EventBytes.Length);
+
+            var buffer = SharedArray.Rent(1 + sizeof(ushort) * 3 + sizeof(int) + eventTypeBytes.Length + actorIdBytes.Length + this.BaseBytes.Length + this.EventBytes.Length);
             var bufferSpan = buffer.AsSpan();
             bufferSpan[0] = (byte)HeaderType.Event;
             BitConverter.TryWriteBytes(bufferSpan.Slice(1), (ushort)eventTypeBytes.Length);
             BitConverter.TryWriteBytes(bufferSpan.Slice(1 + sizeof(ushort)), (ushort)actorIdBytes.Length);
-            BitConverter.TryWriteBytes(bufferSpan.Slice(1 + sizeof(ushort) * 2), (ushort)BaseBytes.Length);
-            BitConverter.TryWriteBytes(bufferSpan.Slice(1 + sizeof(ushort) * 3), EventBytes.Length);
+            BitConverter.TryWriteBytes(bufferSpan.Slice(1 + sizeof(ushort) * 2), (ushort)this.BaseBytes.Length);
+            BitConverter.TryWriteBytes(bufferSpan.Slice(1 + sizeof(ushort) * 3), this.EventBytes.Length);
             var bodySlice = bufferSpan.Slice(1 + sizeof(ushort) * 3 + sizeof(int));
             eventTypeBytes.CopyTo(bodySlice);
             var actorIdSlice = bodySlice.Slice(eventTypeBytes.Length);
             actorIdBytes.CopyTo(actorIdSlice);
             var baseSlice = actorIdSlice.Slice(actorIdBytes.Length);
-            BaseBytes.CopyTo(baseSlice);
-            EventBytes.CopyTo(baseSlice.Slice(BaseBytes.Length));
+            this.BaseBytes.CopyTo(baseSlice);
+            this.EventBytes.CopyTo(baseSlice.Slice(this.BaseBytes.Length));
             return buffer;
         }
+
         public static bool TryParseActorId<PrimaryKey>(byte[] bytes, out PrimaryKey primaryKey)
         {
             if (bytes[0] == (byte)HeaderType.Event)
@@ -90,9 +97,11 @@ namespace Ray.Core.Event
                     }
                 }
             }
+
             primaryKey = default;
             return false;
         }
+
         public static bool TryParseWithNoId(byte[] bytes, out EventConverter value)
         {
             if (bytes[0] == (byte)HeaderType.Event)
@@ -112,9 +121,11 @@ namespace Ray.Core.Event
                 value = data;
                 return true;
             }
+
             value = default;
             return false;
         }
+
         public static bool TryParse<PrimaryKey>(byte[] bytes, out EventConverter value)
         {
             if (bytes[0] == (byte)HeaderType.Event)
@@ -148,6 +159,7 @@ namespace Ray.Core.Event
                     return true;
                 }
             }
+
             value = default;
             return false;
         }
