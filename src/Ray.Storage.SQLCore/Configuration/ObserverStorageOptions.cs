@@ -6,24 +6,26 @@ namespace Ray.Storage.SQLCore.Configuration
 {
     public class ObserverStorageOptions : IObserverStorageOptions
     {
-        StorageOptions _baseConfig;
+        private StorageOptions baseConfig;
+
         public IStorageOptions Config
         {
-            get => _baseConfig;
-            set
-            {
-                _baseConfig = value as StorageOptions;
-            }
+            get => this.baseConfig;
+            set => this.baseConfig = value as StorageOptions;
         }
+
         public string ObserverName { get; set; }
-        public string ObserverSnapshotTable => $"{_baseConfig.SnapshotTable}_{ObserverName}";
+
+        public string ObserverSnapshotTable => $"{this.baseConfig.SnapshotTable}_{this.ObserverName}";
+
         public DbConnection CreateConnection()
         {
-            return _baseConfig.CreateConnection();
+            return this.baseConfig.CreateConnection();
         }
+
         public ValueTask Build()
         {
-            return new ValueTask(_baseConfig.BuildRepository.CreateObserverSnapshotTable(ObserverSnapshotTable));
+            return new ValueTask(this.baseConfig.BuildRepository.CreateObserverSnapshotTable(this.ObserverSnapshotTable));
         }
     }
 }

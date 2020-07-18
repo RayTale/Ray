@@ -1,4 +1,9 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Orleans;
 using Orleans.Concurrency;
@@ -11,11 +16,6 @@ using Ray.Core.Observer;
 using Ray.Core.Serialization;
 using Ray.Core.Snapshot;
 using Ray.Core.Storage;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
 
 namespace Ray.Core
 {
@@ -24,267 +24,351 @@ namespace Ray.Core
     {
         public ShadowGrain()
         {
-            GrainType = GetType();
+            this.GrainType = this.GetType();
             if (typeof(ICloneable<StateType>).IsAssignableFrom(typeof(StateType)))
             {
-                IsTxShadow = typeof(TxGrain<,>).MakeGenericType(typeof(PrimaryKey), typeof(StateType)).IsAssignableFrom(typeof(Main));
+                this.IsTxShadow = typeof(TxGrain<,>).MakeGenericType(typeof(PrimaryKey), typeof(StateType)).IsAssignableFrom(typeof(Main));
             }
             else
             {
-                IsTxShadow = false;
+                this.IsTxShadow = false;
             }
         }
+
         protected bool IsTxShadow { get; }
+
         protected CoreOptions CoreOptions { get; private set; }
+
         protected ArchiveOptions ArchiveOptions { get; private set; }
+
         protected ILogger Logger { get; private set; }
+
         protected ISerializer Serializer { get; private set; }
+
         protected ITypeFinder TypeFinder { get; private set; }
+
         protected Snapshot<PrimaryKey, StateType> Snapshot { get; set; }
-        private PrimaryKey _GrainId;
-        private bool _GrainIdAcquired = false;
+
+        private PrimaryKey GrainId;
+        private bool GrainIdAcquired = false;
+
         public PrimaryKey GrainId
         {
             get
             {
-                if (!_GrainIdAcquired)
+                if (!this.GrainIdAcquired)
                 {
                     var type = typeof(PrimaryKey);
                     if (type == typeof(long) && this.GetPrimaryKeyLong() is PrimaryKey longKey)
-                        _GrainId = longKey;
+                    {
+                        this.GrainId = longKey;
+                    }
                     else if (type == typeof(string) && this.GetPrimaryKeyString() is PrimaryKey stringKey)
-                        _GrainId = stringKey;
+                    {
+                        this.GrainId = stringKey;
+                    }
                     else if (type == typeof(Guid) && this.GetPrimaryKey() is PrimaryKey guidKey)
-                        _GrainId = guidKey;
+                    {
+                        this.GrainId = guidKey;
+                    }
                     else
+                    {
                         throw new ArgumentOutOfRangeException(typeof(PrimaryKey).FullName);
-                    _GrainIdAcquired = true;
+                    }
+
+                    this.GrainIdAcquired = true;
                 }
-                return _GrainId;
+
+                return this.GrainId;
             }
         }
+
         /// <summary>
         /// 分批次批量读取事件的时候每次读取的数据量
         /// </summary>
-        protected virtual int NumberOfEventsPerRead => CoreOptions.NumberOfEventsPerRead;
+        protected virtual int NumberOfEventsPerRead => this.CoreOptions.NumberOfEventsPerRead;
+
         /// <summary>
         /// 是否全量激活，true代表启动时会执行大于快照版本的所有事件,false代表更快的启动，后续有事件进入的时候再处理大于快照版本的事件
         /// </summary>
         protected virtual bool FullyActive => false;
+
         /// <summary>
         /// Grain的Type
         /// </summary>
         protected Type GrainType { get; }
+
         /// <summary>
         /// 指标收集器
         /// </summary>
         protected IMetricMonitor MetricMonitor { get; private set; }
+
         /// <summary>
         /// 所在的组
         /// </summary>
         protected string Group { get; private set; }
+
         /// <summary>
         /// 事件存储器
         /// </summary>
         protected IEventStorage<PrimaryKey> EventStorage { get; private set; }
+
         /// <summary>
         /// 状态存储器
         /// </summary>
         protected ISnapshotStorage<PrimaryKey, StateType> SnapshotStorage { get; private set; }
+
         /// <summary>
         /// 归档存储器
         /// </summary>
         protected IArchiveStorage<PrimaryKey, StateType> ArchiveStorage { get; private set; }
+
         protected ISnapshotHandler<PrimaryKey, StateType> SnapshotHandler { get; private set; }
+
         protected ArchiveBrief LastArchive { get; private set; }
         #region 初始化数据
+
         /// <summary>
         /// 依赖注入统一方法
         /// </summary>
+        /// <returns></returns>
         protected async virtual ValueTask DependencyInjection()
         {
-            Logger = (ILogger)ServiceProvider.GetService(typeof(ILogger<>).MakeGenericType(GrainType));
-            Group = ServiceProvider.GetService<IObserverUnitContainer>().GetUnit<PrimaryKey>(typeof(Main)).GetGroup(GrainType);
-            MetricMonitor = ServiceProvider.GetService<IMetricMonitor>();
-            CoreOptions = ServiceProvider.GetOptionsByName<CoreOptions>(typeof(Main).FullName);
-            TypeFinder = ServiceProvider.GetService<ITypeFinder>();
-            ArchiveOptions = ServiceProvider.GetOptionsByName<ArchiveOptions>(typeof(Main).FullName);
-            Serializer = ServiceProvider.GetService<ISerializer>();
-            SnapshotHandler = ServiceProvider.GetService<ISnapshotHandler<PrimaryKey, StateType>>();
-            if (SnapshotHandler == default)
-                throw new UnfindSnapshotHandlerException(GrainType);
-            var configureBuilder = ServiceProvider.GetService<IConfigureBuilder<PrimaryKey, Main>>();
-            var storageConfigTask = configureBuilder.GetConfig(ServiceProvider, GrainId);
+            this.Logger = (ILogger)this.ServiceProvider.GetService(typeof(ILogger<>).MakeGenericType(this.GrainType));
+            this.Group = this.ServiceProvider.GetService<IObserverUnitContainer>().GetUnit<PrimaryKey>(typeof(Main)).GetGroup(this.GrainType);
+            this.MetricMonitor = this.ServiceProvider.GetService<IMetricMonitor>();
+            this.CoreOptions = this.ServiceProvider.GetOptionsByName<CoreOptions>(typeof(Main).FullName);
+            this.TypeFinder = this.ServiceProvider.GetService<ITypeFinder>();
+            this.ArchiveOptions = this.ServiceProvider.GetOptionsByName<ArchiveOptions>(typeof(Main).FullName);
+            this.Serializer = this.ServiceProvider.GetService<ISerializer>();
+            this.SnapshotHandler = this.ServiceProvider.GetService<ISnapshotHandler<PrimaryKey, StateType>>();
+            if (this.SnapshotHandler == default)
+            {
+                throw new UnfindSnapshotHandlerException(this.GrainType);
+            }
+
+            var configureBuilder = this.ServiceProvider.GetService<IConfigureBuilder<PrimaryKey, Main>>();
+            var storageConfigTask = configureBuilder.GetConfig(this.ServiceProvider, this.GrainId);
             if (!storageConfigTask.IsCompletedSuccessfully)
+            {
                 await storageConfigTask;
-            var storageFactory = ServiceProvider.GetService(configureBuilder.StorageFactory) as IStorageFactory;
+            }
+
+            var storageFactory = this.ServiceProvider.GetService(configureBuilder.StorageFactory) as IStorageFactory;
             //创建归档存储器
-            var archiveStorageTask = storageFactory.CreateArchiveStorage<PrimaryKey, StateType>(storageConfigTask.Result, GrainId);
+            var archiveStorageTask = storageFactory.CreateArchiveStorage<PrimaryKey, StateType>(storageConfigTask.Result, this.GrainId);
             if (!archiveStorageTask.IsCompletedSuccessfully)
+            {
                 await archiveStorageTask;
-            ArchiveStorage = archiveStorageTask.Result;
+            }
+
+            this.ArchiveStorage = archiveStorageTask.Result;
             //创建事件存储器
-            var eventStorageTask = storageFactory.CreateEventStorage(storageConfigTask.Result, GrainId);
+            var eventStorageTask = storageFactory.CreateEventStorage(storageConfigTask.Result, this.GrainId);
             if (!eventStorageTask.IsCompletedSuccessfully)
+            {
                 await eventStorageTask;
-            EventStorage = eventStorageTask.Result;
+            }
+
+            this.EventStorage = eventStorageTask.Result;
             //创建状态存储器
-            var stateStorageTask = storageFactory.CreateSnapshotStorage<PrimaryKey, StateType>(storageConfigTask.Result, GrainId);
+            var stateStorageTask = storageFactory.CreateSnapshotStorage<PrimaryKey, StateType>(storageConfigTask.Result, this.GrainId);
             if (!stateStorageTask.IsCompletedSuccessfully)
+            {
                 await stateStorageTask;
-            SnapshotStorage = stateStorageTask.Result;
+            }
+
+            this.SnapshotStorage = stateStorageTask.Result;
         }
+
         public override async Task OnActivateAsync()
         {
-            var dITask = DependencyInjection();
+            var dITask = this.DependencyInjection();
             if (!dITask.IsCompletedSuccessfully)
+            {
                 await dITask;
+            }
+
             try
             {
-                if (ArchiveOptions.On)
+                if (this.ArchiveOptions.On)
                 {
                     //加载最后一条归档
-                    LastArchive = await ArchiveStorage.GetLatestBrief(GrainId);
+                    this.LastArchive = await this.ArchiveStorage.GetLatestBrief(this.GrainId);
                 }
-                await ReadSnapshotAsync();
-                if (FullyActive)
+
+                await this.ReadSnapshotAsync();
+                if (this.FullyActive)
                 {
-                    await RecoveryFromStorage();
+                    await this.RecoveryFromStorage();
                 }
-                if (Logger.IsEnabled(LogLevel.Trace))
-                    Logger.LogTrace("Activation completed: {0}->{1}", GrainType.FullName, Serializer.Serialize(Snapshot));
+
+                if (this.Logger.IsEnabled(LogLevel.Trace))
+                {
+                    this.Logger.LogTrace("Activation completed: {0}->{1}", this.GrainType.FullName, this.Serializer.Serialize(this.Snapshot));
+                }
             }
             catch (Exception ex)
             {
-                Logger.LogCritical(ex, "Activation failed: {0}->{1}", GrainType.FullName, GrainId.ToString());
+                this.Logger.LogCritical(ex, "Activation failed: {0}->{1}", this.GrainType.FullName, this.GrainId.ToString());
                 throw;
             }
         }
+
         /// <summary>
         /// 从库里恢复
         /// </summary>
-        /// <returns></returns>
+        /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
         private async Task RecoveryFromStorage()
         {
             while (true)
             {
-                var eventList = await EventStorage.GetList(GrainId, Snapshot.Base.StartTimestamp, Snapshot.Base.Version + 1, Snapshot.Base.Version + NumberOfEventsPerRead);
-                var task = Tell(eventList);
+                var eventList = await this.EventStorage.GetList(this.GrainId, this.Snapshot.Base.StartTimestamp, this.Snapshot.Base.Version + 1, this.Snapshot.Base.Version + this.NumberOfEventsPerRead);
+                var task = this.Tell(eventList);
                 if (!task.IsCompletedSuccessfully)
+                {
                     await task;
-                if (eventList.Count < NumberOfEventsPerRead) break;
-            };
+                }
+
+                if (eventList.Count < this.NumberOfEventsPerRead)
+                {
+                    break;
+                }
+            }
+
         }
+
         protected virtual async ValueTask Tell(IEnumerable<FullyEvent<PrimaryKey>> eventList)
         {
             foreach (var @event in eventList)
             {
-                var task = Tell(@event);
+                var task = this.Tell(@event);
                 if (!task.IsCompletedSuccessfully)
+                {
                     await task;
+                }
             }
         }
+
         protected virtual async Task ReadSnapshotAsync()
         {
             try
             {
-                Snapshot = await SnapshotStorage.Get(GrainId);
-                if (Snapshot is null)
+                this.Snapshot = await this.SnapshotStorage.Get(this.GrainId);
+                if (this.Snapshot is null)
                 {
                     //从归档中恢复状态
-                    if (ArchiveOptions.On && LastArchive != null)
+                    if (this.ArchiveOptions.On && this.LastArchive != null)
                     {
-                        Snapshot = await ArchiveStorage.GetById(LastArchive.Id);
+                        this.Snapshot = await this.ArchiveStorage.GetById(this.LastArchive.Id);
                     }
                 }
-                if (Snapshot is null)
+
+                if (this.Snapshot is null)
                 {
                     //新建状态
-                    var createTask = CreateSnapshot();
+                    var createTask = this.CreateSnapshot();
                     if (!createTask.IsCompletedSuccessfully)
-                        await createTask;
-                }
-                else if (IsTxShadow)
-                {
-                    Snapshot = new TxSnapshot<PrimaryKey, StateType>()
                     {
-                        Base = new TxSnapshotBase<PrimaryKey>(Snapshot.Base),
-                        State = Snapshot.State
+                        await createTask;
+                    }
+                }
+                else if (this.IsTxShadow)
+                {
+                    this.Snapshot = new TxSnapshot<PrimaryKey, StateType>()
+                    {
+                        Base = new TxSnapshotBase<PrimaryKey>(this.Snapshot.Base),
+                        State = this.Snapshot.State
                     };
                 }
-                if (Logger.IsEnabled(LogLevel.Trace))
-                    Logger.LogTrace("ReadSnapshot completed: {0}->{1}", GrainType.FullName, Serializer.Serialize(Snapshot));
+
+                if (this.Logger.IsEnabled(LogLevel.Trace))
+                {
+                    this.Logger.LogTrace("ReadSnapshot completed: {0}->{1}", this.GrainType.FullName, this.Serializer.Serialize(this.Snapshot));
+                }
             }
             catch (Exception ex)
             {
-                Logger.LogCritical(ex, "ReadSnapshot failed: {0}->{1}", GrainType.FullName, GrainId.ToString());
+                this.Logger.LogCritical(ex, "ReadSnapshot failed: {0}->{1}", this.GrainType.FullName, this.GrainId.ToString());
                 throw;
             }
         }
+
         /// <summary>
         /// 初始化状态，必须实现
         /// </summary>
         /// <returns></returns>
         protected virtual ValueTask CreateSnapshot()
         {
-            if (IsTxShadow)
+            if (this.IsTxShadow)
             {
-                Snapshot = new TxSnapshot<PrimaryKey, StateType>(GrainId);
+                this.Snapshot = new TxSnapshot<PrimaryKey, StateType>(this.GrainId);
             }
             else
             {
-                Snapshot = new Snapshot<PrimaryKey, StateType>(GrainId);
+                this.Snapshot = new Snapshot<PrimaryKey, StateType>(this.GrainId);
             }
+
             return Consts.ValueTaskDone;
         }
+
         #endregion
         public Task OnNext(Immutable<byte[]> bytes)
         {
             if (EventConverter.TryParseWithNoId(bytes.Value, out var transport))
             {
-                var eventType = TypeFinder.FindType(transport.EventUniqueName);
-                var data = Serializer.Deserialize(transport.EventBytes, eventType);
+                var eventType = this.TypeFinder.FindType(transport.EventUniqueName);
+                var data = this.Serializer.Deserialize(transport.EventBytes, eventType);
                 if (data is IEvent @event)
                 {
                     var eventBase = transport.BaseBytes.ParseToEventBase();
-                    if (eventBase.Version > Snapshot.Base.Version)
+                    if (eventBase.Version > this.Snapshot.Base.Version)
                     {
-                        var tellTask = Tell(new FullyEvent<PrimaryKey>
+                        var tellTask = this.Tell(new FullyEvent<PrimaryKey>
                         {
-                            StateId = GrainId,
+                            StateId = this.GrainId,
                             BasicInfo = eventBase,
                             Event = @event
                         });
                         if (!tellTask.IsCompletedSuccessfully)
+                        {
                             return tellTask.AsTask();
+                        }
                     }
-                    if (Logger.IsEnabled(LogLevel.Trace))
-                        Logger.LogTrace("OnNext completed: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(data, eventType));
+
+                    if (this.Logger.IsEnabled(LogLevel.Trace))
+                    {
+                        this.Logger.LogTrace("OnNext completed: {0}->{1}->{2}", this.GrainType.FullName, this.GrainId.ToString(), this.Serializer.Serialize(data, eventType));
+                    }
                 }
                 else
                 {
-                    if (Logger.IsEnabled(LogLevel.Trace))
-                        Logger.LogTrace("Non-Event: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(data, eventType));
+                    if (this.Logger.IsEnabled(LogLevel.Trace))
+                    {
+                        this.Logger.LogTrace("Non-Event: {0}->{1}->{2}", this.GrainType.FullName, this.GrainId.ToString(), this.Serializer.Serialize(data, eventType));
+                    }
                 }
             }
+
             return Task.CompletedTask;
         }
+
         public async Task OnNext(Immutable<List<byte[]>> items)
         {
             var events = items.Value.Select(bytes =>
             {
                 if (EventConverter.TryParseWithNoId(bytes, out var transport))
                 {
-                    var eventType = TypeFinder.FindType(transport.EventUniqueName);
-                    var data = Serializer.Deserialize(transport.EventBytes, eventType);
+                    var eventType = this.TypeFinder.FindType(transport.EventUniqueName);
+                    var data = this.Serializer.Deserialize(transport.EventBytes, eventType);
                     if (data is IEvent @event)
                     {
                         var eventBase = transport.BaseBytes.ParseToEventBase();
-                        if (eventBase.Version > Snapshot.Base.Version)
+                        if (eventBase.Version > this.Snapshot.Base.Version)
                         {
                             return new FullyEvent<PrimaryKey>
                             {
-                                StateId = GrainId,
+                                StateId = this.GrainId,
                                 BasicInfo = eventBase,
                                 Event = @event
                             };
@@ -292,108 +376,140 @@ namespace Ray.Core
                     }
                     else
                     {
-                        if (Logger.IsEnabled(LogLevel.Trace))
-                            Logger.LogTrace("Non-Event: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(data, eventType));
+                        if (this.Logger.IsEnabled(LogLevel.Trace))
+                        {
+                            this.Logger.LogTrace("Non-Event: {0}->{1}->{2}", this.GrainType.FullName, this.GrainId.ToString(), this.Serializer.Serialize(data, eventType));
+                        }
                     }
                 }
+
                 return default;
             }).Where(o => o != null).OrderBy(o => o.BasicInfo.Version).ToList();
             foreach (var evt in events)
             {
-                var tellTask = Tell(evt);
+                var tellTask = this.Tell(evt);
                 if (!tellTask.IsCompletedSuccessfully)
-                    await tellTask;
-                if (Logger.IsEnabled(LogLevel.Trace))
-                    Logger.LogTrace("OnNext completed: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(evt));
-            }
-        }
-        public Task<long> GetVersion()
-        {
-            return Task.FromResult(Snapshot.Base.Version);
-        }
-        public Task<long> GetAndSaveVersion(long compareVersion)
-        {
-            return Task.FromResult(Snapshot.Base.Version);
-        }
-        public async Task<bool> SyncFromObservable(long compareVersion)
-        {
-            if (Snapshot.Base.Version < compareVersion)
-            {
-                await RecoveryFromStorage();
-            }
-            return Snapshot.Base.Version == compareVersion;
-        }
-        protected async ValueTask Tell(FullyEvent<PrimaryKey> @event)
-        {
-            if (@event.BasicInfo.Version == Snapshot.Base.Version + 1)
-            {
-                var onEventDeliveredTask = EventDelivered(@event);
-                if (!onEventDeliveredTask.IsCompletedSuccessfully)
-                    await onEventDeliveredTask;
-                Snapshot.Base.FullUpdateVersion(@event.BasicInfo, GrainType);//更新处理完成的Version
-            }
-            else if (@event.BasicInfo.Version > Snapshot.Base.Version)
-            {
-                var eventList = await EventStorage.GetList(GrainId, Snapshot.Base.StartTimestamp, Snapshot.Base.Version + 1, @event.BasicInfo.Version - 1);
-                foreach (var evt in eventList)
                 {
-                    var onEventDeliveredTask = EventDelivered(evt);
-                    if (!onEventDeliveredTask.IsCompletedSuccessfully)
-                        await onEventDeliveredTask;
-                    Snapshot.Base.FullUpdateVersion(evt.BasicInfo, GrainType);//更新处理完成的Version
+                    await tellTask;
+                }
+
+                if (this.Logger.IsEnabled(LogLevel.Trace))
+                {
+                    this.Logger.LogTrace("OnNext completed: {0}->{1}->{2}", this.GrainType.FullName, this.GrainId.ToString(), this.Serializer.Serialize(evt));
                 }
             }
-            if (@event.BasicInfo.Version == Snapshot.Base.Version + 1)
+        }
+
+        public Task<long> GetVersion()
+        {
+            return Task.FromResult(this.Snapshot.Base.Version);
+        }
+
+        public Task<long> GetAndSaveVersion(long compareVersion)
+        {
+            return Task.FromResult(this.Snapshot.Base.Version);
+        }
+
+        public async Task<bool> SyncFromObservable(long compareVersion)
+        {
+            if (this.Snapshot.Base.Version < compareVersion)
             {
-                var onEventDeliveredTask = EventDelivered(@event);
-                if (!onEventDeliveredTask.IsCompletedSuccessfully)
-                    await onEventDeliveredTask;
-                Snapshot.Base.FullUpdateVersion(@event.BasicInfo, GrainType);//更新处理完成的Version
+                await this.RecoveryFromStorage();
             }
-            if (@event.BasicInfo.Version > Snapshot.Base.Version)
+
+            return this.Snapshot.Base.Version == compareVersion;
+        }
+
+        protected async ValueTask Tell(FullyEvent<PrimaryKey> @event)
+        {
+            if (@event.BasicInfo.Version == this.Snapshot.Base.Version + 1)
             {
-                throw new EventVersionUnorderedException(GrainId.ToString(), GrainType, @event.BasicInfo.Version, Snapshot.Base.Version);
+                var onEventDeliveredTask = this.EventDelivered(@event);
+                if (!onEventDeliveredTask.IsCompletedSuccessfully)
+                {
+                    await onEventDeliveredTask;
+                }
+
+                this.Snapshot.Base.FullUpdateVersion(@event.BasicInfo, this.GrainType);//更新处理完成的Version
+            }
+            else if (@event.BasicInfo.Version > this.Snapshot.Base.Version)
+            {
+                var eventList = await this.EventStorage.GetList(this.GrainId, this.Snapshot.Base.StartTimestamp, this.Snapshot.Base.Version + 1, @event.BasicInfo.Version - 1);
+                foreach (var evt in eventList)
+                {
+                    var onEventDeliveredTask = this.EventDelivered(evt);
+                    if (!onEventDeliveredTask.IsCompletedSuccessfully)
+                    {
+                        await onEventDeliveredTask;
+                    }
+
+                    this.Snapshot.Base.FullUpdateVersion(evt.BasicInfo, this.GrainType);//更新处理完成的Version
+                }
+            }
+
+            if (@event.BasicInfo.Version == this.Snapshot.Base.Version + 1)
+            {
+                var onEventDeliveredTask = this.EventDelivered(@event);
+                if (!onEventDeliveredTask.IsCompletedSuccessfully)
+                {
+                    await onEventDeliveredTask;
+                }
+
+                this.Snapshot.Base.FullUpdateVersion(@event.BasicInfo, this.GrainType);//更新处理完成的Version
+            }
+
+            if (@event.BasicInfo.Version > this.Snapshot.Base.Version)
+            {
+                throw new EventVersionUnorderedException(this.GrainId.ToString(), this.GrainType, @event.BasicInfo.Version, this.Snapshot.Base.Version);
             }
         }
+
         private async ValueTask EventDelivered(FullyEvent<PrimaryKey> fullyEvent)
         {
             try
             {
-                if (MetricMonitor != default)
+                if (this.MetricMonitor != default)
                 {
                     var startTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                    SnapshotHandler.Apply(Snapshot, fullyEvent);
-                    var task = OnEventDelivered(fullyEvent);
+                    this.SnapshotHandler.Apply(this.Snapshot, fullyEvent);
+                    var task = this.OnEventDelivered(fullyEvent);
                     if (!task.IsCompletedSuccessfully)
-                        await task;
-                    MetricMonitor.Report(new FollowMetricElement
                     {
-                        Actor = GrainType.Name,
+                        await task;
+                    }
+
+                    this.MetricMonitor.Report(new FollowMetricElement
+                    {
+                        Actor = this.GrainType.Name,
                         Event = fullyEvent.Event.GetType().Name,
                         FromActor = typeof(Main).Name,
                         ElapsedMs = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - startTime),
                         DeliveryElapsedMs = (int)(startTime - fullyEvent.BasicInfo.Timestamp),
-                        Group = Group
+                        Group = this.Group
                     });
                 }
                 else
                 {
-                    SnapshotHandler.Apply(Snapshot, fullyEvent);
-                    var task = OnEventDelivered(fullyEvent);
+                    this.SnapshotHandler.Apply(this.Snapshot, fullyEvent);
+                    var task = this.OnEventDelivered(fullyEvent);
                     if (!task.IsCompletedSuccessfully)
+                    {
                         await task;
+                    }
                 }
             }
             catch (Exception ex)
             {
-                Logger.LogCritical(ex, "Delivered failed: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(fullyEvent, fullyEvent.Event.GetType()));
+                this.Logger.LogCritical(ex, "Delivered failed: {0}->{1}->{2}", this.GrainType.FullName, this.GrainId.ToString(), this.Serializer.Serialize(fullyEvent, fullyEvent.Event.GetType()));
             }
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask OnEventDelivered(FullyEvent<PrimaryKey> @event) => Consts.ValueTaskDone;
+
         public virtual Task Reset()
         {
-            return ReadSnapshotAsync();
+            return this.ReadSnapshotAsync();
         }
     }
 }
