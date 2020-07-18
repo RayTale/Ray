@@ -1,24 +1,24 @@
-﻿using Ray.Metric.Core;
+﻿using System.Collections.Generic;
+using System.Threading.Tasks;
+using Ray.Metric.Core;
 using Ray.Metric.Core.Element;
 using Ray.Metric.Prometheus.MetricHandler;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace Ray.Metric.Prometheus
 {
     public class PrometheusMetricStream : IMetricStream
     {
-        readonly EventMetricHandler eventMetricHandler;
-        readonly ActorMetricHandler actorMetricHandler;
-        readonly EventSummaryMetricHandler eventSummaryMetric;
-        readonly EventLinkMetricHandler eventLinkMetricHandler;
-        readonly FollowActorMetricHandler followActorMetricHandler;
-        readonly FollowFollowEventMetricHandler followFollowEventMetricHandler;
-        readonly FollowGroupMetricHandler followGroupMetricHandler;
-        readonly SnapshotMetricHandler snapshotMetricHandler;
-        readonly SnapshotSummaryMetricHandler snapshotSummaryMetricHandler;
-        readonly DtxMetricHandler dtxMetricHandler;
-        readonly DtxSummaryMetricHandler dtxSummaryMetricHandler;
+        private readonly EventMetricHandler eventMetricHandler;
+        private readonly ActorMetricHandler actorMetricHandler;
+        private readonly EventSummaryMetricHandler eventSummaryMetric;
+        private readonly EventLinkMetricHandler eventLinkMetricHandler;
+        private readonly FollowActorMetricHandler followActorMetricHandler;
+        private readonly FollowFollowEventMetricHandler followFollowEventMetricHandler;
+        private readonly FollowGroupMetricHandler followGroupMetricHandler;
+        private readonly SnapshotMetricHandler snapshotMetricHandler;
+        private readonly SnapshotSummaryMetricHandler snapshotSummaryMetricHandler;
+        private readonly DtxMetricHandler dtxMetricHandler;
+        private readonly DtxSummaryMetricHandler dtxSummaryMetricHandler;
 
         public PrometheusMetricStream(
             EventMetricHandler eventMetricHandler,
@@ -45,69 +45,70 @@ namespace Ray.Metric.Prometheus
             this.dtxMetricHandler = dtxMetricHandler;
             this.dtxSummaryMetricHandler = dtxSummaryMetricHandler;
         }
+
         public Task OnNext(List<EventMetric> eventMetrics)
         {
-            eventMetricHandler.Handle(eventMetrics);
+            this.eventMetricHandler.Handle(eventMetrics);
             return Task.CompletedTask;
         }
 
         public Task OnNext(List<ActorMetric> actorMetrics)
         {
-            actorMetricHandler.Handle(actorMetrics);
+            this.actorMetricHandler.Handle(actorMetrics);
             return Task.CompletedTask;
         }
 
         public Task OnNext(EventSummaryMetric summaryMetric)
         {
-            eventSummaryMetric.Handle(summaryMetric);
+            this.eventSummaryMetric.Handle(summaryMetric);
             return Task.CompletedTask;
         }
 
         public Task OnNext(List<EventLinkMetric> eventLinkMetrics)
         {
-            eventLinkMetricHandler.Handle(eventLinkMetrics);
+            this.eventLinkMetricHandler.Handle(eventLinkMetrics);
             return Task.CompletedTask;
         }
 
         public Task OnNext(List<FollowActorMetric> followActorMetrics)
         {
-            followActorMetricHandler.Handle(followActorMetrics);
+            this.followActorMetricHandler.Handle(followActorMetrics);
             return Task.CompletedTask;
         }
 
         public Task OnNext(List<FollowEventMetric> followEventMetrics)
         {
-            followFollowEventMetricHandler.Handle(followEventMetrics);
+            this.followFollowEventMetricHandler.Handle(followEventMetrics);
             return Task.CompletedTask;
         }
 
         public Task OnNext(List<FollowGroupMetric> followGroupMetrics)
         {
-            followGroupMetricHandler.Handle(followGroupMetrics);
+            this.followGroupMetricHandler.Handle(followGroupMetrics);
             return Task.CompletedTask;
         }
 
         public Task OnNext(List<SnapshotMetric> snapshotMetrics)
         {
-            snapshotMetricHandler.Handle(snapshotMetrics);
+            this.snapshotMetricHandler.Handle(snapshotMetrics);
             return Task.CompletedTask;
         }
 
         public Task OnNext(SnapshotSummaryMetric snapshotSummaryMetric)
         {
-            snapshotSummaryMetricHandler.Handle(snapshotSummaryMetric);
+            this.snapshotSummaryMetricHandler.Handle(snapshotSummaryMetric);
             return Task.CompletedTask;
         }
 
         public Task OnNext(List<DtxMetric> dtxMetrics)
         {
-            dtxMetricHandler.Handle(dtxMetrics);
+            this.dtxMetricHandler.Handle(dtxMetrics);
             return Task.CompletedTask;
         }
 
         public Task OnNext(DtxSummaryMetric dtxSummaryMetric)
         {
-            dtxSummaryMetricHandler.Handle(dtxSummaryMetric);
+            this.dtxSummaryMetricHandler.Handle(dtxSummaryMetric);
             return Task.CompletedTask;
         }
     }

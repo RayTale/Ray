@@ -6,10 +6,12 @@
         /// 事务流
         /// </summary>
         Flow,
+
         /// <summary>
         /// db同步
         /// </summary>
         Db,
+
         /// <summary>
         /// 副本状态
         /// </summary>

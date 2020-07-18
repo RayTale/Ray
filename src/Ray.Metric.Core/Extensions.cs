@@ -1,9 +1,9 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using System;
+using Microsoft.Extensions.DependencyInjection;
 using Orleans.Hosting;
 using Ray.Core.Abstractions.Monitor;
 using Ray.DistributedTx.Abstractions;
 using Ray.Metric.Core.Options;
-using System;
 
 namespace Ray.Metric.Core
 {
@@ -21,6 +21,7 @@ namespace Ray.Metric.Core
             {
                 builder.Configure(optionInit);
             }
+
             builder.AddSimpleMessageStreamProvider("MetricProvider").AddMemoryGrainStorage("PubSubStore");
             return builder;
         }

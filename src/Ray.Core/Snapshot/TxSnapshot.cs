@@ -6,13 +6,14 @@
         public TxSnapshot()
         {
         }
+
         public TxSnapshot(PrimaryKey stateId)
         {
-            Base = new TxSnapshotBase<PrimaryKey>
+            this.Base = new TxSnapshotBase<PrimaryKey>
             {
                 StateId = stateId
             };
-            State = new StateType();
+            this.State = new StateType();
         }
     }
 }

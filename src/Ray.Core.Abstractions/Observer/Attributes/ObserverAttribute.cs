@@ -12,10 +12,12 @@ namespace Ray.Core.Abstractions.Observer
             : this(GetGroup(name), name.ToString(), observable, observer)
         {
         }
+
         public ObserverAttribute(DefaultGroup group, DefaultName name, Type observable, Type observer = default)
            : this(group.ToString(), name.ToString(), observable, observer)
         {
         }
+
         /// <summary>
         /// 事件监听者标记
         /// </summary>
@@ -25,33 +27,38 @@ namespace Ray.Core.Abstractions.Observer
         /// <param name="observer">监听者的Type</param>
         public ObserverAttribute(string group, string name, Type observable, Type observer = default)
         {
-            Group = group;
-            Name = name;
-            Observable = observable;
-            Observer = observer;
+            this.Group = group;
+            this.Name = name;
+            this.Observable = observable;
+            this.Observer = observer;
         }
+
         private static string GetGroup(DefaultName name)
         {
             return name switch
             {
-                DefaultName.Flow => DefaultGroup.primary.ToString(),
-                DefaultName.Shadow => DefaultGroup.primary.ToString(),
-                DefaultName.Db => DefaultGroup.second.ToString(),
-                _ => DefaultGroup.third.ToString()
+                DefaultName.Flow => DefaultGroup.Primary.ToString(),
+                DefaultName.Shadow => DefaultGroup.Primary.ToString(),
+                DefaultName.Db => DefaultGroup.Second.ToString(),
+                _ => DefaultGroup.Third.ToString()
             };
         }
+
         /// <summary>
         /// 监听者分组
         /// </summary>
         public string Group { get; set; }
+
         /// <summary>
         /// 监听者名称(如果是shadow请设置为null)
         /// </summary>
         public string Name { get; set; }
+
         /// <summary>
         /// 被监听的Type
         /// </summary>
         public Type Observable { get; set; }
+
         /// <summary>
         /// 监听者的Type
         /// </summary>

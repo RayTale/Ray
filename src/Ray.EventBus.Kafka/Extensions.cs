@@ -1,9 +1,9 @@
-﻿using Confluent.Kafka;
+﻿using System;
+using System.Threading.Tasks;
+using Confluent.Kafka;
 using Microsoft.Extensions.DependencyInjection;
 using Ray.Core;
 using Ray.Core.EventBus;
-using System;
-using System.Threading.Tasks;
 
 namespace Ray.EventBus.Kafka
 {
@@ -27,9 +27,13 @@ namespace Ray.EventBus.Kafka
             {
                 var container = serviceProvider.GetService<IKafkaEventBusContainer>();
                 if (eventBusConfig != default)
+                {
                     await eventBusConfig(container);
+                }
                 else
+                {
                     await container.AutoRegister();
+                }
             });
         }
     }

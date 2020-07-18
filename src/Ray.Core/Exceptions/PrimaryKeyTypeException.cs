@@ -4,9 +4,9 @@ namespace Ray.Core.Exceptions
 {
     public class PrimaryKeyTypeException : Exception
     {
-        public PrimaryKeyTypeException(string name) : base(name)
+        public PrimaryKeyTypeException(string name)
+            : base(name)
         {
-
         }
     }
 }

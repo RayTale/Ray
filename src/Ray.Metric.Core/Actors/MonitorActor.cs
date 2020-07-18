@@ -1,30 +1,31 @@
-﻿using Microsoft.Extensions.Options;
-using Orleans;
-using Ray.Metric.Core.Element;
-using Ray.Metric.Core.Options;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Options;
+using Orleans;
+using Ray.Metric.Core.Element;
+using Ray.Metric.Core.Options;
 
 namespace Ray.Metric.Core.Actors
 {
     [Orleans.Concurrency.Reentrant]
     public class MonitorActor : Grain, IMonitorActor
     {
-        readonly Subject<EventMetric> eventSubject = new Subject<EventMetric>();
-        readonly Subject<ActorMetric> actorSubject = new Subject<ActorMetric>();
-        readonly Subject<EventLinkMetric> eventLinkSubject = new Subject<EventLinkMetric>();
-        readonly Subject<FollowActorMetric> followActorSubject = new Subject<FollowActorMetric>();
-        readonly Subject<FollowEventMetric> followEventSubject = new Subject<FollowEventMetric>();
-        readonly Subject<FollowGroupMetric> followGroupSubject = new Subject<FollowGroupMetric>();
-        readonly Subject<SnapshotMetric> snapshotSubject = new Subject<SnapshotMetric>();
-        readonly Subject<DtxMetric> dtxSubject = new Subject<DtxMetric>();
+        private readonly Subject<EventMetric> eventSubject = new Subject<EventMetric>();
+        private readonly Subject<ActorMetric> actorSubject = new Subject<ActorMetric>();
+        private readonly Subject<EventLinkMetric> eventLinkSubject = new Subject<EventLinkMetric>();
+        private readonly Subject<FollowActorMetric> followActorSubject = new Subject<FollowActorMetric>();
+        private readonly Subject<FollowEventMetric> followEventSubject = new Subject<FollowEventMetric>();
+        private readonly Subject<FollowGroupMetric> followGroupSubject = new Subject<FollowGroupMetric>();
+        private readonly Subject<SnapshotMetric> snapshotSubject = new Subject<SnapshotMetric>();
+        private readonly Subject<DtxMetric> dtxSubject = new Subject<DtxMetric>();
+
         public MonitorActor(IOptions<MonitorOptions> options, IMetricStream metricStream)
         {
-            eventSubject.Buffer(TimeSpan.FromSeconds(options.Value.EventMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
+            this.eventSubject.Buffer(TimeSpan.FromSeconds(options.Value.EventMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
             {
                 var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 var eventMetrics = new List<EventMetric>();
@@ -48,9 +49,10 @@ namespace Ray.Metric.Core.Actors
                         });
                     }
                 }
+
                 await metricStream.OnNext(eventMetrics);
             });
-            actorSubject.Buffer(TimeSpan.FromSeconds(options.Value.ActorMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
+            this.actorSubject.Buffer(TimeSpan.FromSeconds(options.Value.ActorMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
             {
                 var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 var actorMetrics = new List<ActorMetric>();
@@ -68,6 +70,7 @@ namespace Ray.Metric.Core.Actors
                         Timestamp = timestamp
                     });
                 }
+
                 var summaryMetric = new EventSummaryMetric
                 {
                     Events = actorMetrics.Sum(e => e.Events),
@@ -80,7 +83,7 @@ namespace Ray.Metric.Core.Actors
                 };
                 await Task.WhenAll(metricStream.OnNext(summaryMetric), metricStream.OnNext(actorMetrics));
             });
-            eventLinkSubject.Buffer(TimeSpan.FromSeconds(options.Value.EventLinkMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
+            this.eventLinkSubject.Buffer(TimeSpan.FromSeconds(options.Value.EventLinkMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
             {
                 var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 var eventLinkMetrics = new List<EventLinkMetric>();
@@ -109,9 +112,10 @@ namespace Ray.Metric.Core.Actors
                         }
                     }
                 }
+
                 await metricStream.OnNext(eventLinkMetrics);
             });
-            followActorSubject.Buffer(TimeSpan.FromSeconds(options.Value.FollowActorMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
+            this.followActorSubject.Buffer(TimeSpan.FromSeconds(options.Value.FollowActorMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
             {
                 var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 var followActorMetrics = new List<FollowActorMetric>();
@@ -128,9 +132,10 @@ namespace Ray.Metric.Core.Actors
                         Timestamp = timestamp
                     });
                 }
+
                 await metricStream.OnNext(followActorMetrics);
             });
-            followEventSubject.Buffer(TimeSpan.FromSeconds(options.Value.FollowEventMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
+            this.followEventSubject.Buffer(TimeSpan.FromSeconds(options.Value.FollowEventMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
             {
                 var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 var followEventMetrics = new List<FollowEventMetric>();
@@ -150,9 +155,10 @@ namespace Ray.Metric.Core.Actors
                         });
                     }
                 }
+
                 await metricStream.OnNext(followEventMetrics);
             });
-            snapshotSubject.Buffer(TimeSpan.FromSeconds(options.Value.SnapshotMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
+            this.snapshotSubject.Buffer(TimeSpan.FromSeconds(options.Value.SnapshotMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
             {
                 var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 var snapshotMetrics = new List<SnapshotMetric>();
@@ -172,6 +178,7 @@ namespace Ray.Metric.Core.Actors
                         Timestamp = timestamp
                     });
                 }
+
                 var summaryMetric = new SnapshotSummaryMetric
                 {
                     SaveCount = snapshotMetrics.Sum(e => e.SaveCount),
@@ -185,7 +192,7 @@ namespace Ray.Metric.Core.Actors
                 };
                 await Task.WhenAll(metricStream.OnNext(snapshotMetrics), metricStream.OnNext(summaryMetric));
             });
-            dtxSubject.Buffer(TimeSpan.FromSeconds(options.Value.DtxMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
+            this.dtxSubject.Buffer(TimeSpan.FromSeconds(options.Value.DtxMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
             {
                 var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 var dtxMetrics = new List<DtxMetric>();
@@ -203,6 +210,7 @@ namespace Ray.Metric.Core.Actors
                         Timestamp = timestamp
                     });
                 }
+
                 var summaryMetric = new DtxSummaryMetric
                 {
                     Times = dtxMetrics.Sum(e => e.Times),
@@ -215,7 +223,7 @@ namespace Ray.Metric.Core.Actors
                 };
                 await Task.WhenAll(metricStream.OnNext(dtxMetrics), metricStream.OnNext(summaryMetric));
             });
-            followGroupSubject.Buffer(TimeSpan.FromSeconds(options.Value.FollowGroupMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
+            this.followGroupSubject.Buffer(TimeSpan.FromSeconds(options.Value.FollowGroupMetricFrequency)).Where(list => list.Count > 0).Subscribe(async list =>
             {
                 var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 var followGroupMetrics = new List<FollowGroupMetric>();
@@ -231,35 +239,36 @@ namespace Ray.Metric.Core.Actors
                         Timestamp = timestamp
                     });
                 }
+
                 await metricStream.OnNext(followGroupMetrics);
             });
         }
 
         public Task Report(List<EventMetric> eventMetrics, List<ActorMetric> actorMetrics, List<EventLinkMetric> eventLinkMetrics)
         {
-            eventMetrics.ForEach(e => eventSubject.OnNext(e));
-            actorMetrics.ForEach(e => actorSubject.OnNext(e));
-            eventLinkMetrics.ForEach(e => eventLinkSubject.OnNext(e));
+            eventMetrics.ForEach(e => this.eventSubject.OnNext(e));
+            actorMetrics.ForEach(e => this.actorSubject.OnNext(e));
+            eventLinkMetrics.ForEach(e => this.eventLinkSubject.OnNext(e));
             return Task.CompletedTask;
         }
 
         public Task Report(List<FollowActorMetric> followActorMetrics, List<FollowEventMetric> followEventMetrics, List<FollowGroupMetric> followGroupMetrics)
         {
-            followActorMetrics.ForEach(e => followActorSubject.OnNext(e));
-            followEventMetrics.ForEach(e => followEventSubject.OnNext(e));
-            followGroupMetrics.ForEach(e => followGroupSubject.OnNext(e));
+            followActorMetrics.ForEach(e => this.followActorSubject.OnNext(e));
+            followEventMetrics.ForEach(e => this.followEventSubject.OnNext(e));
+            followGroupMetrics.ForEach(e => this.followGroupSubject.OnNext(e));
             return Task.CompletedTask;
         }
 
         public Task Report(List<SnapshotMetric> snapshotMetrics)
         {
-            snapshotMetrics.ForEach(e => snapshotSubject.OnNext(e));
+            snapshotMetrics.ForEach(e => this.snapshotSubject.OnNext(e));
             return Task.CompletedTask;
         }
 
         public Task Report(List<DtxMetric> snapshotMetrics)
         {
-            snapshotMetrics.ForEach(e => dtxSubject.OnNext(e));
+            snapshotMetrics.ForEach(e => this.dtxSubject.OnNext(e));
             return Task.CompletedTask;
         }
     }
