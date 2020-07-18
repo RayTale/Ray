@@ -78,18 +78,14 @@ namespace Ray.Core
 
         /// <summary>
         /// 不依赖当前状态的的事件的并发处理
-        /// 如果事件的产生依赖当前状态，请使用<see cref="ConcurrentRaiseEvent(Func{Snapshot{PrimaryKey, SnapshotType}, Func{IEvent, EventUID, Task}, Task}, Func{bool, ValueTask}, Action{Exception})"/>
+        /// 如果事件的产生依赖当前状态，请使用<see cref="ConcurrentRaiseEvent(Func{Snapshot{PrimaryKey, SnapshotType}, Func{IEvent, EventUID, Task}, Task})"/>
         /// </summary>
-        /// <param name="event">不依赖当前状态的事件</param>
+        /// <param name="evt">不依赖当前状态的事件</param>
         /// <param name="uniqueId">幂等性判定值</param>
-        /// <param name="hashKey">消息异步分发的唯一hash的key</param>
         /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
         protected Task<bool> ConcurrentRaiseEvent(IEvent evt, EventUID uniqueId = null)
         {
-            return this.ConcurrentRaiseEvent(async (snapshot, eventFunc) =>
-            {
-                await eventFunc(evt, uniqueId);
-            });
+            return this.ConcurrentRaiseEvent(async (_, eventFunc) => await eventFunc(evt, uniqueId));
         }
 
         protected virtual ValueTask OnConcurrentExecuted() => Consts.ValueTaskDone;

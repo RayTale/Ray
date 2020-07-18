@@ -22,7 +22,7 @@ namespace Ray.Core
     public abstract class ShadowGrain<PrimaryKey, Main, StateType> : Grain, IObserver
         where StateType : class, new()
     {
-        public ShadowGrain()
+        protected ShadowGrain()
         {
             this.GrainType = this.GetType();
             if (typeof(ICloneable<StateType>).IsAssignableFrom(typeof(StateType)))
@@ -48,8 +48,7 @@ namespace Ray.Core
         protected ITypeFinder TypeFinder { get; private set; }
 
         protected Snapshot<PrimaryKey, StateType> Snapshot { get; set; }
-        private PrimaryKey _GrainId;
-        private bool _GrainIdAcquired = false;
+
         /// <summary>
         /// Primary key of actor
         /// Because there are multiple types, dynamic assignment in OnActivateAsync
@@ -216,7 +215,6 @@ namespace Ray.Core
                     break;
                 }
             }
-
         }
 
         protected virtual async ValueTask Tell(IEnumerable<FullyEvent<PrimaryKey>> eventList)

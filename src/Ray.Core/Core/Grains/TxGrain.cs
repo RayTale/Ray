@@ -161,7 +161,6 @@ namespace Ray.Core
             {
                 throw new BeginTxTimeoutException(this.GrainId.ToString(), transactionId, this.GrainType);
             }
-
         }
 
         public async Task CommitTransaction(string transactionId)
@@ -355,7 +354,7 @@ namespace Ray.Core
         /// 防止对象在Snapshot和BackupSnapshot中互相干扰，所以反序列化一个全新的Event对象给BackupSnapshot
         /// </summary>
         /// <param name="fullyEvent">事件本体</param>
-        /// <param name="bytes">事件序列化之后的二进制数据</param>
+        /// <param name="transport"></param>
         /// <returns></returns>
         protected override ValueTask OnRaised(FullyEvent<PrimaryKey> fullyEvent, in EventConverter transport)
         {

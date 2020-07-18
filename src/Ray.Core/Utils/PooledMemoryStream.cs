@@ -32,7 +32,7 @@ namespace Ray.Core.Utils
         }
 
         /// <summary>create readonly MemoryStream without buffer copy</summary>
-        /// <remarks>data will be read from 'data' parameter</summary>
+        /// <remarks>data will be read from 'data' parameter</remarks>
         public PooledMemoryStream(byte[] data)
         {
             this._mPool = null;

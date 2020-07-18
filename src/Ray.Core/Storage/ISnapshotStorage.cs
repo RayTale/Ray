@@ -24,6 +24,7 @@ namespace Ray.Core.Storage
         /// 标记状态对应的Grain已经结束，需要设置状态的IsLatest=true
         /// </summary>
         /// <param name="id"></param>
+        /// <param name="isOver"></param>
         /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
         Task Over(PrimaryKey id, bool isOver);
     }
