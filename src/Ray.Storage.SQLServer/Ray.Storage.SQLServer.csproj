@@ -1,16 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+   <Sdk Name="Microsoft.Build.CentralPackageVersions" Version="2.0.79" />
+
   <ItemGroup>
-    <PackageReference Include="Dapper" Version="2.0.35" />
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="2.0.0" />
+    <PackageReference Include="Dapper"  />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Ray.DistributedTx\Ray.DistributedTx.csproj" />
     <ProjectReference Include="..\Ray.Storage.SQLCore\Ray.Storage.SQLCore.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Update="Microsoft.SourceLink.GitHub" Version="1.0.0" />
-  </ItemGroup>
+  </ItemGroup> 
 
 </Project>

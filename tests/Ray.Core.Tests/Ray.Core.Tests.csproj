@@ -1,0 +1,13 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <Sdk Name="Microsoft.Build.CentralPackageVersions" Version="2.0.79" />
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Ray.Core\Ray.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Update="FluentAssertions"  />
+    <PackageReference Update="Microsoft.CodeAnalysis.BannedApiAnalyzers"  />
+    <PackageReference Update="Microsoft.NET.Test.Sdk"  />
+    <PackageReference Update="Nerdbank.GitVersioning"  />
+    <PackageReference Update="NUnit3TestAdapter" />
+  </ItemGroup>
+</Project>

@@ -8,6 +8,7 @@ using Ray.Core.Exceptions;
 
 namespace Ray.Core.Serialization.Tests.Serialization
 {
+    [TestFixture]
     public class TypeFinderTests
     {
         private TypeFinder _sut;

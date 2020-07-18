@@ -1,12 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+  <Sdk Name="Microsoft.Build.CentralPackageVersions" Version="2.0.79" />
+
   <ItemGroup>
-    <PackageReference Include="Microsoft.Orleans.Runtime.Abstractions" Version="3.2.1" />
-    <PackageReference Include="Microsoft.Orleans.CodeGenerator.MSBuild" Version="3.2.1">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
-    </PackageReference>
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Update="Microsoft.SourceLink.GitHub" Version="1.0.0" />
+    <PackageReference Include="Microsoft.Orleans.Runtime.Abstractions" />
+    <PackageReference Include="Microsoft.Orleans.CodeGenerator.MSBuild" />
+
   </ItemGroup>
 </Project>
