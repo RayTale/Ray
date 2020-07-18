@@ -62,14 +62,11 @@ namespace Ray.Core
                 throw new StateInsecurityException(snapshot.StateId.ToString(), grainType, snapshot.DoingVersion, snapshot.Version);
             }
 
-            snapshot.DoingVersion += 1;
+            snapshot.DoingVersion++;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void DecrementDoingVersion<PrimaryKey>(this SnapshotBase<PrimaryKey> snapshot)
-        {
-            snapshot.DoingVersion -= 1;
-        }
+        public static void DecrementDoingVersion<PrimaryKey>(this SnapshotBase<PrimaryKey> snapshot) => snapshot.DoingVersion--;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string GetEventId(this EventBasicInfo eventBase, string stateId)
@@ -108,7 +105,7 @@ namespace Ray.Core
                 throw new StateInsecurityException(state.StateId.ToString(), grainType, state.DoingVersion, state.Version);
             }
 
-            state.DoingVersion += 1;
+            state.DoingVersion++;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -141,19 +138,18 @@ namespace Ray.Core
                 snapshot.StartTimestamp = eventBase.Timestamp;
             }
         }
-
-        private static List<(Type type, ObserverAttribute observer)> AllObserverAttribute;
+        private static List<(Type type, ObserverAttribute observer)> observerAttributeList;
 
         /// <summary>
-        /// 获取所有标记为Observer的Grain信息
+        /// Gets the types of all marked grains from the cache
         /// </summary>
         public static List<(Type type, ObserverAttribute observer)> AllObserverAttribute
         {
             get
             {
-                if (AllObserverAttribute is null)
+                if (observerAttributeList is null)
                 {
-                    AllObserverAttribute = new List<(Type type, ObserverAttribute observer)>();
+                    observerAttributeList = new List<(Type type, ObserverAttribute observer)>();
                     foreach (var assembly in AssemblyHelper.GetAssemblies())
                     {
                         foreach (var type in assembly.GetTypes().Where(t => typeof(IObserver).IsAssignableFrom(t)))
@@ -162,14 +158,13 @@ namespace Ray.Core
                             {
                                 if (attribute is ObserverAttribute observer)
                                 {
-                                    AllObserverAttribute.Add((type, observer));
+                                    observerAttributeList.Add((type, observer));
                                 }
                             }
                         }
                     }
                 }
-
-                return AllObserverAttribute;
+                return observerAttributeList;
             }
         }
     }
