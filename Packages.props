@@ -35,7 +35,7 @@
 
     <PackageReference Update="Lindhart.Analyser.MissingAwaitWarning" Version="1.2.0" PrivateAssets="All" />
     <PackageReference Update="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="3.0.0" />
-    <PackageReference Update="Microsoft.CodeAnalysis.CSharp" Version="3.3.1" PrivateAssets="All" />
+    <PackageReference Update="Microsoft.CodeAnalysis.CSharp" Version="3.6.0" PrivateAssets="All" />
   </ItemGroup>
 
 </Project>
