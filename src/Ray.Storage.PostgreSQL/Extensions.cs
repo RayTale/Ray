@@ -11,6 +11,7 @@ namespace Ray.Storage.PostgreSQL
             serviceCollection.Configure<PSQLConnections>(config => configAction(config));
             serviceCollection.AddSingleton<StorageFactory>();
         }
+
         public static void AddPostgreSQLTxStorage(this IServiceCollection serviceCollection, Action<TransactionOptions> configAction)
         {
             serviceCollection.Configure<TransactionOptions>(config => configAction(config));

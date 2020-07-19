@@ -1,6 +1,6 @@
-﻿using RabbitMQ.Client;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Threading;
+using RabbitMQ.Client;
 
 namespace Ray.EventBus.RabbitMQ
 {
@@ -8,36 +8,41 @@ namespace Ray.EventBus.RabbitMQ
     {
         private readonly List<ModelWrapper> models = new List<ModelWrapper>();
         private readonly IConnection connection;
-        readonly SemaphoreSlim semaphoreSlim = new SemaphoreSlim(1);
+        private readonly SemaphoreSlim semaphoreSlim = new SemaphoreSlim(1);
+
         public ConnectionWrapper(
             IConnection connection,
            RabbitOptions options)
         {
             this.connection = connection;
-            Options = options;
+            this.Options = options;
         }
+
         public RabbitOptions Options { get; }
+
         public (bool success, ModelWrapper model) Get()
         {
-            semaphoreSlim.Wait();
+            this.semaphoreSlim.Wait();
             try
             {
-                if (models.Count < Options.PoolSizePerConnection)
+                if (this.models.Count < this.Options.PoolSizePerConnection)
                 {
-                    var model = new ModelWrapper(this, connection.CreateModel());
-                    models.Add(model);
+                    var model = new ModelWrapper(this, this.connection.CreateModel());
+                    this.models.Add(model);
                     return (true, model);
                 }
             }
             finally
             {
-                semaphoreSlim.Release();
+                this.semaphoreSlim.Release();
             }
+
             return (false, default);
         }
+
         public void Return(ModelWrapper model)
         {
-            models.Remove(model);
+            this.models.Remove(model);
         }
     }
 }

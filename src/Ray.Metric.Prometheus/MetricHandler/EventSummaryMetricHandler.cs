@@ -5,29 +5,31 @@ namespace Ray.Metric.Prometheus.MetricHandler
 {
     public class EventSummaryMetricHandler
     {
-        readonly Gauge _EventSummaryMetric_MaxEventsPerActor_Gauge;
-        readonly Gauge _EventSummaryMetric_AvgEventsPerActor_Gauge;
-        readonly Gauge _EventSummaryMetric_MinEventsPerActor_Gauge;
-        readonly Gauge _EventSummaryMetric_Lives_Gauge;
-        readonly Gauge _EventSummaryMetric_Ignores_Gauge;
-        readonly Gauge _EventSummaryMetric_Events_Gauge;
+        private readonly Gauge EventSummaryMetricMaxEventsPerActorGauge;
+        private readonly Gauge EventSummaryMetricAvgEventsPerActorGauge;
+        private readonly Gauge EventSummaryMetricMinEventsPerActorGauge;
+        private readonly Gauge EventSummaryMetricLivesGauge;
+        private readonly Gauge EventSummaryMetricIgnoresGauge;
+        private readonly Gauge EventSummaryMetricEventsGauge;
+
         public EventSummaryMetricHandler()
         {
-            _EventSummaryMetric_MaxEventsPerActor_Gauge = Metrics.CreateGauge($"{nameof(EventSummaryMetric)}_{nameof(EventSummaryMetric.MaxEventsPerActor)}", string.Empty);
-            _EventSummaryMetric_AvgEventsPerActor_Gauge = Metrics.CreateGauge($"{nameof(EventSummaryMetric)}_{nameof(EventSummaryMetric.AvgEventsPerActor)}", string.Empty);
-            _EventSummaryMetric_MinEventsPerActor_Gauge = Metrics.CreateGauge($"{nameof(EventSummaryMetric)}_{nameof(EventSummaryMetric.MinEventsPerActor)}", string.Empty);
-            _EventSummaryMetric_Lives_Gauge = Metrics.CreateGauge($"{nameof(EventSummaryMetric)}_{nameof(EventSummaryMetric.ActorLives)}", string.Empty);
-            _EventSummaryMetric_Ignores_Gauge = Metrics.CreateGauge($"{nameof(EventSummaryMetric)}_{nameof(EventSummaryMetric.Ignores)}", string.Empty);
-            _EventSummaryMetric_Events_Gauge = Metrics.CreateGauge($"{nameof(EventSummaryMetric)}_{nameof(EventSummaryMetric.Events)}", string.Empty);
+            this.EventSummaryMetricMaxEventsPerActorGauge = Metrics.CreateGauge($"{nameof(EventSummaryMetric)}_{nameof(EventSummaryMetric.MaxEventsPerActor)}", string.Empty);
+            this.EventSummaryMetricAvgEventsPerActorGauge = Metrics.CreateGauge($"{nameof(EventSummaryMetric)}_{nameof(EventSummaryMetric.AvgEventsPerActor)}", string.Empty);
+            this.EventSummaryMetricMinEventsPerActorGauge = Metrics.CreateGauge($"{nameof(EventSummaryMetric)}_{nameof(EventSummaryMetric.MinEventsPerActor)}", string.Empty);
+            this.EventSummaryMetricLivesGauge = Metrics.CreateGauge($"{nameof(EventSummaryMetric)}_{nameof(EventSummaryMetric.ActorLives)}", string.Empty);
+            this.EventSummaryMetricIgnoresGauge = Metrics.CreateGauge($"{nameof(EventSummaryMetric)}_{nameof(EventSummaryMetric.Ignores)}", string.Empty);
+            this.EventSummaryMetricEventsGauge = Metrics.CreateGauge($"{nameof(EventSummaryMetric)}_{nameof(EventSummaryMetric.Events)}", string.Empty);
         }
+
         public void Handle(EventSummaryMetric summaryMetric)
         {
-            _EventSummaryMetric_MaxEventsPerActor_Gauge.Set(summaryMetric.MaxEventsPerActor, summaryMetric.Timestamp);
-            _EventSummaryMetric_AvgEventsPerActor_Gauge.Set(summaryMetric.AvgEventsPerActor, summaryMetric.Timestamp);
-            _EventSummaryMetric_MinEventsPerActor_Gauge.Set(summaryMetric.MinEventsPerActor, summaryMetric.Timestamp);
-            _EventSummaryMetric_Lives_Gauge.Set(summaryMetric.ActorLives, summaryMetric.Timestamp);
-            _EventSummaryMetric_Ignores_Gauge.Set(summaryMetric.Ignores, summaryMetric.Timestamp);
-            _EventSummaryMetric_Events_Gauge.Set(summaryMetric.Events, summaryMetric.Timestamp);
+            this.EventSummaryMetricMaxEventsPerActorGauge.Set(summaryMetric.MaxEventsPerActor, summaryMetric.Timestamp);
+            this.EventSummaryMetricAvgEventsPerActorGauge.Set(summaryMetric.AvgEventsPerActor, summaryMetric.Timestamp);
+            this.EventSummaryMetricMinEventsPerActorGauge.Set(summaryMetric.MinEventsPerActor, summaryMetric.Timestamp);
+            this.EventSummaryMetricLivesGauge.Set(summaryMetric.ActorLives, summaryMetric.Timestamp);
+            this.EventSummaryMetricIgnoresGauge.Set(summaryMetric.Ignores, summaryMetric.Timestamp);
+            this.EventSummaryMetricEventsGauge.Set(summaryMetric.Events, summaryMetric.Timestamp);
         }
     }
 }

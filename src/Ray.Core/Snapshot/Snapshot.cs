@@ -6,15 +6,18 @@
         public Snapshot()
         {
         }
+
         public Snapshot(PrimaryKey stateId)
         {
-            Base = new SnapshotBase<PrimaryKey>
+            this.Base = new SnapshotBase<PrimaryKey>
             {
                 StateId = stateId
             };
-            State = new StateType();
+            this.State = new StateType();
         }
+
         public SnapshotBase<PrimaryKey> Base { get; set; }
+
         public StateType State { get; set; }
     }
 }

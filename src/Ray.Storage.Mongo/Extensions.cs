@@ -15,6 +15,7 @@ namespace Ray.Storage.Mongo
             serviceCollection.AddSingleton<IIndexBuildService, IndexBuildService>();
             serviceCollection.AddSingleton<StorageFactory>();
         }
+
         public static void AddMongoTransactionStorage(this IServiceCollection serviceCollection, Action<TransactionOptions> configAction)
         {
             serviceCollection.Configure<TransactionOptions>(config => configAction(config));

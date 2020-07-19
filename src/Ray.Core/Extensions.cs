@@ -21,6 +21,7 @@ namespace Ray.Core
             serviceCollection.AddSingleton<IObserverUnitContainer, ObserverUnitContainer>();
             serviceCollection.AddSingleton<ITypeFinder, TypeFinder>();
         }
+
         public static ISiloHostBuilder AddRay<StartupConfig>(this ISiloHostBuilder siloHostBuilder)
             where StartupConfig : IStartupConfig, new()
         {

@@ -1,10 +1,10 @@
-﻿using Microsoft.Extensions.DependencyModel;
-using Microsoft.Extensions.Logging;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Loader;
+using Microsoft.Extensions.DependencyModel;
+using Microsoft.Extensions.Logging;
 
 namespace Ray.Core.Utils
 {
@@ -22,7 +22,10 @@ namespace Ray.Core.Utils
                  catch (Exception ex)
                  {
                      if (logger != default)
+                     {
                          logger.LogWarning(ex, ex.Message);
+                     }
+
                      return default;
                  }
              }).Where(assembly => assembly != default).ToList();

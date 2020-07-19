@@ -1,4 +1,12 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Orleans;
 using Orleans.Concurrency;
@@ -12,14 +20,6 @@ using Ray.Core.Serialization;
 using Ray.Core.Snapshot;
 using Ray.Core.Storage;
 using Ray.Core.Utils.Emit;
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Reflection.Emit;
-using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
 
 namespace Ray.Core
 {
@@ -27,23 +27,28 @@ namespace Ray.Core
     {
         private static readonly ConcurrentDictionary<Type, Func<object, IEvent, EventBasicInfo, FullyEvent<PrimaryKey>, string, Task>> grainHandlerDict = new ConcurrentDictionary<Type, Func<object, IEvent, EventBasicInfo, FullyEvent<PrimaryKey>, string, Task>>();
         private static readonly ConcurrentDictionary<Type, EventIgnoreAttribute> grainIgnoreEventDict = new ConcurrentDictionary<Type, EventIgnoreAttribute>();
-        readonly Func<object, IEvent, EventBasicInfo, FullyEvent<PrimaryKey>, string, Task> handlerInvokeFunc;
-        readonly EventIgnoreAttribute handlerAttribute;
+        private readonly Func<object, IEvent, EventBasicInfo, FullyEvent<PrimaryKey>, string, Task> handlerInvokeFunc;
+        private readonly EventIgnoreAttribute handlerAttribute;
+
         public ObserverGrain()
         {
-            GrainType = GetType();
-            handlerAttribute = grainIgnoreEventDict.GetOrAdd(GrainType, type =>
+            this.GrainType = this.GetType();
+            this.handlerAttribute = grainIgnoreEventDict.GetOrAdd(this.GrainType, type =>
             {
-                var handlerAttributes = GrainType.GetCustomAttributes(typeof(EventIgnoreAttribute), false);
+                var handlerAttributes = this.GrainType.GetCustomAttributes(typeof(EventIgnoreAttribute), false);
                 if (handlerAttributes.Length > 0)
+                {
                     return (EventIgnoreAttribute)handlerAttributes[0];
+                }
                 else
+                {
                     return default;
+                }
             });
 
-            handlerInvokeFunc = grainHandlerDict.GetOrAdd(GrainType, type =>
+            this.handlerInvokeFunc = grainHandlerDict.GetOrAdd(this.GrainType, type =>
             {
-                var methods = GetType().GetMethods().Where(m =>
+                var methods = this.GetType().GetMethods().Where(m =>
                 {
                     var parameters = m.GetParameters();
                     return parameters.Length >= 1 && parameters.Any(p => typeof(IEvent).IsAssignableFrom(p.ParameterType) && !p.ParameterType.IsInterface);
@@ -67,18 +72,23 @@ namespace Ray.Core
                         Index = i
                     });
                 }
+
                 var sortList = new List<SwitchMethodEmit>();
                 foreach (var item in switchMethods.Where(m => !typeof(IEvent).IsAssignableFrom(m.CaseType.BaseType)))
                 {
                     sortList.Add(item);
                     GetInheritor(item, switchMethods, sortList);
                 }
+
                 sortList.Reverse();
                 foreach (var item in switchMethods)
                 {
                     if (!sortList.Contains(item))
+                    {
                         sortList.Add(item);
+                    }
                 }
+
                 var defaultLabel = ilGen.DefineLabel();
                 var lastLable = ilGen.DefineLabel();
                 var declare_1 = ilGen.DeclareLocal(typeof(Task));
@@ -122,8 +132,10 @@ namespace Ray.Core
                             ilGen.Emit(OpCodes.Ldloc_3);
                         }
                     }
+
                     ilGen.Emit(OpCodes.Brtrue, item.Lable);
                 }
+
                 ilGen.Emit(OpCodes.Br, defaultLabel);
                 foreach (var item in sortList)
                 {
@@ -131,22 +143,31 @@ namespace Ray.Core
                     ilGen.Emit(OpCodes.Ldarg_0);
                     //加载第一个参数
                     if (item.Parameters[0].ParameterType == item.CaseType)
+                    {
                         LdEventArgs(item, ilGen);
+                    }
                     else if (item.Parameters[0].ParameterType == typeof(EventBasicInfo))
+                    {
                         ilGen.Emit(OpCodes.Ldarg_2);
+                    }
                     else if (item.Parameters[0].ParameterType == typeof(EventUID))
                     {
                         ilGen.Emit(OpCodes.Ldarg_3);
                         ilGen.Emit(OpCodes.Ldarg_S, 4);
                         ilGen.Emit(OpCodes.Call, eventUIDMethod);
                     }
+
                     //加载第二个参数
                     if (item.Parameters.Length >= 2)
                     {
                         if (item.Parameters[1].ParameterType == item.CaseType)
+                        {
                             LdEventArgs(item, ilGen);
+                        }
                         else if (item.Parameters[1].ParameterType == typeof(EventBasicInfo))
+                        {
                             ilGen.Emit(OpCodes.Ldarg_2);
+                        }
                         else if (item.Parameters[1].ParameterType == typeof(EventUID))
                         {
                             ilGen.Emit(OpCodes.Ldarg_3);
@@ -154,13 +175,18 @@ namespace Ray.Core
                             ilGen.Emit(OpCodes.Call, eventUIDMethod);
                         }
                     }
+
                     //加载第三个参数
                     if (item.Parameters.Length >= 3)
                     {
                         if (item.Parameters[2].ParameterType == item.CaseType)
+                        {
                             LdEventArgs(item, ilGen);
+                        }
                         else if (item.Parameters[2].ParameterType == typeof(EventBasicInfo))
+                        {
                             ilGen.Emit(OpCodes.Ldarg_2);
+                        }
                         else if (item.Parameters[2].ParameterType == typeof(EventUID))
                         {
                             ilGen.Emit(OpCodes.Ldarg_3);
@@ -168,6 +194,7 @@ namespace Ray.Core
                             ilGen.Emit(OpCodes.Call, eventUIDMethod);
                         }
                     }
+
                     ilGen.Emit(OpCodes.Call, item.Mehod);
                     if (item.DeclareLocal.LocalIndex > 0 && item.DeclareLocal.LocalIndex <= 255)
                     {
@@ -177,12 +204,14 @@ namespace Ray.Core
                     {
                         ilGen.Emit(OpCodes.Stloc, declare_1);
                     }
+
                     ilGen.Emit(OpCodes.Br, lastLable);
                 }
+
                 ilGen.MarkLabel(defaultLabel);
                 ilGen.Emit(OpCodes.Ldarg_0);
                 ilGen.Emit(OpCodes.Ldarg_1);
-                ilGen.Emit(OpCodes.Call, type.GetMethod(nameof(DefaultHandler)));
+                ilGen.Emit(OpCodes.Call, type.GetMethod(nameof(this.DefaultHandler)));
                 if (declare_1.LocalIndex > 0 && declare_1.LocalIndex <= 255)
                 {
                     ilGen.Emit(OpCodes.Stloc_S, declare_1);
@@ -191,13 +220,19 @@ namespace Ray.Core
                 {
                     ilGen.Emit(OpCodes.Stloc, declare_1);
                 }
+
                 ilGen.Emit(OpCodes.Br, lastLable);
                 //last
                 ilGen.MarkLabel(lastLable);
                 if (declare_1.LocalIndex > 0 && declare_1.LocalIndex <= 255)
+                {
                     ilGen.Emit(OpCodes.Ldloc_S, declare_1);
+                }
                 else
+                {
                     ilGen.Emit(OpCodes.Ldloc, declare_1);
+                }
+
                 ilGen.Emit(OpCodes.Ret);
                 var parames = new ParameterExpression[] { Expression.Parameter(typeof(object)), Expression.Parameter(typeof(IEvent)), Expression.Parameter(typeof(EventBasicInfo)), Expression.Parameter(typeof(FullyEvent<PrimaryKey>)), Expression.Parameter(typeof(string)) };
                 var body = Expression.Call(dynamicMethod, parames);
@@ -209,9 +244,13 @@ namespace Ray.Core
                 if (item.Index > 3)
                 {
                     if (item.DeclareLocal.LocalIndex > 0 && item.DeclareLocal.LocalIndex <= 255)
+                    {
                         gen.Emit(OpCodes.Ldloc_S, item.DeclareLocal);
+                    }
                     else
+                    {
                         gen.Emit(OpCodes.Ldloc, item.DeclareLocal);
+                    }
                 }
                 else
                 {
@@ -233,6 +272,7 @@ namespace Ray.Core
                     }
                 }
             }
+
             static void GetInheritor(SwitchMethodEmit from, List<SwitchMethodEmit> list, List<SwitchMethodEmit> result)
             {
                 var inheritorList = list.Where(m => m.CaseType.BaseType == from.CaseType);
@@ -243,241 +283,302 @@ namespace Ray.Core
                 }
             }
         }
+
         /// <summary>
         /// 未处理事件列表
         /// </summary>
         private List<FullyEvent<PrimaryKey>> UnprocessedEventList { get; set; }
-        private PrimaryKey _GrainId;
-        private bool _GrainIdAcquired = false;
-        public PrimaryKey GrainId
-        {
-            get
-            {
-                if (!_GrainIdAcquired)
-                {
-                    var type = typeof(PrimaryKey);
-                    if (type == typeof(long) && this.GetPrimaryKeyLong() is PrimaryKey longKey)
-                        _GrainId = longKey;
-                    else if (type == typeof(string) && this.GetPrimaryKeyString() is PrimaryKey stringKey)
-                        _GrainId = stringKey;
-                    else if (type == typeof(Guid) && this.GetPrimaryKey() is PrimaryKey guidKey)
-                        _GrainId = guidKey;
-                    else
-                        throw new ArgumentOutOfRangeException(typeof(PrimaryKey).FullName);
-                    _GrainIdAcquired = true;
-                }
-                return _GrainId;
-            }
-        }
+        /// <summary>
+        /// Primary key of actor
+        /// Because there are multiple types, dynamic assignment in OnActivateAsync
+        /// </summary>
+        public PrimaryKey GrainId { get; private set; }
         protected CoreOptions ConfigOptions { get; private set; }
+
         protected ILogger Logger { get; private set; }
+
         protected ISerializer Serializer { get; private set; }
+
         protected ITypeFinder TypeFinder { get; private set; }
+
         /// <summary>
         /// Memory state, restored by snapshot + Event play or replay
         /// </summary>
         protected ObserverSnapshot<PrimaryKey> Snapshot { get; set; }
+
         /// <summary>
         /// 是否需要保存快照
         /// </summary>
         protected virtual bool SaveSnapshot => true;
+
         /// <summary>
         /// 是否全量激活，true代表启动时会执行大于快照版本的所有事件,false代表更快的启动，后续有事件进入的时候再处理大于快照版本的事件
         /// </summary>
         protected virtual bool FullyActive => false;
+
         /// <summary>
         /// 快照的事件版本号
         /// </summary>
         protected long SnapshotEventVersion { get; set; }
+
         /// <summary>
         /// 是否开启事件并发处理
         /// </summary>
         protected virtual bool ConcurrentHandle => false;
+
         /// <summary>
         /// Grain的Type
         /// </summary>
         protected Type GrainType { get; }
+
         /// <summary>
         /// 指标收集器
         /// </summary>
         protected IMetricMonitor MetricMonitor { get; private set; }
+
         /// <summary>
         /// 所在的组
         /// </summary>
         protected string Group { get; private set; }
+
         /// <summary>
         /// 事件存储器
         /// </summary>
         protected IEventStorage<PrimaryKey> EventStorage { get; private set; }
+
         /// <summary>
         /// 状态存储器
         /// </summary>
         protected IObserverSnapshotStorage<PrimaryKey> ObserverSnapshotStorage { get; private set; }
         #region 初始化数据
+
         /// <summary>
         /// 依赖注入统一方法
         /// </summary>
+        /// <returns></returns>
         protected async virtual ValueTask DependencyInjection()
         {
-            ConfigOptions = ServiceProvider.GetOptionsByName<CoreOptions>(typeof(MainGrain).FullName);
-            Serializer = ServiceProvider.GetService<ISerializer>();
-            TypeFinder = ServiceProvider.GetService<ITypeFinder>();
-            Logger = (ILogger)ServiceProvider.GetService(typeof(ILogger<>).MakeGenericType(GrainType));
-            Group = ServiceProvider.GetService<IObserverUnitContainer>().GetUnit<PrimaryKey>(typeof(MainGrain)).GetGroup(GrainType);
-            MetricMonitor = ServiceProvider.GetService<IMetricMonitor>();
-            var configureBuilder = ServiceProvider.GetService<IConfigureBuilder<PrimaryKey, MainGrain>>();
-            var storageConfigTask = configureBuilder.GetConfig(ServiceProvider, GrainId);
+            this.ConfigOptions = this.ServiceProvider.GetOptionsByName<CoreOptions>(typeof(MainGrain).FullName);
+            this.Serializer = this.ServiceProvider.GetService<ISerializer>();
+            this.TypeFinder = this.ServiceProvider.GetService<ITypeFinder>();
+            this.Logger = (ILogger)this.ServiceProvider.GetService(typeof(ILogger<>).MakeGenericType(this.GrainType));
+            this.Group = this.ServiceProvider.GetService<IObserverUnitContainer>().GetUnit<PrimaryKey>(typeof(MainGrain)).GetGroup(this.GrainType);
+            this.MetricMonitor = this.ServiceProvider.GetService<IMetricMonitor>();
+            var configureBuilder = this.ServiceProvider.GetService<IConfigureBuilder<PrimaryKey, MainGrain>>();
+            var storageConfigTask = configureBuilder.GetConfig(this.ServiceProvider, this.GrainId);
             if (!storageConfigTask.IsCompletedSuccessfully)
+            {
                 await storageConfigTask;
-            var storageFactory = ServiceProvider.GetService(configureBuilder.StorageFactory) as IStorageFactory;
+            }
+
+            var storageFactory = this.ServiceProvider.GetService(configureBuilder.StorageFactory) as IStorageFactory;
             //创建事件存储器
-            var eventStorageTask = storageFactory.CreateEventStorage(storageConfigTask.Result, GrainId);
+            var eventStorageTask = storageFactory.CreateEventStorage(storageConfigTask.Result, this.GrainId);
             if (!eventStorageTask.IsCompletedSuccessfully)
+            {
                 await eventStorageTask;
-            EventStorage = eventStorageTask.Result;
+            }
+
+            this.EventStorage = eventStorageTask.Result;
             //创建状态存储器
-            var followConfigTask = configureBuilder.GetObserverConfig(ServiceProvider, GrainType, GrainId);
+            var followConfigTask = configureBuilder.GetObserverConfig(this.ServiceProvider, this.GrainType, this.GrainId);
             if (!followConfigTask.IsCompletedSuccessfully)
+            {
                 await followConfigTask;
-            var stateStorageTask = storageFactory.CreateObserverSnapshotStorage(followConfigTask.Result, GrainId);
+            }
+
+            var stateStorageTask = storageFactory.CreateObserverSnapshotStorage(followConfigTask.Result, this.GrainId);
             if (!stateStorageTask.IsCompletedSuccessfully)
+            {
                 await stateStorageTask;
-            ObserverSnapshotStorage = stateStorageTask.Result;
+            }
+
+            this.ObserverSnapshotStorage = stateStorageTask.Result;
         }
+
         public override async Task OnActivateAsync()
         {
+            var type = typeof(PrimaryKey);
+            if (type == typeof(long) && this.GetPrimaryKeyLong() is PrimaryKey longKey)
+                GrainId = longKey;
+            else if (type == typeof(string) && this.GetPrimaryKeyString() is PrimaryKey stringKey)
+                GrainId = stringKey;
+            else if (type == typeof(Guid) && this.GetPrimaryKey() is PrimaryKey guidKey)
+                GrainId = guidKey;
+            else
+                throw new ArgumentOutOfRangeException(typeof(PrimaryKey).FullName);
             var dITask = DependencyInjection();
             if (!dITask.IsCompletedSuccessfully)
-                await dITask;
-            if (ConcurrentHandle)
             {
-                UnprocessedEventList = new List<FullyEvent<PrimaryKey>>();
+                await dITask;
             }
+
+            if (this.ConcurrentHandle)
+            {
+                this.UnprocessedEventList = new List<FullyEvent<PrimaryKey>>();
+            }
+
             try
             {
-                await ReadSnapshotAsync();
-                if (FullyActive)
+                await this.ReadSnapshotAsync();
+                if (this.FullyActive)
                 {
-                    await RecoveryFromStorage();
+                    await this.RecoveryFromStorage();
                 }
-                if (Logger.IsEnabled(LogLevel.Trace))
-                    Logger.LogTrace("Activation completed: {0}->{1}", GrainType.FullName, Serializer.Serialize(Snapshot));
+
+                if (this.Logger.IsEnabled(LogLevel.Trace))
+                {
+                    this.Logger.LogTrace("Activation completed: {0}->{1}", this.GrainType.FullName, this.Serializer.Serialize(this.Snapshot));
+                }
             }
             catch (Exception ex)
             {
-                Logger.LogCritical(ex, "Activation failed: {0}->{1}", GrainType.FullName, GrainId.ToString());
+                this.Logger.LogCritical(ex, "Activation failed: {0}->{1}", this.GrainType.FullName, this.GrainId.ToString());
                 throw;
             }
         }
+
         /// <summary>
         /// 从库里恢复
         /// </summary>
-        /// <returns></returns>
+        /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
         private async Task RecoveryFromStorage()
         {
             while (true)
             {
-                var eventList = await EventStorage.GetList(GrainId, Snapshot.StartTimestamp, Snapshot.Version + 1, Snapshot.Version + ConfigOptions.NumberOfEventsPerRead);
-                await UnsafeTell(eventList);
-                if (eventList.Count < ConfigOptions.NumberOfEventsPerRead) break;
-            };
+                var eventList = await this.EventStorage.GetList(this.GrainId, this.Snapshot.StartTimestamp, this.Snapshot.Version + 1, this.Snapshot.Version + this.ConfigOptions.NumberOfEventsPerRead);
+                await this.UnsafeTell(eventList);
+                if (eventList.Count < this.ConfigOptions.NumberOfEventsPerRead)
+                {
+                    break;
+                }
+            }
+
         }
+
         public override Task OnDeactivateAsync()
         {
-            var needSaveSnap = Snapshot.Version - SnapshotEventVersion >= 1;
+            var needSaveSnap = this.Snapshot.Version - this.SnapshotEventVersion >= 1;
             if (needSaveSnap)
             {
-                var saveTask = SaveSnapshotAsync(true);
+                var saveTask = this.SaveSnapshotAsync(true);
                 if (!saveTask.IsCompletedSuccessfully)
+                {
                     return saveTask.AsTask();
+                }
             }
-            if (Logger.IsEnabled(LogLevel.Trace))
-                Logger.LogTrace("Deactivate completed: {0}->{1}", GrainType.FullName, Serializer.Serialize(Snapshot));
+
+            if (this.Logger.IsEnabled(LogLevel.Trace))
+            {
+                this.Logger.LogTrace("Deactivate completed: {0}->{1}", this.GrainType.FullName, this.Serializer.Serialize(this.Snapshot));
+            }
+
             return Task.CompletedTask;
         }
+
         protected virtual async Task UnsafeTell(IEnumerable<FullyEvent<PrimaryKey>> eventList)
         {
-            if (ConcurrentHandle)
+            if (this.ConcurrentHandle)
             {
                 await Task.WhenAll(eventList.Select(@event =>
                 {
-                    var task = EventDelivered(@event);
+                    var task = this.EventDelivered(@event);
                     if (!task.IsCompletedSuccessfully)
+                    {
                         return task.AsTask();
+                    }
                     else
+                    {
                         return Task.CompletedTask;
+                    }
                 }));
                 var lastEvt = eventList.Last();
-                Snapshot.UnsafeUpdateVersion(lastEvt.BasicInfo);
+                this.Snapshot.UnsafeUpdateVersion(lastEvt.BasicInfo);
             }
             else
             {
                 foreach (var @event in eventList)
                 {
-                    Snapshot.IncrementDoingVersion(GrainType);//标记将要处理的Version
-                    var task = EventDelivered(@event);
+                    this.Snapshot.IncrementDoingVersion(this.GrainType);//标记将要处理的Version
+                    var task = this.EventDelivered(@event);
                     if (!task.IsCompletedSuccessfully)
+                    {
                         await task;
-                    Snapshot.UpdateVersion(@event.BasicInfo, GrainType);//更新处理完成的Version
+                    }
+
+                    this.Snapshot.UpdateVersion(@event.BasicInfo, this.GrainType);//更新处理完成的Version
                 }
             }
-            var saveTask = SaveSnapshotAsync();
+
+            var saveTask = this.SaveSnapshotAsync();
             if (!saveTask.IsCompletedSuccessfully)
+            {
                 await saveTask;
+            }
         }
+
         protected virtual async Task ReadSnapshotAsync()
         {
             try
             {
-                Snapshot = await ObserverSnapshotStorage.Get(GrainId);
-                if (Snapshot == null)
+                this.Snapshot = await this.ObserverSnapshotStorage.Get(this.GrainId);
+                if (this.Snapshot == null)
                 {
-                    var createTask = InitFirstSnapshot();
+                    var createTask = this.InitFirstSnapshot();
                     if (!createTask.IsCompletedSuccessfully)
+                    {
                         await createTask;
+                    }
                 }
-                SnapshotEventVersion = Snapshot.Version;
-                if (Logger.IsEnabled(LogLevel.Trace))
-                    Logger.LogTrace("ReadSnapshot completed: {0}->{1}", GrainType.FullName, Serializer.Serialize(Snapshot));
+
+                this.SnapshotEventVersion = this.Snapshot.Version;
+                if (this.Logger.IsEnabled(LogLevel.Trace))
+                {
+                    this.Logger.LogTrace("ReadSnapshot completed: {0}->{1}", this.GrainType.FullName, this.Serializer.Serialize(this.Snapshot));
+                }
             }
             catch (Exception ex)
             {
-                Logger.LogCritical(ex, "ReadSnapshot failed: {0}->{1}", GrainType.FullName, GrainId.ToString());
+                this.Logger.LogCritical(ex, "ReadSnapshot failed: {0}->{1}", this.GrainType.FullName, this.GrainId.ToString());
                 throw;
             }
         }
+
         /// <summary>
         /// 初始化状态，必须实现
         /// </summary>
         /// <returns></returns>
         protected virtual ValueTask InitFirstSnapshot()
         {
-            Snapshot = new ObserverSnapshot<PrimaryKey>
+            this.Snapshot = new ObserverSnapshot<PrimaryKey>
             {
-                StateId = GrainId
+                StateId = this.GrainId
             };
             return Consts.ValueTaskDone;
         }
+
         #endregion
         public Task OnNext(Immutable<byte[]> bytes)
         {
-            return OnNext(bytes.Value);
+            return this.OnNext(bytes.Value);
         }
+
         public async Task OnNext(Immutable<List<byte[]>> items)
         {
-            if (ConcurrentHandle)
+            if (this.ConcurrentHandle)
             {
-                var startVersion = Snapshot.Version;
-                if (UnprocessedEventList.Count > 0)
+                var startVersion = this.Snapshot.Version;
+                if (this.UnprocessedEventList.Count > 0)
                 {
-                    startVersion = UnprocessedEventList.Last().BasicInfo.Version;
+                    startVersion = this.UnprocessedEventList.Last().BasicInfo.Version;
                 }
+
                 var evtList = items.Value.Select(bytes =>
                 {
                     if (EventConverter.TryParseWithNoId(bytes, out var transport))
                     {
-                        var msgType = TypeFinder.FindType(transport.EventUniqueName);
-                        var data = Serializer.Deserialize(transport.EventBytes, msgType);
+                        var msgType = this.TypeFinder.FindType(transport.EventUniqueName);
+                        var data = this.Serializer.Deserialize(transport.EventBytes, msgType);
                         if (data is IEvent @event)
                         {
                             var eventBase = transport.BaseBytes.ParseToEventBase();
@@ -485,7 +586,7 @@ namespace Ray.Core
                             {
                                 return new FullyEvent<PrimaryKey>
                                 {
-                                    StateId = GrainId,
+                                    StateId = this.GrainId,
                                     BasicInfo = eventBase,
                                     Event = @event
                                 };
@@ -493,287 +594,364 @@ namespace Ray.Core
                         }
                         else
                         {
-                            if (Logger.IsEnabled(LogLevel.Information))
-                                Logger.LogInformation("Non-Event: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(data, msgType));
+                            if (this.Logger.IsEnabled(LogLevel.Information))
+                            {
+                                this.Logger.LogInformation("Non-Event: {0}->{1}->{2}", this.GrainType.FullName, this.GrainId.ToString(), this.Serializer.Serialize(data, msgType));
+                            }
                         }
                     }
                     else
                     {
-                        if (Logger.IsEnabled(LogLevel.Information))
-                            Logger.LogInformation($"{nameof(EventConverter.TryParseWithNoId)} failed");
+                        if (this.Logger.IsEnabled(LogLevel.Information))
+                        {
+                            this.Logger.LogInformation($"{nameof(EventConverter.TryParseWithNoId)} failed");
+                        }
                     }
+
                     return default;
                 }).Where(o => o != null).OrderBy(o => o.BasicInfo.Version).ToList();
-                await ConcurrentTell(evtList);
-                if (Logger.IsEnabled(LogLevel.Trace))
-                    Logger.LogTrace("OnNext concurrent completed: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(evtList));
+                await this.ConcurrentTell(evtList);
+                if (this.Logger.IsEnabled(LogLevel.Trace))
+                {
+                    this.Logger.LogTrace("OnNext concurrent completed: {0}->{1}->{2}", this.GrainType.FullName, this.GrainId.ToString(), this.Serializer.Serialize(evtList));
+                }
             }
             else
             {
                 foreach (var bytes in items.Value)
                 {
-                    await OnNext(bytes);
+                    await this.OnNext(bytes);
                 }
             }
         }
+
         private Task OnNext(byte[] bytes)
         {
             if (EventConverter.TryParseWithNoId(bytes, out var transport))
             {
-                var msgType = TypeFinder.FindType(transport.EventUniqueName);
-                var data = Serializer.Deserialize(transport.EventBytes, msgType);
+                var msgType = this.TypeFinder.FindType(transport.EventUniqueName);
+                var data = this.Serializer.Deserialize(transport.EventBytes, msgType);
                 if (data is IEvent @event)
                 {
                     var eventBase = transport.BaseBytes.ParseToEventBase();
-                    if (eventBase.Version > Snapshot.Version)
+                    if (eventBase.Version > this.Snapshot.Version)
                     {
-                        var tellTask = Tell(new FullyEvent<PrimaryKey>
+                        var tellTask = this.Tell(new FullyEvent<PrimaryKey>
                         {
-                            StateId = GrainId,
+                            StateId = this.GrainId,
                             BasicInfo = eventBase,
                             Event = @event
                         });
                         return tellTask.AsTask();
                     }
-                    if (Logger.IsEnabled(LogLevel.Trace))
-                        Logger.LogTrace("OnNext completed: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(data, msgType));
+
+                    if (this.Logger.IsEnabled(LogLevel.Trace))
+                    {
+                        this.Logger.LogTrace("OnNext completed: {0}->{1}->{2}", this.GrainType.FullName, this.GrainId.ToString(), this.Serializer.Serialize(data, msgType));
+                    }
                 }
                 else
                 {
-                    if (Logger.IsEnabled(LogLevel.Information))
-                        Logger.LogInformation("Non-Event: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(data, msgType));
+                    if (this.Logger.IsEnabled(LogLevel.Information))
+                    {
+                        this.Logger.LogInformation("Non-Event: {0}->{1}->{2}", this.GrainType.FullName, this.GrainId.ToString(), this.Serializer.Serialize(data, msgType));
+                    }
                 }
             }
             else
             {
-                if (Logger.IsEnabled(LogLevel.Information))
-                    Logger.LogInformation($"{nameof(EventConverter.TryParseWithNoId)} failed");
+                if (this.Logger.IsEnabled(LogLevel.Information))
+                {
+                    this.Logger.LogInformation($"{nameof(EventConverter.TryParseWithNoId)} failed");
+                }
             }
+
             return Task.CompletedTask;
         }
+
         public Task<long> GetVersion()
         {
-            return Task.FromResult(Snapshot.Version);
+            return Task.FromResult(this.Snapshot.Version);
         }
+
         public async Task<long> GetAndSaveVersion(long compareVersion)
         {
-            if (SnapshotEventVersion < compareVersion && Snapshot.Version >= compareVersion)
+            if (this.SnapshotEventVersion < compareVersion && this.Snapshot.Version >= compareVersion)
             {
-                var saveTask = SaveSnapshotAsync(true);
+                var saveTask = this.SaveSnapshotAsync(true);
                 if (!saveTask.IsCompletedSuccessfully)
+                {
                     await saveTask;
+                }
             }
-            return Snapshot.Version;
+
+            return this.Snapshot.Version;
         }
+
         public async Task<bool> SyncFromObservable(long compareVersion)
         {
-            if (Snapshot.Version < compareVersion)
+            if (this.Snapshot.Version < compareVersion)
             {
-                await RecoveryFromStorage();
+                await this.RecoveryFromStorage();
             }
-            return Snapshot.Version == compareVersion;
+
+            return this.Snapshot.Version == compareVersion;
         }
+
         protected async ValueTask Tell(FullyEvent<PrimaryKey> fullyEvent)
         {
             try
             {
-                if (fullyEvent.BasicInfo.Version == Snapshot.Version + 1)
+                if (fullyEvent.BasicInfo.Version == this.Snapshot.Version + 1)
                 {
-                    var task = EventDelivered(fullyEvent);
+                    var task = this.EventDelivered(fullyEvent);
                     if (!task.IsCompletedSuccessfully)
+                    {
                         await task;
-                    Snapshot.FullUpdateVersion(fullyEvent.BasicInfo, GrainType);//更新处理完成的Version
+                    }
+
+                    this.Snapshot.FullUpdateVersion(fullyEvent.BasicInfo, this.GrainType);//更新处理完成的Version
                 }
-                else if (fullyEvent.BasicInfo.Version > Snapshot.Version)
+                else if (fullyEvent.BasicInfo.Version > this.Snapshot.Version)
                 {
-                    var eventList = await EventStorage.GetList(GrainId, Snapshot.StartTimestamp, Snapshot.Version + 1, fullyEvent.BasicInfo.Version - 1);
+                    var eventList = await this.EventStorage.GetList(this.GrainId, this.Snapshot.StartTimestamp, this.Snapshot.Version + 1, fullyEvent.BasicInfo.Version - 1);
                     foreach (var evt in eventList)
                     {
-                        var task = EventDelivered(evt);
+                        var task = this.EventDelivered(evt);
                         if (!task.IsCompletedSuccessfully)
+                        {
                             await task;
-                        Snapshot.FullUpdateVersion(evt.BasicInfo, GrainType);//更新处理完成的Version
+                        }
+
+                        this.Snapshot.FullUpdateVersion(evt.BasicInfo, this.GrainType);//更新处理完成的Version
                     }
                 }
-                if (fullyEvent.BasicInfo.Version == Snapshot.Version + 1)
+
+                if (fullyEvent.BasicInfo.Version == this.Snapshot.Version + 1)
                 {
-                    var task = EventDelivered(fullyEvent);
+                    var task = this.EventDelivered(fullyEvent);
                     if (!task.IsCompletedSuccessfully)
+                    {
                         await task;
-                    Snapshot.FullUpdateVersion(fullyEvent.BasicInfo, GrainType);//更新处理完成的Version
+                    }
+
+                    this.Snapshot.FullUpdateVersion(fullyEvent.BasicInfo, this.GrainType);//更新处理完成的Version
                 }
-                if (fullyEvent.BasicInfo.Version > Snapshot.Version)
+
+                if (fullyEvent.BasicInfo.Version > this.Snapshot.Version)
                 {
-                    throw new EventVersionUnorderedException(GrainId.ToString(), GrainType, fullyEvent.BasicInfo.Version, Snapshot.Version);
+                    throw new EventVersionUnorderedException(this.GrainId.ToString(), this.GrainType, fullyEvent.BasicInfo.Version, this.Snapshot.Version);
                 }
-                var saveTask = SaveSnapshotAsync();
+
+                var saveTask = this.SaveSnapshotAsync();
                 if (!saveTask.IsCompletedSuccessfully)
+                {
                     await saveTask;
+                }
             }
             catch
             {
-                var saveTask = SaveSnapshotAsync(true);
+                var saveTask = this.SaveSnapshotAsync(true);
                 if (!saveTask.IsCompletedSuccessfully)
+                {
                     await saveTask;
+                }
+
                 throw;
             }
         }
+
         private async Task ConcurrentTell(List<FullyEvent<PrimaryKey>> evtList)
         {
-            var startVersion = Snapshot.Version;
-            if (UnprocessedEventList.Count > 0)
+            var startVersion = this.Snapshot.Version;
+            if (this.UnprocessedEventList.Count > 0)
             {
-                startVersion = UnprocessedEventList.Last().BasicInfo.Version;
+                startVersion = this.UnprocessedEventList.Last().BasicInfo.Version;
             }
+
             if (evtList.Count > 0)
             {
                 var inputLast = evtList.Last();
                 if (startVersion + evtList.Count < inputLast.BasicInfo.Version)
                 {
-                    var loadList = await EventStorage.GetList(GrainId, 0, startVersion + 1, inputLast.BasicInfo.Version - 1);
-                    UnprocessedEventList.AddRange(loadList);
-                    UnprocessedEventList.Add(inputLast);
+                    var loadList = await this.EventStorage.GetList(this.GrainId, 0, startVersion + 1, inputLast.BasicInfo.Version - 1);
+                    this.UnprocessedEventList.AddRange(loadList);
+                    this.UnprocessedEventList.Add(inputLast);
                 }
                 else
                 {
-                    UnprocessedEventList.AddRange(evtList);
+                    this.UnprocessedEventList.AddRange(evtList);
                 }
             }
-            if (UnprocessedEventList.Count > 0)
+
+            if (this.UnprocessedEventList.Count > 0)
             {
-                await Task.WhenAll(UnprocessedEventList.Select(@event =>
+                await Task.WhenAll(this.UnprocessedEventList.Select(@event =>
                 {
-                    var task = EventDelivered(@event);
+                    var task = this.EventDelivered(@event);
                     if (!task.IsCompletedSuccessfully)
+                    {
                         return task.AsTask();
+                    }
+
                     return Task.CompletedTask;
                 }));
-                Snapshot.UnsafeUpdateVersion(UnprocessedEventList.Last().BasicInfo);
-                var saveTask = SaveSnapshotAsync();
+                this.Snapshot.UnsafeUpdateVersion(this.UnprocessedEventList.Last().BasicInfo);
+                var saveTask = this.SaveSnapshotAsync();
                 if (!saveTask.IsCompletedSuccessfully)
+                {
                     await saveTask;
-                UnprocessedEventList.Clear();
+                }
+
+                this.UnprocessedEventList.Clear();
             }
         }
+
         protected virtual async ValueTask EventDelivered(FullyEvent<PrimaryKey> fullyEvent)
         {
             try
             {
-                if (SnapshotEventVersion > 0 &&
-                    Snapshot.Version > 0 &&
-                    fullyEvent.BasicInfo.Timestamp < Snapshot.StartTimestamp)
+                if (this.SnapshotEventVersion > 0 &&
+                    this.Snapshot.Version > 0 &&
+                    fullyEvent.BasicInfo.Timestamp < this.Snapshot.StartTimestamp)
                 {
-                    await ObserverSnapshotStorage.UpdateStartTimestamp(Snapshot.StateId, fullyEvent.BasicInfo.Timestamp);
+                    await this.ObserverSnapshotStorage.UpdateStartTimestamp(this.Snapshot.StateId, fullyEvent.BasicInfo.Timestamp);
                 }
-                if (MetricMonitor != default)
+
+                if (this.MetricMonitor != default)
                 {
                     var startTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                    var task = OnEventDelivered(fullyEvent);
+                    var task = this.OnEventDelivered(fullyEvent);
                     if (!task.IsCompletedSuccessfully)
-                        await task;
-                    MetricMonitor.Report(new FollowMetricElement
                     {
-                        Actor = GrainType.Name,
+                        await task;
+                    }
+
+                    this.MetricMonitor.Report(new FollowMetricElement
+                    {
+                        Actor = this.GrainType.Name,
                         Event = fullyEvent.Event.GetType().Name,
                         FromActor = typeof(MainGrain).Name,
                         ElapsedMs = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - startTime),
                         DeliveryElapsedMs = (int)(startTime - fullyEvent.BasicInfo.Timestamp),
-                        Group = Group
+                        Group = this.Group
                     });
                 }
                 else
                 {
-                    var task = OnEventDelivered(fullyEvent);
+                    var task = this.OnEventDelivered(fullyEvent);
                     if (!task.IsCompletedSuccessfully)
+                    {
                         await task;
+                    }
                 }
             }
             catch (Exception ex)
             {
-                Logger.LogCritical(ex, "Delivered failed: {0}->{1}->{2}", GrainType.FullName, GrainId.ToString(), Serializer.Serialize(fullyEvent, fullyEvent.GetType()));
+                this.Logger.LogCritical(ex, "Delivered failed: {0}->{1}->{2}", this.GrainType.FullName, this.GrainId.ToString(), this.Serializer.Serialize(fullyEvent, fullyEvent.GetType()));
                 throw ex;
             }
         }
+
         public Task DefaultHandler(IEvent evt)
         {
-            if (handlerAttribute is null || !handlerAttribute.Ignores.Contains(evt.GetType()))
+            if (this.handlerAttribute is null || !this.handlerAttribute.Ignores.Contains(evt.GetType()))
             {
                 throw new UnfindEventHandlerException(evt.GetType());
             }
+
             return Task.CompletedTask;
         }
+
         protected virtual ValueTask OnEventDelivered(FullyEvent<PrimaryKey> fullyEvent)
         {
-            return new ValueTask(handlerInvokeFunc(this, fullyEvent.Event, fullyEvent.BasicInfo, fullyEvent, typeof(MainGrain).Name));
+            return new ValueTask(this.handlerInvokeFunc(this, fullyEvent.Event, fullyEvent.BasicInfo, fullyEvent, typeof(MainGrain).Name));
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask OnSaveSnapshot() => Consts.ValueTaskDone;
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected virtual ValueTask OnSavedSnapshot() => new ValueTask();
+
         protected virtual async ValueTask SaveSnapshotAsync(bool force = false)
         {
-            if (SaveSnapshot)
+            if (this.SaveSnapshot)
             {
-                if ((force && Snapshot.Version > SnapshotEventVersion) ||
-                    (Snapshot.Version - SnapshotEventVersion >= ConfigOptions.ObserverSnapshotVersionInterval))
+                if ((force && this.Snapshot.Version > this.SnapshotEventVersion) ||
+                    (this.Snapshot.Version - this.SnapshotEventVersion >= this.ConfigOptions.ObserverSnapshotVersionInterval))
                 {
                     try
                     {
-                        var onSaveSnapshotTask = OnSaveSnapshot();//自定义保存项
+                        var onSaveSnapshotTask = this.OnSaveSnapshot();//自定义保存项
                         if (!onSaveSnapshotTask.IsCompletedSuccessfully)
+                        {
                             await onSaveSnapshotTask;
-                        if (MetricMonitor != default)
+                        }
+
+                        if (this.MetricMonitor != default)
                         {
                             var startTime = DateTimeOffset.UtcNow;
-                            if (SnapshotEventVersion == 0)
+                            if (this.SnapshotEventVersion == 0)
                             {
-                                await ObserverSnapshotStorage.Insert(Snapshot);
+                                await this.ObserverSnapshotStorage.Insert(this.Snapshot);
                             }
                             else
                             {
-                                await ObserverSnapshotStorage.Update(Snapshot);
+                                await this.ObserverSnapshotStorage.Update(this.Snapshot);
                             }
+
                             var metric = new SnapshotMetricElement
                             {
-                                Actor = GrainType.Name,
-                                ElapsedVersion = (int)(Snapshot.Version - SnapshotEventVersion),
+                                Actor = this.GrainType.Name,
+                                ElapsedVersion = (int)(this.Snapshot.Version - this.SnapshotEventVersion),
                                 SaveElapsedMs = (int)DateTimeOffset.UtcNow.Subtract(startTime).TotalMilliseconds,
                                 Snapshot = typeof(ObserverSnapshot<PrimaryKey>).Name
                             };
-                            MetricMonitor.Report(metric);
+                            this.MetricMonitor.Report(metric);
                         }
                         else
                         {
-                            if (SnapshotEventVersion == 0)
+                            if (this.SnapshotEventVersion == 0)
                             {
-                                await ObserverSnapshotStorage.Insert(Snapshot);
+                                await this.ObserverSnapshotStorage.Insert(this.Snapshot);
                             }
                             else
                             {
-                                await ObserverSnapshotStorage.Update(Snapshot);
+                                await this.ObserverSnapshotStorage.Update(this.Snapshot);
                             }
                         }
-                        SnapshotEventVersion = Snapshot.Version;
-                        var onSavedSnapshotTask = OnSavedSnapshot();
+
+                        this.SnapshotEventVersion = this.Snapshot.Version;
+                        var onSavedSnapshotTask = this.OnSavedSnapshot();
                         if (!onSavedSnapshotTask.IsCompletedSuccessfully)
+                        {
                             await onSavedSnapshotTask;
-                        if (Logger.IsEnabled(LogLevel.Trace))
-                            Logger.LogTrace("SaveSnapshot completed: {0}->{1}", GrainType.FullName, Serializer.Serialize(Snapshot));
+                        }
+
+                        if (this.Logger.IsEnabled(LogLevel.Trace))
+                        {
+                            this.Logger.LogTrace("SaveSnapshot completed: {0}->{1}", this.GrainType.FullName, this.Serializer.Serialize(this.Snapshot));
+                        }
                     }
                     catch (Exception ex)
                     {
-                        Logger.LogCritical(ex, "SaveSnapshot failed: {0}->{1}", GrainType.FullName, GrainId.ToString());
+                        this.Logger.LogCritical(ex, "SaveSnapshot failed: {0}->{1}", this.GrainType.FullName, this.GrainId.ToString());
                         throw;
                     }
                 }
             }
         }
+
         public virtual async Task Reset()
         {
-            await ObserverSnapshotStorage.Delete(GrainId);
-            if (ConcurrentHandle)
-                UnprocessedEventList.Clear();
-            await ReadSnapshotAsync();
+            await this.ObserverSnapshotStorage.Delete(this.GrainId);
+            if (this.ConcurrentHandle)
+            {
+                this.UnprocessedEventList.Clear();
+            }
+
+            await this.ReadSnapshotAsync();
         }
     }
 }
