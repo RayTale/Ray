@@ -1,4 +1,7 @@
 # Ray
+
+[![Join the chat at https://gitter.im/RayTale/Ray](https://badges.gitter.im/RayTale/Ray.svg)](https://gitter.im/RayTale/Ray?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 这是一个集成Actor,Event Sourcing,Eventual consistency的高性能分布式框架(构建分布式集群请参阅:http://dotnet.github.io/orleans/) 
 
 ### 案例启动步骤
