@@ -4,7 +4,8 @@ namespace Ray.EventBus.RabbitMQ
 {
     public class EventBusRepeatException : Exception
     {
-        public EventBusRepeatException(string message) : base(message)
+        public EventBusRepeatException(string message)
+            : base(message)
         {
         }
     }

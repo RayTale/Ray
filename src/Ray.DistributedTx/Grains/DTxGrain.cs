@@ -12,47 +12,52 @@ namespace Ray.DistributedTx
         where StateType : class, ICloneable<StateType>, new()
     {
         protected DistributedTxOptions TransactionOptions { get; private set; }
+
         protected override ValueTask DependencyInjection()
         {
-            TransactionOptions = ServiceProvider.GetOptionsByName<DistributedTxOptions>(GrainType.FullName);
+            this.TransactionOptions = this.ServiceProvider.GetOptionsByName<DistributedTxOptions>(this.GrainType.FullName);
             return base.DependencyInjection();
         }
+
         public override async Task OnActivateAsync()
         {
             await base.OnActivateAsync();
-            if (!(SnapshotHandler is DTxSnapshotHandler<PrimaryKey, StateType>))
+            if (!(this.SnapshotHandler is DTxSnapshotHandler<PrimaryKey, StateType>))
             {
-                throw new SnapshotHandlerTypeException(SnapshotHandler.GetType().FullName);
+                throw new SnapshotHandlerTypeException(this.SnapshotHandler.GetType().FullName);
             }
         }
+
         protected override ValueTask OnCommitTransaction(string transactionId)
         {
             //如果是带Id的事务，则加入事务事件，等待Complete
             if (!string.IsNullOrEmpty(transactionId))
             {
-                TxRaiseEvent(new TxCommitEvent(CurrentTransactionId, CurrentTransactionStartVersion + 1, WaitingForTransactionTransports.Min(t => t.FullyEvent.BasicInfo.Timestamp)));
+                this.TxRaiseEvent(new TxCommitEvent(this.CurrentTransactionId, this.CurrentTransactionStartVersion + 1, this.WaitingForTransactionTransports.Min(t => t.FullyEvent.BasicInfo.Timestamp)));
             }
+
             return Consts.ValueTaskDone;
         }
+
         protected override async ValueTask OnFinshTransaction(string transactionId)
         {
             if (!string.IsNullOrEmpty(transactionId))
             {
-                if (!TransactionOptions.RetainTxEvents)
+                if (!this.TransactionOptions.RetainTxEvents)
                 {
-                    if (Snapshot.Base is TxSnapshotBase<PrimaryKey> snapshotBase &&
-                        BackupSnapshot.Base is TxSnapshotBase<PrimaryKey> backupSnapshotBase)
+                    if (this.Snapshot.Base is TxSnapshotBase<PrimaryKey> snapshotBase &&
+                        this.BackupSnapshot.Base is TxSnapshotBase<PrimaryKey> backupSnapshotBase)
                     {
                         //删除最后一个TransactionCommitEvent
-                        await EventStorage.DeleteByVersion(Snapshot.Base.StateId, snapshotBase.TransactionStartVersion, snapshotBase.TransactionStartTimestamp);
-                        var txCommitEvent = WaitingForTransactionTransports.Single(o => o.FullyEvent.BasicInfo.Version == snapshotBase.TransactionStartVersion);
-                        WaitingForTransactionTransports.Remove(txCommitEvent);
+                        await this.EventStorage.DeleteByVersion(this.Snapshot.Base.StateId, snapshotBase.TransactionStartVersion, snapshotBase.TransactionStartTimestamp);
+                        var txCommitEvent = this.WaitingForTransactionTransports.Single(o => o.FullyEvent.BasicInfo.Version == snapshotBase.TransactionStartVersion);
+                        this.WaitingForTransactionTransports.Remove(txCommitEvent);
                         snapshotBase.ClearTransactionInfo(true);
                         backupSnapshotBase.ClearTransactionInfo(true);
                     }
                     else
                     {
-                        throw new SnapshotNotSupportTxException(Snapshot.GetType());
+                        throw new SnapshotNotSupportTxException(this.Snapshot.GetType());
                     }
                 }
                 else

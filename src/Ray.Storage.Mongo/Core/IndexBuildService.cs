@@ -16,6 +16,7 @@ namespace Ray.Storage.Mongo.Core
                 await collection.Indexes.CreateOneAsync(new CreateIndexModel<BsonDocument>("{'Name':1}", new CreateIndexOptions { Name = "Name", Unique = true }));
             }
         }
+
         public async Task CreateSnapshotIndex(ICustomClient client, string database, string collectionName)
         {
             var collection = client.GetCollection<BsonDocument>(database, collectionName);
@@ -25,6 +26,7 @@ namespace Ray.Storage.Mongo.Core
                 await collection.Indexes.CreateOneAsync(new CreateIndexModel<BsonDocument>("{'StateId':1}", new CreateIndexOptions { Name = "StateId", Unique = true }));
             }
         }
+
         public async Task CreateSnapshotArchiveIndex(ICustomClient client, string database, string collectionName)
         {
             var collection = client.GetCollection<BsonDocument>(database, collectionName);
@@ -34,6 +36,7 @@ namespace Ray.Storage.Mongo.Core
                 await collection.Indexes.CreateOneAsync(new CreateIndexModel<BsonDocument>("{'StateId':1}", new CreateIndexOptions { Name = "StateId", Unique = false }));
             }
         }
+
         public async Task CreateEventIndex(ICustomClient client, string database, string collectionName)
         {
             var collection = client.GetCollection<BsonDocument>(database, collectionName);
@@ -42,11 +45,12 @@ namespace Ray.Storage.Mongo.Core
             {
                 await collection.Indexes.CreateManyAsync(
                       new List<CreateIndexModel<BsonDocument>>() {
-                new CreateIndexModel<BsonDocument>("{'StateId':1,'Version':1}", new CreateIndexOptions { Name = "State_Version",Unique=true }),
+                new CreateIndexModel<BsonDocument>("{'StateId':1,'Version':1}", new CreateIndexOptions { Name = "State_Version", Unique = true }),
                 new CreateIndexModel<BsonDocument>("{'StateId':1,'TypeCode':1,'UniqueId':1}", new CreateIndexOptions { Name = "State_UniqueId", Unique = true }) }
                       );
             }
         }
+
         public async Task CreateEventArchiveIndex(ICustomClient client, string database, string collectionName)
         {
             var collection = client.GetCollection<BsonDocument>(database, collectionName);
@@ -55,11 +59,12 @@ namespace Ray.Storage.Mongo.Core
             {
                 await collection.Indexes.CreateManyAsync(
                       new List<CreateIndexModel<BsonDocument>>() {
-                new CreateIndexModel<BsonDocument>("{'StateId':1,'Version':1}", new CreateIndexOptions { Name = "State_Version",Unique=true }),
+                new CreateIndexModel<BsonDocument>("{'StateId':1,'Version':1}", new CreateIndexOptions { Name = "State_Version", Unique = true }),
                 new CreateIndexModel<BsonDocument>("{'StateId':1,'TypeCode':1,'UniqueId':1}", new CreateIndexOptions { Name = "State_UniqueId", Unique = true }) }
                       );
             }
         }
+
         public async Task CreateTransactionStorageIndex(ICustomClient client, string database, string collectionName)
         {
             var collection = client.GetCollection<BsonDocument>(database, collectionName);

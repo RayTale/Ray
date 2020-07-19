@@ -7,7 +7,9 @@
     public class FullyEvent<TPrimaryKey>
     {
         public IEvent Event { get; set; }
+
         public EventBasicInfo BasicInfo { get; set; }
+
         public TPrimaryKey StateId { get; set; }
     }
 }
