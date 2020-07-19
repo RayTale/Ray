@@ -23,7 +23,7 @@
     <PackageReference Update="Dapper" Version="2.0.35" />
     <PackageReference Update="Microsoft.Data.SqlClient" Version="2.0.0" />
     <PackageReference Update="Npgsql" Version="4.1.4" />
-    <PackageReference Update="MySqlConnector" Version="0.69.5" />
+    <PackageReference Update="MySqlConnector" Version="1.0.0" />
     <PackageReference Update="MongoDB.Driver" Version="2.10.4" />
     <PackageReference Update="Prometheus.Client" Version="3.1.0" />
     <PackageReference Update="Prometheus.Client.MetricPusher" Version="1.1.0" />
