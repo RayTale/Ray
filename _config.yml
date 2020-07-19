@@ -20,10 +20,10 @@ description: >- # this means to ignore newlines until "baseurl:"
   distributed event traceability based on the Virtual Actor model.
 
 
-baseurl: "" # the subpath of your site, e.g. /blog
+baseurl: "Ray" # the subpath of your site, e.g. /blog
 url: "" # the base hostname & protocol for your site, e.g. http://example.com
 twitter_username: jekyllrb
-github_username:  jekyll
+github_username:  RayTale
 
 # Build settings
 markdown: kramdown
