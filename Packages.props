@@ -18,7 +18,7 @@
 
     <PackageReference Update="Nerdbank.GitVersioning" Version="3.1.68" PrivateAssets="All" />
     <PackageReference Update="Confluent.Kafka" Version="1.4.4" />
-    <PackageReference Update="Microsoft.Extensions.ObjectPool" Version="3.1.5" />
+    <PackageReference Update="Microsoft.Extensions.ObjectPool" Version="3.1.6" />
     <PackageReference Update="RabbitMQ.Client" Version="5.2.0" />
     <PackageReference Update="Dapper" Version="2.0.35" />
     <PackageReference Update="Microsoft.Data.SqlClient" Version="2.0.0" />
