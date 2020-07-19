@@ -12,7 +12,7 @@ remote_theme: kitian616/jekyll-TeXt-theme # Jekyll Remote Theme, see https://git
 text_skin: default # "default" (default), "dark", "forest", "ocean", "chocolate", "orange"
 highlight_theme: default # "default" (default), "tomorrow", "tomorrow-night", "tomorrow-night-eighties", "tomorrow-night-blue", "tomorrow-night-bright"
 url     : '' # the base hostname & protocol for your site e.g. https://www.someone.com
-baseurl : 'Ray' # does not include hostname
+baseurl : '/Ray' # does not include hostname
 title   : Ray | Documentation
 description: > # this means to ignore newlines until "Language & timezone"
    A high-performance framework for eventually consistent distributed event traceability based on the Virtual Actor model.
