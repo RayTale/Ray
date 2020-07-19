@@ -27,7 +27,8 @@ github_username:  RayTale
 
 # Build settings
 markdown: kramdown
-theme: minima
+# theme: minima
+remote_theme: RayTale/documentation-theme-jekyll
 plugins:
   - jekyll-feed
 
