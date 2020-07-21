@@ -20,7 +20,7 @@ namespace Ray.Storage.MySQL
 
         protected static DbProviderFactory GetDbProviderFactory()
         {
-            return MySql.Data.MySqlClient.MySqlClientFactory.Instance;
+            return MySqlConnector.MySqlConnectorFactory.Instance;
         }
     }
 }
