@@ -64,10 +64,10 @@ namespace Ray.Core
                     var caseType = methodParams.Single(p => typeof(IEvent).IsAssignableFrom(p.ParameterType)).ParameterType;
                     switchMethods.Add(new SwitchMethodEmit
                     {
-                        Mehod = method,
+                        Method = method,
                         CaseType = caseType,
                         DeclareLocal = ilGen.DeclareLocal(caseType),
-                        Lable = ilGen.DefineLabel(),
+                        Label = ilGen.DefineLabel(),
                         Parameters = methodParams,
                         Index = i
                     });
@@ -133,15 +133,15 @@ namespace Ray.Core
                         }
                     }
 
-                    ilGen.Emit(OpCodes.Brtrue, item.Lable);
+                    ilGen.Emit(OpCodes.Brtrue, item.Label);
                 }
 
                 ilGen.Emit(OpCodes.Br, defaultLabel);
                 foreach (var item in sortList)
                 {
-                    ilGen.MarkLabel(item.Lable);
+                    ilGen.MarkLabel(item.Label);
                     ilGen.Emit(OpCodes.Ldarg_0);
-                    //加载第一个参数
+                    // Load the first parameter
                     if (item.Parameters[0].ParameterType == item.CaseType)
                     {
                         LdEventArgs(item, ilGen);
@@ -157,7 +157,7 @@ namespace Ray.Core
                         ilGen.Emit(OpCodes.Call, eventUIDMethod);
                     }
 
-                    //加载第二个参数
+                    // Load the second parameter
                     if (item.Parameters.Length >= 2)
                     {
                         if (item.Parameters[1].ParameterType == item.CaseType)
@@ -176,7 +176,7 @@ namespace Ray.Core
                         }
                     }
 
-                    //加载第三个参数
+                    // Load the third parameter
                     if (item.Parameters.Length >= 3)
                     {
                         if (item.Parameters[2].ParameterType == item.CaseType)
@@ -195,7 +195,7 @@ namespace Ray.Core
                         }
                     }
 
-                    ilGen.Emit(OpCodes.Call, item.Mehod);
+                    ilGen.Emit(OpCodes.Call, item.Method);
                     if (item.DeclareLocal.LocalIndex > 0 && item.DeclareLocal.LocalIndex <= 255)
                     {
                         ilGen.Emit(OpCodes.Stloc_S, declare_1);
@@ -238,7 +238,7 @@ namespace Ray.Core
                 var body = Expression.Call(dynamicMethod, parames);
                 return Expression.Lambda<Func<object, IEvent, EventBasicInfo, FullyEvent<PrimaryKey>, string, Task>>(body, parames).Compile();
             });
-            //加载Event参数
+            // Load Event parameters
             static void LdEventArgs(SwitchMethodEmit item, ILGenerator gen)
             {
                 if (item.Index > 3)
@@ -285,7 +285,7 @@ namespace Ray.Core
         }
 
         /// <summary>
-        /// 未处理事件列表
+        /// List of unprocessed events
         /// </summary>
         private List<FullyEvent<PrimaryKey>> UnprocessedEventList { get; set; }
         /// <summary>
@@ -307,27 +307,27 @@ namespace Ray.Core
         protected ObserverSnapshot<PrimaryKey> Snapshot { get; set; }
 
         /// <summary>
-        /// 是否需要保存快照
+        /// Do you need to save a snapshot
         /// </summary>
         protected virtual bool SaveSnapshot => true;
 
         /// <summary>
-        /// 是否全量激活，true代表启动时会执行大于快照版本的所有事件,false代表更快的启动，后续有事件进入的时候再处理大于快照版本的事件
+        /// Whether to activate in full, true means that all events larger than the snapshot version will be executed at startup, false means faster startup, and subsequent events will be processed when the event is larger than the snapshot version
         /// </summary>
         protected virtual bool FullyActive => false;
 
         /// <summary>
-        /// 快照的事件版本号
+        /// Event version number of the snapshot
         /// </summary>
         protected long SnapshotEventVersion { get; set; }
 
         /// <summary>
-        /// 是否开启事件并发处理
+        /// Whether to enable concurrent event processing
         /// </summary>
         protected virtual bool ConcurrentHandle => false;
 
         /// <summary>
-        /// Grain的Type
+        /// Grain of Type
         /// </summary>
         protected Type GrainType { get; }
 
@@ -337,26 +337,26 @@ namespace Ray.Core
         protected IMetricMonitor MetricMonitor { get; private set; }
 
         /// <summary>
-        /// 所在的组
+        /// In the group
         /// </summary>
         protected string Group { get; private set; }
 
         /// <summary>
-        /// 事件存储器
+        /// Event memory
         /// </summary>
         protected IEventStorage<PrimaryKey> EventStorage { get; private set; }
 
         /// <summary>
-        /// 状态存储器
+        /// State memory
         /// </summary>
         protected IObserverSnapshotStorage<PrimaryKey> ObserverSnapshotStorage { get; private set; }
-        #region 初始化数据
+        #region Initialization data
 
         /// <summary>
-        /// 依赖注入统一方法
+        /// Unified method of dependency injection
         /// </summary>
         /// <returns></returns>
-        protected async virtual ValueTask DependencyInjection()
+        protected virtual async ValueTask DependencyInjection()
         {
             this.ConfigOptions = this.ServiceProvider.GetOptionsByName<CoreOptions>(typeof(MainGrain).FullName);
             this.Serializer = this.ServiceProvider.GetService<ISerializer>();
@@ -372,7 +372,7 @@ namespace Ray.Core
             }
 
             var storageFactory = this.ServiceProvider.GetService(configureBuilder.StorageFactory) as IStorageFactory;
-            //创建事件存储器
+            //Create event store
             var eventStorageTask = storageFactory.CreateEventStorage(storageConfigTask.Result, this.GrainId);
             if (!eventStorageTask.IsCompletedSuccessfully)
             {
@@ -380,7 +380,7 @@ namespace Ray.Core
             }
 
             this.EventStorage = eventStorageTask.Result;
-            //创建状态存储器
+            //Create state storage
             var followConfigTask = configureBuilder.GetObserverConfig(this.ServiceProvider, this.GrainType, this.GrainId);
             if (!followConfigTask.IsCompletedSuccessfully)
             {
@@ -439,7 +439,7 @@ namespace Ray.Core
         }
 
         /// <summary>
-        /// 从库里恢复
+        /// Restore from library
         /// </summary>
         /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
         private async Task RecoveryFromStorage()
@@ -499,14 +499,14 @@ namespace Ray.Core
             {
                 foreach (var @event in eventList)
                 {
-                    this.Snapshot.IncrementDoingVersion(this.GrainType);//标记将要处理的Version
+                    this.Snapshot.IncrementDoingVersion(this.GrainType);//Mark the Version to be processed
                     var task = this.EventDelivered(@event);
                     if (!task.IsCompletedSuccessfully)
                     {
                         await task;
                     }
 
-                    this.Snapshot.UpdateVersion(@event.BasicInfo, this.GrainType);//更新处理完成的Version
+                    this.Snapshot.UpdateVersion(@event.BasicInfo, this.GrainType);//Version of the update process
                 }
             }
 
@@ -545,7 +545,7 @@ namespace Ray.Core
         }
 
         /// <summary>
-        /// 初始化状态，必须实现
+        /// Initialization state, must be implemented
         /// </summary>
         /// <returns></returns>
         protected virtual ValueTask InitFirstSnapshot()
@@ -710,7 +710,7 @@ namespace Ray.Core
                         await task;
                     }
 
-                    this.Snapshot.FullUpdateVersion(fullyEvent.BasicInfo, this.GrainType);//更新处理完成的Version
+                    this.Snapshot.FullUpdateVersion(fullyEvent.BasicInfo, this.GrainType);//Version of the update process
                 }
                 else if (fullyEvent.BasicInfo.Version > this.Snapshot.Version)
                 {
@@ -723,7 +723,7 @@ namespace Ray.Core
                             await task;
                         }
 
-                        this.Snapshot.FullUpdateVersion(evt.BasicInfo, this.GrainType);//更新处理完成的Version
+                        this.Snapshot.FullUpdateVersion(evt.BasicInfo, this.GrainType);//Version of the update process
                     }
                 }
 
@@ -735,7 +735,7 @@ namespace Ray.Core
                         await task;
                     }
 
-                    this.Snapshot.FullUpdateVersion(fullyEvent.BasicInfo, this.GrainType);//更新处理完成的Version
+                    this.Snapshot.FullUpdateVersion(fullyEvent.BasicInfo, this.GrainType);//Version of the update process
                 }
 
                 if (fullyEvent.BasicInfo.Version > this.Snapshot.Version)
@@ -883,7 +883,7 @@ namespace Ray.Core
                 {
                     try
                     {
-                        var onSaveSnapshotTask = this.OnSaveSnapshot();//自定义保存项
+                        var onSaveSnapshotTask = this.OnSaveSnapshot();//Custom save items
                         if (!onSaveSnapshotTask.IsCompletedSuccessfully)
                         {
                             await onSaveSnapshotTask;

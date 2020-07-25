@@ -21,7 +21,7 @@ namespace Ray.Core
         {
             await base.OnActivateAsync();
             this.ConcurrentChannel = this.ServiceProvider.GetService<IMpscChannel<EventTaskComplexBox<Snapshot<PrimaryKey, SnapshotType>>>>();
-            this.ConcurrentChannel.BindConsumer(this.ConcurrentExecuter);
+            this.ConcurrentChannel.BindConsumer(this.ConcurrentExecutor);
         }
 
         public override async Task OnDeactivateAsync()
@@ -75,13 +75,12 @@ namespace Ray.Core
 
             return await taskSource.Task;
         }
-
         /// <summary>
-        /// 不依赖当前状态的的事件的并发处理
-        /// 如果事件的产生依赖当前状态，请使用<see cref="ConcurrentRaiseEvent(Func{Snapshot{PrimaryKey, SnapshotType}, Func{IEvent, EventUID, Task}, Task})"/>
+        /// Concurrent processing of events that do not depend on the current state
+        /// If the generation of the event depends on the current state, please use <see cref="ConcurrentRaiseEvent(Func{Snapshot{PrimaryKey, SnapshotType}, Func{IEvent, EventUID, Task}, Task})"/>
         /// </summary>
-        /// <param name="evt">不依赖当前状态的事件</param>
-        /// <param name="uniqueId">幂等性判定值</param>
+        /// <param name="evt">events that do not depend on the current state</param>
+        /// <param name="uniqueId">Idempotency judgment value</param>
         /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
         protected Task<bool> ConcurrentRaiseEvent(IEvent evt, EventUID uniqueId = null)
         {
@@ -90,7 +89,7 @@ namespace Ray.Core
 
         protected virtual ValueTask OnConcurrentExecuted() => Consts.ValueTaskDone;
 
-        private async Task ConcurrentExecuter(List<EventTaskComplexBox<Snapshot<PrimaryKey, SnapshotType>>> inputs)
+        private async Task ConcurrentExecutor(List<EventTaskComplexBox<Snapshot<PrimaryKey, SnapshotType>>> inputs)
         {
             var autoTransactionList = new List<EventTaskComplexBox<Snapshot<PrimaryKey, SnapshotType>>>();
             foreach (var input in inputs)

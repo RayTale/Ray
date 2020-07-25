@@ -16,6 +16,7 @@ using Ray.Core.Serialization;
 
 namespace Ray.Core
 {
+    /// <inheritdoc />
     public class ObserverUnit<PrimaryKey> : IObserverUnit<PrimaryKey>
     {
         private readonly IServiceProvider serviceProvider;
@@ -111,7 +112,7 @@ namespace Ray.Core
             this.eventHandlers.Add(EventHandler);
             this.batchEventHandlers.Add(BatchEventHandler);
             return this;
-            //内部函数
+            //Internal function
             Task EventHandler(BytesBox bytes)
             {
                 if (EventConverter.TryParse<PrimaryKey>(bytes.Value, out var transport))
@@ -165,15 +166,15 @@ namespace Ray.Core
                     .GroupBy(o => o.fullEvent.StateId);
                 return Task.WhenAll(groups.Select(async groupItems =>
                 {
-                    foreach (var item in groupItems)
+                    foreach (var (bytes, fullEvent) in groupItems)
                     {
-                        var tellTask = handler(this.serviceProvider, item.fullEvent);
+                        var tellTask = handler(this.serviceProvider, fullEvent);
                         if (!tellTask.IsCompletedSuccessfully)
                         {
                             await tellTask;
                         }
 
-                        item.bytes.Success = true;
+                        bytes.Success = true;
                     }
                 }));
             }
@@ -194,7 +195,7 @@ namespace Ray.Core
             this.observerVersionHandlers.Add((actorId, version) => this.GetObserver(observerType, actorId).GetAndSaveVersion(version));
             this.observerSyncHandlers.Add((actorId, version) => this.GetObserver(observerType, actorId).SyncFromObservable(version));
             this.observerResetHandlers.Add((actorId) => this.GetObserver(observerType, actorId).Reset());
-            //内部函数
+            //Internal function
             async Task EventHandler(BytesBox bytes)
             {
                 if (EventConverter.TryParseActorId<PrimaryKey>(bytes.Value, out var actorId))
@@ -230,9 +231,9 @@ namespace Ray.Core
                 {
                     var items = kv.Select(item => item.bytes.Value).ToList();
                     await this.GetObserver(observerType, kv.Key).OnNext(new Immutable<List<byte[]>>(items));
-                    foreach (var item in kv)
+                    foreach (var (_, _, bytes) in kv)
                     {
-                        item.bytes.Success = true;
+                        bytes.Success = true;
                     }
                 }));
             }

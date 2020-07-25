@@ -11,44 +11,44 @@ using Ray.Core.Snapshot;
 
 namespace Ray.Core
 {
-    public abstract class TxGrain<PrimaryKey, StateType> : RayGrain<PrimaryKey, StateType>
-        where StateType : class, ICloneable<StateType>, new()
+    public abstract class TxGrain<TPrimaryKey, TStateType> : RayGrain<TPrimaryKey, TStateType>
+        where TStateType : class, ICloneable<TStateType>, new()
     {
         /// <summary>
-        /// 事务过程中用于回滚的备份快照
+        /// Backup snapshot used for rollback during transaction
         /// </summary>
-        protected Snapshot<PrimaryKey, StateType> BackupSnapshot { get; set; }
+        protected Snapshot<TPrimaryKey, TStateType> BackupSnapshot { get; set; }
 
         /// <summary>
-        /// 事务的开始版本
+        /// The beginning version of the transaction
         /// </summary>
         protected long CurrentTransactionStartVersion { get; private set; } = -1;
 
         /// <summary>
-        /// 事务开始的时间(用作超时处理)
+        /// The time when the transaction started (used for timeout processing)
         /// </summary>
         protected long TransactionStartMilliseconds { get; private set; }
 
         /// <summary>
-        /// empty:本地事务
-        /// !empty:分布式事务
+        /// empty: local affairs
+        /// !empty: Distributed transaction
         /// </summary>
         protected string CurrentTransactionId { get; private set; }
 
         /// <summary>
-        /// 事务中待提交的数据列表
+        /// List of data to be submitted in the transaction
         /// </summary>
-        protected readonly List<EventBox<PrimaryKey>> WaitingForTransactionTransports = new List<EventBox<PrimaryKey>>();
+        protected readonly List<EventBox<TPrimaryKey>> WaitingForTransactionTransports = new List<EventBox<TPrimaryKey>>();
 
         /// <summary>
-        /// 保证同一时间只有一个事务启动的信号量控制器
+        /// Semaphore controller that guarantees that only one transaction is started at the same time
         /// </summary>
         private SemaphoreSlim TransactionSemaphore { get; } = new SemaphoreSlim(1, 1);
 
         protected override async Task RecoverySnapshot()
         {
             await base.RecoverySnapshot();
-            this.BackupSnapshot = new TxSnapshot<PrimaryKey, StateType>(this.GrainId)
+            this.BackupSnapshot = new TxSnapshot<TPrimaryKey, TStateType>(this.GrainId)
             {
                 Base = this.Snapshot.Base.Clone(),
                 State = this.Snapshot.State.Clone()
@@ -57,16 +57,16 @@ namespace Ray.Core
 
         protected override ValueTask CreateSnapshot()
         {
-            this.Snapshot = new TxSnapshot<PrimaryKey, StateType>(this.GrainId);
+            this.Snapshot = new TxSnapshot<TPrimaryKey, TStateType>(this.GrainId);
             return Consts.ValueTaskDone;
         }
 
         protected override async Task ReadSnapshotAsync()
         {
             await base.ReadSnapshotAsync();
-            this.Snapshot = new TxSnapshot<PrimaryKey, StateType>()
+            this.Snapshot = new TxSnapshot<TPrimaryKey, TStateType>()
             {
-                Base = new TxSnapshotBase<PrimaryKey>(this.Snapshot.Base),
+                Base = new TxSnapshotBase<TPrimaryKey>(this.Snapshot.Base),
                 State = this.Snapshot.State
             };
         }
@@ -74,8 +74,8 @@ namespace Ray.Core
         public override async Task OnActivateAsync()
         {
             await base.OnActivateAsync();
-            //如果失活之前已提交事务还没有Complete,则消耗信号量，防止产生新的事物
-            if (this.Snapshot.Base is TxSnapshotBase<PrimaryKey> snapshotBase)
+            //If the committed transaction has not been Completed before inactivation, the semaphore is consumed to prevent new things from being generated
+            if (this.Snapshot.Base is TxSnapshotBase<TPrimaryKey> snapshotBase)
             {
                 if (snapshotBase.TransactionId != string.Empty)
                 {
@@ -83,7 +83,7 @@ namespace Ray.Core
                     var waitingEvents = await this.EventStorage.GetList(this.GrainId, snapshotBase.TransactionStartTimestamp, snapshotBase.TransactionStartVersion, this.Snapshot.Base.Version);
                     foreach (var evt in waitingEvents)
                     {
-                        var transport = new EventBox<PrimaryKey>(evt, default, string.Empty, evt.StateId.ToString());
+                        var transport = new EventBox<TPrimaryKey>(evt, default, string.Empty, evt.StateId.ToString());
                         transport.Parse(this.TypeFinder, this.Serializer);
                         this.WaitingForTransactionTransports.Add(transport);
                     }
@@ -99,7 +99,7 @@ namespace Ray.Core
         }
 
         /// <summary>
-        /// 复原事务临时状态
+        /// Restore the temporary state of the transaction
         /// </summary>
         private void RestoreTransactionTemporaryState()
         {
@@ -132,7 +132,7 @@ namespace Ray.Core
                                 this.Logger.LogTrace("Transaction timeout: {0}->{1}->{2}", this.GrainType.FullName, this.GrainId.ToString(), transactionId);
                             }
 
-                            await this.RollbackTransaction(this.CurrentTransactionId);//事务超时自动回滚
+                            await this.RollbackTransaction(this.CurrentTransactionId);//Automatic rollback of transaction timeout
                         }
                     }
                     finally
@@ -237,7 +237,7 @@ namespace Ray.Core
                 {
                     if (this.BackupSnapshot.Base.Version == this.CurrentTransactionStartVersion - 1)
                     {
-                        this.Snapshot = new Snapshot<PrimaryKey, StateType>(this.GrainId)
+                        this.Snapshot = new Snapshot<TPrimaryKey, TStateType>(this.GrainId)
                         {
                             Base = this.BackupSnapshot.Base.Clone(),
                             State = this.BackupSnapshot.State.Clone()
@@ -258,7 +258,7 @@ namespace Ray.Core
                     this.TransactionSemaphore.Release();
                     if (this.Logger.IsEnabled(LogLevel.Trace))
                     {
-                        this.Logger.LogTrace("Transaction rollbacked: {0}->{1}->{2}", this.GrainType.FullName, this.GrainId.ToString(), transactionId);
+                        this.Logger.LogTrace("Transaction rolled back: {0}->{1}->{2}", this.GrainType.FullName, this.GrainId.ToString(), transactionId);
                     }
                 }
                 catch (Exception ex)
@@ -273,7 +273,7 @@ namespace Ray.Core
         {
             if (this.CurrentTransactionId == transactionId)
             {
-                //如果副本快照没有更新，则更新副本集
+                //If the copy snapshot is not updated, update the copy set
                 foreach (var transport in this.WaitingForTransactionTransports)
                 {
                     var task = this.OnRaised(transport.FullyEvent, transport.GetConverter());
@@ -351,31 +351,30 @@ namespace Ray.Core
         }
 
         /// <summary>
-        /// 防止对象在Snapshot和BackupSnapshot中互相干扰，所以反序列化一个全新的Event对象给BackupSnapshot
+        /// Prevent objects from interfering with each other in Snapshot and BackupSnapshot, so deserialize a brand new Event object to BackupSnapshot
         /// </summary>
-        /// <param name="fullyEvent">事件本体</param>
+        /// <param name="fullyEvent">Event body</param>
         /// <param name="transport"></param>
         /// <returns></returns>
-        protected override ValueTask OnRaised(FullyEvent<PrimaryKey> fullyEvent, in EventConverter transport)
+        protected override ValueTask OnRaised(FullyEvent<TPrimaryKey> fullyEvent, in EventConverter transport)
         {
             if (this.BackupSnapshot.Base.Version + 1 == fullyEvent.BasicInfo.Version)
             {
-                var copiedEvent = new FullyEvent<PrimaryKey>
+                var copiedEvent = new FullyEvent<TPrimaryKey>
                 {
                     Event = this.Serializer.Deserialize(transport.EventBytes, fullyEvent.Event.GetType()) as IEvent,
                     BasicInfo = transport.BaseBytes.ParseToEventBase()
                 };
                 this.SnapshotHandler.Apply(this.BackupSnapshot, copiedEvent);
-                this.BackupSnapshot.Base.FullUpdateVersion(copiedEvent.BasicInfo, this.GrainType);//更新处理完成的Version
+                this.BackupSnapshot.Base.FullUpdateVersion(copiedEvent.BasicInfo, this.GrainType);//Version of the update process
             }
 
-            //父级涉及状态归档
+            //The parent is involved in the state archive
             return base.OnRaised(fullyEvent, transport);
         }
-
         /// <summary>
-        /// 事务性事件提交
-        /// 使用该函数前必须开启事务，不然会出现异常
+        /// Transactional event submission
+        /// The transaction must be opened before using this function, otherwise an exception will occur
         /// </summary>
         /// <param name="event"></param>
         /// <param name="eUID"></param>
@@ -388,8 +387,8 @@ namespace Ray.Core
                     throw new UnopenedTransactionException(this.GrainId.ToString(), this.GrainType, nameof(this.TxRaiseEvent));
                 }
 
-                this.Snapshot.Base.IncrementDoingVersion(this.GrainType);//标记将要处理的Version
-                var fullyEvent = new FullyEvent<PrimaryKey>
+                this.Snapshot.Base.IncrementDoingVersion(this.GrainType);//Mark the Version to be processed
+                var fullyEvent = new FullyEvent<TPrimaryKey>
                 {
                     StateId = this.GrainId,
                     Event = @event,
@@ -410,9 +409,9 @@ namespace Ray.Core
                     unique = eUID.UID;
                 }
 
-                this.WaitingForTransactionTransports.Add(new EventBox<PrimaryKey>(fullyEvent, eUID, unique, fullyEvent.StateId.ToString()));
+                this.WaitingForTransactionTransports.Add(new EventBox<TPrimaryKey>(fullyEvent, eUID, unique, fullyEvent.StateId.ToString()));
                 this.SnapshotHandler.Apply(this.Snapshot, fullyEvent);
-                this.Snapshot.Base.UpdateVersion(fullyEvent.BasicInfo, this.GrainType);//更新处理完成的Version
+                this.Snapshot.Base.UpdateVersion(fullyEvent.BasicInfo, this.GrainType);//Version of the update process
                 if (this.Logger.IsEnabled(LogLevel.Trace))
                 {
                     this.Logger.LogTrace("TxRaiseEvent completed: {0}->{1}->{2}", this.GrainType.FullName, this.Serializer.Serialize(fullyEvent), this.Serializer.Serialize(this.Snapshot));
@@ -421,7 +420,7 @@ namespace Ray.Core
             catch (Exception ex)
             {
                 this.Logger.LogCritical(ex, "TxRaiseEvent failed: {0}->{1}->{2}", this.GrainType.FullName, this.Serializer.Serialize(@event, @event.GetType()), this.Serializer.Serialize(this.Snapshot));
-                this.Snapshot.Base.DecrementDoingVersion();//还原doing Version
+                this.Snapshot.Base.DecrementDoingVersion();//Restore the doing version
                 throw;
             }
         }

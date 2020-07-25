@@ -1,32 +1,32 @@
 ﻿namespace Ray.Storage.SQLCore
 {
     /// <summary>
-    /// 分表信息
+    /// Sub-table information
     /// </summary>
     public class EventSubTable
     {
         /// <summary>
-        /// 表名
+        /// Table Name
         /// </summary>
         public string TableName { get; set; }
 
         /// <summary>
-        /// 子表名称
+        /// Sub-table name
         /// </summary>
         public string SubTable { get; set; }
 
         /// <summary>
-        /// 分表顺序
+        /// Sub-table order
         /// </summary>
         public int Index { get; set; }
 
         /// <summary>
-        /// 分表的开始时间
+        /// The start time of the sub-table
         /// </summary>
         public long StartTime { get; set; }
 
         /// <summary>
-        /// 分表的结束时间
+        /// End time of sub-table
         /// </summary>
         public long EndTime { get; set; }
     }

@@ -30,7 +30,7 @@ namespace Ray.DistributedTx
 
         protected override ValueTask OnCommitTransaction(string transactionId)
         {
-            //如果是带Id的事务，则加入事务事件，等待Complete
+            // If it is a transaction with Id, join the transaction event and wait for Complete
             if (!string.IsNullOrEmpty(transactionId))
             {
                 this.TxRaiseEvent(new TxCommitEvent(this.CurrentTransactionId, this.CurrentTransactionStartVersion + 1, this.WaitingForTransactionTransports.Min(t => t.FullyEvent.BasicInfo.Timestamp)));
@@ -48,7 +48,7 @@ namespace Ray.DistributedTx
                     if (this.Snapshot.Base is TxSnapshotBase<PrimaryKey> snapshotBase &&
                         this.BackupSnapshot.Base is TxSnapshotBase<PrimaryKey> backupSnapshotBase)
                     {
-                        //删除最后一个TransactionCommitEvent
+                        // Delete the last TransactionCommitEvent
                         await this.EventStorage.DeleteByVersion(this.Snapshot.Base.StateId, snapshotBase.TransactionStartVersion, snapshotBase.TransactionStartTimestamp);
                         var txCommitEvent = this.WaitingForTransactionTransports.Single(o => o.FullyEvent.BasicInfo.Version == snapshotBase.TransactionStartVersion);
                         this.WaitingForTransactionTransports.Remove(txCommitEvent);

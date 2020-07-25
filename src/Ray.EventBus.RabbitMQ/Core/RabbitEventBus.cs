@@ -144,11 +144,11 @@ namespace Ray.EventBus.RabbitMQ
             return this.Container.Work(this);
         }
 
-        public Task AddGrainConsumer<PrimaryKey>()
+        public Task AddGrainConsumer<TPrimaryKey>()
         {
-            foreach (var group in this.observerUnitContainer.GetUnit<PrimaryKey>(this.ProducerType).GetGroups())
+            foreach (var group in this.observerUnitContainer.GetUnit<TPrimaryKey>(this.ProducerType).GetGroups())
             {
-                this.AddGrainConsumer<PrimaryKey>(group);
+                this.AddGrainConsumer<TPrimaryKey>(group);
             }
 
             return this.Enable();
