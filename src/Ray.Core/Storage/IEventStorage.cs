@@ -7,7 +7,7 @@ namespace Ray.Core.Storage
     public interface IEventStorage<PrimaryKey>
     {
         /// <summary>
-        /// 单事件插入
+        /// Single event insertion
         /// </summary>
         /// <param name="fullyEvent"></param>
         /// <param name="eventJson"></param>
@@ -16,56 +16,56 @@ namespace Ray.Core.Storage
         Task<bool> Append(FullyEvent<PrimaryKey> fullyEvent, string eventJson, string unique);
 
         /// <summary>
-        /// 批量事件插入
+        /// Batch event insertion
         /// </summary>
         /// <param name="list"></param>
         /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
         Task TransactionBatchAppend(List<EventBox<PrimaryKey>> list);
 
         /// <summary>
-        /// 批量获取事件
+        /// Get events in batch
         /// </summary>
-        /// <param name="stateId">状态Id，相当于GrainId</param>
-        /// <param name="latestTimestamp">将要拉取列表的起点时间</param>
-        /// <param name="startVersion">开始版本</param>
-        /// <param name="endVersion">结束版本</param>
+        /// <param name="stateId">State Id, equivalent to GrainId</param>
+        /// <param name="latestTimestamp">the starting time of the list to be pulled</param>
+        /// <param name="startVersion">start version</param>
+        /// <param name="endVersion">End version</param>
         /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
         Task<IList<FullyEvent<PrimaryKey>>> GetList(PrimaryKey stateId, long latestTimestamp, long startVersion, long endVersion);
 
         /// <summary>
-        /// 批量获取指定类型的事件
+        /// Get events of specified type in batch
         /// </summary>
-        /// <param name="stateId">状态Id，相当于GrainId</param>
-        /// <param name="typeCode">将要拉取列表的起点时间</param>
-        /// <param name="startVersion">开始版本</param>
-        /// <param name="limit">拉取数量</param>
+        /// <param name="stateId">State Id, equivalent to GrainId</param>
+        /// <param name="typeCode">the starting time of the list to be pulled</param>
+        /// <param name="startVersion">start version</param>
+        /// <param name="limit">pull quantity</param>
         /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
         Task<IList<FullyEvent<PrimaryKey>>> GetListByType(PrimaryKey stateId, string typeCode, long startVersion, int limit);
 
         /// <summary>
-        /// 删除指定版本号之前的事件
+        /// Delete events before the specified version number
         /// </summary>
-        /// <param name="stateId">状态Id，相当于GrainId</param>
-        /// <param name="toVersion">结束版本号</param>
-        /// <param name="startTimestamp">当前删除的开始时间戳</param>
+        /// <param name="stateId">State Id, equivalent to GrainId</param>
+        /// <param name="toVersion">End version number</param>
+        /// <param name="startTimestamp">the start timestamp of the current deletion</param>
         /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
         Task DeletePrevious(PrimaryKey stateId, long toVersion, long startTimestamp);
 
         /// <summary>
-        /// 删除指定版本号之后的事件
+        /// Delete events after the specified version number
         /// </summary>
-        /// <param name="stateId">状态Id，相当于GrainId</param>
-        /// <param name="fromVersion">结束版本号</param>
-        /// <param name="startTimestamp">当前删除的开始时间戳</param>
+        /// <param name="stateId">State Id, equivalent to GrainId</param>
+        /// <param name="fromVersion">End version number</param>
+        /// <param name="startTimestamp">the start timestamp of the current deletion</param>
         /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
         Task DeleteAfter(PrimaryKey stateId, long fromVersion, long startTimestamp);
 
         /// <summary>
-        /// 删除指定版本号的事件
+        /// Delete the event of the specified version number
         /// </summary>
-        /// <param name="stateId">状态编号</param>
-        /// <param name="version">版本号</param>
-        /// <param name="timestamp">事件的时间戳</param>
+        /// <param name="stateId">State ID</param>
+        /// <param name="version">version number</param>
+        /// <param name="timestamp">Time stamp of the event</param>
         /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
         Task DeleteByVersion(PrimaryKey stateId, long version, long timestamp);
     }

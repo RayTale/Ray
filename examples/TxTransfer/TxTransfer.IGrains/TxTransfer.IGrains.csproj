@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <Sdk Name="Microsoft.Build.CentralPackageVersions" Version="2.0.79" />
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Orleans.Core.Abstractions"  />
+    <PackageReference Include="Microsoft.Orleans.CodeGenerator.MSBuild" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Ray.Core.Abstractions\Ray.Core.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\src\Ray.DistributedTx.Abstractions\Ray.DistributedTx.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

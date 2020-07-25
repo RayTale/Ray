@@ -1,7 +1,7 @@
 ﻿using Ray.Core;
 using Ray.Core.Event;
-using Ray.EventBus.Kafka;
 using System.Threading.Tasks;
+using Ray.EventBus.RabbitMQ;
 using Transfer.Grains.Events;
 using Transfer.IGrains;
 

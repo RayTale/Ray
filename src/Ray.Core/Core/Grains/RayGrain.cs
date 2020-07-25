@@ -45,9 +45,8 @@ namespace Ray.Core
         protected ISnapshotHandler<PrimaryKey, StateType> SnapshotHandler { get; private set; }
 
         protected IObserverUnit<PrimaryKey> ObserverUnit { get; private set; }
-
         /// <summary>
-        /// 归档存储器
+        /// Archive storage
         /// </summary>
         protected IArchiveStorage<PrimaryKey, StateType> ArchiveStorage { get; private set; }
 
@@ -64,45 +63,45 @@ namespace Ray.Core
         /// </summary>
         public PrimaryKey GrainId { get; private set; }
         /// <summary>
-        /// 快照的事件版本号
+        /// The event version number of the snapshot
         /// </summary>
         protected long SnapshotEventVersion { get; private set; }
 
         /// <summary>
-        /// 当前Grain的真实Type
+        /// The real Type of the current Grain
         /// </summary>
         protected Type GrainType { get; }
 
         /// <summary>
-        /// 事件存储器
+        /// Event memory
         /// </summary>
         protected IEventStorage<PrimaryKey> EventStorage { get; private set; }
 
         /// <summary>
-        /// 状态存储器
+        /// State memory
         /// </summary>
         protected ISnapshotStorage<PrimaryKey, StateType> SnapshotStorage { get; private set; }
 
         /// <summary>
-        /// 事件发布器
+        /// Event Publisher
         /// </summary>
         protected IProducer EventBusProducer { get; private set; }
 
         /// <summary>
-        /// 指标收集器
+        /// Metric collector
         /// </summary>
         protected IMetricMonitor MetricMonitor { get; private set; }
 
         /// <summary>
-        /// 事件处理器
+        /// Event handler
         /// </summary>
         protected List<Func<BytesBox, Task>> ObserverEventHandlers { get; private set; }
 
         /// <summary>
-        /// 依赖注入统一方法
+        /// Unified method of dependency injection
         /// </summary>
         /// <returns></returns>
-        protected async virtual ValueTask DependencyInjection()
+        protected virtual async ValueTask DependencyInjection()
         {
             this.CoreOptions = this.ServiceProvider.GetOptionsByName<CoreOptions>(this.GrainType.FullName);
             this.ArchiveOptions = this.ServiceProvider.GetOptionsByName<ArchiveOptions>(this.GrainType.FullName);
@@ -127,7 +126,7 @@ namespace Ray.Core
             }
 
             var storageFactory = this.ServiceProvider.GetService(configureBuilder.StorageFactory) as IStorageFactory;
-            //创建归档存储器
+            //Create archive storage
             if (this.ArchiveOptions.On)
             {
                 var archiveStorageTask = storageFactory.CreateArchiveStorage<PrimaryKey, StateType>(storageConfigTask.Result, this.GrainId);
@@ -139,7 +138,7 @@ namespace Ray.Core
                 this.ArchiveStorage = archiveStorageTask.Result;
             }
 
-            //创建事件存储器
+            //Create event store
             var eventStorageTask = storageFactory.CreateEventStorage(storageConfigTask.Result, this.GrainId);
             if (!eventStorageTask.IsCompletedSuccessfully)
             {
@@ -147,7 +146,7 @@ namespace Ray.Core
             }
 
             this.EventStorage = eventStorageTask.Result;
-            //创建状态存储器
+            //Create state storage
             var stateStorageTask = storageFactory.CreateSnapshotStorage<PrimaryKey, StateType>(storageConfigTask.Result, this.GrainId);
             if (!stateStorageTask.IsCompletedSuccessfully)
             {
@@ -155,7 +154,7 @@ namespace Ray.Core
             }
 
             this.SnapshotStorage = stateStorageTask.Result;
-            //创建事件发布器
+            //Create event publisher
             var producerTask = this.ProducerContainer.GetProducer(this.GrainType);
             if (!producerTask.IsCompletedSuccessfully)
             {
@@ -166,7 +165,7 @@ namespace Ray.Core
         }
 
         /// <summary>
-        /// Grain激活时调用用来初始化的方法(禁止在子类重写)
+        /// The method used to initialize is called when Grain is activated (overriding in subclasses is prohibited)
         /// </summary>
         /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
         public override async Task OnActivateAsync()
@@ -190,7 +189,7 @@ namespace Ray.Core
             {
                 if (this.ArchiveOptions.On)
                 {
-                    //加载归档信息
+                    //Load archive information
                     this.BriefArchiveList = (await this.ArchiveStorage.GetBriefList(this.GrainId)).OrderBy(a => a.Index).ToList();
                     this.LastArchive = this.BriefArchiveList.LastOrDefault();
                     this.ClearedArchive = this.BriefArchiveList.Where(a => a.EventIsCleared).OrderByDescending(a => a.Index).FirstOrDefault();
@@ -204,7 +203,7 @@ namespace Ray.Core
                     }
                 }
 
-                //修复状态
+                //Load archive information
                 await this.RecoverySnapshot();
 
                 if (this.ArchiveOptions.On)
@@ -213,7 +212,7 @@ namespace Ray.Core
                         (this.LastArchive is null || this.LastArchive.EndVersion < this.Snapshot.Base.Version) &&
                         (this.NewArchive is null || this.NewArchive.EndVersion < this.Snapshot.Base.Version))
                     {
-                        //归档恢复
+                        //Archive recovery
                         while (true)
                         {
                             var startTimestamp = this.Snapshot.Base.StartTimestamp;
@@ -288,9 +287,9 @@ namespace Ray.Core
                     var eventList = await this.EventStorage.GetList(this.GrainId, this.Snapshot.Base.LatestMinEventTimestamp, this.Snapshot.Base.Version + 1, this.Snapshot.Base.Version + this.CoreOptions.NumberOfEventsPerRead);
                     foreach (var fullyEvent in eventList)
                     {
-                        this.Snapshot.Base.IncrementDoingVersion(this.GrainType);//标记将要处理的Version
+                        this.Snapshot.Base.IncrementDoingVersion(this.GrainType);//Mark the Version to be processed
                         this.SnapshotHandler.Apply(this.Snapshot, fullyEvent);
-                        this.Snapshot.Base.UpdateVersion(fullyEvent.BasicInfo, this.GrainType);//更新处理完成的Version
+                        this.Snapshot.Base.UpdateVersion(fullyEvent.BasicInfo, this.GrainType);//Version of the update process
                     }
 
                     if (eventList.Count < this.CoreOptions.NumberOfEventsPerRead)
@@ -370,12 +369,12 @@ namespace Ray.Core
         {
             try
             {
-                //从快照中恢复状态
+                //Restore state from snapshot
                 this.Snapshot = await this.SnapshotStorage.Get(this.GrainId);
 
                 if (this.Snapshot is null)
                 {
-                    //从归档中恢复状态
+                    //Restore state from archive
                     if (this.ArchiveOptions.On && this.LastArchive != null)
                     {
                         this.Snapshot = await this.ArchiveStorage.GetById(this.LastArchive.Id);
@@ -383,7 +382,7 @@ namespace Ray.Core
 
                     if (this.Snapshot is null)
                     {
-                        //新建状态
+                        //New status
                         var createTask = this.CreateSnapshot();
                         if (!createTask.IsCompletedSuccessfully)
                         {
@@ -412,7 +411,7 @@ namespace Ray.Core
                 throw new StateInsecurityException(this.Snapshot.Base.StateId.ToString(), this.GrainType, this.Snapshot.Base.DoingVersion, this.Snapshot.Base.Version);
             }
 
-            //如果版本号差超过设置则更新快照
+            //Update the snapshot if the version number difference exceeds the setting
             if ((force && this.Snapshot.Base.Version > this.SnapshotEventVersion) ||
                 (this.Snapshot.Base.Version - this.SnapshotEventVersion >= this.CoreOptions.SnapshotVersionInterval))
             {
@@ -584,7 +583,7 @@ namespace Ray.Core
         protected virtual ValueTask OnStartDeleteAllArchive() => Consts.ValueTaskDone;
 
         /// <summary>
-        /// 初始化状态，必须实现
+        /// Initialization state, must be implemented
         /// </summary>
         /// <returns></returns>
         protected virtual ValueTask CreateSnapshot()
@@ -594,7 +593,7 @@ namespace Ray.Core
         }
 
         /// <summary>
-        /// 删除状态
+        /// Delete status
         /// </summary>
         /// <returns></returns>
         protected async ValueTask DeleteSnapshot()
@@ -654,7 +653,7 @@ namespace Ray.Core
                     await startTask;
                 }
 
-                this.Snapshot.Base.IncrementDoingVersion(this.GrainType);//标记将要处理的Version
+                this.Snapshot.Base.IncrementDoingVersion(this.GrainType);//Mark the Version to be processed
                 var evtType = @event.GetType();
                 using var baseBytes = fullyEvent.BasicInfo.ConvertToBytes();
                 var typeCode = this.TypeFinder.GetCode(evtType);
@@ -685,7 +684,7 @@ namespace Ray.Core
                 if (appendResult)
                 {
                     this.SnapshotHandler.Apply(this.Snapshot, fullyEvent);
-                    this.Snapshot.Base.UpdateVersion(fullyEvent.BasicInfo, this.GrainType);//更新处理完成的Version
+                    this.Snapshot.Base.UpdateVersion(fullyEvent.BasicInfo, this.GrainType);//Version of the update process
                     var task = this.OnRaised(fullyEvent, new EventConverter(typeCode, this.Snapshot.Base.StateId, baseBytes.AsSpan(), evtBytes));
                     if (!task.IsCompletedSuccessfully)
                     {
@@ -714,7 +713,7 @@ namespace Ray.Core
                         this.Logger.LogTrace("RaiseEvent failed: {0}->{1}->{2}", this.GrainType.FullName, this.Serializer.Serialize(fullyEvent), this.Serializer.Serialize(this.Snapshot));
                     }
 
-                    this.Snapshot.Base.DecrementDoingVersion();//还原doing Version
+                    this.Snapshot.Base.DecrementDoingVersion();//Restore the doing version
                     var task = this.OnRaiseFailed(fullyEvent);
                     if (!task.IsCompletedSuccessfully)
                     {
@@ -725,8 +724,8 @@ namespace Ray.Core
             catch (Exception ex)
             {
                 this.Logger.LogCritical(ex, "RaiseEvent failed: {0}->{1}", this.GrainType.FullName, this.Serializer.Serialize(this.Snapshot));
-                await this.RecoverySnapshot();//还原状态
-                //出现错误可能会重复出现，所以把之前的快照进行更新，提高还原速度
+                await this.RecoverySnapshot();//Restore state
+                //Errors may appear repeatedly, so update the previous snapshot to improve the restoration speed
                 var saveSnapshotTask = this.SaveSnapshotAsync(true);
                 if (!saveSnapshotTask.IsCompletedSuccessfully)
                 {
@@ -739,7 +738,7 @@ namespace Ray.Core
             return false;
         }
 
-        //发送事件到EventBus中
+        //Send events to EventBus
         protected async Task PublishToEventBus(byte[] bytes, string hashKey)
         {
             if (this.ObserverEventHandlers.Count > 0)
@@ -759,7 +758,7 @@ namespace Ray.Core
                         catch (Exception ex)
                         {
                             this.Logger.LogCritical(ex, "EventBus failed: {0}->{1}", this.GrainType.FullName, this.GrainId.ToString());
-                            //当消息队列出现问题的时候同步推送
+                            //Synchronous push when there is a problem with the message queue
                             await Task.WhenAll(this.ObserverEventHandlers.Select(func => func(new BytesBox(bytes, null))));
                         }
                     }
@@ -772,7 +771,7 @@ namespace Ray.Core
                         catch (Exception ex)
                         {
                             this.Logger.LogCritical(ex, "EventBus failed: {0}->{1}", this.GrainType.FullName, this.GrainId.ToString());
-                            //当消息队列出现问题的时候异步推送
+                            //Asynchronous push when there is a problem with the message queue
                             var publishTask = this.EventBusProducer.Publish(bytes, hashKey);
                             if (!publishTask.IsCompletedSuccessfully)
                             {
@@ -881,7 +880,7 @@ namespace Ray.Core
             }
             else
             {
-                //判定有没有时间戳小于前一个归档
+                //Determine if the timestamp is less than the previous archive
                 if (this.NewArchive.StartTimestamp == 0 || @event.BasicInfo.Timestamp < this.NewArchive.StartTimestamp)
                 {
                     this.NewArchive.StartTimestamp = @event.BasicInfo.Timestamp;
@@ -956,21 +955,21 @@ namespace Ray.Core
 
         protected virtual async ValueTask OnArchiveCompleted()
         {
-            //开始执行事件清理逻辑
+            //Start the event cleanup logic
             var noCleareds = this.BriefArchiveList.Where(a => !a.EventIsCleared).ToList();
             if (noCleareds.Count >= this.ArchiveOptions.MaxSnapshotArchiveRecords)
             {
                 var minArchive = noCleareds.FirstOrDefault();
                 if (minArchive != null)
                 {
-                    //判断需要清理的event是否都被Observer执行过
+                    //Determine whether the events that need to be cleaned up have been executed by the Observer
                     var versions = await this.ObserverUnit.GetAndSaveVersion(this.Snapshot.Base.StateId, this.Snapshot.Base.Version);
                     if (versions.All(v => v >= minArchive.EndVersion))
                     {
-                        //清理归档对应的事件
+                        //Clean up the event corresponding to the archive
                         await this.ArchiveStorage.EventIsClear(this.Snapshot.Base.StateId, minArchive.Id);
                         minArchive.EventIsCleared = true;
-                        //如果快照的版本小于需要清理的最大事件版本号，则保存快照
+                        //If the snapshot version is less than the maximum event version number that needs to be cleaned up, save the snapshot
                         if (this.SnapshotEventVersion < minArchive.EndVersion)
                         {
                             var saveTask = this.SaveSnapshotAsync(true);
@@ -990,7 +989,7 @@ namespace Ray.Core
                         }
 
                         this.ClearedArchive = minArchive;
-                        //只保留一个清理过事件的快照，其它的删除掉
+                        //Only keep a snapshot of the cleaned up event, delete the others
                         var cleareds = this.BriefArchiveList.Where(a => a.EventIsCleared).OrderBy(a => a.Index).ToArray();
                         if (cleareds.Length > 1)
                         {
@@ -1004,15 +1003,14 @@ namespace Ray.Core
                 }
             }
         }
-
         /// <summary>
-        /// 当状态过于复杂，需要自定义归档逻辑的时候使用该方法
+        /// Use this method when the state is too complicated and you need to customize the archiving logic
         /// </summary>
         /// <returns></returns>
         protected virtual ValueTask OnStartArchive() => Consts.ValueTaskDone;
 
         /// <summary>
-        /// 发送无状态更改的消息到消息队列
+        /// Send messages without state changes to the message queue
         /// </summary>
         /// <returns></returns>
         protected async ValueTask Publish<T>(T msg, string hashKey = null)

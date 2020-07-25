@@ -1,17 +1,21 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+  <Sdk Name="Microsoft.Build.CentralPackageVersions" Version="2.0.79" />
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="3.1.4" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="3.1.4" />
-    <PackageReference Include="Microsoft.Orleans.OrleansProviders" Version="3.2.0-rc1" />
-    <PackageReference Include="Microsoft.Orleans.OrleansRuntime" Version="3.2.0-rc1" />
-    <PackageReference Include="OrleansDashboard" Version="3.1.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" />
+    <PackageReference Include="Microsoft.Orleans.OrleansProviders" />
+    <PackageReference Include="Microsoft.Orleans.OrleansRuntime" />
+    <PackageReference Include="OrleansDashboard" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Transfer.Grains\Transfer.Grains.csproj" />
+    <ProjectReference Include="..\Transfer.Grains\Transfer.Grains.csproj">
+      <Private>true</Private>
+    </ProjectReference>
+
   </ItemGroup>
 </Project>
