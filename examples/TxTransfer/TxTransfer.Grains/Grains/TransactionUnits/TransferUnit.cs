@@ -21,10 +21,10 @@ namespace TxTransfer.Grains.Grains.TransactionUnits
         {
             try
             {
-                var result = await GrainFactory.GetGrain<IAccount>(commit.Data.FromId).TransferDeduct(commit.Data.Amount, long.Parse(commit.TransactionId));
+                var result = await GrainFactory.GetGrain<IAccount>(commit.Data.FromId).TransferDeduct(commit.Data.Amount, commit.TransactionId);
                 if (result)
                 {
-                    await GrainFactory.GetGrain<IAccount>(commit.Data.ToId).TransferArrived(commit.Data.Amount, long.Parse(commit.TransactionId));
+                    await GrainFactory.GetGrain<IAccount>(commit.Data.ToId).TransferArrived(commit.Data.Amount, commit.TransactionId);
                     await Commit(commit);
                     return true;
                 }
