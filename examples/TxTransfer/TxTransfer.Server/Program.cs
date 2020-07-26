@@ -9,11 +9,10 @@ using Orleans.Configuration;
 using Orleans.Hosting;
 using Ray.Core;
 using Ray.Core.Services;
-using Ray.EventBus.Kafka;
 using Ray.Storage.PostgreSQL;
 using TxTransfer.Grains;
 using TxTransfer.Grains.Grains;
-
+using Ray.EventBus.RabbitMQ;
 namespace TxTransfer.Server
 {
     class Program
@@ -39,28 +38,37 @@ namespace TxTransfer.Server
                             parts.AddApplicationPart(typeof(UtcUIDGrain).Assembly).WithReferences();
                         });
                 })
-                .ConfigureServices(servicecollection =>
+                .ConfigureServices(serviceCollection =>
                 {
                     //Register postgresql as an event repository
-                    servicecollection.AddPostgreSQLStorage(config =>
+                    serviceCollection.AddPostgreSQLStorage(config =>
                 {
-                    config.ConnectionDict.Add("core_event", "Server=127.0.0.1;Port=5432;Database=Ray;User Id=postgres;Password=luohuazhiyu;Pooling=true;MaxPoolSize=20;");
+                    config.ConnectionDict.Add("core_event", "Server=localhost;Port=5432;Database=Ray;User Id=postgress;Password=postgress;Pooling=true;MaxPoolSize=20;");
                     });
-                    servicecollection.AddPostgreSQLTxStorage(options =>
+                    serviceCollection.AddPostgreSQLTxStorage(options =>
                     {
                         options.ConnectionKey = "core_event";
                         options.TableName = "Transaction_Record";
                     });
-                    servicecollection.AddKafkaMQ(
-                    config => { },
-                    config =>
+
+                    serviceCollection.AddRabbitMQ(options =>
                     {
-                        config.BootstrapServers = "192.168.1.3:9092";
-                    }, config =>
-                    {
-                        config.BootstrapServers = "192.168.1.3:9092";
+                        options.VirtualHost = "/";
+                        options.Hosts = new string[] { "localhost:5672" };
+                        options.UserName = "guest";
+                        options.Password = "guest";
                     });
-                    servicecollection.Configure<GrainCollectionOptions>(options =>
+
+                    //servicecollection.AddKafkaMQ(
+                    //config => { },
+                    //config =>
+                    //{
+                    //    config.BootstrapServers = "192.168.1.3:9092";
+                    //}, config =>
+                    //{
+                    //    config.BootstrapServers = "192.168.1.3:9092";
+                    //});
+                    serviceCollection.Configure<GrainCollectionOptions>(options =>
                     {
                         options.CollectionAge = TimeSpan.FromMinutes(5);
                     });

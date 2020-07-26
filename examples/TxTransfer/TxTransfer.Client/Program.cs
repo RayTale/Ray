@@ -22,7 +22,8 @@ namespace TxTransfer.Client
                 try
                 {
                     Console.WriteLine("Please enter the number of executions");
-                    var times = int.Parse(Console.ReadLine() ?? "100");
+                    var input = Console.ReadLine() ?? "100";
+                    var times = int.Parse(input);
                     var topUpStopwatch = new Stopwatch();
                     topUpStopwatch.Start();
                     await Task.WhenAll(Enumerable.Range(0, times).Select(x => client.GetGrain<IAccount>(1).TopUp(100)));

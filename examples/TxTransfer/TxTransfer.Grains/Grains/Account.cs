@@ -2,7 +2,7 @@
 using Orleans.Concurrency;
 using Ray.Core.Event;
 using Ray.DistributedTx;
-using Ray.EventBus.Kafka;
+using Ray.EventBus.RabbitMQ;
 using TxTransfer.Grains.Events;
 using TxTransfer.Grains.States;
 using TxTransfer.IGrains;
@@ -46,7 +46,7 @@ namespace TxTransfer.Grains.Grains
                 await func(evt, uid);
             });
         }
-        public async Task<bool> TransferDeduct(decimal amount, long transactionId)
+        public async Task<bool> TransferDeduct(decimal amount, string transactionId)
         {
             bool result = false;
             await ConcurrentTxRaiseEvent(transactionId.ToString(), async (snapshot, func) =>
@@ -59,7 +59,7 @@ namespace TxTransfer.Grains.Grains
             });
             return result;
         }
-        public Task TransferArrived(decimal amount, long transactionId)
+        public Task TransferArrived(decimal amount, string transactionId)
         {
             return ConcurrentTxRaiseEvent(transactionId.ToString(), async (snapshot, func) =>
             {

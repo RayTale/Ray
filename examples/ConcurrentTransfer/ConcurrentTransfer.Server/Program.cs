@@ -54,7 +54,7 @@ namespace ConcurrentTransfer.Server
                     //Register postgresql as an event repository
                     servicecollection.AddPostgreSQLStorage(config =>
                     {
-                        config.ConnectionDict.Add("core_event", "Server=192.168.1.10;Port=5432;Database=Ray;User Id=postgres;Password=postgres;Pooling=true;MaxPoolSize=20;");
+                        config.ConnectionDict.Add("core_event", "Server=localhost;Port=5432;Database=Ray;User Id=postgress;Password=postgress;Pooling=true;MaxPoolSize=20;");
                     });
                     //servicecollection.AddKafkaMQ(
                     //config => { },

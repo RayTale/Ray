@@ -6,14 +6,14 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Confluent.Kafka" />
-    <PackageReference Include="Microsoft.Extensions.Hosting"  />
-    <PackageReference Include="Microsoft.Extensions.Logging.Console"  />
-    <PackageReference Include="Microsoft.Orleans.OrleansProviders"  />
-    <PackageReference Include="Microsoft.Orleans.OrleansRuntime"  />
-    <PackageReference Include="OrleansDashboard"  />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" />
+    <PackageReference Include="Microsoft.Orleans.OrleansProviders" />
+    <PackageReference Include="Microsoft.Orleans.OrleansRuntime" />
+    <PackageReference Include="OrleansDashboard" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Ray.Core\Ray.Core.csproj" />
     <ProjectReference Include="..\TxTransfer.Grains\TxTransfer.Grains.csproj" />
   </ItemGroup>
 </Project>

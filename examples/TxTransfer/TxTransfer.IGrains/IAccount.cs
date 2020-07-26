@@ -23,7 +23,7 @@ namespace TxTransfer.IGrains
         /// <param name="amount"></param>
         /// <param name="transactionIdt">分布式事务Id</param>
         /// <returns></returns>
-        Task<bool> TransferDeduct(decimal amount, long transactionId);
+        Task<bool> TransferDeduct(decimal amount, string transactionId);
 
         /// <summary>
         /// 转账到账
@@ -32,6 +32,6 @@ namespace TxTransfer.IGrains
         /// <param name=""></param>
         /// <param name="transactionId">分布式事务Id</param>
         /// <returns></returns>
-        Task TransferArrived(decimal amount, long transactionId);
+        Task TransferArrived(decimal amount, string transactionId);
     }
 }
