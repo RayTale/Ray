@@ -62,8 +62,8 @@ namespace Ray.Storage.SQLServer
                             Data nvarchar(max) not null,
                             Version bigint not null,
                             Timestamp bigint not null,
-                            INDEX account_event_id_unique unique(StateId,TypeCode,UniqueId),
-							INDEX account_event_Version unique(StateId, Version)
+                            INDEX {subTable.SubTable}_id_unique unique(StateId,TypeCode,UniqueId),
+							INDEX {subTable.SubTable}_Version unique(StateId, Version)
                             );";
             const string insertSql = "INSERT into SubTable_Records  VALUES(@TableName,@SubTable,@Index,@StartTime,@EndTime)";
             using var connection = this.storageOptions.CreateConnection();

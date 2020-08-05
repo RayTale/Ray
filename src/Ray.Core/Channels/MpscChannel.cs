@@ -10,7 +10,7 @@ using Microsoft.Extensions.Options;
 namespace Ray.Core.Channels
 {
     /// <summary>
-    /// multi producter single consumer channel
+    /// multi producer, single consumer channel
     /// </summary>
     /// <typeparam name="T">data type produced by producer</typeparam>
     public class MpscChannel<T> : IMpscChannel<T>, ISequenceMpscChannel
@@ -23,12 +23,12 @@ namespace Ray.Core.Channels
         private Task consumerTask;
 
         /// <summary>
-        /// 批量数据处理每次处理的最大数据量
+        /// The maximum amount of data processed each time in batch data processing
         /// </summary>
         private int MaxBatchSize;
 
         /// <summary>
-        /// 批量数据接收的最大延时
+        /// Maximum delay of batch data reception
         /// </summary>
         private int MaxMillisecondsDelay;
 

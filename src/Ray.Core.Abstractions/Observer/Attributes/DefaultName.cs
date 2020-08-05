@@ -3,17 +3,17 @@
     public enum DefaultName
     {
         /// <summary>
-        /// 事务流
+        /// Transaction flow
         /// </summary>
         Flow,
 
         /// <summary>
-        /// db同步
+        /// db synchronization
         /// </summary>
         Db,
 
         /// <summary>
-        /// 副本状态
+        /// Copy status
         /// </summary>
         Shadow
     }

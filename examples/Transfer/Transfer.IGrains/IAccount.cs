@@ -5,39 +5,39 @@ using System.Threading.Tasks;
 
 namespace Transfer.IGrains
 {
-    public interface IAccount : IGrainWithIntegerKey
+    public interface IAccount: IGrainWithIntegerKey
     {
         /// <summary>
-        /// 获取账户余额
+        /// Get account balance
         /// </summary>
         /// <returns></returns>
         [AlwaysInterleave]
         Task<decimal> GetBalance();
         /// <summary>
-        /// 增加账户金额
+        /// Increase account amount
         /// </summary>
-        /// <param name="amount">金额</param>
+        /// <param name="amount">amount</param>
         /// <returns></returns>
         Task<bool> TopUp(decimal amount);
         /// <summary>
-        /// 最终一致性转账
+        /// Final consistent transfer
         /// </summary>
-        /// <param name="toAccountId">目标账户ID</param>
-        /// <param name="amount">转账金额</param>
+        /// <param name="toAccountId">target account ID</param>
+        /// <param name="amount">transfer amount</param>
         /// <returns></returns>
         Task<bool> Transfer(long toAccountId, decimal amount);
         /// <summary>
-        /// 转账到账
+        /// Transfer to account
         /// </summary>
-        /// <param name="amount">到账金额</param>
-        /// <param name="uid">唯一键</param>
+        /// <param name="amount">Amount to account</param>
+        /// <param name="uid">Unique key</param>
         /// <returns></returns>
         Task TransferArrived(decimal amount, EventUID uid);
         /// <summary>
-        /// 转账失败退款
+        /// Refund for failed transfer
         /// </summary>
-        /// <param name="amount">金额</param>
-        /// <param name="uid">唯一键</param>
+        /// <param name="amount">amount</param>
+        /// <param name="uid">Unique key</param>
         /// <returns></returns>
         Task<bool> TransferRefunds(decimal amount, EventUID uid);
     }

@@ -3,43 +3,43 @@
     public class CoreOptions
     {
         /// <summary>
-        /// RayGrain保存快照的事件Version间隔
+        /// Event Version interval of RayGrain saving snapshot
         /// </summary>
         public int SnapshotVersionInterval { get; set; } = 500;
 
         /// <summary>
-        /// RayGrain失活的时候保存快照的最小事件Version间隔
+        /// The minimum event Version interval for saving snapshots when RayGrain is deactivated
         /// </summary>
         public int MinSnapshotVersionInterval { get; set; } = 1;
 
         /// <summary>
-        /// ObserverGrain保存快照的事件Version间隔
+        /// Event Version interval for ObserverGrain to save snapshots
         /// </summary>
         public int ObserverSnapshotVersionInterval { get; set; } = 20;
 
         /// <summary>
-        /// 分批次批量读取事件的时候每次读取的数据量
+        /// The amount of data read each time when reading events in batches
         /// </summary>
         public int NumberOfEventsPerRead { get; set; } = 2000;
 
         /// <summary>
-        /// 当Grain Over时是否归档事件
-        /// 归档事件操作受ArchiveOption配置影响
+        /// Whether to archive events when Grain Over
+        /// Archive event operation is affected by ArchiveOption configuration
         /// </summary>
         public bool ArchiveEventOnOver { get; set; } = true;
 
         /// <summary>
-        /// 优先异步事件流
+        /// Priority asynchronous event stream
         /// </summary>
         public bool PriorityAsyncEventBus { get; set; } = true;
 
         /// <summary>
-        /// 事务超时时间,单位为ms(默认为30s)
+        /// Transaction timeout time, in ms (default is 30s)
         /// </summary>
         public int TransactionTimeout { get; set; } = 30 * 1000;
 
         /// <summary>
-        /// 在激活的时候同步所有观察者
+        /// Synchronize all observers when activated
         /// </summary>
         public bool SyncAllObserversOnActivate { get; set; } = false;
     }

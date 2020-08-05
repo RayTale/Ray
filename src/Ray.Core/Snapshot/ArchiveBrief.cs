@@ -17,17 +17,17 @@ namespace Ray.Core.Snapshot
         public int Index { get; set; }
 
         /// <summary>
-        /// 事件是否已经清理
+        /// Whether the event has been cleaned up
         /// </summary>
         public bool EventIsCleared { get; set; }
 
         public bool IsCompletedArchive(ArchiveOptions archiveOptions, ArchiveBrief preArchive = default)
         {
             var intervalMilliseconds = (preArchive is null ? this.EndTimestamp - this.StartTimestamp : this.EndTimestamp - preArchive.EndTimestamp) / 1000;
-            var intervalVersiion = this.EndVersion - this.StartVersion;
-            return (intervalMilliseconds > archiveOptions.SecondsInterval && intervalVersiion > archiveOptions.VersionInterval) ||
+            var intervalVersion = this.EndVersion - this.StartVersion;
+            return (intervalMilliseconds > archiveOptions.SecondsInterval && intervalVersion > archiveOptions.VersionInterval) ||
                 intervalMilliseconds > archiveOptions.MaxSecondsInterval ||
-                intervalVersiion > archiveOptions.MaxVersionInterval;
+                intervalVersion > archiveOptions.MaxVersionInterval;
         }
     }
 }

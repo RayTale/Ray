@@ -103,7 +103,7 @@ namespace Ray.Core
         /// 依赖注入统一方法
         /// </summary>
         /// <returns></returns>
-        protected async virtual ValueTask DependencyInjection()
+        protected virtual async ValueTask DependencyInjection()
         {
             this.Logger = (ILogger)this.ServiceProvider.GetService(typeof(ILogger<>).MakeGenericType(this.GrainType));
             this.Group = this.ServiceProvider.GetService<IObserverUnitContainer>().GetUnit<PrimaryKey>(typeof(Main)).GetGroup(this.GrainType);

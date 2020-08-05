@@ -43,10 +43,10 @@ namespace Ray.Core.Snapshot
                 var caseType = methodParams.Single(p => typeof(IEvent).IsAssignableFrom(p.ParameterType)).ParameterType;
                 switchMethods.Add(new SwitchMethodEmit
                 {
-                    Mehod = method,
+                    Method = method,
                     CaseType = caseType,
                     DeclareLocal = ilGen.DeclareLocal(caseType),
-                    Lable = ilGen.DefineLabel(),
+                    Label = ilGen.DefineLabel(),
                     Parameters = methodParams,
                     Index = i
                 });
@@ -110,13 +110,13 @@ namespace Ray.Core.Snapshot
                     }
                 }
 
-                ilGen.Emit(OpCodes.Brtrue, item.Lable);
+                ilGen.Emit(OpCodes.Brtrue, item.Label);
             }
 
             ilGen.Emit(OpCodes.Br, defaultLabel);
             foreach (var item in sortList)
             {
-                ilGen.MarkLabel(item.Lable);
+                ilGen.MarkLabel(item.Label);
                 ilGen.Emit(OpCodes.Ldarg_0);
                 //加载第一个参数
                 if (item.Parameters[0].ParameterType == typeof(Snapshot))
@@ -163,7 +163,7 @@ namespace Ray.Core.Snapshot
                     }
                 }
 
-                ilGen.Emit(OpCodes.Call, item.Mehod);
+                ilGen.Emit(OpCodes.Call, item.Method);
                 ilGen.Emit(OpCodes.Ret);
             }
 

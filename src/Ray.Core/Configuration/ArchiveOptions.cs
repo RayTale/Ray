@@ -1,65 +1,65 @@
 ﻿namespace Ray.Core.Configuration
 {
     /// <summary>
-    /// 归档配置
+    /// Archive configuration
     /// </summary>
     public class ArchiveOptions
     {
         /// <summary>
-        /// 是否开启归档
+        /// Whether to open archive
         /// </summary>
         public bool On { get; set; } = true;
 
         /// <summary>
-        /// 归档必须满足的间隔秒数
+        /// The number of seconds that the archive must meet
         /// </summary>
         public long SecondsInterval { get; set; } = 24 * 60 * 60 * 7;
 
         /// <summary>
-        /// 归档必须满足的间隔版本号
+        /// The interval version number that the archive must meet
         /// </summary>
         public int VersionInterval { get; set; } = 1000;
 
         /// <summary>
-        /// 归档的最大间隔秒数，只要间隔大于该值则可以进行归档(默认三十天)
+        /// The maximum number of seconds between archiving, as long as the interval is greater than this value, you can archive (default 30 days)
         /// </summary>
         public long MaxSecondsInterval { get; set; } = 24 * 60 * 60 * 30;
 
         /// <summary>
-        /// 归档的最大版本号，只要间隔大于该值则可以进行归档
+        /// The maximum version number of the archive, as long as the interval is greater than this value, it can be archived
         /// </summary>
         public int MaxVersionInterval { get; set; } = 10_000_000;
 
         /// <summary>
-        /// 归档的最小版本间隔，用于Grain失活的时候判断是否做不完全归档
+        /// The minimum version interval for archiving, used to judge whether to archive incompletely when Grain is deactivated
         /// </summary>
         public long MinVersionIntervalAtDeactivate { get; set; } = 1;
 
         /// <summary>
-        /// 事件归档以来的快照归档次数(防止清理过快导致幂等性失效)
+        /// The number of snapshot archives since the event was archived (to prevent idempotent failure caused by too fast cleaning)
         /// </summary>
         public int MaxSnapshotArchiveRecords { get; set; } = 3;
 
         /// <summary>
-        /// 是否开启事件清理
-        /// tue:归档事件时会删除事件
-        /// false:会把归档的事件移动到归档事件库
+        /// Whether to enable event cleaning
+        /// true: Event will be deleted when archived
+        /// false: will move the archived events to the archive event library
         /// </summary>
         public EventArchiveType EventArchiveType { get; set; } = EventArchiveType.Transfer;
     }
 
     /// <summary>
-    /// 事件归档类型
+    /// Event archive type
     /// </summary>
     public enum EventArchiveType : byte
     {
         /// <summary>
-        /// 转移到归档表
+        /// Transfer to the archive table
         /// </summary>
         Transfer = 0,
 
         /// <summary>
-        /// 直接删除
+        /// Delete directly
         /// </summary>
         Delete = 1
     }
