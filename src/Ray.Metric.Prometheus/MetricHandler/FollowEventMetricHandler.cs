@@ -1,41 +1,45 @@
 ﻿using System.Collections.Generic;
-using Prometheus.Client;
+using Prometheus.Client.Abstractions;
 using Ray.Metric.Core.Element;
 
 namespace Ray.Metric.Prometheus.MetricHandler
 {
     public class FollowFollowEventMetricHandler
     {
-        private readonly Gauge FollowEventMetricCountGauge;
-        private readonly Gauge FollowEventMetricMaxElapsedMsGauge;
-        private readonly Gauge FollowEventMetricAvgElapsedMsGauge;
-        private readonly Gauge FollowEventMetricMinElapsedMsGauge;
-        private readonly Gauge FollowEventMetricMaxDeliveryElapsedMsGauge;
-        private readonly Gauge FollowEventMetricAvgDeliveryElapsedMsGauge;
-        private readonly Gauge FollowEventMetricMinDeliveryElapsedMsGauge;
+        private readonly IMetricFamily<IGauge, (string Actor, string Event, string FromActor)> FollowEventMetricCountGauge;
+        private readonly IMetricFamily<IGauge, (string Actor, string Event, string FromActor)> FollowEventMetricMaxElapsedMsGauge;
+        private readonly IMetricFamily<IGauge, (string Actor, string Event, string FromActor)> FollowEventMetricAvgElapsedMsGauge;
+        private readonly IMetricFamily<IGauge, (string Actor, string Event, string FromActor)> FollowEventMetricMinElapsedMsGauge;
+        private readonly IMetricFamily<IGauge, (string Actor, string Event, string FromActor)> FollowEventMetricMaxDeliveryElapsedMsGauge;
+        private readonly IMetricFamily<IGauge, (string Actor, string Event, string FromActor)> FollowEventMetricAvgDeliveryElapsedMsGauge;
+        private readonly IMetricFamily<IGauge, (string Actor, string Event, string FromActor)> FollowEventMetricMinDeliveryElapsedMsGauge;
 
-        public FollowFollowEventMetricHandler()
+        public FollowFollowEventMetricHandler(IMetricFactory metricFactory)
         {
-            this.FollowEventMetricCountGauge = Metrics.CreateGauge($"{nameof(FollowEventMetric)}_{nameof(FollowEventMetric.Events)}", string.Empty, nameof(FollowEventMetric.Actor), nameof(FollowEventMetric.Event), nameof(FollowEventMetric.FromActor));
-            this.FollowEventMetricMaxElapsedMsGauge = Metrics.CreateGauge($"{nameof(FollowEventMetric)}_{nameof(FollowEventMetric.MaxElapsedMs)}", string.Empty, nameof(FollowEventMetric.Actor), nameof(FollowEventMetric.Event), nameof(FollowEventMetric.FromActor));
-            this.FollowEventMetricAvgElapsedMsGauge = Metrics.CreateGauge($"{nameof(FollowEventMetric)}_{nameof(FollowEventMetric.AvgElapsedMs)}", string.Empty, nameof(FollowEventMetric.Actor), nameof(FollowEventMetric.Event), nameof(FollowEventMetric.FromActor));
-            this.FollowEventMetricMinElapsedMsGauge = Metrics.CreateGauge($"{nameof(FollowEventMetric)}_{nameof(FollowEventMetric.MinElapsedMs)}", string.Empty, nameof(FollowEventMetric.Actor), nameof(FollowEventMetric.Event), nameof(FollowEventMetric.FromActor));
-            this.FollowEventMetricMaxDeliveryElapsedMsGauge = Metrics.CreateGauge($"{nameof(FollowEventMetric)}_{nameof(FollowEventMetric.MaxDeliveryElapsedMs)}", string.Empty, nameof(FollowEventMetric.Actor), nameof(FollowEventMetric.Event), nameof(FollowEventMetric.FromActor));
-            this.FollowEventMetricAvgDeliveryElapsedMsGauge = Metrics.CreateGauge($"{nameof(FollowEventMetric)}_{nameof(FollowEventMetric.AvgDeliveryElapsedMs)}", string.Empty, nameof(FollowEventMetric.Actor), nameof(FollowEventMetric.Event), nameof(FollowEventMetric.FromActor));
-            this.FollowEventMetricMinDeliveryElapsedMsGauge = Metrics.CreateGauge($"{nameof(FollowEventMetric)}_{nameof(FollowEventMetric.MinDeliveryElapsedMs)}", string.Empty, nameof(FollowEventMetric.Actor), nameof(FollowEventMetric.Event), nameof(FollowEventMetric.FromActor));
+            var labelNames = (nameof(FollowEventMetric.Actor), nameof(FollowEventMetric.Event), nameof(FollowEventMetric.FromActor));
+            
+            this.FollowEventMetricCountGauge = metricFactory.CreateGauge($"{nameof(FollowEventMetric)}_{nameof(FollowEventMetric.Events)}", string.Empty, labelNames);
+            this.FollowEventMetricMaxElapsedMsGauge = metricFactory.CreateGauge($"{nameof(FollowEventMetric)}_{nameof(FollowEventMetric.MaxElapsedMs)}", string.Empty, labelNames);
+            this.FollowEventMetricAvgElapsedMsGauge = metricFactory.CreateGauge($"{nameof(FollowEventMetric)}_{nameof(FollowEventMetric.AvgElapsedMs)}", string.Empty, labelNames);
+            this.FollowEventMetricMinElapsedMsGauge = metricFactory.CreateGauge($"{nameof(FollowEventMetric)}_{nameof(FollowEventMetric.MinElapsedMs)}", string.Empty, labelNames);
+            this.FollowEventMetricMaxDeliveryElapsedMsGauge = metricFactory.CreateGauge($"{nameof(FollowEventMetric)}_{nameof(FollowEventMetric.MaxDeliveryElapsedMs)}", string.Empty, labelNames);
+            this.FollowEventMetricAvgDeliveryElapsedMsGauge = metricFactory.CreateGauge($"{nameof(FollowEventMetric)}_{nameof(FollowEventMetric.AvgDeliveryElapsedMs)}", string.Empty, labelNames);
+            this.FollowEventMetricMinDeliveryElapsedMsGauge = metricFactory.CreateGauge($"{nameof(FollowEventMetric)}_{nameof(FollowEventMetric.MinDeliveryElapsedMs)}", string.Empty, labelNames);
         }
 
         public void Handle(List<FollowEventMetric> followEventMetrics)
         {
             foreach (var item in followEventMetrics)
             {
-                this.FollowEventMetricCountGauge.WithLabels(item.Actor, item.Event, item.FromActor).Set(item.Events, item.Timestamp);
-                this.FollowEventMetricMaxElapsedMsGauge.WithLabels(item.Actor, item.Event, item.FromActor).Set(item.MaxElapsedMs, item.Timestamp);
-                this.FollowEventMetricAvgElapsedMsGauge.WithLabels(item.Actor, item.Event, item.FromActor).Set(item.AvgElapsedMs, item.Timestamp);
-                this.FollowEventMetricMinElapsedMsGauge.WithLabels(item.Actor, item.Event, item.FromActor).Set(item.MinElapsedMs, item.Timestamp);
-                this.FollowEventMetricMaxDeliveryElapsedMsGauge.WithLabels(item.Actor, item.Event, item.FromActor).Set(item.MaxDeliveryElapsedMs, item.Timestamp);
-                this.FollowEventMetricAvgDeliveryElapsedMsGauge.WithLabels(item.Actor, item.Event, item.FromActor).Set(item.AvgDeliveryElapsedMs, item.Timestamp);
-                this.FollowEventMetricMinDeliveryElapsedMsGauge.WithLabels(item.Actor, item.Event, item.FromActor).Set(item.MinDeliveryElapsedMs, item.Timestamp);
+                var labels = (item.Actor, item.Event, item.FromActor);
+                
+                this.FollowEventMetricCountGauge.WithLabels(labels).Set(item.Events, item.Timestamp);
+                this.FollowEventMetricMaxElapsedMsGauge.WithLabels(labels).Set(item.MaxElapsedMs, item.Timestamp);
+                this.FollowEventMetricAvgElapsedMsGauge.WithLabels(labels).Set(item.AvgElapsedMs, item.Timestamp);
+                this.FollowEventMetricMinElapsedMsGauge.WithLabels(labels).Set(item.MinElapsedMs, item.Timestamp);
+                this.FollowEventMetricMaxDeliveryElapsedMsGauge.WithLabels(labels).Set(item.MaxDeliveryElapsedMs, item.Timestamp);
+                this.FollowEventMetricAvgDeliveryElapsedMsGauge.WithLabels(labels).Set(item.AvgDeliveryElapsedMs, item.Timestamp);
+                this.FollowEventMetricMinDeliveryElapsedMsGauge.WithLabels(labels).Set(item.MinDeliveryElapsedMs, item.Timestamp);
             }
         }
     }

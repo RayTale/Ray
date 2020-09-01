@@ -1,27 +1,27 @@
-﻿using Prometheus.Client;
+﻿using Prometheus.Client.Abstractions;
 using Ray.Metric.Core.Element;
 
 namespace Ray.Metric.Prometheus.MetricHandler
 {
     public class SnapshotSummaryMetricHandler
     {
-        private readonly Gauge SnapshotSummaryMetricSaveCountGauge;
-        private readonly Gauge SnapshotSummaryMetricMaxElapsedVersionGauge;
-        private readonly Gauge SnapshotSummaryMetricAvgElapsedVersionGauge;
-        private readonly Gauge SnapshotSummaryMetricMinElapsedVersionGauge;
-        private readonly Gauge SnapshotSummaryMetricMaxSaveElapsedMsGauge;
-        private readonly Gauge SnapshotSummaryMetricAvgSaveElapsedMsGauge;
-        private readonly Gauge SnapshotSummaryMetricMinSaveElapsedMsGauge;
+        private readonly IGauge SnapshotSummaryMetricSaveCountGauge;
+        private readonly IGauge SnapshotSummaryMetricMaxElapsedVersionGauge;
+        private readonly IGauge SnapshotSummaryMetricAvgElapsedVersionGauge;
+        private readonly IGauge SnapshotSummaryMetricMinElapsedVersionGauge;
+        private readonly IGauge SnapshotSummaryMetricMaxSaveElapsedMsGauge;
+        private readonly IGauge SnapshotSummaryMetricAvgSaveElapsedMsGauge;
+        private readonly IGauge SnapshotSummaryMetricMinSaveElapsedMsGauge;
 
-        public SnapshotSummaryMetricHandler()
+        public SnapshotSummaryMetricHandler(IMetricFactory metricFactory)
         {
-            this.SnapshotSummaryMetricSaveCountGauge = Metrics.CreateGauge($"{nameof(SnapshotSummaryMetric)}_{nameof(SnapshotSummaryMetric.SaveCount)}", string.Empty);
-            this.SnapshotSummaryMetricMaxElapsedVersionGauge = Metrics.CreateGauge($"{nameof(SnapshotSummaryMetric)}_{nameof(SnapshotSummaryMetric.MaxElapsedVersion)}", string.Empty);
-            this.SnapshotSummaryMetricAvgElapsedVersionGauge = Metrics.CreateGauge($"{nameof(SnapshotSummaryMetric)}_{nameof(SnapshotSummaryMetric.AvgElapsedVersion)}", string.Empty);
-            this.SnapshotSummaryMetricMinElapsedVersionGauge = Metrics.CreateGauge($"{nameof(SnapshotSummaryMetric)}_{nameof(SnapshotSummaryMetric.MinElapsedVersion)}", string.Empty);
-            this.SnapshotSummaryMetricMaxSaveElapsedMsGauge = Metrics.CreateGauge($"{nameof(SnapshotSummaryMetric)}_{nameof(SnapshotSummaryMetric.MaxSaveElapsedMs)}", string.Empty);
-            this.SnapshotSummaryMetricAvgSaveElapsedMsGauge = Metrics.CreateGauge($"{nameof(SnapshotSummaryMetric)}_{nameof(SnapshotSummaryMetric.AvgSaveElapsedMs)}", string.Empty);
-            this.SnapshotSummaryMetricMinSaveElapsedMsGauge = Metrics.CreateGauge($"{nameof(SnapshotSummaryMetric)}_{nameof(SnapshotSummaryMetric.MinSaveElapsedMs)}", string.Empty);
+            this.SnapshotSummaryMetricSaveCountGauge = metricFactory.CreateGauge($"{nameof(SnapshotSummaryMetric)}_{nameof(SnapshotSummaryMetric.SaveCount)}", string.Empty);
+            this.SnapshotSummaryMetricMaxElapsedVersionGauge = metricFactory.CreateGauge($"{nameof(SnapshotSummaryMetric)}_{nameof(SnapshotSummaryMetric.MaxElapsedVersion)}", string.Empty);
+            this.SnapshotSummaryMetricAvgElapsedVersionGauge = metricFactory.CreateGauge($"{nameof(SnapshotSummaryMetric)}_{nameof(SnapshotSummaryMetric.AvgElapsedVersion)}", string.Empty);
+            this.SnapshotSummaryMetricMinElapsedVersionGauge = metricFactory.CreateGauge($"{nameof(SnapshotSummaryMetric)}_{nameof(SnapshotSummaryMetric.MinElapsedVersion)}", string.Empty);
+            this.SnapshotSummaryMetricMaxSaveElapsedMsGauge = metricFactory.CreateGauge($"{nameof(SnapshotSummaryMetric)}_{nameof(SnapshotSummaryMetric.MaxSaveElapsedMs)}", string.Empty);
+            this.SnapshotSummaryMetricAvgSaveElapsedMsGauge = metricFactory.CreateGauge($"{nameof(SnapshotSummaryMetric)}_{nameof(SnapshotSummaryMetric.AvgSaveElapsedMs)}", string.Empty);
+            this.SnapshotSummaryMetricMinSaveElapsedMsGauge = metricFactory.CreateGauge($"{nameof(SnapshotSummaryMetric)}_{nameof(SnapshotSummaryMetric.MinSaveElapsedMs)}", string.Empty);
         }
 
         public void Handle(SnapshotSummaryMetric snapshotSummaryMetrics)

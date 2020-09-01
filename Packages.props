@@ -30,9 +30,9 @@
     <PackageReference Update="Npgsql" Version="4.1.4" />
     <PackageReference Update="MySqlConnector" Version="1.0.1" />
     <PackageReference Update="MongoDB.Driver" Version="2.11.0" />
-    <PackageReference Update="Prometheus.Client" Version="3.1.0" />
-    <PackageReference Update="Prometheus.Client.MetricPusher" Version="1.1.0" />
-    <PackageReference Update="Prometheus.Client.MetricServer" Version="3.1.0" />
+    <PackageReference Update="Prometheus.Client" Version="4.1.0" />
+    <PackageReference Update="Prometheus.Client.DependencyInjection" Version="0.1.0" />
+    <PackageReference Update="Prometheus.Client.MetricPusher" Version="2.0.0" />
     <PackageReference Update="System.Reactive" Version="4.4.1" />
 
     <PackageReference Update="Nerdbank.GitVersioning" Version="3.2.31" PrivateAssets="All" />

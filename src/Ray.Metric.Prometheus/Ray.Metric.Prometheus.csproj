@@ -3,8 +3,8 @@
 
   <ItemGroup>
     <PackageReference Include="Prometheus.Client" />
+    <PackageReference Include="Prometheus.Client.DependencyInjection" />
     <PackageReference Include="Prometheus.Client.MetricPusher" />
-    <PackageReference Include="Prometheus.Client.MetricServer" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Ray.Metric.Core\Ray.Metric.Core.csproj" />
