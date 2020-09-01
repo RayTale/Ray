@@ -1,26 +1,28 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Prometheus.Client;
+using Prometheus.Client.Abstractions;
 using Ray.Metric.Core.Element;
 
 namespace Ray.Metric.Prometheus.MetricHandler
 {
     public class ActorMetricHandler
     {
-        private readonly Gauge ActorMetricMaxEventsPerActorGauge;
-        private readonly Gauge ActorMetricAvgEventsPerActorGauge;
-        private readonly Gauge ActorMetricMinEventsPerActorGauge;
-        private readonly Gauge ActorMetricLivesGauge;
-        private readonly Gauge ActorMetricIgnoresGauge;
-        private readonly Gauge ActorMetricEventsGauge;
+        private readonly IMetricFamily<IGauge, ValueTuple<string>> ActorMetricMaxEventsPerActorGauge;
+        private readonly IMetricFamily<IGauge, ValueTuple<string>> ActorMetricAvgEventsPerActorGauge;
+        private readonly IMetricFamily<IGauge, ValueTuple<string>> ActorMetricMinEventsPerActorGauge;
+        private readonly IMetricFamily<IGauge, ValueTuple<string>> ActorMetricLivesGauge;
+        private readonly IMetricFamily<IGauge, ValueTuple<string>> ActorMetricIgnoresGauge;
+        private readonly IMetricFamily<IGauge, ValueTuple<string>> ActorMetricEventsGauge;
 
-        public ActorMetricHandler()
+        public ActorMetricHandler(IMetricFactory metricFactory)
         {
-            this.ActorMetricMaxEventsPerActorGauge = Metrics.CreateGauge($"{nameof(ActorMetric)}_{nameof(ActorMetric.MaxEventsPerActor)}", string.Empty, nameof(ActorMetric.Actor));
-            this.ActorMetricAvgEventsPerActorGauge = Metrics.CreateGauge($"{nameof(ActorMetric)}_{nameof(ActorMetric.AvgEventsPerActor)}", string.Empty, nameof(ActorMetric.Actor));
-            this.ActorMetricMinEventsPerActorGauge = Metrics.CreateGauge($"{nameof(ActorMetric)}_{nameof(ActorMetric.MinEventsPerActor)}", string.Empty, nameof(ActorMetric.Actor));
-            this.ActorMetricLivesGauge = Metrics.CreateGauge($"{nameof(ActorMetric)}_{nameof(ActorMetric.Lives)}", string.Empty, nameof(ActorMetric.Actor));
-            this.ActorMetricIgnoresGauge = Metrics.CreateGauge($"{nameof(ActorMetric)}_{nameof(ActorMetric.Ignores)}", string.Empty, nameof(ActorMetric.Actor));
-            this.ActorMetricEventsGauge = Metrics.CreateGauge($"{nameof(ActorMetric)}_{nameof(ActorMetric.Events)}", string.Empty, nameof(ActorMetric.Actor));
+            this.ActorMetricMaxEventsPerActorGauge = metricFactory.CreateGauge($"{nameof(ActorMetric)}_{nameof(ActorMetric.MaxEventsPerActor)}", string.Empty, nameof(ActorMetric.Actor));
+            this.ActorMetricAvgEventsPerActorGauge = metricFactory.CreateGauge($"{nameof(ActorMetric)}_{nameof(ActorMetric.AvgEventsPerActor)}", string.Empty, nameof(ActorMetric.Actor));
+            this.ActorMetricMinEventsPerActorGauge = metricFactory.CreateGauge($"{nameof(ActorMetric)}_{nameof(ActorMetric.MinEventsPerActor)}", string.Empty, nameof(ActorMetric.Actor));
+            this.ActorMetricLivesGauge = metricFactory.CreateGauge($"{nameof(ActorMetric)}_{nameof(ActorMetric.Lives)}", string.Empty, nameof(ActorMetric.Actor));
+            this.ActorMetricIgnoresGauge = metricFactory.CreateGauge($"{nameof(ActorMetric)}_{nameof(ActorMetric.Ignores)}", string.Empty, nameof(ActorMetric.Actor));
+            this.ActorMetricEventsGauge = metricFactory.CreateGauge($"{nameof(ActorMetric)}_{nameof(ActorMetric.Events)}", string.Empty, nameof(ActorMetric.Actor));
         }
 
         public void Handle(List<ActorMetric> actorMetrics)

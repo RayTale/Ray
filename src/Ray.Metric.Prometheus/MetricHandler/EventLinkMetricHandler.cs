@@ -1,35 +1,38 @@
 ﻿using System.Collections.Generic;
-using Prometheus.Client;
+using Prometheus.Client.Abstractions;
 using Ray.Metric.Core.Element;
 
 namespace Ray.Metric.Prometheus.MetricHandler
 {
     public class EventLinkMetricHandler
     {
-        private readonly Gauge EventLinkMetricCountGauge;
-        private readonly Gauge EventLinkMetricMaxElapsedMsGauge;
-        private readonly Gauge EventLinkMetricMinElapsedMsGauge;
-        private readonly Gauge EventLinkMetricAvgElapsedMsGauge;
-        private readonly Gauge EventLinkMetricIgnoresGauge;
+        private readonly IMetricFamily<IGauge, (string Actor, string Event, string ParentActor, string ParentEvent)> EventLinkMetricCountGauge;
+        private readonly IMetricFamily<IGauge, (string Actor, string Event, string ParentActor, string ParentEvent)> EventLinkMetricMaxElapsedMsGauge;
+        private readonly IMetricFamily<IGauge, (string Actor, string Event, string ParentActor, string ParentEvent)> EventLinkMetricMinElapsedMsGauge;
+        private readonly IMetricFamily<IGauge, (string Actor, string Event, string ParentActor, string ParentEvent)> EventLinkMetricAvgElapsedMsGauge;
+        private readonly IMetricFamily<IGauge, (string Actor, string Event, string ParentActor, string ParentEvent)> EventLinkMetricIgnoresGauge;
 
-        public EventLinkMetricHandler()
+        public EventLinkMetricHandler(IMetricFactory metricFactory)
         {
-            this.EventLinkMetricCountGauge = Metrics.CreateGauge($"{nameof(EventLinkMetric)}_{nameof(EventLinkMetric.Events)}", string.Empty, nameof(EventLinkMetric.Actor), nameof(EventLinkMetric.Event), nameof(EventLinkMetric.ParentActor), nameof(EventLinkMetric.ParentEvent));
-            this.EventLinkMetricMaxElapsedMsGauge = Metrics.CreateGauge($"{nameof(EventLinkMetric)}_{nameof(EventLinkMetric.MaxElapsedMs)}", string.Empty, nameof(EventLinkMetric.Actor), nameof(EventLinkMetric.Event), nameof(EventLinkMetric.ParentActor), nameof(EventLinkMetric.ParentEvent));
-            this.EventLinkMetricMinElapsedMsGauge = Metrics.CreateGauge($"{nameof(EventLinkMetric)}_{nameof(EventLinkMetric.MinElapsedMs)}", string.Empty, nameof(EventLinkMetric.Actor), nameof(EventLinkMetric.Event), nameof(EventLinkMetric.ParentActor), nameof(EventLinkMetric.ParentEvent));
-            this.EventLinkMetricAvgElapsedMsGauge = Metrics.CreateGauge($"{nameof(EventLinkMetric)}_{nameof(EventLinkMetric.AvgElapsedMs)}", string.Empty, nameof(EventLinkMetric.Actor), nameof(EventLinkMetric.Event), nameof(EventLinkMetric.ParentActor), nameof(EventLinkMetric.ParentEvent));
-            this.EventLinkMetricIgnoresGauge = Metrics.CreateGauge($"{nameof(EventLinkMetric)}_{nameof(EventLinkMetric.Ignores)}", string.Empty, nameof(EventLinkMetric.Actor), nameof(EventLinkMetric.Event), nameof(EventLinkMetric.ParentActor), nameof(EventLinkMetric.ParentEvent));
+            var labelNames = (nameof(EventLinkMetric.Actor), nameof(EventLinkMetric.Event), nameof(EventLinkMetric.ParentActor), nameof(EventLinkMetric.ParentEvent));
+            this.EventLinkMetricCountGauge = metricFactory.CreateGauge($"{nameof(EventLinkMetric)}_{nameof(EventLinkMetric.Events)}", string.Empty, labelNames);
+            this.EventLinkMetricMaxElapsedMsGauge = metricFactory.CreateGauge($"{nameof(EventLinkMetric)}_{nameof(EventLinkMetric.MaxElapsedMs)}", string.Empty, labelNames);
+            this.EventLinkMetricMinElapsedMsGauge = metricFactory.CreateGauge($"{nameof(EventLinkMetric)}_{nameof(EventLinkMetric.MinElapsedMs)}", string.Empty, labelNames);
+            this.EventLinkMetricAvgElapsedMsGauge = metricFactory.CreateGauge($"{nameof(EventLinkMetric)}_{nameof(EventLinkMetric.AvgElapsedMs)}", string.Empty, labelNames);
+            this.EventLinkMetricIgnoresGauge = metricFactory.CreateGauge($"{nameof(EventLinkMetric)}_{nameof(EventLinkMetric.Ignores)}", string.Empty, labelNames);
         }
 
         public void Handle(List<EventLinkMetric> eventMetrics)
         {
             foreach (var item in eventMetrics)
             {
-                this.EventLinkMetricCountGauge.WithLabels(item.Actor, item.Event, item.ParentActor ?? string.Empty, item.ParentEvent ?? string.Empty).Set(item.Events, item.Timestamp);
-                this.EventLinkMetricMaxElapsedMsGauge.WithLabels(item.Actor, item.Event, item.ParentActor ?? string.Empty, item.ParentEvent ?? string.Empty).Set(item.MaxElapsedMs, item.Timestamp);
-                this.EventLinkMetricMinElapsedMsGauge.WithLabels(item.Actor, item.Event, item.ParentActor ?? string.Empty, item.ParentEvent ?? string.Empty).Set(item.MinElapsedMs, item.Timestamp);
-                this.EventLinkMetricAvgElapsedMsGauge.WithLabels(item.Actor, item.Event, item.ParentActor ?? string.Empty, item.ParentEvent ?? string.Empty).Set(item.AvgElapsedMs, item.Timestamp);
-                this.EventLinkMetricIgnoresGauge.WithLabels(item.Actor, item.Event, item.ParentActor ?? string.Empty, item.ParentEvent ?? string.Empty).Set(item.Ignores, item.Timestamp);
+                var labels = (item.Actor, item.Event, item.ParentActor ?? string.Empty, item.ParentEvent ?? string.Empty);
+
+                this.EventLinkMetricCountGauge.WithLabels(labels).Set(item.Events, item.Timestamp);
+                this.EventLinkMetricMaxElapsedMsGauge.WithLabels(labels).Set(item.MaxElapsedMs, item.Timestamp);
+                this.EventLinkMetricMinElapsedMsGauge.WithLabels(labels).Set(item.MinElapsedMs, item.Timestamp);
+                this.EventLinkMetricAvgElapsedMsGauge.WithLabels(labels).Set(item.AvgElapsedMs, item.Timestamp);
+                this.EventLinkMetricIgnoresGauge.WithLabels(labels).Set(item.Ignores, item.Timestamp);
             }
         }
     }

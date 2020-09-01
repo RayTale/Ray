@@ -1,6 +1,7 @@
 ﻿using System;
 using Microsoft.Extensions.DependencyInjection;
 using Orleans.Hosting;
+using Prometheus.Client.DependencyInjection;
 using Ray.Metric.Core;
 using Ray.Metric.Prometheus.MetricHandler;
 
@@ -14,6 +15,7 @@ namespace Ray.Metric.Prometheus
         {
             builder.ConfigureServices(serviceCollection =>
             {
+                serviceCollection.AddMetricFactory();
                 serviceCollection.Configure<MetricOption>(config => configAction(config));
                 serviceCollection.AddHostedService<MetricPushService>();
                 serviceCollection.AddSingleton<IMetricStream, PrometheusMetricStream>();
