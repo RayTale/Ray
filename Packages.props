@@ -26,7 +26,7 @@
     <PackageReference Update="Microsoft.Extensions.ObjectPool" Version="3.1.6" />
     <PackageReference Update="RabbitMQ.Client" Version="6.2.1" />
     <PackageReference Update="Dapper" Version="2.0.35" />
-    <PackageReference Update="Microsoft.Data.SqlClient" Version="2.0.0" />
+    <PackageReference Update="Microsoft.Data.SqlClient" Version="2.0.1" />
     <PackageReference Update="Npgsql" Version="4.1.4" />
     <PackageReference Update="MySqlConnector" Version="1.0.1" />
     <PackageReference Update="MongoDB.Driver" Version="2.11.0" />
