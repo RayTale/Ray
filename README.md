@@ -1,4 +1,5 @@
-# Ray
+# 项目停止更新，新项目：https://github.com/RayTale/Vertex
+# Project stopped updating, new project: https://github.com/RayTale/Vertex
 
 [![Join the chat at https://gitter.im/RayTale/Ray](https://badges.gitter.im/RayTale/Ray.svg)](https://gitter.im/RayTale/Ray?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
