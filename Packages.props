@@ -21,7 +21,7 @@
     <PackageReference Update="System.Text.Json" Version="4.7.2" />
     <PackageReference Update="System.Threading.Tasks.Dataflow" Version="4.11.1" />
 
-    <PackageReference Update="Nerdbank.GitVersioning" Version="3.2.31" PrivateAssets="All" />
+    <PackageReference Update="Nerdbank.GitVersioning" Version="3.3.37" PrivateAssets="All" />
     <PackageReference Update="Confluent.Kafka" Version="1.5.0" />
     <PackageReference Update="Microsoft.Extensions.ObjectPool" Version="3.1.8" />
     <PackageReference Update="RabbitMQ.Client" Version="6.2.1" />
@@ -35,7 +35,7 @@
     <PackageReference Update="Prometheus.Client.MetricPusher" Version="2.0.0" />
     <PackageReference Update="System.Reactive" Version="4.4.1" />
 
-    <PackageReference Update="Nerdbank.GitVersioning" Version="3.2.31" PrivateAssets="All" />
+    <PackageReference Update="Nerdbank.GitVersioning" Version="3.3.37" PrivateAssets="All" />
     <!-- <PackageReference Update="StyleCop.Analyzers" Version="1.1.118" PrivateAssets="All" /> -->
 
     <PackageReference Update="Lindhart.Analyser.MissingAwaitWarning" Version="1.2.0" PrivateAssets="All" />
