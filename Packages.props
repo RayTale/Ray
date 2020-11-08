@@ -38,7 +38,7 @@
     <PackageReference Update="Nerdbank.GitVersioning" Version="3.2.31" PrivateAssets="All" />
     <!-- <PackageReference Update="StyleCop.Analyzers" Version="1.1.118" PrivateAssets="All" /> -->
 
-    <PackageReference Update="Lindhart.Analyser.MissingAwaitWarning" Version="1.2.0" PrivateAssets="All" />
+    <PackageReference Update="Lindhart.Analyser.MissingAwaitWarning" Version="1.2.1" PrivateAssets="All" />
     <PackageReference Update="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="3.3.0" />
     <PackageReference Update="Microsoft.CodeAnalysis.CSharp" Version="3.7.0" PrivateAssets="All" />
   </ItemGroup>
